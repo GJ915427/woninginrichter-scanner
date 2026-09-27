@@ -322,9 +322,9 @@
       </div>
 
       <div class="hud-center">
-        <div class="pitch-indicator suboptimal" id="pitch-hud">
-          <span id="pitch-icon">📐</span>
-          <span id="pitch-text">Kantel camera 10°-15° omlaag</span>
+        <div class="pitch-indicator optimal" id="pitch-hud">
+          <span id="pitch-icon">↕️</span>
+          <span id="pitch-text">Beweeg verticaal: vloer tot plafond</span>
         </div>
       </div>
 
@@ -357,10 +357,10 @@
           Deze webapp filmt de ruimte en registreert tegelijkertijd alle interne bewegings- en zwaartekrachtsensoren (IMU) voor 3D- en plattegrondberekening.
         </div>
         <ul class="checklist">
-          <li><span class="icon">✓</span> Zet alle binnendeuren 90° open vooraf.</li>
-          <li><span class="icon">✓</span> Doe alle verlichting aan en gordijnen open.</li>
-          <li><span class="icon">✓</span> Houd de camera 10° tot 15° omlaag (vloer én kozijnen in beeld).</li>
-          <li><span class="icon">✓</span> Loop in een rustig, constant tempo ("museum walk").</li>
+          <li><span class="icon">✓</span> <b>Binnendeuren 90° open</b> en verlichting aan.</li>
+          <li><span class="icon">✓</span> <b>Verticale golfbeweging (Cruciaal voor gordijnen):</b> beweeg de camera rustig op en neer: van vloer/plint ➔ langs vensterbank/radiator ➔ raam ➔ tot plafond (waar de gordijnrails komen).</li>
+          <li><span class="icon">✓</span> Loop in een rustig, constant tempo ("museum walk", ca. 0,5 m/s).</li>
+          <li><span class="icon">✓</span> Leg even 1 A4-papiertje op de vloer (als millimeter-anker).</li>
         </ul>
         <button class="btn btn-primary" id="start-app-btn">
           <span>🚀</span> Start Camera & Sensoren
@@ -380,8 +380,17 @@
         
         <video id="playback-preview" controls playsinline></video>
 
+        <div style="background:rgba(15,23,42,0.6); padding:12px; border-radius:12px; border:1px solid rgba(59,130,246,0.3); display:flex; flex-direction:column; gap:8px;">
+          <div style="font-size:12px; color:var(--text-muted); font-weight:600;">DIRECT NAAR PROJECTMAP OP PC:</div>
+          <input type="text" id="pc-url-input" value="http://192.168.86.32:8000/upload" style="width:100%; padding:8px 10px; border-radius:8px; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.15); color:#fff; font-size:13px; font-family:monospace;">
+          <button class="btn btn-primary" id="upload-pc-btn" style="font-size:14px; padding:12px;">
+            <span>🚀</span> Stuur Direct Naar Projectmap (PC)
+          </button>
+          <div id="upload-status" style="font-size:12px; text-align:center; font-weight:600;"></div>
+        </div>
+
         <button class="btn btn-accent" id="download-zip-btn">
-          <span>📦</span> Download Volledig Pakket (.zip)
+          <span>📦</span> Download Backup (.zip op telefoon)
         </button>
         
         <div style="display:flex; gap:8px;">
@@ -527,16 +536,15 @@
     }
 
     function updatePitchGuidance(pitch) {
-      // Optimaal voor binnenshuis: camera circa 10° tot 20° omlaag gericht
-      if (pitch >= 65 && pitch <= 85) {
+      if (pitch > 80) {
         pitchHud.className = "pitch-indicator optimal";
-        pitchText.innerText = "Perfecte hoek (vloer & wanden in beeld)";
-      } else if (pitch > 85) {
-        pitchHud.className = "pitch-indicator suboptimal";
-        pitchText.innerText = "Kantel iets omlaag naar de vloer";
+        pitchText.innerText = "👇 Vloer & Plinten in beeld";
+      } else if (pitch >= 60 && pitch <= 80) {
+        pitchHud.className = "pitch-indicator optimal";
+        pitchText.innerText = "🪟 Ramen, Vensterbank & Radiator";
       } else {
-        pitchHud.className = "pitch-indicator suboptimal";
-        pitchText.innerText = "Kantel iets omhoog";
+        pitchHud.className = "pitch-indicator optimal";
+        pitchText.innerText = "👆 Plafond & Gordijnrailruimte";
       }
     }
 
@@ -612,7 +620,66 @@
       recTimer.style.display = "none";
     }
 
-    // ZIP Generator & Downloader
+    // Direct Upload naar PC Server
+    const uploadPcBtn = document.getElementById('upload-pc-btn');
+    const pcUrlInput = document.getElementById('pc-url-input');
+    const uploadStatus = document.getElementById('upload-status');
+
+    uploadPcBtn.addEventListener('click', async () => {
+      const targetUrl = pcUrlInput.value.trim();
+      uploadStatus.style.color = "var(--primary)";
+      uploadStatus.innerText = "Pakket inpakken en verzenden naar PC...";
+      uploadPcBtn.disabled = true;
+
+      try {
+        const zip = new JSZip();
+        const ext = currentMimeType.includes('mp4') ? 'mp4' : 'webm';
+        zip.file(`scan_video.${ext}`, currentVideoBlob);
+        zip.file("sensor_log.json", JSON.stringify(sensorData, null, 2));
+
+        let csvContent = "t_ms,iso_timestamp,ax,ay,az,gx,gy,gz,rx,ry,rz\n";
+        sensorData.forEach(row => {
+          csvContent += `${row.t.toFixed(2)},${row.iso},${row.ax},${row.ay},${row.az},${row.gx},${row.gy},${row.gz},${row.rx},${row.ry},${row.rz}\n`;
+        });
+        zip.file("sensor_log.csv", csvContent);
+
+        const metadata = {
+          scanDate: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          videoFormat: currentMimeType,
+          totalSamples: sensorData.length,
+          durationSeconds: ((performance.now() - recordingStartTime) / 1000).toFixed(2),
+          averageHz: Math.round(sensorData.length / (((performance.now() - recordingStartTime) / 1000)))
+        };
+        zip.file("metadata.json", JSON.stringify(metadata, null, 2));
+
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+
+        const filename = `woninginrichter_scan_${new Date().toISOString().slice(0,10)}_${Date.now()}.zip`;
+        const res = await fetch(targetUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/zip',
+            'X-Filename': filename
+          },
+          body: zipBlob
+        });
+
+        if (res.ok) {
+          uploadStatus.style.color = "var(--accent)";
+          uploadStatus.innerText = "✅ Gelukt! Direct opgeslagen in PC projectmap (uploads/)";
+        } else {
+          throw new Error("Server gaf status " + res.status);
+        }
+      } catch (err) {
+        uploadStatus.style.color = "var(--danger)";
+        uploadStatus.innerText = "❌ Niet gelukt: " + err.message + " (Draait server.py op PC?)";
+      } finally {
+        uploadPcBtn.disabled = false;
+      }
+    });
+
+    // ZIP Generator & Downloader (Lokale Backup)
     downloadZipBtn.addEventListener('click', async () => {
       downloadZipBtn.innerText = "Inpakken (.zip)...";
       const zip = new JSZip();
@@ -644,7 +711,7 @@
 
       const zipBlob = await zip.generateAsync({ type: "blob" });
       triggerDownload(zipBlob, `woninginrichter_scan_${new Date().toISOString().slice(0,10)}.zip`);
-      downloadZipBtn.innerHTML = "<span>📦</span> Download Volledig Pakket (.zip)";
+      downloadZipBtn.innerHTML = "<span>📦</span> Download Backup (.zip op telefoon)";
     });
 
     downloadVideoBtn.addEventListener('click', () => {
