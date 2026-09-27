@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Woninginrichter 3D & IMU Scanner</title>
+  <!-- JSZip CDN voor het inpakken van video + sensordata op de telefoon -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(20, 27, 45, 0.85);
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Video Viewfinder */
+    #viewfinder-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+    #camera-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* HUD Overlay */
+    #hud-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: env(safe-area-inset-top, 16px) 16px env(safe-area-inset-bottom, 24px) 16px;
+      z-index: 10;
+    }
+
+    /* Top Bar */
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+    .badge-dot.active { background: var(--accent); }
+    .badge-dot.recording { 
+      background: var(--danger); 
+      animation: pulse 1s infinite alternate; 
+    }
+    @keyframes pulse { from { opacity: 0.3; } to { opacity: 1; } }
+
+    /* Center Angle Guidance */
+    .hud-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .pitch-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(8px);
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+    .pitch-indicator.optimal {
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+    .pitch-indicator.suboptimal {
+      border: 1px solid var(--warning);
+      color: var(--warning);
+    }
+
+    /* Bottom Controls */
+    .hud-bottom {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      pointer-events: auto;
+    }
+    .hud-metrics {
+      display: flex;
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(10px);
+      padding: 8px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 12px;
+      font-family: monospace;
+    }
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      width: 100%;
+    }
+    .record-btn {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: transparent;
+      border: 4px solid #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .record-btn-inner {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: var(--danger);
+      transition: all 0.2s ease;
+    }
+    .record-btn.recording .record-btn-inner {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: #fff;
+    }
+    .tool-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* Modal / Sheets (Start & Completed) */
+    .sheet {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(9, 13, 22, 0.95);
+      backdrop-filter: blur(16px);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      text-align: center;
+      transition: opacity 0.3s ease;
+    }
+    .sheet.hidden {
+      display: none;
+    }
+    .sheet-card {
+      max-width: 420px;
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      text-align: left;
+    }
+    .sheet-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sheet-desc {
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+    .checklist {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+    .checklist li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .checklist li span.icon {
+      color: var(--accent);
+      font-weight: bold;
+    }
+    .btn {
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s ease;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-accent {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #cbd5e1;
+    }
+
+    /* Video Preview Player */
+    #playback-preview {
+      width: 100%;
+      max-height: 200px;
+      border-radius: 12px;
+      background: #000;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Camera Viewfinder -->
+    <div id="viewfinder-container">
+      <video id="camera-video" playsinline autoplay muted></video>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud-overlay">
+      <div class="hud-top">
+        <div class="badge" id="rec-status">
+          <div class="badge-dot" id="rec-dot"></div>
+          <span id="rec-text">Gereed</span>
+          <span id="rec-timer" style="display:none; font-family:monospace; margin-left:4px;">00:00</span>
+        </div>
+        <div class="badge" id="sensor-badge">
+          <div class="badge-dot active"></div>
+          <span id="sensor-text">IMU: Wachten</span>
+        </div>
+      </div>
+
+      <div class="hud-center">
+        <div class="pitch-indicator suboptimal" id="pitch-hud">
+          <span id="pitch-icon">📐</span>
+          <span id="pitch-text">Kantel camera 10°-15° omlaag</span>
+        </div>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="hud-metrics" id="metrics-panel">
+          <div>HZ: <span id="hz-val">0</span></div>
+          <div>SAMPLES: <span id="samples-val">0</span></div>
+          <div>HOEK: <span id="pitch-deg">0°</span></div>
+        </div>
+
+        <div class="control-row">
+          <button class="tool-btn" id="torch-btn" title="Zaklamp aan/uit">🔦</button>
+          
+          <button class="record-btn" id="toggle-record-btn">
+            <div class="record-btn-inner"></div>
+          </button>
+
+          <button class="tool-btn" id="switch-cam-btn" title="Camera Wisselen">🔄</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- START SCHERM / PERMISSION SHEET -->
+    <div class="sheet" id="start-sheet">
+      <div class="sheet-card">
+        <div class="sheet-title">
+          <span>📐</span> Woninginrichter 3D Scanner
+        </div>
+        <div class="sheet-desc">
+          Deze webapp filmt de ruimte en registreert tegelijkertijd alle interne bewegings- en zwaartekrachtsensoren (IMU) voor 3D- en plattegrondberekening.
+        </div>
+        <ul class="checklist">
+          <li><span class="icon">✓</span> Zet alle binnendeuren 90° open vooraf.</li>
+          <li><span class="icon">✓</span> Doe alle verlichting aan en gordijnen open.</li>
+          <li><span class="icon">✓</span> Houd de camera 10° tot 15° omlaag (vloer én kozijnen in beeld).</li>
+          <li><span class="icon">✓</span> Loop in een rustig, constant tempo ("museum walk").</li>
+        </ul>
+        <button class="btn btn-primary" id="start-app-btn">
+          <span>🚀</span> Start Camera & Sensoren
+        </button>
+      </div>
+    </div>
+
+    <!-- VOLTOOID SCHERM / DOWNLOAD SHEET -->
+    <div class="sheet hidden" id="finish-sheet">
+      <div class="sheet-card">
+        <div class="sheet-title">
+          <span>✅</span> Opname Voltooid!
+        </div>
+        <div class="sheet-desc" id="finish-summary">
+          De video en synchrone sensordata zijn verwerkt.
+        </div>
+        
+        <video id="playback-preview" controls playsinline></video>
+
+        <button class="btn btn-accent" id="download-zip-btn">
+          <span>📦</span> Download Volledig Pakket (.zip)
+        </button>
+        
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-outline" id="download-video-btn" style="flex:1; font-size:12px;">
+            🎬 Video
+          </button>
+          <button class="btn btn-outline" id="download-json-btn" style="flex:1; font-size:12px;">
+            📊 JSON Data
+          </button>
+          <button class="btn btn-outline" id="download-csv-btn" style="flex:1; font-size:12px;">
+            📄 CSV Data
+          </button>
+        </div>
+
+        <button class="btn btn-outline" id="new-scan-btn">
+          <span>🔄</span> Nieuwe Opname Maken
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State management
+    let stream = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false;
+    let recordingStartTime = 0;
+    let timerInterval = null;
+    
+    // IMU Sensor Data logging
+    let sensorData = [];
+    let lastSensorTime = performance.now();
+    let sensorSampleCount = 0;
+    let hzInterval = null;
+    let currentPitch = 0;
+    let currentTorch = false;
+    let currentFacingMode = "environment";
+
+    // DOM Elementen
+    const videoElem = document.getElementById('camera-video');
+    const startSheet = document.getElementById('start-sheet');
+    const finishSheet = document.getElementById('finish-sheet');
+    const startAppBtn = document.getElementById('start-app-btn');
+    const toggleRecordBtn = document.getElementById('toggle-record-btn');
+    const recDot = document.getElementById('rec-dot');
+    const recText = document.getElementById('rec-text');
+    const recTimer = document.getElementById('rec-timer');
+    const sensorText = document.getElementById('sensor-text');
+    const hzVal = document.getElementById('hz-val');
+    const samplesVal = document.getElementById('samples-val');
+    const pitchDeg = document.getElementById('pitch-deg');
+    const pitchHud = document.getElementById('pitch-hud');
+    const pitchText = document.getElementById('pitch-text');
+    const torchBtn = document.getElementById('torch-btn');
+    const switchCamBtn = document.getElementById('switch-cam-btn');
+    const downloadZipBtn = document.getElementById('download-zip-btn');
+    const downloadVideoBtn = document.getElementById('download-video-btn');
+    const downloadJsonBtn = document.getElementById('download-json-btn');
+    const downloadCsvBtn = document.getElementById('download-csv-btn');
+    const newScanBtn = document.getElementById('new-scan-btn');
+    const finishSummary = document.getElementById('finish-summary');
+    const playbackPreview = document.getElementById('playback-preview');
+
+    let currentVideoBlob = null;
+    let currentMimeType = "";
+
+    // 1. Initialiseer Camera & Sensoren (met iOS permissie check)
+    startAppBtn.addEventListener('click', async () => {
+      try {
+        // iOS 13+ permissie voor DeviceMotion
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+          const permissionState = await DeviceMotionEvent.requestPermission();
+          if (permissionState !== 'granted') {
+            alert("Toegang tot bewegingssensoren is vereist voor het loggen van de IMU data.");
+          }
+        }
+        
+        await startCamera(currentFacingMode);
+        startSensorListeners();
+        startSheet.classList.add('hidden');
+      } catch (err) {
+        alert("Fout bij inschakelen van camera of sensoren: " + err.message);
+        console.error(err);
+      }
+    });
+
+    async function startCamera(facingMode) {
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+      }
+      const constraints = {
+        video: {
+          facingMode: { ideal: facingMode },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        },
+        audio: false
+      };
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      videoElem.srcObject = stream;
+      await videoElem.play();
+    }
+
+    // 2. Sensor Listeners (DeviceMotion & DeviceOrientation)
+    function startSensorListeners() {
+      let hzCounter = 0;
+      hzInterval = setInterval(() => {
+        hzVal.innerText = hzCounter;
+        hzCounter = 0;
+      }, 1000);
+
+      window.addEventListener('devicemotion', (event) => {
+        hzCounter++;
+        sensorSampleCount++;
+        samplesVal.innerText = sensorSampleCount;
+
+        const now = performance.now();
+        const acc = event.acceleration || { x: 0, y: 0, z: 0 };
+        const accG = event.accelerationIncludingGravity || { x: 0, y: 0, z: 0 };
+        const rot = event.rotationRate || { alpha: 0, beta: 0, gamma: 0 };
+
+        // Bereken pitch hoek (kanteling t.o.v. zwaartekracht)
+        if (accG.y !== null && accG.z !== null) {
+          const pitchRad = Math.atan2(accG.z, accG.y);
+          currentPitch = Math.round(pitchRad * (180 / Math.PI));
+          pitchDeg.innerText = currentPitch + "°";
+          updatePitchGuidance(currentPitch);
+        }
+
+        if (isRecording) {
+          sensorData.push({
+            t: now - recordingStartTime,
+            iso: new Date().toISOString(),
+            ax: acc.x, ay: acc.y, az: acc.z,
+            gx: accG.x, gy: accG.y, gz: accG.z,
+            rx: rot.alpha, ry: rot.beta, rz: rot.gamma
+          });
+        }
+
+        sensorText.innerText = "IMU Actief (" + hzCounter + "Hz)";
+      });
+    }
+
+    function updatePitchGuidance(pitch) {
+      // Optimaal voor binnenshuis: camera circa 10° tot 20° omlaag gericht
+      if (pitch >= 65 && pitch <= 85) {
+        pitchHud.className = "pitch-indicator optimal";
+        pitchText.innerText = "Perfecte hoek (vloer & wanden in beeld)";
+      } else if (pitch > 85) {
+        pitchHud.className = "pitch-indicator suboptimal";
+        pitchText.innerText = "Kantel iets omlaag naar de vloer";
+      } else {
+        pitchHud.className = "pitch-indicator suboptimal";
+        pitchText.innerText = "Kantel iets omhoog";
+      }
+    }
+
+    // 3. Opname Starten / Stoppen
+    toggleRecordBtn.addEventListener('click', () => {
+      if (!isRecording) {
+        startRecording();
+      } else {
+        stopRecording();
+      }
+    });
+
+    function startRecording() {
+      recordedChunks = [];
+      sensorData = [];
+      sensorSampleCount = 0;
+      isRecording = true;
+      recordingStartTime = performance.now();
+
+      // Zoek beste ondersteunde formaat
+      const mimeTypes = [
+        'video/mp4;codecs=avc1',
+        'video/mp4',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm'
+      ];
+      currentMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || 'video/webm';
+
+      mediaRecorder = new MediaRecorder(stream, { mimeType: currentMimeType });
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+      mediaRecorder.onstop = handleRecordingStopped;
+      mediaRecorder.start(250); // slices van 250ms
+
+      toggleRecordBtn.classList.add('recording');
+      recDot.className = "badge-dot recording";
+      recText.innerText = "OPNAME";
+      recTimer.style.display = "inline";
+
+      let seconds = 0;
+      recTimer.innerText = "00:00";
+      timerInterval = setInterval(() => {
+        seconds++;
+        const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+        const secs = String(seconds % 60).padStart(2, '0');
+        recTimer.innerText = `${mins}:${secs}`;
+      }, 1000);
+    }
+
+    function stopRecording() {
+      isRecording = false;
+      mediaRecorder.stop();
+      clearInterval(timerInterval);
+
+      toggleRecordBtn.classList.remove('recording');
+      recDot.className = "badge-dot active";
+      recText.innerText = "Verwerken...";
+    }
+
+    // 4. Verwerking & Download Pakket
+    async function handleRecordingStopped() {
+      currentVideoBlob = new Blob(recordedChunks, { type: currentMimeType });
+      const videoUrl = URL.createObjectURL(currentVideoBlob);
+      playbackPreview.src = videoUrl;
+
+      const durationSec = ((performance.now() - recordingStartTime) / 1000).toFixed(1);
+      finishSummary.innerText = `Opnameduur: ${durationSec}s | Sensordata: ${sensorData.length} metingen (~${Math.round(sensorData.length / durationSec)} Hz).`;
+
+      finishSheet.classList.remove('hidden');
+      recText.innerText = "Gereed";
+      recTimer.style.display = "none";
+    }
+
+    // ZIP Generator & Downloader
+    downloadZipBtn.addEventListener('click', async () => {
+      downloadZipBtn.innerText = "Inpakken (.zip)...";
+      const zip = new JSZip();
+
+      // 1. Video
+      const ext = currentMimeType.includes('mp4') ? 'mp4' : 'webm';
+      zip.file(`scan_video.${ext}`, currentVideoBlob);
+
+      // 2. Sensor JSON
+      zip.file("sensor_log.json", JSON.stringify(sensorData, null, 2));
+
+      // 3. Sensor CSV
+      let csvContent = "t_ms,iso_timestamp,ax,ay,az,gx,gy,gz,rx,ry,rz\n";
+      sensorData.forEach(row => {
+        csvContent += `${row.t.toFixed(2)},${row.iso},${row.ax},${row.ay},${row.az},${row.gx},${row.gy},${row.gz},${row.rx},${row.ry},${row.rz}\n`;
+      });
+      zip.file("sensor_log.csv", csvContent);
+
+      // 4. Metadata
+      const metadata = {
+        scanDate: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        videoFormat: currentMimeType,
+        totalSamples: sensorData.length,
+        durationSeconds: ((performance.now() - recordingStartTime) / 1000).toFixed(2),
+        averageHz: Math.round(sensorData.length / (((performance.now() - recordingStartTime) / 1000)))
+      };
+      zip.file("metadata.json", JSON.stringify(metadata, null, 2));
+
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      triggerDownload(zipBlob, `woninginrichter_scan_${new Date().toISOString().slice(0,10)}.zip`);
+      downloadZipBtn.innerHTML = "<span>📦</span> Download Volledig Pakket (.zip)";
+    });
+
+    downloadVideoBtn.addEventListener('click', () => {
+      const ext = currentMimeType.includes('mp4') ? 'mp4' : 'webm';
+      triggerDownload(currentVideoBlob, `scan_video.${ext}`);
+    });
+
+    downloadJsonBtn.addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(sensorData, null, 2)], { type: "application/json" });
+      triggerDownload(blob, "sensor_log.json");
+    });
+
+    downloadCsvBtn.addEventListener('click', () => {
+      let csvContent = "t_ms,iso_timestamp,ax,ay,az,gx,gy,gz,rx,ry,rz\n";
+      sensorData.forEach(row => {
+        csvContent += `${row.t.toFixed(2)},${row.iso},${row.ax},${row.ay},${row.az},${row.gx},${row.gy},${row.gz},${row.rx},${row.ry},${row.rz}\n`;
+      });
+      const blob = new Blob([csvContent], { type: "text/csv" });
+      triggerDownload(blob, "sensor_log.csv");
+    });
+
+    function triggerDownload(blob, filename) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    newScanBtn.addEventListener('click', () => {
+      finishSheet.classList.add('hidden');
+      recordedChunks = [];
+      sensorData = [];
+    });
+
+    // Zaklamp Toggle
+    torchBtn.addEventListener('click', async () => {
+      if (!stream) return;
+      const track = stream.getVideoTracks()[0];
+      const capabilities = track.getCapabilities();
+      if (capabilities.torch) {
+        currentTorch = !currentTorch;
+        await track.applyConstraints({ advanced: [{ torch: currentTorch }] });
+        torchBtn.style.color = currentTorch ? "var(--warning)" : "#fff";
+      } else {
+        alert("Zaklamp wordt niet ondersteund door deze browser/camera.");
+      }
+    });
+
+    // Camera Switch (Front/Back)
+    switchCamBtn.addEventListener('click', async () => {
+      currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
+      await startCamera(currentFacingMode);
+    });
+  </script>
+</body>
+</html>
