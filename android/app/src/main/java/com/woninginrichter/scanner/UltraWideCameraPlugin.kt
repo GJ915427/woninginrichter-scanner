@@ -28,11 +28,13 @@ import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
+import com.getcapacitor.PermissionState
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
@@ -134,9 +136,24 @@ class UltraWideCameraPlugin : Plugin(), SensorEventListener {
         call.resolve(res)
     }
 
+    @PermissionCallback
+    private fun cameraPermsCallback(call: PluginCall) {
+        val ctx = context
+        if (ctx != null && ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            startPreview(call)
+        } else {
+            call.reject("Camera permission was denied by user")
+        }
+    }
+
+    @PermissionCallback
+    private fun requestPermissionsCallback(call: PluginCall) {
+        checkPermissions(call)
+    }
+
     @PluginMethod
     override fun requestPermissions(call: PluginCall) {
-        super.requestPermissions(call)
+        requestAllPermissions(call, "requestPermissionsCallback")
     }
 
     @PluginMethod
@@ -215,6 +232,18 @@ class UltraWideCameraPlugin : Plugin(), SensorEventListener {
     @SuppressLint("MissingPermission")
     @PluginMethod
     fun startPreview(call: PluginCall) {
+        val ctx = context
+        if (ctx == null) {
+            call.reject("Context unavailable")
+            return
+        }
+
+        // Automatic runtime permission request if camera permission has not been granted yet
+        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissionForAlias("camera", call, "cameraPermsCallback")
+            return
+        }
+
         val targetLens = call.getString("lens", "ultra_wide")
         val targetFps = call.getInt("targetFps", 30) ?: 30
         val explicitCameraId = call.getString("cameraId")
@@ -371,23 +400,32 @@ class UltraWideCameraPlugin : Plugin(), SensorEventListener {
 
     @SuppressLint("MissingPermission")
     private fun openCamera(cameraId: String, call: PluginCall? = null) {
-        cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
-            override fun onOpened(camera: CameraDevice) {
-                cameraDevice = camera
-                startCaptureSession(call)
-            }
+        val ctx = context
+        if (ctx == null || ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            call?.reject("Caller cannot open camera without camera permission")
+            return
+        }
+        try {
+            cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
+                override fun onOpened(camera: CameraDevice) {
+                    cameraDevice = camera
+                    startCaptureSession(call)
+                }
 
-            override fun onDisconnected(camera: CameraDevice) {
-                camera.close()
-                cameraDevice = null
-            }
+                override fun onDisconnected(camera: CameraDevice) {
+                    camera.close()
+                    cameraDevice = null
+                }
 
-            override fun onError(camera: CameraDevice, error: Int) {
-                camera.close()
-                cameraDevice = null
-                call?.reject("CameraDevice error code: $error")
-            }
-        }, backgroundHandler)
+                override fun onError(camera: CameraDevice, error: Int) {
+                    camera.close()
+                    cameraDevice = null
+                    call?.reject("CameraDevice error code: $error")
+                }
+            }, backgroundHandler)
+        } catch (e: Exception) {
+            call?.reject("Failed to open camera: ${e.message}", e)
+        }
     }
 
     private fun startCaptureSession(call: PluginCall? = null) {

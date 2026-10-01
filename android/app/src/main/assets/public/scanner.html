@@ -1047,6 +1047,17 @@
           : ((zoomRatio <= 0.6) ? 'ultra_wide' : 'wide');
 
         if (this.isNativePlatform() && this.plugin) {
+          try {
+            const perms = await this.checkPermissions();
+            if (perms && perms.camera !== 'granted') {
+              const req = await this.requestPermissions();
+              if (req && req.camera !== 'granted') {
+                throw new Error("Cameratoestemming is vereist om de scanner te starten.");
+              }
+            }
+          } catch (pErr) {
+            console.warn('Native permission check warning:', pErr);
+          }
           this.underlay_active = true;
           this.underlayActive = true;
           this.webrtc_active = false;
@@ -1220,9 +1231,21 @@
     const CameraBridgeAdapter = new CameraBridgeAdapterClass();
     CameraBridgeAdapter.CameraBridgeAdapter = CameraBridgeAdapterClass;
 
-    // 1. Initialiseer Camera & Sensoren (met iOS permissie check)
+    // 1. Initialiseer Camera & Sensoren (met Android/Capacitor & iOS permissie check)
     startAppBtn.addEventListener('click', async () => {
       try {
+        // Native Capacitor permissie check & request voor Android/iOS
+        if (CameraBridgeAdapter && CameraBridgeAdapter.isNative) {
+          const perms = await CameraBridgeAdapter.checkPermissions();
+          if (perms && perms.camera !== 'granted') {
+            const req = await CameraBridgeAdapter.requestPermissions();
+            if (req && req.camera !== 'granted') {
+              alert("Toestemming voor de camera is vereist om te kunnen scannen. Activeer camera in app-instellingen.");
+              return;
+            }
+          }
+        }
+
         // iOS 13+ permissie voor DeviceMotion
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
           const permissionState = await DeviceMotionEvent.requestPermission();
