@@ -252,6 +252,10 @@ class UltraWideCameraPlugin : Plugin(), SensorEventListener {
         activity.runOnUiThread {
             try {
                 bridge.webView.setBackgroundColor(Color.TRANSPARENT)
+                bridge.webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+                val rootLayout = bridge.webView.parent as? ViewGroup
+                rootLayout?.setBackgroundColor(Color.TRANSPARENT)
+                activity.window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
 
                 if (textureView == null) {
                     textureView = TextureView(context).apply {
@@ -261,7 +265,6 @@ class UltraWideCameraPlugin : Plugin(), SensorEventListener {
                         )
                         surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                             override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-                                previewSurface = Surface(surface)
                                 backgroundHandler?.post {
                                     try {
                                         if (explicitCameraId != null) {
@@ -273,6 +276,14 @@ class UltraWideCameraPlugin : Plugin(), SensorEventListener {
                                                 currentZoomFactor = explicitZoom.toFloat()
                                             }
                                         }
+                                        val chars = cameraManager.getCameraCharacteristics(activeCameraId)
+                                        val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                                        val outputSizes = map?.getOutputSizes(SurfaceTexture::class.java)
+                                        val chosenSize = outputSizes?.firstOrNull { it.width == 1920 && it.height == 1080 }
+                                            ?: outputSizes?.firstOrNull { it.width <= 1920 }
+                                            ?: Size(1920, 1080)
+                                        surface.setDefaultBufferSize(chosenSize.width, chosenSize.height)
+                                        previewSurface = Surface(surface)
                                         openCamera(activeCameraId, call)
                                     } catch (e: Exception) {
                                         call.reject("Error starting camera: ${e.message}", e)
@@ -288,7 +299,6 @@ class UltraWideCameraPlugin : Plugin(), SensorEventListener {
                             override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
                         }
                     }
-                    val rootLayout = bridge.webView.parent as? ViewGroup
                     rootLayout?.addView(textureView, 0)
                 } else if (textureView!!.isAvailable) {
                     if (previewSurface != null) {
@@ -303,21 +313,31 @@ class UltraWideCameraPlugin : Plugin(), SensorEventListener {
                         cameraDevice?.close()
                         cameraDevice = null
                     }
-                    previewSurface = Surface(textureView!!.surfaceTexture)
-                    backgroundHandler?.post {
-                        try {
-                            if (explicitCameraId != null) {
-                                activeCameraId = explicitCameraId
-                                currentZoomFactor = explicitZoom?.toFloat() ?: 1.0f
-                            } else {
-                                selectBestCamera(targetLens == "ultra_wide")
-                                if (explicitZoom != null) {
-                                    currentZoomFactor = explicitZoom.toFloat()
+                    val surface = textureView!!.surfaceTexture
+                    if (surface != null) {
+                        backgroundHandler?.post {
+                            try {
+                                if (explicitCameraId != null) {
+                                    activeCameraId = explicitCameraId
+                                    currentZoomFactor = explicitZoom?.toFloat() ?: 1.0f
+                                } else {
+                                    selectBestCamera(targetLens == "ultra_wide")
+                                    if (explicitZoom != null) {
+                                        currentZoomFactor = explicitZoom.toFloat()
+                                    }
                                 }
+                                val chars = cameraManager.getCameraCharacteristics(activeCameraId)
+                                val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                                val outputSizes = map?.getOutputSizes(SurfaceTexture::class.java)
+                                val chosenSize = outputSizes?.firstOrNull { it.width == 1920 && it.height == 1080 }
+                                    ?: outputSizes?.firstOrNull { it.width <= 1920 }
+                                    ?: Size(1920, 1080)
+                                surface.setDefaultBufferSize(chosenSize.width, chosenSize.height)
+                                previewSurface = Surface(surface)
+                                openCamera(activeCameraId, call)
+                            } catch (e: Exception) {
+                                call.reject("Error starting camera: ${e.message}", e)
                             }
-                            openCamera(activeCameraId, call)
-                        } catch (e: Exception) {
-                            call.reject("Error starting camera: ${e.message}", e)
                         }
                     }
                 }
