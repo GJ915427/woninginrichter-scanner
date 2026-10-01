@@ -2123,8 +2123,10 @@
     // Direct Upload naar PC Server
     const uploadPcBtn = document.getElementById('upload-pc-btn');
     const pcUrlInput = document.getElementById('pc-url-input');
-    if (pcUrlInput && window.location && window.location.protocol && window.location.protocol.startsWith('http') && !window.location.hostname.includes('github.io') && window.location.origin) {
+    if (pcUrlInput && window.location && window.location.protocol && window.location.protocol.startsWith('http') && !window.location.hostname.includes('github.io') && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && !(CameraBridgeAdapter && CameraBridgeAdapter.isNative) && window.location.origin) {
       pcUrlInput.value = window.location.origin + '/upload';
+    } else if (pcUrlInput && (!pcUrlInput.value || pcUrlInput.value.includes('localhost'))) {
+      pcUrlInput.value = 'http://192.168.86.32:8080/upload';
     }
     const uploadStatus = document.getElementById('upload-status');
 
