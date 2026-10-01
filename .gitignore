@@ -2,3 +2,15 @@ venv/
 __pycache__/
 *.pyc
 .system_generated/
+node_modules/
+.cache/
+recordings/
+uploads/
+cloudflared.exe
+.agents/
+android/.gradle/
+android/app/build/
+android/build/
+*.apk
+*.zip
+*.db
