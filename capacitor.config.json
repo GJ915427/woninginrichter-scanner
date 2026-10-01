@@ -2,7 +2,6 @@
   "appId": "com.woninginrichter.scanner",
   "appName": "Woninginrichter 3D Scanner",
   "webDir": "www",
-  "bundledWebRuntime": false,
   "server": {
     "androidScheme": "https",
     "cleartext": true,

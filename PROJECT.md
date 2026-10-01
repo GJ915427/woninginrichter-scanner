@@ -1,78 +1,107 @@
-# Project: Woninginrichter 3D Scanner — Capacitor Native Shell & Cloud Build Pipeline
+# Project: Plattegrond- & Doorsnede-Engine & Next.js Techstack Harmonisatie (`easy_hosting`)
 
 ## Architecture
-- **Web Application Layer**: `scanner.html`, HUD overlay, DOM sensors, WebGL/Three.js integration. Operates 100% backward-compatible in standard browsers via WebRTC `getUserMedia`.
-- **Bridge Layer**: Safe runtime environment detection (`window.Capacitor?.isNativePlatform() && window.Capacitor?.Plugins?.UltraWideCamera`). Provides transparent underlay styling (`native-camera-underlay-active`) and bridges JS calls to native methods.
-- **Capacitor Android Shell**: Capacitor 6.x container (`com.woninginrichter.scanner`), Gradle wrapper 8.2+, Android SDK 34, AndroidManifest with high-frequency IMU and camera permissions.
-- **Native Android Plugin (`UltraWideCameraPlugin.kt`)**: Direct Camera2 API engine, physical ultra-wide lens selection (focal length < 2.5mm), 0.5x zoom ratio (`CONTROL_ZOOM_RATIO = 0.5f`), AE/AF lockout, hardware PTS 100Hz IMU telemetry (`SENSOR_DELAY_FASTEST`), MediaRecorder surface.
-- **Cloud CI/CD Engine**: GitHub Actions workflow (`.github/workflows/build-apk.yml`) on `ubuntu-latest` with JDK 17 and Android SDK 34 compiling `app-debug.apk`.
+- **Clean Architecture & Layer Separation**:
+  - **Data Layer (`src/data/`)**:
+    - `pdok-locatieserver-client.ts`: Address search, suggestions, and lookup returning RD coordinates + bag_identificatie.
+    - `kadaster-bag-client.ts`: OGC API Features client querying Panden, Verblijfsobjecten, and Kadastrale Percelen in EPSG:28992.
+    - `three-d-bag-client.ts`: 3D BAG CityJSON 2.0 streaming parser converting LoD 1.2, 1.3, and 2.2 semantic surfaces (`WallSurface`, `RoofSurface`, `GroundSurface`) into metric RD + NAP coordinates using `metadata.transform`.
+    - `ahn-elevation-client.ts`: AHN5 elevation point querying for ground level datum.
+  - **Domain / Math Layer (`src/domain/`)**:
+    - `geometry/vector.ts`: Immutable 2D and 3D vector, matrix, and affine transformation mathematics.
+    - `geometry/polygon.ts`: Polygon definitions, bounding boxes, normal computation, and area calculation.
+    - `geometry/clipping.ts`: 2D boolean clipping wrappers around `martinez-polygon-clipping` for footprint intersections, void subtraction, and parcel overlap.
+    - `geometry/triangulation.ts`: Triangulation wrapper around `earcut` for CityJSON non-triangular 3D faces.
+    - `architectural/front-facade-detector.ts`: Multi-signal composite objective scoring (BAG entrance proximity, street centerline alignment, cadastral frontage) to deterministically identify the front facade.
+    - `architectural/party-wall-detector.ts`: Collinear interval projection ($t \in [0, 1]$) with 0.15m epsilon buffer against adjacent `Pand in gebruik` geometries.
+    - `architectural/floor-builder.ts`: Dynamic floor levels partitioned from AHN5 ground datum, gutter height, and ridge height.
+    - `architectural/nen2580-calculator.ts`: 3D plane-mesh slicing at 1.50m (GO Wonen) and 2.60m (Verblijfsgebied) clearance lines.
+    - `architectural/label-layout-engine.ts`: 1D interval stacking with jogged leaders for elevation markers and 2D pole-of-inaccessibility (`@mapbox/polylabel`) for room labels.
+  - **UI / Presentation Layer (`src/components/` & `src/views/`)**:
+    - `src/components/floorplan/FloorplanViewer.tsx`: Interactive declarative SVG floorplan viewer with zoom/pan, wall rendering, party wall hatching, room tags, and zero-overlap dimensioning.
+    - `src/components/cross-section/CrossSectionViewer.tsx`: Declarative SVG cross-section viewer with roof slopes, dynamic floors, NEN 2580 clearance lines, and stacked elevation chips.
+    - `src/components/ui/InspectionChips.tsx`: Material Design 3 inspection badges (Voorgevel, Mandelig, AHN5, NEN 2580, 3D BAG LoD).
+    - `src/app/`: Next.js 16 App Router pages and API routes (`src/app/page.tsx`, `src/app/layout.tsx`, `src/app/globals.css`).
+  - **Testing Infrastructure (`tests/`)**:
+    - `tests/unit/`: Vitest unit tests for 100% geometric domain math, CityJSON parsing, and party wall logic.
+    - `tests/e2e/`: Playwright headless visual regression tests on 5 benchmark building typologies without label overlaps or console errors.
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | Capacitor Project Scaffolding | `package.json` with `@capacitor/core`, `@capacitor/android`, `@capacitor/cli`, and `capacitor.config.json` | M1 | Blueprint §3 |
-| 2 | Web Asset Isolation & Sync | Script `scripts/sync_web_assets.js` and target `www/` (`index.html`, `scanner.html`, assets) | M1 | Survey Web & Android |
-| 3 | Dual-Target Web/Native Compatibility | Standalone browser mode runs unchanged; native container loads `www/index.html` | M1 | ORIGINAL_REQUEST R1 |
-| 4 | Android Platform File Tree | `android/` directory with `build.gradle`, `app/build.gradle`, `settings.gradle`, `gradle.properties`, wrapper | M2 | Blueprint §3 |
-| 5 | Android Manifest & Permissions | `AndroidManifest.xml` with `CAMERA`, `RECORD_AUDIO`, `HIGH_SAMPLING_RATE_SENSORS`, hardware features | M2 | Blueprint §4.1 |
-| 6 | Native Camera2 Core Engine | `UltraWideCameraPlugin.kt` Camera2 lifecycle (`CameraDevice`, `CaptureRequest`, `CameraCaptureSession`) | M2 | Blueprint §4.1 |
-| 7 | Physical Ultra-Wide Lens Selection | Logical & physical camera ID enumeration, focal length < 2.5mm check | M2 | Blueprint §4.1 |
-| 8 | 0.5x Hardware Zoom Lock | `CONTROL_ZOOM_RATIO = 0.5f` applied to capture request | M2 | Blueprint §4.1 |
-| 9 | AE/AF Exposure & Focus Lockout | `CONTROL_AE_LOCK = true`, `CONTROL_AF_MODE_LOCKED` | M2 | Blueprint §4.1 |
-| 10 | Hardware-Synced 100Hz IMU Logging | Zero-heap `SensorEventListener` with `SENSOR_DELAY_FASTEST`, hardware PTS timestamps | M2 | Blueprint §4.1 |
-| 11 | MediaRecorder Video Pipeline | Native video recording to MP4 via MediaRecorder Surface | M2 | Blueprint §4.1 |
-| 12 | Plugin Registration in MainActivity | `MainActivity.kt` registering `UltraWideCameraPlugin::class.java` | M2 | Blueprint §4.1 |
-| 13 | Runtime Platform Detection | `scanner.html` `window.Capacitor.isNativePlatform()` safe detection with graceful browser fallback | M3 | Blueprint §4.3 |
-| 14 | CameraBridgeAdapter in scanner.html | Unifies WebRTC fallback and native `UltraWideCamera` plugin calls | M3 | Survey Web §2 |
-| 15 | Ultra-Wide Lens Button Binding | `[ 0.5x ]` UI button triggers native lens selection or WebRTC constraint switch | M3 | ORIGINAL_REQUEST R3 |
-| 16 | Transparent Underlay HUD Styling | CSS `.native-camera-underlay-active` for seamless native viewfinder overlay | M3 | Blueprint §4.4 |
-| 17 | Live Reload Server URL Configuration | `capacitor.config.json` developer config support for LAN live reload | M3 | ORIGINAL_REQUEST R3 |
-| 18 | GitHub Actions CI/CD Workflow | `.github/workflows/build-apk.yml` compiling `app-debug.apk` in cloud | M4 | ORIGINAL_REQUEST R4 |
-| 19 | Automated Cloud JDK & SDK Setup | Workflow configuration with Temurin JDK 17 and Android SDK 34 build-tools | M4 | Survey Android §4 |
-| 20 | APK Artifact Packaging & Retention | Cloud artifact upload of `app-debug.apk` with 30-day retention | M4 | Survey Android §4 |
-| 21 | Comprehensive Verification Test Suite | Multi-tier test suite covering static AST, schemas, mock sensors, and fallback logic | M5 | ORIGINAL_REQUEST R5 |
+| 1 | RCA & Geometry Library Evaluation | Formal RCA report & geometry library benchmarking (martinez, earcut, domain math) | M1 | DISPATCH R1 |
+| 2 | Project Scaffolding & Dependencies | Next.js 16, React 19, TypeScript strict, Tailwind CSS v4, Lucide React, Vitest, Playwright | M2 | DISPATCH R2 |
+| 3 | Tailwind CSS v4 Theme & PostCSS | CSS-first configuration `@import 'tailwindcss';` with `@theme inline` design tokens | M2 | easy_hosting |
+| 4 | Vitest & Playwright Config Alignment | `vitest.config.ts` (fileParallelism: false) and `playwright.config.ts` (webServer, screenshot diffs) | M2 | easy_hosting |
+| 5 | Data Layer: PDOK & Kadaster BAG OGC Clients | Type-safe clients for Locatieserver & Kadaster BAG OGC API in EPSG:28992 | M3 | DISPATCH R2 |
+| 6 | Data Layer: 3D BAG CityJSON 2.0 Parser | Parser with metric transform scaling and LoD 1.2/1.3/2.2 semantic surface extraction | M3 | DISPATCH R2 |
+| 7 | Domain Math: Vector2D/3D & Transform Core | Pure TypeScript vector, polygon, and 2D/3D affine transformation functions | M3 | DISPATCH R2 |
+| 8 | Domain Math: 2D Boolean Polygon Clipping | `martinez-polygon-clipping` integration for parcel and wall footprints | M3 | DISPATCH R1/R3 |
+| 9 | Architectural Domain: Front Facade Detection | Multi-signal composite scoring (entrance point, street axis, parcel frontage) | M3 | DISPATCH R3 |
+| 10 | Architectural Domain: Party Wall Detection | Topologically exact 1D interval projection against neighboring parcels | M3 | DISPATCH R3 |
+| 11 | Architectural Domain: Dynamic Floors & NEN 2580 | Floor builder with AHN5 ground datum and 1.50m/2.60m headroom cutting planes | M3 | DISPATCH R3 |
+| 12 | Architectural Domain: Zero-Overlap Label Engine | 1D interval stacking with jogged leaders and pole-of-inaccessibility placement | M3 | DISPATCH R3 |
+| 13 | UI: Declarative SVG Floorplan Component | Interactive React component rendering walls, party walls, doors, windows, and badges | M4 | DISPATCH R2/R3 |
+| 14 | UI: Declarative SVG Cross-Section Component | Interactive React component rendering vertical sections, roof typologies, and floor heights | M4 | DISPATCH R2/R3 |
+| 15 | UI: MD3 Inspection Badges & Chips | Material Design 3 chips for Voorgevel, Mandelige muur, AHN5, NEN 2580 | M4 | DISPATCH R2 |
+| 16 | UI: Benchmark Viewer Page | Next.js App Router page loading and switching between 5 benchmark typologies | M4 | DISPATCH R4 |
+| 17 | Testing: 100% Vitest Unit Test Suite | Comprehensive unit tests for geometry, clipping, front facade, party walls, and NEN 2580 | M5 | DISPATCH R4 |
+| 18 | Testing: Playwright Visual Regression Suite | E2E visual regression tests on 5 benchmark typologies with zero label overlap & no console errors | M5 | DISPATCH R4 |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Capacitor Scaffolding & Web Assets | `package.json`, `capacitor.config.json`, `scripts/sync_web_assets.js`, `www/` build target | none | DONE |
-| M2 | Native Android Shell & Camera2 Plugin | `android/` project tree, `UltraWideCameraPlugin.kt`, `MainActivity.kt`, `AndroidManifest.xml`, gradle wrapper | M1 | DONE |
-| M3 | Web-to-Native Bridge & Viewfinder | `scanner.html` bridge adapter, `[ 0.5x ]` lens trigger, fallback, transparent underlay CSS | M1, M2 | DONE |
-| M4 | Automated Cloud Build Pipeline | `.github/workflows/build-apk.yml` with JDK 17, SDK 34, gradlew assembleDebug, artifact upload | M1, M2 | DONE |
-| M5 | Final Milestone: E2E Verification & Adversarial Hardening | Pass 100% of E2E tests (Tiers 1-4) followed by Tier 5 adversarial hardening | M1, M2, M3, M4, TEST_READY.md | DONE |
+| 1 | RCA & Geometry Library Evaluation | Formal RCA report & computational geometry benchmarking | none | DONE |
+| 2 | Techstack Harmonisatie conform `easy_hosting` | Scaffolding Next.js App Router, TS strict, Tailwind v4, configs, scripts | M1 | IN_PROGRESS |
+| 3 | Deterministisch Bouwkundig Domeinmodel & Data Layer | Data clients (PDOK, BAG OGC, 3D BAG), pure math domain, party walls, NEN 2580 | M2 | PLANNED |
+| 4 | UI / Presentation Layer | Declarative SVG floorplan, cross-section, MD3 chips, Next.js page | M3 | PLANNED |
+| 5 | Geautomatiseerde Testsuite & Victory Verification | 100% Vitest unit tests, Playwright headless visual regression, 0 console errors | M4 | PLANNED |
 
 ## Interface Contracts
-### Web (`scanner.html`) ↔ Native Plugin (`UltraWideCameraPlugin`)
-- **Plugin Name**: `UltraWideCamera`
-- **Methods**:
-  - `checkPermissions() -> Promise<{ camera: string, audio: string }>`
-  - `requestPermissions() -> Promise<{ camera: string, audio: string }>`
-  - `getAvailableCameras() -> Promise<{ cameras: Array<{ id: string, lensFacing: string, focalLengths: number[], isUltraWide: boolean, minZoom: number, maxZoom: number }> }>`
-  - `startPreview(options: { cameraId?: string, zoomRatio?: number, width?: number, height?: number }) -> Promise<{ success: boolean, activeCameraId: string, zoomRatio: number, width: number, height: number }>`
-  - `stopPreview() -> Promise<{ success: boolean }>`
-  - `lockExposureAndFocus(options: { aeLocked: boolean, afLocked: boolean }) -> Promise<{ aeLocked: boolean, afLocked: boolean }>`
-  - `startRecording(options: { filePath?: string, recordImu?: boolean }) -> Promise<{ success: boolean, outputPath: string }>`
-  - `stopRecording() -> Promise<{ success: boolean, videoPath: string, imuCsvPath: string, sampleCount: number, durationMs: number }>`
+### Data Layer ↔ Domain Layer
+- `PDOKLocationResult`: `{ bagId: string, address: string, rdCoordinates: [number, number], boundingBox: [number, number, number, number] }`
+- `BagBuildingData`: `{ identificatie: string, status: string, geometrieRD: Polygon2D, bouwjaar: number, verblijfsobjecten: AddressPoint[] }`
+- `CityJSON3DModel`: `{ vertices: Vector3D[], surfaces: SemanticSurface[], lod: '1.2' | '1.3' | '2.2', groundHeightNAP: number, roofHeightNAP: number }`
 
-### Capacitor Scaffolding ↔ Build Engine
-- `package.json`: scripts `prepare-assets`, `cap:sync`, `cap:copy`.
-- `capacitor.config.json`: `appId: "com.woninginrichter.scanner"`, `appName: "Woninginrichter 3D Scanner"`, `webDir: "www"`.
-- Output APK Path: `android/app/build/outputs/apk/debug/app-debug.apk`.
+### Domain Layer ↔ UI Presentation Layer
+- `FloorplanViewModel`:
+  - `walls`: Array of `{ start: Point2D, end: Point2D, thickness: number, isPartyWall: boolean, isFrontFacade: boolean }`
+  - `rooms`: Array of `{ name: string, areaM2: number, labelPosition: Point2D, polygon: Point2D[] }`
+  - `badges`: Array of `{ type: 'front_facade' | 'party_wall', position: Point2D, label: string }`
+  - `viewBox`: `{ minX: number, minY: number, width: number, height: number }`
+- `CrossSectionViewModel`:
+  - `groundLevelNAP`: number
+  - `floors`: Array of `{ name: string, elevationNAP: number, heightMeters: number, outline: Point2D[] }`
+  - `roofProfile`: Array<Point2D>
+  - `clearanceLines`: Array<{ heightMeters: number, type: 'nen2580_150' | 'nen2580_260', segments: Array<{ start: Point2D, end: Point2D }> }>
+  - `labels`: Array<{ text: string, anchorY: number, joggedY: number, x: number }>`
 
 ## Code Layout
-- `package.json`: Root Node configuration and dependencies.
-- `capacitor.config.json`: Capacitor platform configuration.
-- `scripts/sync_web_assets.js`: Asset synchronization into `www/`.
-- `www/`: Distribution web assets target (`index.html`, `scanner.html`).
-- `scanner.html`: Source web application with backward-compatible bridge.
-- `android/`: Android platform root.
-  - `build.gradle`: Project-level build script.
-  - `settings.gradle`: Gradle project inclusion settings.
-  - `gradle.properties`: Android build optimizations.
-  - `gradlew`, `gradlew.bat`, `gradle/wrapper/*`: Gradle wrapper executable and configuration.
-  - `app/build.gradle`: Android application module build script.
-  - `app/src/main/AndroidManifest.xml`: Android manifest with camera & sensor permissions.
-  - `app/src/main/java/com/woninginrichter/scanner/MainActivity.kt`: Android main activity.
-  - `app/src/main/java/com/woninginrichter/scanner/UltraWideCameraPlugin.kt`: Native Camera2 & IMU plugin.
-- `.github/workflows/build-apk.yml`: GitHub Actions automated cloud build workflow.
-- `tests/`: Automated test suite for offline verification and mock validation.
+- `package.json`
+- `tsconfig.json`
+- `tsconfig.e2e.json`
+- `postcss.config.mjs`
+- `vitest.config.ts`
+- `playwright.config.ts`
+- `eslint.config.mjs`
+- `src/`
+  - `app/`
+    - `layout.tsx`
+    - `page.tsx`
+    - `globals.css`
+  - `data/`
+    - `pdok/`
+    - `bag/`
+    - `cityjson/`
+  - `domain/`
+    - `geometry/`
+    - `architectural/`
+    - `nen2580/`
+  - `components/`
+    - `floorplan/`
+    - `cross-section/`
+    - `ui/`
+- `tests/`
+  - `unit/`
+  - `e2e/`
+  - `fixtures/` (5 benchmark typologies: rijwoning tussen, hoekwoning, twee-onder-een-kap, vrijstaande villa, pand met verspringende aanbouw)
