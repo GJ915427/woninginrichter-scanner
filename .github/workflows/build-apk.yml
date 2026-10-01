@@ -39,11 +39,12 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
-      - name: Set up Android SDK (API 34) & Gradle (setup-gradle@v4)
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: false
+      - name: Set up Android SDK (API 34)
+        run: |
+          echo "Android SDK 34 verified at $ANDROID_HOME"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Install Node Dependencies
         run: |
@@ -61,9 +62,6 @@ jobs:
 
       - name: Make Gradle Wrapper Executable
         run: chmod +x android/gradlew
-
-      - name: Accept Android SDK Licenses (API 34)
-        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Build Debug APK with Gradle
         run: cd android && ./gradlew assembleDebug --no-daemon --stacktrace

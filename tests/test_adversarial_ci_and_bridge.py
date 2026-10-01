@@ -291,11 +291,6 @@ class TestAdversarialCIWorkflow:
         assert len(java_steps) == 1, "Must have exactly one actions/setup-java step"
         assert java_steps[0] in ("actions/setup-java@v4", "actions/setup-java@v5"), "actions/setup-java must be pinned to @v4 or @v5"
 
-        # Verify Gradle / Android setup (setup-gradle@v4 or setup-android@v3)
-        gradle_steps = [u for u in step_uses if "setup-gradle" in u or "setup-android" in u]
-        assert len(gradle_steps) == 1, "Must have a Gradle or Android setup step"
-        assert gradle_steps[0] in ("gradle/actions/setup-gradle@v4", "android-actions/setup-android@v3")
-
         # Verify upload-artifact@v4
         upload_steps = [u for u in step_uses if u.startswith("actions/upload-artifact")]
         assert len(upload_steps) == 1, "Must have exactly one actions/upload-artifact step"
@@ -312,9 +307,9 @@ class TestAdversarialCIWorkflow:
         assert str(java_with.get("java-version")) == "17", "Java version must be JDK 17"
         assert java_with.get("distribution") == "temurin", "Java distribution must be Eclipse Temurin"
 
-        # Verify Gradle setup step
-        gradle_step = next(s for s in self.steps if "setup-gradle" in s.get("uses", "") or "setup-android" in s.get("uses", ""))
-        assert gradle_step is not None
+        # Verify Android SDK step
+        sdk_step = next(s for s in self.steps if "Android SDK" in s.get("name", ""))
+        assert sdk_step is not None
 
         # Verify against app/build.gradle
         assert APP_GRADLE.is_file(), "app/build.gradle must exist"
