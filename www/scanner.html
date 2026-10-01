@@ -542,12 +542,11 @@
         <video id="playback-preview" controls playsinline></video>
 
         <div style="background:rgba(15,23,42,0.6); padding:12px; border-radius:12px; border:1px solid rgba(59,130,246,0.3); display:flex; flex-direction:column; gap:8px;">
-          <div style="font-size:12px; color:var(--text-muted); font-weight:600;">DIRECT NAAR PROJECTMAP OP PC:</div>
-          <input type="text" id="pc-url-input" value="http://192.168.86.32:8080/upload" style="width:100%; padding:8px 10px; border-radius:8px; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.15); color:#fff; font-size:13px; font-family:monospace;">
-          <button class="btn btn-primary" id="upload-pc-btn" style="font-size:14px; padding:12px;">
+          <button class="btn btn-primary" id="upload-pc-btn" style="font-size:15px; padding:14px; font-weight:700;">
             <span>🚀</span> Stuur Direct Naar Projectmap (PC)
           </button>
           <div id="upload-status" style="font-size:12px; text-align:center; font-weight:600;"></div>
+          <input type="hidden" id="pc-url-input" value="https://ownership-mailing-vegetation-merchants.trycloudflare.com/upload">
         </div>
 
         <button class="btn btn-accent" id="download-zip-btn">
@@ -2166,21 +2165,51 @@
           headers['X-SHA256'] = sha256Hex;
         }
 
-        const res = await fetch(targetUrl, {
-          method: 'POST',
-          headers,
-          body: zipBlob
-        });
+        const endpoints = [
+          'https://ownership-mailing-vegetation-merchants.trycloudflare.com/upload',
+          'http://192.168.86.32:8080/upload'
+        ];
+        if (targetUrl && !targetUrl.includes('localhost') && !endpoints.includes(targetUrl)) {
+          endpoints.unshift(targetUrl);
+        }
 
-        if (res.ok) {
-          const respJson = await res.json().catch(() => ({}));
+        let uploadSuccess = false;
+        let lastError = null;
+        let respJson = null;
+
+        for (const ep of endpoints) {
+          try {
+            uploadStatus.innerText = "Scan verzenden naar projectmap...";
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 12000);
+            const res = await fetch(ep, {
+              method: 'POST',
+              headers,
+              body: zipBlob,
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (res.ok) {
+              respJson = await res.json().catch(() => ({}));
+              uploadSuccess = true;
+              break;
+            } else {
+              const errData = await res.json().catch(() => ({}));
+              lastError = new Error(errData.error || errData.message || ("Status " + res.status));
+            }
+          } catch (netErr) {
+            lastError = netErr;
+          }
+        }
+
+        if (uploadSuccess) {
           uploadStatus.style.color = "var(--accent)";
           const hashNotice = (respJson && respJson.sha256) ? ` (SHA-256: ${respJson.sha256.slice(0, 8)}...)` : '';
           uploadStatus.innerText = `\u2705 Gelukt! Direct opgeslagen in PC projectmap (uploads/)${hashNotice}`;
         } else {
-          const errData = await res.json().catch(() => ({}));
-          const errMsg = errData.error || errData.message || ("Server status " + res.status);
-          throw new Error(errMsg);
+          triggerDownload(zipBlob, filename);
+          uploadStatus.style.color = "var(--warning)";
+          uploadStatus.innerText = `\ud83d\udce6 PC niet direct bereikbaar: Scan is automatisch opgeslagen in Downloads op je telefoon!`;
         }
       } catch (err) {
         uploadStatus.style.color = "var(--danger)";
