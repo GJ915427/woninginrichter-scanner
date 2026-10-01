@@ -52,10 +52,10 @@
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
 | 1 | RCA & Geometry Library Evaluation | Formal RCA report & computational geometry benchmarking | none | DONE |
-| 2 | Techstack Harmonisatie conform `easy_hosting` | Scaffolding Next.js App Router, TS strict, Tailwind v4, configs, scripts | M1 | IN_PROGRESS |
-| 3 | Deterministisch Bouwkundig Domeinmodel & Data Layer | Data clients (PDOK, BAG OGC, 3D BAG), pure math domain, party walls, NEN 2580 | M2 | PLANNED |
-| 4 | UI / Presentation Layer | Declarative SVG floorplan, cross-section, MD3 chips, Next.js page | M3 | PLANNED |
-| 5 | Geautomatiseerde Testsuite & Victory Verification | 100% Vitest unit tests, Playwright headless visual regression, 0 console errors | M4 | PLANNED |
+| 2 | Techstack Harmonisatie conform `easy_hosting` | Scaffolding Next.js App Router, TS strict, Tailwind v4, configs, scripts | M1 | DONE |
+| 3 | Deterministisch Bouwkundig Domeinmodel & Data Layer | Data clients (PDOK, BAG OGC, 3D BAG), pure math domain, party walls, NEN 2580 | M2 | DONE |
+| 4 | UI / Presentation Layer | Declarative SVG floorplan, cross-section, MD3 chips, Next.js page | M3 | DONE |
+| 5 | Geautomatiseerde Testsuite & Victory Verification | 100% Vitest unit tests, Playwright headless visual regression, 0 console errors | M4 | DONE |
 
 ## Interface Contracts
 ### Data Layer ↔ Domain Layer

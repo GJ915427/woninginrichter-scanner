@@ -930,19 +930,38 @@
       if (recText) recText.innerText = "Gereed";
       if (recTimer) recTimer.style.display = "none";
 
+      currentMimeType = "video/mp4";
+      const sampleCount = (res && (res.sampleCount !== undefined ? res.sampleCount : 0)) || 0;
+      const vPath = (res && (res.videoPath || '')) || '';
+      const vName = vPath ? vPath.split('/').pop().split('\\').pop() : 'recording.mp4';
+
       if (finishSummary) {
-        const sampleCount = (res && (res.sampleCount !== undefined ? res.sampleCount : 0)) || 0;
-        const vPath = (res && (res.videoPath || '')) || '';
-        const vName = vPath ? vPath.split('/').pop().split('\\').pop() : 'N/A';
         finishSummary.innerText = `Native opname gereed | IMU metingen: ${sampleCount} | Bestand: ${vName}`;
       }
       if (finishSheet) {
         finishSheet.classList.remove('hidden');
       }
-      if (playbackPreview && res && res.videoPath && typeof window !== 'undefined' && window.Capacitor && typeof window.Capacitor.convertFileSrc === 'function') {
+      if (vPath && typeof window !== 'undefined' && window.Capacitor && typeof window.Capacitor.convertFileSrc === 'function') {
         try {
-          playbackPreview.src = window.Capacitor.convertFileSrc(res.videoPath);
-          playbackPreview.play().catch(() => {});
+          const webViewUrl = window.Capacitor.convertFileSrc(vPath);
+          if (playbackPreview) {
+            playbackPreview.src = webViewUrl;
+            playbackPreview.play().catch(() => {});
+          }
+          // Preload native MP4 into currentVideoBlob so that uploads/zips contain the full video bytes
+          fetch(webViewUrl)
+            .then(resp => resp.blob())
+            .then(blob => {
+              currentVideoBlob = blob;
+              currentVideoBlob.name = vName;
+              if (finishSummary) {
+                const mb = (blob.size / (1024 * 1024)).toFixed(1);
+                finishSummary.innerText = `Native opname gereed | Video: ${vName} (${mb} MB) | IMU: ${sampleCount}`;
+              }
+            })
+            .catch(err => {
+              console.warn('[BRIDGE] Native video preload warning:', err);
+            });
         } catch (_) {}
       }
     }
@@ -2137,7 +2156,26 @@
       uploadPcBtn.disabled = true;
 
       try {
-        const videoBlob = currentVideoBlob || new Blob([], { type: currentMimeType || 'video/webm' });
+        let videoBlob = currentVideoBlob;
+        if (CameraBridgeAdapter && CameraBridgeAdapter.isNative && (!videoBlob || videoBlob.size === 0)) {
+          const vPath = CameraBridgeAdapter.lastRecordingResult && CameraBridgeAdapter.lastRecordingResult.videoPath;
+          if (vPath && typeof window !== 'undefined' && window.Capacitor && typeof window.Capacitor.convertFileSrc === 'function') {
+            try {
+              uploadStatus.innerText = "Native videobestand ophalen...";
+              const resp = await fetch(window.Capacitor.convertFileSrc(vPath));
+              if (resp.ok) {
+                videoBlob = await resp.blob();
+                currentVideoBlob = videoBlob;
+                if (!videoBlob.name) videoBlob.name = 'recording.mp4';
+              }
+            } catch (fetchErr) {
+              console.warn('[BRIDGE] Direct convertFileSrc fetch warning:', fetchErr);
+            }
+          }
+        }
+        if (!videoBlob) {
+          videoBlob = new Blob([], { type: CameraBridgeAdapter && CameraBridgeAdapter.isNative ? 'video/mp4' : (currentMimeType || 'video/webm') });
+        }
         const sensorJson = JSON.stringify(sensorData, null, 2);
         const frameTimestampsJson = JSON.stringify(frameTimestamps, null, 2);
         const zipBlob = await generateOfflineZip(videoBlob, sensorJson, frameTimestampsJson);
@@ -2542,7 +2580,7 @@
         videoBytes = new Uint8Array(0);
       }
 
-      const isMp4 = videoMime.toLowerCase().includes('mp4') || (videoBlob && typeof videoBlob.name === 'string' && videoBlob.name.endsWith('.mp4'));
+      const isMp4 = videoMime.toLowerCase().includes('mp4') || (videoBlob && typeof videoBlob.name === 'string' && videoBlob.name.endsWith('.mp4')) || (typeof CameraBridgeAdapter !== 'undefined' && CameraBridgeAdapter && CameraBridgeAdapter.isNative);
       const videoFileName = isMp4 ? 'recording.mp4' : 'recording.webm';
 
       // 2. Prepare JSON payloads
@@ -2745,7 +2783,25 @@
         const origHtml = downloadOfflineZipBtn.innerHTML;
         downloadOfflineZipBtn.innerHTML = "<span>⏳</span> Inpakken...";
         try {
-          const videoBlob = currentVideoBlob || new Blob([], { type: currentMimeType || 'video/webm' });
+          let videoBlob = currentVideoBlob;
+          if (CameraBridgeAdapter && CameraBridgeAdapter.isNative && (!videoBlob || videoBlob.size === 0)) {
+            const vPath = CameraBridgeAdapter.lastRecordingResult && CameraBridgeAdapter.lastRecordingResult.videoPath;
+            if (vPath && typeof window !== 'undefined' && window.Capacitor && typeof window.Capacitor.convertFileSrc === 'function') {
+              try {
+                const resp = await fetch(window.Capacitor.convertFileSrc(vPath));
+                if (resp.ok) {
+                  videoBlob = await resp.blob();
+                  currentVideoBlob = videoBlob;
+                  if (!videoBlob.name) videoBlob.name = 'recording.mp4';
+                }
+              } catch (e) {
+                console.warn('[BRIDGE] Emergency ZIP convertFileSrc fetch warning:', e);
+              }
+            }
+          }
+          if (!videoBlob) {
+            videoBlob = new Blob([], { type: CameraBridgeAdapter && CameraBridgeAdapter.isNative ? 'video/mp4' : (currentMimeType || 'video/webm') });
+          }
           const sensorJson = JSON.stringify(sensorData, null, 2);
           const frameTimestampsJson = JSON.stringify(frameTimestamps, null, 2);
           const zipBlob = await generateOfflineZip(videoBlob, sensorJson, frameTimestampsJson);
