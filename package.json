@@ -1,0 +1,24 @@
+{
+  "name": "woninginrichter-3d-scanner",
+  "version": "1.0.0",
+  "description": "Woninginrichter 3D Mobile Scanner with Camera2 0.5x Ultra-Wide & 100Hz IMU Telemetry",
+  "private": true,
+  "main": "www/index.html",
+  "scripts": {
+    "build": "node scripts/sync_web_assets.js",
+    "prepare-assets": "node scripts/sync_web_assets.js",
+    "cap:sync": "cap sync android",
+    "cap:copy": "cap copy android",
+    "cap:open": "cap open android",
+    "test:offline": "pytest tests/test_android_scaffolding.py"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/core": "^6.1.2"
+  },
+  "devDependencies": {
+    "puppeteer": "^25.12.0",
+    "typescript": "^5.4.5"
+  }
+}

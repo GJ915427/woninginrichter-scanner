@@ -1,0 +1,2841 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Woninginrichter 3D & IMU Scanner</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(20, 27, 45, 0.85);
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Video Viewfinder */
+    #viewfinder-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+    #camera-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Native Camera Underlay Styling (Milestone 3) */
+    body.native-camera-underlay-active,
+    body.native-camera-underlay-active #app,
+    body.native-camera-underlay-active #viewfinder-container {
+      background: transparent !important;
+      background-color: transparent !important;
+    }
+
+    body.native-camera-underlay-active #camera-video {
+      display: none !important;
+      visibility: hidden !important;
+    }
+
+    /* HUD Overlay */
+    #hud-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: env(safe-area-inset-top, 16px) 16px env(safe-area-inset-bottom, 24px) 16px;
+      z-index: 10;
+    }
+
+    /* Top Bar */
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+    .badge-dot.active { background: var(--accent); }
+    .badge-dot.recording { 
+      background: var(--danger); 
+      animation: pulse 1s infinite alternate; 
+    }
+    @keyframes pulse { from { opacity: 0.3; } to { opacity: 1; } }
+
+    /* Center Angle Guidance */
+    .hud-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .pitch-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(8px);
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+    .pitch-indicator.optimal {
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+    .pitch-indicator.suboptimal {
+      border: 1px solid var(--warning);
+      color: var(--warning);
+    }
+
+    /* Bottom Controls */
+    .hud-bottom {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      pointer-events: auto;
+    }
+    .hud-metrics {
+      display: flex;
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(10px);
+      padding: 8px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 12px;
+      font-family: monospace;
+    }
+
+    /* Emergency Offline ZIP Action */
+    #download-offline-zip-btn {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #000;
+      background: #f59e0b;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 9999px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(245, 158, 11, 0.35);
+      z-index: 100;
+      pointer-events: auto;
+      transition: all 0.2s ease;
+    }
+    #download-offline-zip-btn:hover {
+      transform: scale(1.03);
+      background: #d97706;
+    }
+
+    /* HUD Lens Toggle Pill [ 0.5x / 1.0x ] */
+    .lens-toggle-pill {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 9999px;
+      padding: 3px;
+      gap: 4px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      z-index: 10;
+    }
+    .lens-opt {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      touch-action: manipulation;
+      outline: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .lens-opt:active {
+      transform: scale(0.94);
+    }
+    .lens-opt.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+    }
+    .lens-opt:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      width: 100%;
+    }
+    .record-btn {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: transparent;
+      border: 4px solid #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .record-btn:active {
+      transform: scale(0.92);
+    }
+    .record-btn-inner {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: var(--danger);
+      transition: all 0.2s ease;
+      pointer-events: none;
+    }
+    .record-btn.recording .record-btn-inner {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: #fff;
+    }
+    .tool-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* Modal / Sheets (Start & Completed) */
+    .sheet {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(9, 13, 22, 0.95);
+      backdrop-filter: blur(16px);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      text-align: center;
+      transition: opacity 0.3s ease;
+    }
+    .sheet.hidden {
+      display: none;
+    }
+    .sheet-card {
+      max-width: 420px;
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      text-align: left;
+    }
+    .sheet-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sheet-desc {
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+    .checklist {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+    .checklist li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .checklist li span.icon {
+      color: var(--accent);
+      font-weight: bold;
+    }
+    .btn {
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s ease;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-accent {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #cbd5e1;
+    }
+
+    /* Video Preview Player */
+    #playback-preview {
+      width: 100%;
+      max-height: 200px;
+      border-radius: 12px;
+      background: #000;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Camera Viewfinder -->
+    <div id="viewfinder-container">
+      <video id="camera-video" playsinline autoplay muted></video>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud-overlay">
+      <div class="hud-top">
+        <div class="badge" id="rec-status">
+          <div class="badge-dot" id="rec-dot"></div>
+          <span id="rec-text">Gereed</span>
+          <span id="rec-timer" style="display:none; font-family:monospace; margin-left:4px;">00:00</span>
+        </div>
+        <div class="badge" id="sensor-badge">
+          <div class="badge-dot active"></div>
+          <span id="sensor-text">IMU: Wachten</span>
+        </div>
+        <div class="badge" id="diag-hud-badge" style="cursor:pointer; background:rgba(2,132,199,0.25); border:1px solid #38bdf8; color:#38bdf8;" title="Tik om live hardware metingen te tonen">
+          📊 <span id="diag-summary-text">Meting</span>
+        </div>
+        <button class="btn-emergency" id="download-offline-zip-btn" style="display:none;" title="Download Scan ZIP lokaal">
+          <span>📦</span> Download Scan ZIP lokaal
+        </button>
+      </div>
+
+      <div class="hud-center">
+        <div class="pitch-indicator optimal" id="pitch-hud">
+          <span id="pitch-icon">↕️</span>
+          <span id="pitch-text">Beweeg verticaal: vloer tot plafond</span>
+        </div>
+      </div>
+
+      <!-- LIVE DIAGNOSTICS & TELEMETRY PANEL -->
+      <div id="diag-panel" class="hidden" style="position:absolute; top:54px; left:12px; right:12px; max-height:48vh; overflow-y:auto; z-index:900; background:rgba(15,23,42,0.96); border:1px solid #38bdf8; border-radius:10px; padding:12px; font-family:monospace; font-size:11px; color:#cbd5e1; box-shadow:0 8px 30px rgba(0,0,0,0.8); backdrop-filter:blur(8px);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid #334155; padding-bottom:6px;">
+          <span style="color:#38bdf8; font-weight:bold;">📷 LIVE HARDWARE METING (Pixel 9 Pro XL)</span>
+          <div style="display:flex; gap:6px;">
+            <button type="button" id="diag-copy-btn" style="background:#1e293b; border:1px solid #475569; color:#94a3b8; border-radius:4px; padding:3px 7px; font-size:10px; cursor:pointer;">📋 Kopieer</button>
+            <button type="button" id="diag-send-btn" style="background:#0284c7; border:none; color:#fff; border-radius:4px; padding:3px 7px; font-size:10px; cursor:pointer;">📤 Verstuur</button>
+            <button type="button" id="diag-close-btn" style="background:#334155; border:none; color:#fff; border-radius:4px; padding:3px 7px; font-size:10px; cursor:pointer;">✕</button>
+          </div>
+        </div>
+        <div id="diag-content">Metingen worden verzameld...</div>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="hud-metrics" id="metrics-panel">
+          <div>HZ: <span id="hz-val">0</span></div>
+          <div>SAMPLES: <span id="samples-val">0</span></div>
+          <div>HOEK: <span id="pitch-deg">0°</span></div>
+          <div>ZOOM: <span id="zoom-live-val">1.0x</span></div>
+        </div>
+
+        <!-- HUD Lens Toggle Pill [ 0.5x / 1.0x ] -->
+        <div id="active-lens-info" class="badge" style="margin-bottom:8px; font-size:11px; cursor:pointer;" title="Tik om tussen fysieke lenzen te schakelen">🔍 Lens: 0.5x Ultra-Wide</div>
+        <div class="lens-toggle-pill" id="lens-toggle" role="group" aria-label="Lens Selectie">
+          <button type="button" class="lens-opt active" id="lens-05" data-zoom="0.5" title="0.5x Ultra-Wide">0.5x</button>
+          <button type="button" class="lens-opt" id="lens-10" data-zoom="1.0" title="1.0x Standaard">1.0x</button>
+        </div>
+
+        <div class="control-row">
+          <button class="tool-btn" id="torch-btn" title="Zaklamp aan/uit">🔦</button>
+          
+          <button class="record-btn" id="toggle-record-btn">
+            <div class="record-btn-inner"></div>
+          </button>
+
+          <button class="tool-btn" id="switch-cam-btn" title="Camera Wisselen">🔄</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAMERA INSPECTOR MODAL -->
+    <div class="sheet hidden" id="camera-inspector-modal" style="z-index: 9999;">
+      <div class="sheet-card" style="max-height: 85vh; overflow-y: auto; text-align: left;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div class="sheet-title" style="margin:0; font-size:18px;">
+            <span>📷</span> Camera & Lens Inspector
+          </div>
+          <button type="button" id="close-inspector-btn" style="background:#333; border:none; color:#fff; border-radius:50%; width:32px; height:32px; font-size:16px; cursor:pointer;">✕</button>
+        </div>
+        
+        <div style="font-size:12px; color:#aaa; margin-bottom:12px;">
+          Hardware details en live lensbesturing voor uw smartphone.
+        </div>
+
+        <div style="background:#1e293b; padding:12px; border-radius:8px; margin-bottom:12px; font-family:monospace; font-size:11px;">
+          <div style="color:#38bdf8; font-weight:bold; margin-bottom:6px;">LIVE CAMERA TRACK:</div>
+          <div id="inspector-track-label">Label: -</div>
+          <div id="inspector-track-id">ID: -</div>
+          <div id="inspector-track-res">Resolutie: -</div>
+          <div id="inspector-track-zoom">Zoom bereik: -</div>
+          <div id="inspector-track-settings">Huidige zoom: -</div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <div style="font-size:13px; font-weight:bold; margin-bottom:8px; color:#e2e8f0;">DIRECTE ZOOM TEST (Hardware Control):</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+            <button class="btn btn-secondary inspector-zoom-btn" data-zoom="0.5" style="flex:1; min-width:60px; padding:8px 4px; font-size:12px;">0.5x</button>
+            <button class="btn btn-secondary inspector-zoom-btn" data-zoom="0.6" style="flex:1; min-width:60px; padding:8px 4px; font-size:12px;">0.6x</button>
+            <button class="btn btn-secondary inspector-zoom-btn" data-zoom="0.8" style="flex:1; min-width:60px; padding:8px 4px; font-size:12px;">0.8x</button>
+            <button class="btn btn-secondary inspector-zoom-btn" data-zoom="1.0" style="flex:1; min-width:60px; padding:8px 4px; font-size:12px;">1.0x</button>
+            <button class="btn btn-secondary inspector-zoom-btn" data-zoom="2.0" style="flex:1; min-width:60px; padding:8px 4px; font-size:12px;">2.0x</button>
+          </div>
+          <div id="inspector-feedback" style="font-size:11px; color:#22c55e; min-height:16px;"></div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <div style="font-size:13px; font-weight:bold; margin-bottom:8px; color:#e2e8f0;">BESCHIKBARE CAMERA APPARATEN:</div>
+          <div id="inspector-device-list" style="display:flex; flex-direction:column; gap:6px;">
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="refresh-inspector-btn" style="width:100%; margin-top:8px;">
+          🔄 Ververs Apparaten & Status
+        </button>
+      </div>
+    </div>
+
+    <!-- START SCHERM / PERMISSION SHEET -->
+    <div class="sheet" id="start-sheet">
+      <div class="sheet-card">
+        <div class="sheet-title">
+          <span>📐</span> Woninginrichter 3D Scanner
+        </div>
+        <div class="sheet-desc">
+          Deze webapp filmt de ruimte en registreert tegelijkertijd alle interne bewegings- en zwaartekrachtsensoren (IMU) voor 3D- en plattegrondberekening.
+        </div>
+        <ul class="checklist">
+          <li><span class="icon">✓</span> <b>Binnendeuren 90° open</b> en verlichting aan.</li>
+          <li><span class="icon">✓</span> <b>Verticale golfbeweging (Cruciaal voor gordijnen):</b> beweeg de camera rustig op en neer: van vloer/plint ➔ langs vensterbank/radiator ➔ raam ➔ tot plafond (waar de gordijnrails komen).</li>
+          <li><span class="icon">✓</span> Loop in een rustig, constant tempo ("museum walk", ca. 0,5 m/s).</li>
+          <li><span class="icon">✓</span> Leg even 1 A4-papiertje op de vloer (als millimeter-anker).</li>
+        </ul>
+        <button class="btn btn-primary" id="start-app-btn">
+          <span>🚀</span> Start Camera & Sensoren
+        </button>
+      </div>
+    </div>
+
+    <!-- VOLTOOID SCHERM / DOWNLOAD SHEET -->
+    <div class="sheet hidden" id="finish-sheet">
+      <div class="sheet-card">
+        <div class="sheet-title">
+          <span>✅</span> Opname Voltooid!
+        </div>
+        <div class="sheet-desc" id="finish-summary">
+          De video en synchrone sensordata zijn verwerkt.
+        </div>
+        
+        <video id="playback-preview" controls playsinline></video>
+
+        <div style="background:rgba(15,23,42,0.6); padding:12px; border-radius:12px; border:1px solid rgba(59,130,246,0.3); display:flex; flex-direction:column; gap:8px;">
+          <div style="font-size:12px; color:var(--text-muted); font-weight:600;">DIRECT NAAR PROJECTMAP OP PC:</div>
+          <input type="text" id="pc-url-input" value="http://192.168.86.32:8080/upload" style="width:100%; padding:8px 10px; border-radius:8px; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.15); color:#fff; font-size:13px; font-family:monospace;">
+          <button class="btn btn-primary" id="upload-pc-btn" style="font-size:14px; padding:12px;">
+            <span>🚀</span> Stuur Direct Naar Projectmap (PC)
+          </button>
+          <div id="upload-status" style="font-size:12px; text-align:center; font-weight:600;"></div>
+        </div>
+
+        <button class="btn btn-accent" id="download-zip-btn">
+          <span>📦</span> Download Backup (.zip op telefoon)
+        </button>
+        
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-outline" id="download-video-btn" style="flex:1; font-size:12px;">
+            🎬 Video
+          </button>
+          <button class="btn btn-outline" id="download-json-btn" style="flex:1; font-size:12px;">
+            📊 JSON Data
+          </button>
+          <button class="btn btn-outline" id="download-csv-btn" style="flex:1; font-size:12px;">
+            📄 CSV Data
+          </button>
+        </div>
+
+        <button class="btn btn-outline" id="new-scan-btn">
+          <span>🔄</span> Nieuwe Opname Maken
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Bounded TypedArray IMU Buffer Manager (Milestone 3 / R3)
+    // Prevents memory exhaustion / GC spikes on mobile devices (>3-5 min scans / 30,000+ readings).
+    // Allocates chunked Float64Array blocks with zero intermediate GC object churn.
+    class BoundedImuBuffer {
+      constructor(maxSamples = 120000) {
+        this.maxSamples = maxSamples;
+        this.stride = 11; // t, wallTime, ax, ay, az, gx, gy, gz, rx, ry, rz
+        this.chunkSize = 4096;
+        this.chunks = [];
+        this.count = 0;
+        this._allocateChunk();
+      }
+
+      _allocateChunk() {
+        this.chunks.push(new Float64Array(this.chunkSize * this.stride));
+      }
+
+      clear() {
+        this.chunks = [];
+        this.count = 0;
+        this._allocateChunk();
+      }
+
+      get length() {
+        return this.count;
+      }
+
+      push(sample) {
+        if (this.count >= this.maxSamples) {
+          console.warn("BoundedImuBuffer: Maximum capacity reached (" + this.maxSamples + ")");
+          return this.count;
+        }
+        const chunkIndex = Math.floor(this.count / this.chunkSize);
+        if (chunkIndex >= this.chunks.length) {
+          this._allocateChunk();
+        }
+        const chunk = this.chunks[chunkIndex];
+        const offset = (this.count % this.chunkSize) * this.stride;
+        
+        chunk[offset + 0] = Number(sample.t) || 0;
+        chunk[offset + 1] = Number(sample.wallTime) || (sample.iso ? new Date(sample.iso).getTime() : Date.now());
+        chunk[offset + 2] = Number(sample.ax) || 0;
+        chunk[offset + 3] = Number(sample.ay) || 0;
+        chunk[offset + 4] = Number(sample.az) || 0;
+        chunk[offset + 5] = Number(sample.gx) || 0;
+        chunk[offset + 6] = Number(sample.gy) || 0;
+        chunk[offset + 7] = Number(sample.gz) || 0;
+        chunk[offset + 8] = Number(sample.rx) || 0;
+        chunk[offset + 9] = Number(sample.ry) || 0;
+        chunk[offset + 10] = Number(sample.rz) || 0;
+        
+        this.count++;
+        return this.count;
+      }
+
+      get(index) {
+        if (index < 0 || index >= this.count) return undefined;
+        const chunkIndex = Math.floor(index / this.chunkSize);
+        const chunk = this.chunks[chunkIndex];
+        const offset = (index % this.chunkSize) * this.stride;
+        const wallTime = chunk[offset + 1];
+        return {
+          t: chunk[offset + 0],
+          iso: new Date(wallTime).toISOString(),
+          ax: chunk[offset + 2],
+          ay: chunk[offset + 3],
+          az: chunk[offset + 4],
+          gx: chunk[offset + 5],
+          gy: chunk[offset + 6],
+          gz: chunk[offset + 7],
+          rx: chunk[offset + 8],
+          ry: chunk[offset + 9],
+          rz: chunk[offset + 10]
+        };
+      }
+
+      forEach(callback) {
+        for (let i = 0; i < this.count; i++) {
+          callback(this.get(i), i, this);
+        }
+      }
+
+      toJSON() {
+        const out = new Array(this.count);
+        for (let i = 0; i < this.count; i++) {
+          out[i] = this.get(i);
+        }
+        return out;
+      }
+
+      [Symbol.iterator]() {
+        let index = 0;
+        const self = this;
+        return {
+          next() {
+            if (index < self.count) {
+              return { value: self.get(index++), done: false };
+            }
+            return { value: undefined, done: true };
+          }
+        };
+      }
+    }
+
+    // State management
+    let stream = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false;
+    let recordingStartTime = 0;
+    let recordingStartHardwareTime = 0;
+    let timerInterval = null;
+    
+    // IMU Sensor Data logging
+    let sensorData = new BoundedImuBuffer();
+    let frameTimestamps = [];
+    let lastSensorTime = performance.now();
+    let sensorSampleCount = 0;
+    let hzInterval = null;
+    let currentPitch = 0;
+    let currentTorch = false;
+    let currentFacingMode = "environment";
+    let currentZoom = 1.0;
+
+    // =========================================================================
+    // Real-Time Hardware Diagnostics & Telemetry
+    // =========================================================================
+    let latestDiagData = null;
+    let diagLogHistory = [];
+
+    function logDiag(msg) {
+      try {
+        const timeStr = new Date().toLocaleTimeString('nl-NL');
+        const entry = '[' + timeStr + '] ' + msg;
+        diagLogHistory.push(entry);
+        if (diagLogHistory.length > 50) diagLogHistory.shift();
+        console.log('[DIAG]', entry);
+        if (typeof document !== 'undefined' && latestDiagData) {
+          renderDiagPanel(latestDiagData);
+        }
+      } catch (_) {}
+    }
+
+    async function sendCameraDiagnostics(stepName, extra = {}) {
+      try {
+        logDiag('Stap: ' + stepName);
+        const track = (stream && stream.getVideoTracks) ? stream.getVideoTracks()[0] : null;
+        let devList = [];
+        if (typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function') {
+          try {
+            const devs = await navigator.mediaDevices.enumerateDevices();
+            devList = devs.filter(d => d.kind === 'videoinput').map(d => ({
+              deviceId: d.deviceId,
+              label: d.label,
+              groupId: d.groupId
+            }));
+          } catch (e) {
+            devList = [{ error: e.message }];
+          }
+        }
+
+        const trackSettings = (track && typeof track.getSettings === 'function') ? track.getSettings() : {};
+        const trackCapabilities = (track && typeof track.getCapabilities === 'function') ? track.getCapabilities() : {};
+        const trackConstraints = (track && typeof track.getConstraints === 'function') ? track.getConstraints() : {};
+        const supported = (typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.getSupportedConstraints === 'function')
+          ? navigator.mediaDevices.getSupportedConstraints() : {};
+
+        latestDiagData = {
+          timestamp: new Date().toISOString(),
+          step: stepName,
+          userAgent: (typeof navigator !== 'undefined') ? (navigator.userAgent || '') : '',
+          currentZoom,
+          currentFacingMode: typeof currentFacingMode !== 'undefined' ? currentFacingMode : 'environment',
+          supportedZoom: !!supported.zoom,
+          devices: devList,
+          activeTrack: track ? {
+            label: track.label || '',
+            id: track.id || '',
+            readyState: track.readyState || '',
+            settings: trackSettings,
+            capabilities: trackCapabilities,
+            constraints: trackConstraints
+          } : null,
+          lensCapabilities: (typeof getLensCapabilities === 'function') ? getLensCapabilities() : null,
+          log: [...diagLogHistory],
+          extra
+        };
+
+        renderDiagPanel(latestDiagData);
+
+        if (typeof fetch === 'function') {
+          const bodyStr = JSON.stringify(latestDiagData);
+          // Send via /upload (guaranteed compatible across all server instances)
+          fetch('/upload', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Filename': 'latest_camera_diag.json',
+              'X-Session-Id': 'diag_session'
+            },
+            body: bodyStr
+          }).then(res => {
+            if (res.ok) {
+              if (typeof document !== 'undefined') {
+                const sumText = document.getElementById('diag-summary-text');
+                if (sumText) sumText.innerText = 'Verstuurd ✅';
+              }
+            } else {
+              // Fallback try /api/camera_diag
+              fetch('/api/camera_diag', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: bodyStr
+              }).catch(() => {});
+            }
+          }).catch(() => {
+            fetch('/api/camera_diag', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: bodyStr
+            }).catch(() => {});
+            if (typeof document !== 'undefined') {
+              const sumText = document.getElementById('diag-summary-text');
+              if (sumText) sumText.innerText = 'Lokaal';
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('sendCameraDiagnostics failed:', err);
+      }
+    }
+
+    function renderDiagPanel(data) {
+      if (typeof document === 'undefined') return;
+      const el = document.getElementById('diag-content');
+      if (!el || !data) return;
+
+      const track = data.activeTrack;
+      const caps = (track && track.capabilities) ? track.capabilities : {};
+      const set = (track && track.settings) ? track.settings : {};
+      const zoomCapStr = (caps && caps.zoom && typeof caps.zoom === 'object')
+        ? 'min ' + caps.zoom.min + 'x - max ' + caps.zoom.max + 'x (step ' + (caps.zoom.step || 0.1) + ')'
+        : 'Geen zoom object in getCapabilities';
+
+      const devLines = (data.devices || []).map((d, i) =>
+        '  ' + (i + 1) + '. [' + (d.label || 'Geen label') + '] (ID: ' + (d.deviceId ? d.deviceId.slice(0, 10) + '...' : '-') + ')'
+      ).join('\n');
+
+      const logLines = (data.log || []).slice(-6).join('\n');
+
+      el.innerHTML = [
+        '<div style="margin-bottom:6px;"><span style="color:#38bdf8;">Toestel:</span> ' + (data.userAgent || '').slice(0, 45) + '...</div>',
+        '<div style="margin-bottom:6px;"><span style="color:#38bdf8;">PTZ Zoom in browser:</span> ' + (data.supportedZoom ? '✅ JA (zoom: true)' : '❌ NEE') + '</div>',
+        '<div style="margin-bottom:6px;"><span style="color:#38bdf8;">Actieve Track:</span> ' + (track ? (track.label || 'Naamloos') : 'Geen track') + '</div>',
+        '<div style="margin-bottom:6px;"><span style="color:#38bdf8;">Resolutie:</span> ' + (set.width || '-') + ' x ' + (set.height || '-') + ' @ ' + Math.round(set.frameRate || 0) + 'fps</div>',
+        '<div style="margin-bottom:6px;"><span style="color:#38bdf8;">Hardware Zoom Cap:</span> ' + zoomCapStr + '</div>',
+        '<div style="margin-bottom:6px;"><span style="color:#38bdf8;">Software Zoom:</span> ' + data.currentZoom + 'x (track: ' + (set.zoom !== undefined ? set.zoom : 'n.v.t.') + ')</div>',
+        '<div style="margin-bottom:6px;"><span style="color:#38bdf8;">Gedetecteerde Camera\'s (' + (data.devices ? data.devices.length : 0) + '):</span><pre style="margin:2px 0; color:#94a3b8; font-size:10px;">' + (devLines || 'Geen') + '</pre></div>',
+        '<div style="margin-bottom:6px;"><span style="color:#38bdf8;">Gebeurtenissen:</span><pre style="margin:2px 0; color:#a7f3d0; font-size:10px;">' + (logLines) + '</pre></div>'
+      ].join('');
+    }
+    let streamRequestEpoch = 0;
+    let lensCapabilities = {
+      hasUltraWide: false,
+      minZoom: 1.0,
+      maxZoom: 1.0,
+      ultraWideDeviceId: null,
+      standardDeviceId: null,
+      supportsZoomConstraint: false
+    };
+
+    // DOM Elementen
+    const videoElem = document.getElementById('camera-video');
+    const startSheet = document.getElementById('start-sheet');
+    const finishSheet = document.getElementById('finish-sheet');
+    const startAppBtn = document.getElementById('start-app-btn');
+    const toggleRecordBtn = document.getElementById('toggle-record-btn');
+    const recDot = document.getElementById('rec-dot');
+    const recText = document.getElementById('rec-text');
+    const recTimer = document.getElementById('rec-timer');
+    const sensorText = document.getElementById('sensor-text');
+    const hzVal = document.getElementById('hz-val');
+    const samplesVal = document.getElementById('samples-val');
+    const pitchDeg = document.getElementById('pitch-deg');
+    const pitchHud = document.getElementById('pitch-hud');
+    const pitchText = document.getElementById('pitch-text');
+    const torchBtn = document.getElementById('torch-btn');
+    const switchCamBtn = document.getElementById('switch-cam-btn');
+    const lensTogglePill = document.getElementById('lens-toggle');
+    const lens05Btn = document.getElementById('lens-05');
+    const lens10Btn = document.getElementById('lens-10');
+    const downloadZipBtn = document.getElementById('download-zip-btn');
+    const downloadOfflineZipBtn = document.getElementById('download-offline-zip-btn');
+    const downloadVideoBtn = document.getElementById('download-video-btn');
+    const downloadJsonBtn = document.getElementById('download-json-btn');
+    const downloadCsvBtn = document.getElementById('download-csv-btn');
+    const newScanBtn = document.getElementById('new-scan-btn');
+    const finishSummary = document.getElementById('finish-summary');
+    const playbackPreview = document.getElementById('playback-preview');
+    const cameraVideo = videoElem;
+
+    let currentVideoBlob = null;
+    let currentMimeType = "";
+
+    // =========================================================================
+    // Milestone 3: Safe Runtime Platform Detection & CameraBridgeAdapter
+    // =========================================================================
+    /**
+     * Safe runtime detection: window.Capacitor.isNativePlatform() && window.Capacitor.Plugins.UltraWideCamera
+     * Must never throw in standard browsers (Chrome, Safari, Firefox), iframe environments,
+     * or headless test runners where window.Capacitor is undefined.
+     */
+    function checkIsNativeCapacitor() {
+      try {
+        return Boolean(
+          typeof window !== 'undefined' &&
+          window.Capacitor &&
+          typeof window.Capacitor.isNativePlatform === 'function' &&
+          window.Capacitor.isNativePlatform() &&
+          window.Capacitor.Plugins &&
+          window.Capacitor.Plugins.UltraWideCamera
+        );
+      } catch (e) {
+        return false;
+      }
+    }
+
+    const isNativeCapacitor = checkIsNativeCapacitor();
+
+    function updateRecordingUIStarted() {
+      if (toggleRecordBtn) toggleRecordBtn.classList.add('recording');
+      if (recDot) recDot.className = "badge-dot recording";
+      if (recText) recText.innerText = "OPNAME";
+      if (recTimer) {
+        recTimer.style.display = "inline";
+        recTimer.innerText = "00:00";
+      }
+      let seconds = 0;
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        seconds++;
+        const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+        const secs = String(seconds % 60).padStart(2, '0');
+        if (recTimer) recTimer.innerText = `${mins}:${secs}`;
+      }, 1000);
+    }
+
+    function updateRecordingUIStoppedNative(res) {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+      if (toggleRecordBtn) toggleRecordBtn.classList.remove('recording');
+      if (recDot) recDot.className = "badge-dot active";
+      if (recText) recText.innerText = "Gereed";
+      if (recTimer) recTimer.style.display = "none";
+
+      if (finishSummary) {
+        const sampleCount = (res && (res.sampleCount !== undefined ? res.sampleCount : 0)) || 0;
+        const vPath = (res && (res.videoPath || '')) || '';
+        const vName = vPath ? vPath.split('/').pop().split('\\').pop() : 'N/A';
+        finishSummary.innerText = `Native opname gereed | IMU metingen: ${sampleCount} | Bestand: ${vName}`;
+      }
+      if (finishSheet) {
+        finishSheet.classList.remove('hidden');
+      }
+      if (playbackPreview && res && res.videoPath && typeof window !== 'undefined' && window.Capacitor && typeof window.Capacitor.convertFileSrc === 'function') {
+        try {
+          playbackPreview.src = window.Capacitor.convertFileSrc(res.videoPath);
+          playbackPreview.play().catch(() => {});
+        } catch (_) {}
+      }
+    }
+
+    class CameraBridgeAdapterClass {
+      constructor(options = {}) {
+        this._isNative = options.is_native !== undefined ? options.is_native : (options.isNative !== undefined ? options.isNative : null);
+        this._plugin = options.plugin || null;
+        this.underlay_active = false;
+        this.underlayActive = false;
+        this.webrtc_active = false;
+        this.webrtcActive = false;
+        this.active_lens = "1.0x";
+        this.activeLens = "1.0x";
+        this.lastRecordingResult = null;
+      }
+
+      get is_native() {
+        if (this._isNative !== null) return Boolean(this._isNative);
+        return checkIsNativeCapacitor();
+      }
+      set is_native(val) {
+        this._isNative = Boolean(val);
+      }
+      get isNative() {
+        return this.is_native;
+      }
+      set isNative(val) {
+        this._isNative = Boolean(val);
+      }
+
+      get plugin() {
+        if (this._plugin) return this._plugin;
+        if (this.is_native && typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins) {
+          return window.Capacitor.Plugins.UltraWideCamera || null;
+        }
+        return null;
+      }
+      set plugin(val) {
+        this._plugin = val;
+      }
+
+      isNativePlatform() {
+        return Boolean(this.is_native);
+      }
+
+      async initializeCamera(prefer_ultrawide = true) {
+        const preferUW = (typeof prefer_ultrawide === 'boolean')
+          ? prefer_ultrawide
+          : (prefer_ultrawide <= 0.6 || prefer_ultrawide === '0.5' || prefer_ultrawide === '0.5x');
+
+        if (this.isNativePlatform() && this.plugin) {
+          this.underlay_active = true;
+          this.underlayActive = true;
+          this.webrtc_active = false;
+          this.webrtcActive = false;
+          this.active_lens = preferUW ? "0.5x" : "1.0x";
+          this.activeLens = this.active_lens;
+          currentZoom = preferUW ? 0.5 : 1.0;
+          if (typeof document !== 'undefined' && document.body) {
+            document.body.classList.add('native-camera-underlay-active');
+          }
+          if (typeof updateLensToggleUI === 'function') {
+            updateLensToggleUI(currentZoom);
+          }
+          const zoomRatio = preferUW ? 0.5 : 1.0;
+          const lens = preferUW ? 'ultra_wide' : 'wide';
+          const res = (typeof this.plugin.startPreview === 'function')
+            ? await this.plugin.startPreview({ zoomRatio, lens, targetFps: 60 })
+            : { success: true };
+          return { mode: "native", activeLens: this.active_lens, pluginResult: res };
+        } else {
+          // Fallback to browser WebRTC
+          this.webrtc_active = true;
+          this.webrtcActive = true;
+          this.underlay_active = false;
+          this.underlayActive = false;
+          this.active_lens = preferUW ? "0.5x" : "1.0x";
+          this.activeLens = this.active_lens;
+          currentZoom = preferUW ? 0.5 : 1.0;
+          if (typeof document !== 'undefined' && document.body) {
+            document.body.classList.remove('native-camera-underlay-active');
+          }
+          const st = (typeof resolveCameraStream === 'function')
+            ? await resolveCameraStream(currentZoom)
+            : null;
+          return {
+            mode: "webrtc_fallback",
+            activeLens: this.active_lens,
+            stream: st,
+            constraints: { video: { facingMode: currentFacingMode || "environment" } }
+          };
+        }
+      }
+
+      async startPreview(options = {}) {
+        const zoomRatio = (options && typeof options.zoomRatio === 'number')
+          ? options.zoomRatio
+          : (currentZoom || 0.5);
+        const lens = (options && options.lens)
+          ? options.lens
+          : ((zoomRatio <= 0.6) ? 'ultra_wide' : 'wide');
+
+        if (this.isNativePlatform() && this.plugin) {
+          this.underlay_active = true;
+          this.underlayActive = true;
+          this.webrtc_active = false;
+          this.webrtcActive = false;
+          this.active_lens = (zoomRatio <= 0.6) ? "0.5x" : "1.0x";
+          this.activeLens = this.active_lens;
+          currentZoom = (zoomRatio <= 0.6) ? 0.5 : 1.0;
+          if (typeof document !== 'undefined' && document.body) {
+            document.body.classList.add('native-camera-underlay-active');
+          }
+          if (typeof updateLensToggleUI === 'function') {
+            updateLensToggleUI(currentZoom);
+          }
+          const payload = { zoomRatio, lens, targetFps: options.targetFps || 60, ...(options || {}) };
+          const res = (typeof this.plugin.startPreview === 'function')
+            ? await this.plugin.startPreview(payload)
+            : { success: true };
+          return res;
+        } else {
+          this.underlay_active = false;
+          this.underlayActive = false;
+          this.webrtc_active = true;
+          this.webrtcActive = true;
+          return (typeof resolveCameraStream === 'function')
+            ? await resolveCameraStream(zoomRatio)
+            : null;
+        }
+      }
+
+      async stopPreview() {
+        if (this.isNativePlatform() && this.plugin) {
+          let res = { success: true };
+          if (typeof this.plugin.stopPreview === 'function') {
+            res = await this.plugin.stopPreview();
+          }
+          this.underlay_active = false;
+          this.underlayActive = false;
+          if (typeof document !== 'undefined' && document.body) {
+            document.body.classList.remove('native-camera-underlay-active');
+          }
+          return res || { success: true };
+        } else {
+          if (stream && stream.getVideoTracks) {
+            stream.getVideoTracks().forEach(t => t.stop());
+          }
+          this.webrtc_active = false;
+          this.webrtcActive = false;
+          return { success: true };
+        }
+      }
+
+      async teardown() {
+        return await this.stopPreview();
+      }
+
+      async toggleLens(targetZoom) {
+        if (this.isNativePlatform() && this.plugin) {
+          let newLens;
+          let targetNum;
+          if (targetZoom !== undefined && targetZoom !== null) {
+            targetNum = (targetZoom === 0.5 || targetZoom === '0.5' || targetZoom === '0.5x') ? 0.5 : 1.0;
+            newLens = targetNum === 0.5 ? "0.5x" : "1.0x";
+          } else {
+            newLens = (this.active_lens === "1.0x") ? "0.5x" : "1.0x";
+            targetNum = (newLens === "0.5x") ? 0.5 : 1.0;
+          }
+          this.active_lens = newLens;
+          this.activeLens = newLens;
+          currentZoom = targetNum;
+          if (typeof updateLensToggleUI === 'function') {
+            updateLensToggleUI(currentZoom);
+          }
+          try {
+            if (typeof this.plugin.startPreview === 'function') {
+              await this.plugin.startPreview({ zoomRatio: targetNum, lens: targetNum === 0.5 ? 'ultra_wide' : 'wide', targetFps: 60 });
+            }
+          } catch (err) {
+            console.warn('[BRIDGE] Native lens switch error:', err);
+          }
+          return this.active_lens;
+        } else {
+          const target = (targetZoom === undefined || targetZoom === null)
+            ? (currentZoom === 0.5 ? 1.0 : 0.5)
+            : ((targetZoom === 0.5 || targetZoom === '0.5' || targetZoom === '0.5x') ? 0.5 : 1.0);
+          this.active_lens = (target === 0.5) ? "0.5x" : "1.0x";
+          this.activeLens = this.active_lens;
+          if (typeof resolveCameraStream === 'function') {
+            await resolveCameraStream(target);
+          }
+          return this.active_lens;
+        }
+      }
+
+      async lockExposureAndFocus(options = { aeLocked: true, afLocked: true }) {
+        if (this.isNativePlatform() && this.plugin && typeof this.plugin.lockExposureAndFocus === 'function') {
+          return await this.plugin.lockExposureAndFocus({ aeLocked: true, afLocked: true, ...(options || {}) });
+        }
+        if (stream && stream.getVideoTracks) {
+          const track = stream.getVideoTracks()[0];
+          if (track && typeof track.applyConstraints === 'function') {
+            try {
+              await track.applyConstraints({ advanced: [{ exposureMode: 'manual', focusMode: 'manual' }] });
+            } catch (_) {}
+          }
+        }
+        return { aeLocked: Boolean(options.aeLocked), afLocked: Boolean(options.afLocked), success: true };
+      }
+
+      async startRecording(options = { recordImu: true }) {
+        if (this.isNativePlatform() && this.plugin) {
+          if (typeof lockCameraControls === 'function') lockCameraControls();
+          try {
+            await this.lockExposureAndFocus({ aeLocked: true, afLocked: true });
+          } catch (e) {
+            console.warn('[BRIDGE] AE/AF lock failed before startRecording:', e);
+          }
+          const res = (typeof this.plugin.startRecording === 'function')
+            ? await this.plugin.startRecording({ recordImu: true, ...(options || {}) })
+            : { success: true };
+          isRecording = true;
+          updateRecordingUIStarted();
+          return res;
+        } else {
+          return startRecordingWebRTC();
+        }
+      }
+
+      async stopRecording() {
+        if (this.isNativePlatform() && this.plugin) {
+          const res = (typeof this.plugin.stopRecording === 'function')
+            ? await this.plugin.stopRecording()
+            : { success: true };
+          isRecording = false;
+          if (typeof unlockCameraControls === 'function') unlockCameraControls();
+          try {
+            await this.lockExposureAndFocus({ aeLocked: false, afLocked: false });
+          } catch (e) {
+            console.warn('[BRIDGE] AE/AF unlock failed after stopRecording:', e);
+          }
+          updateRecordingUIStoppedNative(res);
+          this.lastRecordingResult = res;
+          return res;
+        } else {
+          return stopRecordingWebRTC();
+        }
+      }
+
+      async checkPermissions() {
+        if (this.isNativePlatform() && this.plugin && typeof this.plugin.checkPermissions === 'function') {
+          return await this.plugin.checkPermissions();
+        }
+        return { camera: "granted", audio: "granted" };
+      }
+
+      async requestPermissions() {
+        if (this.isNativePlatform() && this.plugin && typeof this.plugin.requestPermissions === 'function') {
+          return await this.plugin.requestPermissions();
+        }
+        return { camera: "granted", audio: "granted" };
+      }
+
+      async getAvailableCameras() {
+        if (this.isNativePlatform() && this.plugin && typeof this.plugin.getAvailableCameras === 'function') {
+          return await this.plugin.getAvailableCameras();
+        }
+        return { cameras: [] };
+      }
+    }
+
+    // Default singleton instance
+    const CameraBridgeAdapter = new CameraBridgeAdapterClass();
+    CameraBridgeAdapter.CameraBridgeAdapter = CameraBridgeAdapterClass;
+
+    // 1. Initialiseer Camera & Sensoren (met iOS permissie check)
+    startAppBtn.addEventListener('click', async () => {
+      try {
+        // iOS 13+ permissie voor DeviceMotion
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+          const permissionState = await DeviceMotionEvent.requestPermission();
+          if (permissionState !== 'granted') {
+            alert("Toegang tot bewegingssensoren is vereist voor het loggen van de IMU data.");
+          }
+        }
+        
+        sendCameraDiagnostics('start_app_clicked');
+        await startCamera(currentFacingMode, 0.5);
+        startSensorListeners();
+        startSheet.classList.add('hidden');
+        sendCameraDiagnostics('camera_started');
+      } catch (err) {
+        alert("Fout bij inschakelen van camera of sensoren: " + err.message);
+        console.error(err);
+      }
+    });
+
+    // Heuristic label scorers for multi-camera device auto-discovery
+    function scoreUltraWideLabel(label) {
+      const l = (label || '').toLowerCase();
+      if (l.includes('front') || l.includes('user') || l.includes('selfie') || l.includes('facing front')) return -1;
+
+      // Exclude telephoto/zoom-in lenses (2x, 3x, 5x, 10x etc., not preceded by dot/digit)
+      if (l.includes('telephoto') || l.includes('tele') || l.includes('periscope') || /(?<![.\d])([2-9]|10)x\b/.test(l)) return -1;
+
+      // Explicit ultra-wide / 0.5x indicators
+      if (l.includes('ultra') || l.includes('0.5') || l.includes('uw') || l.includes('ultrawide') || l.includes('groothoek')) {
+        return 100;
+      }
+
+      // Android Camera2 & iOS multi-back patterns:
+      // Pattern 1: Camera ID 1 facing back (e.g. camera2 1, camera 1, back 1, 1 facing back)
+      if (/(?:camera2?|back|rear)\s+1\b/.test(l) || /\bback\s*1\b/.test(l) || /^1\s*,\s*facing back/.test(l)) {
+        return 95;
+      }
+
+      // Pattern 2: Camera ID 2 facing back (Google Pixel 6/7/8/9 Pro & Pro XL, Samsung: camera2 2, camera 2, back 2, 2 facing back)
+      if (/(?:camera2?|back|rear)\s+2\b/.test(l) || /\bback\s*2\b/.test(l) || /^2\s*,\s*facing back/.test(l)) {
+        return 90;
+      }
+
+      // Pattern 3: Auxiliary rear camera ID >= 3
+      if (/(?:camera2?|back|rear)\s+([3-9]|\d{2,})\b/.test(l) || /^([3-9]|\d{2,})\s*,\s*facing back/.test(l)) {
+        return 40;
+      }
+
+      if (l.includes('wide-angle') || l.includes('wide angle')) {
+        return 50;
+      }
+      return 0;
+    }
+
+    function scoreStandardLabel(label) {
+      const l = (label || '').toLowerCase();
+      if (l.includes('front') || l.includes('user') || l.includes('selfie') || l.includes('facing front')) return -1;
+      if (l.includes('telephoto') || l.includes('tele') || l.includes('periscope') || /(?<![.\d])([2-9]|10)x\b/.test(l)) return -1;
+      if (l.includes('ultra') || l.includes('0.5') || l.includes('uw') || l.includes('ultrawide')) return -1;
+
+      // Primary main camera on Android / iOS (ID 0)
+      if (l.includes('main') || l.includes('primary') || /(?:camera2?|back|rear)\s+0\b/.test(l) || /^0\s*,\s*facing back/.test(l)) {
+        return 100;
+      }
+
+      // Auxiliary cameras (camera2 1..9 or back 1..9) should NOT be scored as primary standard camera
+      if (/(?:camera2?|back|rear)\s+([1-9]|\d{2,})\b/.test(l) || /^([1-9]|\d{2,})\s*,\s*facing back/.test(l)) {
+        return -1;
+      }
+
+      if (l.includes('back') || l.includes('environment')) {
+        return 80;
+      }
+      return 10;
+    }
+
+    // Detect lens capabilities across Tier 1 (enumerateDevices) & Tier 2 (getCapabilities.zoom)
+    async function detectLensCapabilities(activeStream) {
+      let hasUltraWide = false;
+      let minZoom = 1.0;
+      let maxZoom = 1.0;
+      let ultraWideDeviceId = null;
+      let standardDeviceId = null;
+      let supportsZoomConstraint = false;
+      let allBackDevices = [];
+
+      // Tier 1: Device Enumeration
+      try {
+        if (navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function') {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(d => d.kind === 'videoinput');
+
+          allBackDevices = videoDevices.filter(d => {
+            const l = (d.label || '').toLowerCase();
+            const isFront = l.includes('front') || l.includes('user') || l.includes('selfie') || l.includes('facing front');
+            const isTele = l.includes('telephoto') || l.includes('tele') || l.includes('periscope') || /(?<![.\d])([2-9]|10)x\b/.test(l);
+            return !isFront && !isTele;
+          });
+
+          let bestUltraScore = 0;
+          let bestStdScore = -1;
+
+          for (const dev of videoDevices) {
+            const uScore = scoreUltraWideLabel(dev.label);
+            if (uScore > bestUltraScore) {
+              bestUltraScore = uScore;
+              ultraWideDeviceId = dev.deviceId;
+            }
+
+            const sScore = scoreStandardLabel(dev.label);
+            if (sScore > bestStdScore) {
+              bestStdScore = sScore;
+              standardDeviceId = dev.deviceId;
+            }
+          }
+
+          if (bestUltraScore >= 50 && ultraWideDeviceId) {
+            hasUltraWide = true;
+            minZoom = 0.5;
+            if (!standardDeviceId) {
+              const other = videoDevices.find(d => d.deviceId !== ultraWideDeviceId);
+              if (other) standardDeviceId = other.deviceId;
+            }
+          } else if (allBackDevices.length >= 2 && !ultraWideDeviceId) {
+            // Automatic multi-back heuristic fallback: 2nd back camera is ultra-wide on Android
+            hasUltraWide = true;
+            minZoom = 0.5;
+            ultraWideDeviceId = allBackDevices[1].deviceId;
+            standardDeviceId = allBackDevices[0].deviceId;
+          }
+        }
+      } catch (err) {
+        console.warn('Tier 1 enumerateDevices error:', err);
+      }
+
+      // Tier 2: Continuous Zoom Capability inspection
+      try {
+        const checkTrack = (activeStream && activeStream.getVideoTracks) ? activeStream.getVideoTracks()[0] : (stream ? stream.getVideoTracks()[0] : null);
+        if (checkTrack && typeof checkTrack.getCapabilities === 'function') {
+          const caps = checkTrack.getCapabilities() || {};
+          if (caps.zoom && typeof caps.zoom === 'object') {
+            const rawMin = caps.zoom.min;
+            const rawMax = caps.zoom.max;
+            const hasMin = typeof rawMin === 'number' && Number.isFinite(rawMin);
+            const hasMax = typeof rawMax === 'number' && Number.isFinite(rawMax);
+            if (hasMin && hasMax) {
+              minZoom = Math.min(minZoom, rawMin);
+              maxZoom = Math.max(maxZoom, rawMax);
+              if (rawMin <= 0.6) {
+                hasUltraWide = true;
+                supportsZoomConstraint = true;
+              }
+            } else if (hasMin) {
+              minZoom = Math.min(minZoom, rawMin);
+              if (rawMin <= 0.6) {
+                hasUltraWide = true;
+                supportsZoomConstraint = true;
+              }
+            } else if (hasMax) {
+              maxZoom = Math.max(maxZoom, rawMax);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Tier 2 getCapabilities zoom inspection error:', err);
+      }
+
+      if (!hasUltraWide) {
+        minZoom = 1.0;
+      }
+      if (!Number.isFinite(minZoom) || isNaN(minZoom)) minZoom = 1.0;
+      if (!Number.isFinite(maxZoom) || isNaN(maxZoom)) maxZoom = 1.0;
+
+      lensCapabilities = {
+        hasUltraWide,
+        minZoom,
+        maxZoom,
+        ultraWideDeviceId,
+        standardDeviceId,
+        supportsZoomConstraint,
+        allBackDevices
+      };
+
+      return lensCapabilities;
+    }
+
+    // Helper to safely apply or replace the active MediaStream
+    async function applyOrReplaceStream(constraints, expectedEpoch) {
+      if (isRecording) {
+        console.warn('Cannot replace camera stream while recording is active');
+        return stream;
+      }
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+        throw new Error('navigator.mediaDevices.getUserMedia is not available');
+      }
+      const epoch = (expectedEpoch !== undefined) ? expectedEpoch : ++streamRequestEpoch;
+      // Auto-inject zoom: true for back camera if supported by browser
+      if (constraints && constraints.video && typeof constraints.video === 'object') {
+        const supported = (navigator.mediaDevices && typeof navigator.mediaDevices.getSupportedConstraints === 'function')
+          ? navigator.mediaDevices.getSupportedConstraints() : {};
+        if (supported && supported.zoom && !constraints.video.deviceId && constraints.video.facingMode !== 'user') {
+          constraints.video.zoom = true;
+        }
+      }
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (epoch !== streamRequestEpoch) {
+        if (newStream && newStream.getTracks) {
+          newStream.getTracks().forEach(t => t.stop());
+        }
+        return stream;
+      }
+      if (stream) {
+        try {
+          stream.getTracks().forEach(t => t.stop());
+        } catch (e) {
+          console.warn('Error stopping track:', e);
+        }
+      }
+      stream = newStream;
+      try {
+        await detectLensCapabilities(stream);
+      } catch (e) {
+        console.warn('detectLensCapabilities error in applyOrReplaceStream:', e);
+      }
+      sendCameraDiagnostics('stream_acquired');
+      if (videoElem) {
+        videoElem.srcObject = stream;
+        try {
+          if (typeof videoElem.play === 'function') {
+            const playPromise = videoElem.play();
+            if (playPromise !== undefined) {
+              await playPromise.catch(e => {
+                if (e.name !== 'AbortError') console.warn('videoElem.play warning:', e);
+              });
+            }
+          }
+        } catch (playErr) {
+          console.warn('videoElem.play error:', playErr);
+        }
+      }
+
+      if (stream && stream.getVideoTracks) {
+        stream.getVideoTracks().forEach(track => {
+          track.onended = () => {
+            console.warn('Active video track ended unexpectedly');
+            if (isRecording) {
+              stopRecording();
+            }
+          };
+        });
+      }
+
+      // Re-apply torch if active
+      if (currentTorch) {
+        const track = stream.getVideoTracks()[0];
+        if (track && typeof track.getCapabilities === 'function' && track.getCapabilities().torch) {
+          track.applyConstraints({ advanced: [{ torch: true }] }).catch(() => {});
+        } else {
+          currentTorch = false;
+          if (torchBtn) torchBtn.style.color = "#fff";
+        }
+      }
+
+      return stream;
+    }
+
+    // Contract: update HUD toggle pill visual state
+    function updateLensToggleUI(zoom) {
+      if (typeof document === 'undefined') return;
+      const is05 = (zoom === 0.5 || zoom === '0.5' || zoom === '0.5x');
+      const btn05 = document.getElementById('lens-05');
+      const btn10 = document.getElementById('lens-10');
+      if (btn05 && btn10) {
+        if (is05) {
+          btn05.classList.add('active');
+          btn10.classList.remove('active');
+        } else {
+          btn10.classList.add('active');
+          btn05.classList.remove('active');
+        }
+
+        btn05.title = "0.5x Ultra-Wide";
+        btn10.title = "1.0x Standaard";
+        if (!isRecording) {
+          btn05.style.opacity = "1";
+          btn10.style.opacity = "1";
+        }
+
+        const zoomLiveVal = document.getElementById('zoom-live-val');
+        if (zoomLiveVal) zoomLiveVal.innerText = is05 ? '0.5x' : '1.0x';
+        const infoBadge = document.getElementById('active-lens-info');
+        if (infoBadge && stream && stream.getVideoTracks && stream.getVideoTracks().length > 0) {
+          const activeTrack = stream.getVideoTracks()[0];
+          const activeLabel = activeTrack.label || (is05 ? '0.5x Ultra-Wide' : '1.0x Standaard');
+          infoBadge.innerText = `🔍 ${is05 ? '0.5x Ultra' : '1.0x Hoofd'} (${activeLabel.slice(0, 22)})`;
+        }
+      }
+    }
+
+    // Contract: getLensCapabilities(): { hasUltraWide: boolean, minZoom: number, maxZoom: number }
+    function getLensCapabilities() {
+      let rawMin = lensCapabilities ? lensCapabilities.minZoom : undefined;
+      let rawMax = lensCapabilities ? lensCapabilities.maxZoom : undefined;
+      let hasUW = !!(lensCapabilities && lensCapabilities.hasUltraWide);
+
+      const isMinFinite = typeof rawMin === 'number' && Number.isFinite(rawMin) && !isNaN(rawMin);
+      const isMaxFinite = typeof rawMax === 'number' && Number.isFinite(rawMax) && !isNaN(rawMax);
+
+      if (!isMinFinite || !isMaxFinite) {
+        return {
+          hasUltraWide: false,
+          minZoom: 1.0,
+          maxZoom: 1.0
+        };
+      }
+
+      return {
+        hasUltraWide: hasUW,
+        minZoom: rawMin,
+        maxZoom: rawMax
+      };
+    }
+
+    // Contract: resolveCameraStream(targetZoom: 0.5 | 1.0): Promise<MediaStream>
+    async function resolveCameraStream(targetZoom = 0.5) {
+      if (CameraBridgeAdapter && CameraBridgeAdapter.isNative) {
+        const normZoom = (targetZoom === 0.5 || targetZoom === '0.5' || targetZoom === '0.5x') ? 0.5 : 1.0;
+        await CameraBridgeAdapter.startPreview({
+          zoomRatio: normZoom,
+          lens: normZoom <= 0.6 ? 'ultra_wide' : 'wide'
+        });
+        return stream;
+      }
+      const epoch = ++streamRequestEpoch;
+      const normZoom = (targetZoom === 0.5 || targetZoom === '0.5' || targetZoom === '0.5x') ? 0.5 : 1.0;
+
+      // Front camera mode: force standard front stream
+      if (currentFacingMode === "user") {
+        if (isRecording) {
+          console.warn('Cannot replace camera stream while recording is active');
+          return stream;
+        }
+        const constraints = {
+          video: {
+            facingMode: { ideal: "user" },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          },
+          audio: false
+        };
+        await applyOrReplaceStream(constraints, epoch);
+        if (epoch !== streamRequestEpoch) return stream;
+        currentZoom = 1.0;
+        updateLensToggleUI(1.0);
+        return stream;
+      }
+
+      // Pre-discover capabilities if available
+      await detectLensCapabilities(stream);
+      if (epoch !== streamRequestEpoch) return stream;
+
+      if (normZoom === 0.5) {
+        // Priority 1: If an ultraWideDeviceId is already discovered, switch directly!
+        if (lensCapabilities.ultraWideDeviceId) {
+          const activeTrack = (stream && stream.getVideoTracks) ? stream.getVideoTracks()[0] : null;
+          const activeSettings = (activeTrack && typeof activeTrack.getSettings === 'function') ? activeTrack.getSettings() : {};
+          if (activeSettings.deviceId === lensCapabilities.ultraWideDeviceId && activeTrack && activeTrack.readyState === 'live') {
+            currentZoom = 0.5;
+            updateLensToggleUI(0.5);
+            return stream;
+          }
+          if (!isRecording) {
+            try {
+              const constraints = {
+                video: {
+                  deviceId: { exact: lensCapabilities.ultraWideDeviceId },
+                  width: { ideal: 1920 },
+                  height: { ideal: 1080 }
+                },
+                audio: false
+              };
+              await applyOrReplaceStream(constraints, epoch);
+              if (epoch !== streamRequestEpoch) return stream;
+              currentZoom = 0.5;
+              updateLensToggleUI(0.5);
+              return stream;
+            } catch (err) {
+              console.warn('Tier 1 ultra-wide exact deviceId failed, attempting fallback:', err);
+              if (epoch !== streamRequestEpoch) return stream;
+            }
+          }
+        }
+
+        // Priority 2: If stream not open yet, open environment stream to unmask hardware labels & capabilities
+        if (!stream || !stream.getVideoTracks || stream.getVideoTracks().length === 0 || stream.getVideoTracks()[0].readyState === 'ended') {
+          try {
+            const standardConstraints = {
+              video: {
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+                zoom: (normZoom === 0.5) ? { ideal: 0.5 } : undefined
+              },
+              audio: false
+            };
+            await applyOrReplaceStream(standardConstraints, epoch);
+            if (epoch !== streamRequestEpoch) return stream;
+            // Now that stream is active, re-enumerate with unmasked labels!
+            await detectLensCapabilities(stream);
+            if (epoch !== streamRequestEpoch) return stream;
+
+            // If newly unmasked labels reveal an ultraWideDeviceId, switch to it immediately!
+            if (lensCapabilities.ultraWideDeviceId && !isRecording) {
+              try {
+                const uwConstraints = {
+                  video: {
+                    deviceId: { exact: lensCapabilities.ultraWideDeviceId },
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                  },
+                  audio: false
+                };
+                await applyOrReplaceStream(uwConstraints, epoch);
+                if (epoch !== streamRequestEpoch) return stream;
+                currentZoom = 0.5;
+                updateLensToggleUI(0.5);
+                return stream;
+              } catch (uwErr) {
+                console.warn('Failed switching to discovered ultra-wide deviceId:', uwErr);
+                if (epoch !== streamRequestEpoch) return stream;
+              }
+            }
+          } catch (err) {
+            console.warn('Failed opening initial environment stream:', err);
+            if (epoch !== streamRequestEpoch) return stream;
+          }
+        }
+
+        // Priority 3: Tier 2 continuous zoom constraint on active track (e.g. zoom <= 0.6)
+        if (stream && stream.getVideoTracks && stream.getVideoTracks().length > 0) {
+          const track = stream.getVideoTracks()[0];
+          logDiag('Actieve track: ' + (track.label || 'Geen label') + ', test zoom mogelijkheden...');
+          let zoomApplied = false;
+
+          if (typeof track.getCapabilities === 'function') {
+            const caps = track.getCapabilities() || {};
+            if (caps.zoom && typeof caps.zoom === 'object') {
+              const rawMin = caps.zoom.min;
+              if (typeof rawMin === 'number' && Number.isFinite(rawMin) && rawMin <= 0.6) {
+                const appliedZoom = Math.max(0.5, rawMin);
+                // Attempt A: advanced zoom appliedZoom
+                try {
+                  if (typeof track.applyConstraints === 'function') {
+                    logDiag('Probeer applyConstraints({ advanced: [{ zoom: ' + appliedZoom + ' }] })...');
+                    await track.applyConstraints({ advanced: [{ zoom: appliedZoom }] });
+                    logDiag('✅ advanced zoom ' + appliedZoom + ' gelukt!');
+                    zoomApplied = true;
+                  }
+                } catch (e1) {
+                  logDiag('⚠️ advanced zoom: ' + e1.message);
+                }
+
+                // Attempt B: direct zoom appliedZoom
+                if (!zoomApplied) {
+                  try {
+                    if (typeof track.applyConstraints === 'function') {
+                      logDiag('Probeer applyConstraints({ zoom: ' + appliedZoom + ' })...');
+                      await track.applyConstraints({ zoom: appliedZoom });
+                      logDiag('✅ direct zoom ' + appliedZoom + ' gelukt!');
+                      zoomApplied = true;
+                    }
+                  } catch (e2) {
+                    logDiag('⚠️ direct zoom: ' + e2.message);
+                  }
+                }
+              } else if (typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAgent.includes('Android')) {
+                logDiag('Android multi-camera HAL: min=' + rawMin + ', probeer 0.5x af te dwingen...');
+                try {
+                  if (typeof track.applyConstraints === 'function') {
+                    await track.applyConstraints({ advanced: [{ zoom: 0.5 }] });
+                    logDiag('✅ Android HAL: advanced zoom 0.5 geaccepteerd!');
+                    zoomApplied = true;
+                  }
+                } catch (eHal1) {
+                  logDiag('⚠️ Android HAL advanced: ' + eHal1.message);
+                }
+                if (!zoomApplied) {
+                  try {
+                    if (typeof track.applyConstraints === 'function') {
+                      await track.applyConstraints({ zoom: 0.5 });
+                      logDiag('✅ Android HAL: direct zoom 0.5 geaccepteerd!');
+                      zoomApplied = true;
+                    }
+                  } catch (eHal2) {
+                    logDiag('⚠️ Android HAL direct: ' + eHal2.message);
+                  }
+                }
+              } else {
+                logDiag('Track zoom min (' + (rawMin !== undefined ? rawMin : 'geen') + ') > 0.6');
+              }
+            } else {
+              logDiag('Geen zoom object in track capabilities');
+            }
+          }
+
+          if (zoomApplied) {
+            if (epoch !== streamRequestEpoch) return stream;
+            currentZoom = 0.5;
+            updateLensToggleUI(0.5);
+            sendCameraDiagnostics('zoom_05_applied', { zoomApplied: true });
+            return stream;
+          }
+        }
+
+        // Priority 4: Fallback to 1.0x if ultra-wide is truly unavailable
+        if (epoch !== streamRequestEpoch) return stream;
+        currentZoom = 1.0;
+        updateLensToggleUI(1.0);
+        return stream;
+      } else {
+        // normZoom === 1.0
+        if (lensCapabilities.ultraWideDeviceId && stream && stream.getVideoTracks && stream.getVideoTracks().length > 0) {
+          const track = stream.getVideoTracks()[0];
+          const settings = typeof track.getSettings === 'function' ? track.getSettings() : {};
+          if (settings.deviceId === lensCapabilities.ultraWideDeviceId) {
+            if (!isRecording) {
+              const standardConstraints = {
+                video: {
+                  deviceId: lensCapabilities.standardDeviceId ? { exact: lensCapabilities.standardDeviceId } : undefined,
+                  facingMode: lensCapabilities.standardDeviceId ? undefined : { ideal: "environment" },
+                  width: { ideal: 1920 },
+                  height: { ideal: 1080 }
+                },
+                audio: false
+              };
+              await applyOrReplaceStream(standardConstraints, epoch);
+              if (epoch !== streamRequestEpoch) return stream;
+            }
+          }
+        }
+
+        if (stream && stream.getVideoTracks && stream.getVideoTracks().length > 0) {
+          const track = stream.getVideoTracks()[0];
+          if (typeof track.getCapabilities === 'function') {
+            const caps = track.getCapabilities() || {};
+            if (caps.zoom) {
+              try {
+                if (typeof track.applyConstraints === 'function') {
+                  await track.applyConstraints({ advanced: [{ zoom: 1.0 }] });
+                }
+              } catch (err) {
+                console.warn('Failed resetting zoom constraint to 1.0:', err);
+              }
+            }
+          }
+        } else {
+          const constraints = {
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 }
+            },
+            audio: false
+          };
+          await applyOrReplaceStream(constraints, epoch);
+          if (epoch !== streamRequestEpoch) return stream;
+        }
+
+        if (epoch !== streamRequestEpoch) return stream;
+        currentZoom = 1.0;
+        updateLensToggleUI(1.0);
+        return stream;
+      }
+    }
+
+    // Contract: toggleLens(newZoom: 0.5 | 1.0): Promise<void>
+    async function toggleLens(newZoom) {
+      if (CameraBridgeAdapter && CameraBridgeAdapter.isNative) {
+        try {
+          await CameraBridgeAdapter.toggleLens(newZoom);
+        } catch (err) {
+          console.error('[BRIDGE] Error toggling native lens:', err);
+        }
+        return;
+      }
+      try {
+        const target = (newZoom === 0.5 || newZoom === '0.5' || newZoom === '0.5x') ? 0.5 : 1.0;
+        await resolveCameraStream(target);
+      } catch (err) {
+        console.error('Error toggling lens:', err);
+        currentZoom = 1.0;
+        updateLensToggleUI(1.0);
+      }
+    }
+
+    async function startCamera(facingMode = "environment", targetZoom = null) {
+      if (isRecording) {
+        console.warn('Cannot switch camera while recording is active');
+        return stream;
+      }
+      currentFacingMode = facingMode;
+      const target = (facingMode === "user") ? 1.0 : (targetZoom !== null ? targetZoom : (currentZoom || 1.0));
+      if (CameraBridgeAdapter && CameraBridgeAdapter.isNative) {
+        return await CameraBridgeAdapter.startPreview({
+          zoomRatio: target,
+          lens: (facingMode === "user" || target > 0.6) ? 'wide' : 'ultra_wide',
+          facingMode: facingMode
+        });
+      }
+      return await resolveCameraStream(target);
+    }
+
+    // 2. Sensor Listeners (DeviceMotion & DeviceOrientation)
+    function startSensorListeners() {
+      let hzCounter = 0;
+      hzInterval = setInterval(() => {
+        hzVal.innerText = hzCounter;
+        hzCounter = 0;
+      }, 1000);
+
+      window.addEventListener('devicemotion', (event) => {
+        hzCounter++;
+        sensorSampleCount++;
+        samplesVal.innerText = sensorSampleCount;
+
+        const hwTime = (typeof event.timeStamp === 'number' && event.timeStamp > 0)
+          ? event.timeStamp
+          : performance.now();
+        if (isRecording && !recordingStartHardwareTime) {
+          recordingStartHardwareTime = hwTime;
+        }
+        const relTime = isRecording
+          ? (hwTime - recordingStartHardwareTime)
+          : (performance.now() - recordingStartTime);
+
+        const acc = event.acceleration || { x: 0, y: 0, z: 0 };
+        const accG = event.accelerationIncludingGravity || { x: 0, y: 0, z: 0 };
+        const rot = event.rotationRate || { alpha: 0, beta: 0, gamma: 0 };
+
+        // Bereken pitch hoek (kanteling t.o.v. zwaartekracht)
+        if (accG.y !== null && accG.z !== null) {
+          const pitchRad = Math.atan2(accG.z, accG.y);
+          currentPitch = Math.round(pitchRad * (180 / Math.PI));
+          pitchDeg.innerText = currentPitch + "°";
+          updatePitchGuidance(currentPitch);
+        }
+
+        if (isRecording) {
+          sensorData.push({
+            t: relTime,
+            iso: new Date().toISOString(),
+            ax: acc.x, ay: acc.y, az: acc.z,
+            gx: accG.x, gy: accG.y, gz: accG.z,
+            rx: rot.alpha, ry: rot.beta, rz: rot.gamma
+          });
+        }
+
+        sensorText.innerText = "IMU Actief (" + hzCounter + "Hz)";
+      });
+    }
+
+    function updatePitchGuidance(pitch) {
+      if (pitch > 80) {
+        pitchHud.className = "pitch-indicator optimal";
+        pitchText.innerText = "👇 Vloer & Plinten in beeld";
+      } else if (pitch >= 60 && pitch <= 80) {
+        pitchHud.className = "pitch-indicator optimal";
+        pitchText.innerText = "🪟 Ramen, Vensterbank & Radiator";
+      } else {
+        pitchHud.className = "pitch-indicator optimal";
+        pitchText.innerText = "👆 Plafond & Gordijnrailruimte";
+      }
+    }
+
+    // 3. Opname Starten / Stoppen met instant touch responsiveness
+    let lastRecordTouchTimestamp = 0;
+    function doToggleRecord() {
+      if (!isRecording) {
+        startRecording();
+      } else {
+        stopRecording();
+      }
+    }
+
+    toggleRecordBtn.addEventListener('pointerup', (e) => {
+      if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+        lastRecordTouchTimestamp = Date.now();
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try { navigator.vibrate(50); } catch (_) {}
+        }
+        doToggleRecord();
+        if (e.cancelable) e.preventDefault();
+      }
+    });
+
+    toggleRecordBtn.addEventListener('pointercancel', () => {
+      lastRecordTouchTimestamp = 0;
+    });
+
+    toggleRecordBtn.addEventListener('click', () => {
+      // Ignore delayed synthetic click immediately following touch pointerup
+      if (Date.now() - lastRecordTouchTimestamp < 400) {
+        return;
+      }
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try { navigator.vibrate(50); } catch (_) {}
+      }
+      doToggleRecord();
+    });
+
+    function lockCameraControls() {
+      if (lens05Btn) {
+        lens05Btn.disabled = true;
+        lens05Btn.style.pointerEvents = 'none';
+        lens05Btn.style.opacity = '0.5';
+      }
+      if (lens10Btn) {
+        lens10Btn.disabled = true;
+        lens10Btn.style.pointerEvents = 'none';
+        lens10Btn.style.opacity = '0.5';
+      }
+      if (switchCamBtn) {
+        switchCamBtn.disabled = true;
+        switchCamBtn.style.pointerEvents = 'none';
+        switchCamBtn.style.opacity = '0.5';
+      }
+    }
+
+    function unlockCameraControls() {
+      if (lens05Btn) {
+        lens05Btn.disabled = false;
+        lens05Btn.style.pointerEvents = '';
+        lens05Btn.style.opacity = '1';
+      }
+      if (lens10Btn) {
+        lens10Btn.disabled = false;
+        lens10Btn.style.pointerEvents = '';
+        lens10Btn.style.opacity = '1';
+      }
+      if (switchCamBtn) {
+        switchCamBtn.disabled = false;
+        switchCamBtn.style.pointerEvents = '';
+        switchCamBtn.style.opacity = '1';
+      }
+    }
+
+    function startRecordingWebRTC() {
+      recordedChunks = [];
+      sensorData = new BoundedImuBuffer();
+      frameTimestamps = [];
+      sensorSampleCount = 0;
+      isRecording = true;
+      recordingStartTime = performance.now();
+      recordingStartHardwareTime = 0;
+
+      function recordFrameTimestamp(now, metadata) {
+        if (!isRecording) return;
+        const framePts = (metadata && typeof metadata.presentationTime === 'number')
+          ? metadata.presentationTime
+          : (typeof now === 'number' ? now : performance.now());
+        frameTimestamps.push({
+          frameIndex: frameTimestamps.length,
+          t: framePts - recordingStartTime,
+          presentationTime: (metadata && metadata.presentationTime) || framePts,
+          expectedDisplayTime: (metadata && metadata.expectedDisplayTime) || null,
+          width: (metadata && metadata.width) || null,
+          height: (metadata && metadata.height) || null,
+          wallTime: Date.now()
+        });
+        if (typeof cameraVideo !== 'undefined' && cameraVideo && 'requestVideoFrameCallback' in cameraVideo) {
+          cameraVideo.requestVideoFrameCallback(recordFrameTimestamp);
+        }
+      }
+      if (typeof cameraVideo !== 'undefined' && cameraVideo && 'requestVideoFrameCallback' in cameraVideo) {
+        cameraVideo.requestVideoFrameCallback(recordFrameTimestamp);
+      }
+
+      // Lock out camera & lens controls during active recording
+      lockCameraControls();
+
+      // Zoek beste ondersteunde formaat
+      const mimeTypes = [
+        'video/mp4;codecs=avc1',
+        'video/mp4',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm'
+      ];
+      currentMimeType = mimeTypes.find(type => (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(type))) || 'video/webm';
+
+      if (typeof MediaRecorder !== 'undefined' && stream) {
+        try {
+          mediaRecorder = new MediaRecorder(stream, { mimeType: currentMimeType });
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+          };
+          mediaRecorder.onstop = handleRecordingStopped;
+          mediaRecorder.start(250); // slices van 250ms
+        } catch (e) {
+          console.warn('Failed to start MediaRecorder:', e);
+        }
+      }
+
+      updateRecordingUIStarted();
+    }
+
+    function stopRecordingWebRTC() {
+      isRecording = false;
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+
+      unlockCameraControls();
+
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        try {
+          mediaRecorder.stop();
+        } catch (e) {
+          console.warn('Error stopping mediaRecorder:', e);
+        }
+      }
+
+      if (toggleRecordBtn) toggleRecordBtn.classList.remove('recording');
+      if (recDot) recDot.className = "badge-dot active";
+      if (recText) recText.innerText = "Verwerken...";
+    }
+
+    function startRecording(options = { recordImu: true }) {
+      if (CameraBridgeAdapter && CameraBridgeAdapter.isNative) {
+        return CameraBridgeAdapter.startRecording(options);
+      }
+      return startRecordingWebRTC();
+    }
+
+    function stopRecording() {
+      if (CameraBridgeAdapter && CameraBridgeAdapter.isNative) {
+        return CameraBridgeAdapter.stopRecording();
+      }
+      return stopRecordingWebRTC();
+    }
+
+    // 4. Verwerking & Download Pakket
+    async function handleRecordingStopped() {
+      isRecording = false;
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+
+      unlockCameraControls();
+
+      currentVideoBlob = new Blob(recordedChunks, { type: currentMimeType });
+      const videoUrl = URL.createObjectURL(currentVideoBlob);
+      playbackPreview.src = videoUrl;
+
+      const durationSec = ((performance.now() - recordingStartTime) / 1000).toFixed(1);
+      finishSummary.innerText = `Opnameduur: ${durationSec}s | Sensordata: ${sensorData.length} metingen (~${Math.round(sensorData.length / durationSec)} Hz).`;
+
+      finishSheet.classList.remove('hidden');
+      recText.innerText = "Gereed";
+      recTimer.style.display = "none";
+    }
+
+    // Direct Upload naar PC Server
+    const uploadPcBtn = document.getElementById('upload-pc-btn');
+    const pcUrlInput = document.getElementById('pc-url-input');
+    if (pcUrlInput && window.location && window.location.protocol && window.location.protocol.startsWith('http') && !window.location.hostname.includes('github.io') && window.location.origin) {
+      pcUrlInput.value = window.location.origin + '/upload';
+    }
+    const uploadStatus = document.getElementById('upload-status');
+
+    uploadPcBtn.addEventListener('click', async () => {
+      const targetUrl = pcUrlInput.value.trim();
+      if (!targetUrl) return alert("Voer een geldige server URL in!");
+      uploadStatus.style.color = "var(--primary)";
+      uploadStatus.innerText = "Pakket inpakken en verzenden naar PC...";
+      uploadPcBtn.disabled = true;
+
+      try {
+        const videoBlob = currentVideoBlob || new Blob([], { type: currentMimeType || 'video/webm' });
+        const sensorJson = JSON.stringify(sensorData, null, 2);
+        const frameTimestampsJson = JSON.stringify(frameTimestamps, null, 2);
+        const zipBlob = await generateOfflineZip(videoBlob, sensorJson, frameTimestampsJson);
+
+        const filename = `woninginrichter_scan_${new Date().toISOString().slice(0,10)}_${Date.now()}.zip`;
+
+        let sha256Hex = '';
+        if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function') {
+          try {
+            const buf = await zipBlob.arrayBuffer();
+            const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+            sha256Hex = Array.from(new Uint8Array(hashBuf))
+              .map(b => b.toString(16).padStart(2, '0'))
+              .join('');
+          } catch (e) {
+            console.warn("Client SHA-256 computation skipped:", e);
+          }
+        }
+
+        const headers = {
+          'Content-Type': 'application/zip',
+          'X-Filename': filename
+        };
+        if (sha256Hex) {
+          headers['X-SHA256'] = sha256Hex;
+        }
+
+        const res = await fetch(targetUrl, {
+          method: 'POST',
+          headers,
+          body: zipBlob
+        });
+
+        if (res.ok) {
+          const respJson = await res.json().catch(() => ({}));
+          uploadStatus.style.color = "var(--accent)";
+          const hashNotice = (respJson && respJson.sha256) ? ` (SHA-256: ${respJson.sha256.slice(0, 8)}...)` : '';
+          uploadStatus.innerText = `\u2705 Gelukt! Direct opgeslagen in PC projectmap (uploads/)${hashNotice}`;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error || errData.message || ("Server status " + res.status);
+          throw new Error(errMsg);
+        }
+      } catch (err) {
+        uploadStatus.style.color = "var(--danger)";
+        uploadStatus.innerText = "❌ Niet gelukt: " + err.message + " (Draait server.py op PC?)";
+        if (downloadOfflineZipBtn) {
+          downloadOfflineZipBtn.dataset.keepVisible = 'true';
+          downloadOfflineZipBtn.style.display = 'flex';
+          downloadOfflineZipBtn.classList.remove('hidden');
+        }
+      } finally {
+        uploadPcBtn.disabled = false;
+      }
+    });
+
+    // ZIP Generator & Downloader (Lokale Backup)
+    downloadZipBtn.addEventListener('click', async () => {
+      downloadZipBtn.innerText = "Inpakken (.zip)...";
+      downloadZipBtn.disabled = true;
+      try {
+        const videoBlob = currentVideoBlob || new Blob([], { type: currentMimeType || 'video/webm' });
+        const sensorJson = JSON.stringify(sensorData, null, 2);
+        const frameTimestampsJson = JSON.stringify(frameTimestamps, null, 2);
+        const zipBlob = await generateOfflineZip(videoBlob, sensorJson, frameTimestampsJson);
+        triggerDownload(zipBlob, `woninginrichter_scan_${new Date().toISOString().slice(0,10)}_${Date.now()}.zip`);
+      } catch (err) {
+        console.error("ZIP generatie fout:", err);
+        alert("Fout bij downloaden ZIP: " + err.message);
+      } finally {
+        downloadZipBtn.disabled = false;
+        downloadZipBtn.innerHTML = "<span>📦</span> Download Backup (.zip op telefoon)";
+      }
+    });
+
+    downloadVideoBtn.addEventListener('click', () => {
+      const ext = currentMimeType.includes('mp4') ? 'mp4' : 'webm';
+      triggerDownload(currentVideoBlob, `scan_video.${ext}`);
+    });
+
+    downloadJsonBtn.addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(sensorData, null, 2)], { type: "application/json" });
+      triggerDownload(blob, "sensor_log.json");
+    });
+
+    downloadCsvBtn.addEventListener('click', () => {
+      let csvContent = "t_ms,iso_timestamp,ax,ay,az,gx,gy,gz,rx,ry,rz\n";
+      sensorData.forEach(row => {
+        csvContent += `${row.t.toFixed(2)},${row.iso},${row.ax},${row.ay},${row.az},${row.gx},${row.gy},${row.gz},${row.rx},${row.ry},${row.rz}\n`;
+      });
+      const blob = new Blob([csvContent], { type: "text/csv" });
+      triggerDownload(blob, "sensor_log.csv");
+    });
+
+    function triggerDownload(blob, filename) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    newScanBtn.addEventListener('click', () => {
+      finishSheet.classList.add('hidden');
+      recordedChunks = [];
+      sensorData = new BoundedImuBuffer();
+      frameTimestamps = [];
+      currentVideoBlob = null;
+    });
+
+    // Zaklamp Toggle
+    torchBtn.addEventListener('click', async () => {
+      if (!stream) return;
+      const track = stream.getVideoTracks()[0];
+      if (!track) return;
+      const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+      if (capabilities.torch) {
+        currentTorch = !currentTorch;
+        await track.applyConstraints({ advanced: [{ torch: currentTorch }] });
+        torchBtn.style.color = currentTorch ? "var(--warning)" : "#fff";
+      } else {
+        alert("Zaklamp wordt niet ondersteund door deze browser/camera.");
+      }
+    });
+
+    // Camera Switch (Front/Back)
+    switchCamBtn.addEventListener('click', async () => {
+      if (isRecording || switchCamBtn.disabled) return;
+      currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
+      if (lensTogglePill) {
+        lensTogglePill.style.display = (currentFacingMode === "user") ? "none" : "inline-flex";
+      }
+      await startCamera(currentFacingMode);
+    });
+
+    // Lens Toggle Click Listeners (0.5x / 1.0x)
+    if (lens05Btn) {
+      lens05Btn.addEventListener('click', async () => {
+        if (isRecording || lens05Btn.disabled) return;
+        logDiag('Gebruiker tikt op [ 0.5x ]');
+        await toggleLens(0.5);
+        sendCameraDiagnostics('toggle_05_clicked');
+      });
+    }
+    if (lens10Btn) {
+      lens10Btn.addEventListener('click', async () => {
+        if (isRecording || lens10Btn.disabled) return;
+        await toggleLens(1.0);
+      });
+    }
+
+    const activeLensInfo = document.getElementById('active-lens-info');
+    if (activeLensInfo) {
+      activeLensInfo.addEventListener('click', () => {
+        if (isRecording) return;
+        openCameraInspector();
+      });
+    }
+
+    async function openCameraInspector() {
+      const modal = document.getElementById('camera-inspector-modal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+
+      const labelEl = document.getElementById('inspector-track-label');
+      const idEl = document.getElementById('inspector-track-id');
+      const resEl = document.getElementById('inspector-track-res');
+      const zoomEl = document.getElementById('inspector-track-zoom');
+      const curZoomEl = document.getElementById('inspector-track-settings');
+      const devListEl = document.getElementById('inspector-device-list');
+      const feedbackEl = document.getElementById('inspector-feedback');
+
+      if (feedbackEl) feedbackEl.innerText = '';
+
+      const track = (stream && stream.getVideoTracks) ? stream.getVideoTracks()[0] : null;
+      if (track) {
+        const settings = typeof track.getSettings === 'function' ? track.getSettings() : {};
+        const caps = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+
+        if (labelEl) labelEl.innerText = 'Label: ' + (track.label || 'Onbekend');
+        if (idEl) idEl.innerText = 'ID: ' + ((settings.deviceId || track.id || '-').slice(0, 24)) + '...';
+        if (resEl) resEl.innerText = 'Resolutie: ' + (settings.width || '-') + ' x ' + (settings.height || '-') + ' @ ' + Math.round(settings.frameRate || 0) + 'fps';
+        
+        if (caps.zoom && typeof caps.zoom === 'object') {
+          zoomEl.innerText = 'Zoom bereik: min ' + caps.zoom.min + 'x - max ' + caps.zoom.max + 'x (stap ' + (caps.zoom.step || 0.1) + ')';
+        } else {
+          zoomEl.innerText = 'Zoom bereik: Niet direct gerapporteerd (PTZ status)';
+        }
+
+        if (curZoomEl) {
+          curZoomEl.innerText = 'Huidige software zoom: ' + currentZoom + 'x (track: ' + (settings.zoom !== undefined ? settings.zoom : 'n.v.t.') + ')';
+        }
+      }
+
+      if (devListEl) {
+        devListEl.innerHTML = '<div style="color:#888;">Camera apparaten laden...</div>';
+        try {
+          if (navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function') {
+            const devs = await navigator.mediaDevices.enumerateDevices();
+            const vDevs = devs.filter(d => d.kind === 'videoinput');
+            devListEl.innerHTML = '';
+            vDevs.forEach((d, i) => {
+              const row = document.createElement('div');
+              row.style.cssText = 'background:#0f172a; padding:8px 10px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; font-size:11px;';
+              
+              const isCur = track && track.label && (track.label === d.label);
+              row.innerHTML = '<div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%;">' +
+                '<div style="color:#fff; font-weight:bold;">#' + (i + 1) + ': ' + (d.label || 'Camera ' + (i + 1)) + (isCur ? ' ⭐ (Actief)' : '') + '</div>' +
+                '<div style="color:#64748b; font-size:10px;">' + d.deviceId.slice(0, 16) + '...</div>' +
+              '</div>' +
+              '<button type="button" class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" data-devid="' + d.deviceId + '">Activeer</button>';
+              const btn = row.querySelector('button');
+              if (btn) {
+                btn.addEventListener('click', async () => {
+                  try {
+                    await applyOrReplaceStream({
+                      video: {
+                        deviceId: { exact: d.deviceId },
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                      },
+                      audio: false
+                    });
+                    if (feedbackEl) feedbackEl.innerText = '✅ Geschakeld naar ' + (d.label || d.deviceId.slice(0, 8));
+                    openCameraInspector();
+                  } catch (swErr) {
+                    if (feedbackEl) feedbackEl.innerText = '❌ Fout: ' + swErr.message;
+                  }
+                });
+              }
+              devListEl.appendChild(row);
+            });
+          }
+        } catch (e) {
+          devListEl.innerHTML = '<div style="color:#ef4444;">Fout: ' + e.message + '</div>';
+        }
+      }
+    }
+
+    const closeInspectorBtn = document.getElementById('close-inspector-btn');
+    if (closeInspectorBtn) {
+      closeInspectorBtn.addEventListener('click', () => {
+        const modal = document.getElementById('camera-inspector-modal');
+        if (modal) modal.classList.add('hidden');
+      });
+    }
+
+    const refreshInspectorBtn = document.getElementById('refresh-inspector-btn');
+    if (refreshInspectorBtn) {
+      refreshInspectorBtn.addEventListener('click', () => {
+        openCameraInspector();
+      });
+    }
+
+    if (typeof document !== 'undefined' && typeof document.querySelectorAll === 'function') {
+      const zoomBtns = document.querySelectorAll('.inspector-zoom-btn');
+      if (zoomBtns) {
+        zoomBtns.forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const zVal = parseFloat(btn.getAttribute('data-zoom'));
+            const feedbackEl = document.getElementById('inspector-feedback');
+            const track = (stream && stream.getVideoTracks) ? stream.getVideoTracks()[0] : null;
+            if (!track) {
+              if (feedbackEl) feedbackEl.innerText = '❌ Geen actieve camera track';
+              return;
+            }
+            try {
+              if (typeof track.applyConstraints === 'function') {
+                await track.applyConstraints({ advanced: [{ zoom: zVal }] });
+                currentZoom = zVal;
+                updateLensToggleUI(currentZoom);
+                if (feedbackEl) feedbackEl.innerText = '✅ Zoom succesvol ingesteld op ' + zVal + 'x!';
+                openCameraInspector();
+              } else {
+                if (feedbackEl) feedbackEl.innerText = '❌ applyConstraints niet ondersteund';
+              }
+            } catch (err) {
+              if (feedbackEl) feedbackEl.innerText = '❌ applyConstraints fout: ' + err.message;
+            }
+          });
+        });
+      }
+    }
+
+    // =========================================================================
+    // Zero-Dependency Client PKZIP Generator & Offline Fallback (R2)
+    // =========================================================================
+
+    /**
+     * Constructs a standard PKZIP archive containing:
+     * - recording.webm or recording.mp4
+     * - sensor_data.json
+     * - frame_timestamps.json
+     * - scan_metadata.json
+     * Directly in pure JavaScript without external CDN dependencies.
+     *
+     * @param {Blob|Uint8Array|ArrayBuffer|string} videoBlob
+     * @param {string|Array|Object} sensorJson
+     * @param {string|Array|Object} frameTimestampsJson
+     * @param {string|Object} [metadataJson]
+     * @returns {Promise<Blob>}
+     */
+    async function generateOfflineZip(videoBlob, sensorJson, frameTimestampsJson, metadataJson = null) {
+      function encodeUtf8(str) {
+        if (typeof TextEncoder !== 'undefined') {
+          return new TextEncoder().encode(str);
+        }
+        if (typeof Buffer !== 'undefined') {
+          return new Uint8Array(Buffer.from(str, 'utf8'));
+        }
+        const utf8 = [];
+        for (let i = 0; i < str.length; i++) {
+          let charcode = str.charCodeAt(i);
+          if (charcode < 0x80) utf8.push(charcode);
+          else if (charcode < 0x800) {
+            utf8.push(0xc0 | (charcode >> 6), 0x80 | (charcode & 0x3f));
+          } else if (charcode < 0xd800 || charcode >= 0xe000) {
+            utf8.push(0xe0 | (charcode >> 12), 0x80 | ((charcode >> 6) & 0x3f), 0x80 | (charcode & 0x3f));
+          } else {
+            i++;
+            charcode = 0x10000 + (((charcode & 0x3ff) << 10) | (str.charCodeAt(i) & 0x3ff));
+            utf8.push(0xf0 | (charcode >> 18), 0x80 | ((charcode >> 12) & 0x3f), 0x80 | ((charcode >> 6) & 0x3f), 0x80 | (charcode & 0x3f));
+          }
+        }
+        return new Uint8Array(utf8);
+      }
+
+      if (!generateOfflineZip._crcTable) {
+        const table = new Uint32Array(256);
+        for (let n = 0; n < 256; n++) {
+          let c = n;
+          for (let k = 0; k < 8; k++) {
+            c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+          }
+          table[n] = c;
+        }
+        generateOfflineZip._crcTable = table;
+      }
+      const crcTable = generateOfflineZip._crcTable;
+
+      function computeCrc(bytes) {
+        let crc = 0 ^ (-1);
+        for (let i = 0; i < bytes.length; i++) {
+          crc = (crc >>> 8) ^ crcTable[(crc ^ bytes[i]) & 0xFF];
+        }
+        return (crc ^ (-1)) >>> 0;
+      }
+
+      // 1. Process Video payload
+      let videoBytes;
+      let videoMime = "video/webm";
+      if (videoBlob) {
+        if (typeof videoBlob.type === 'string' && videoBlob.type.length > 0) {
+          videoMime = videoBlob.type;
+        }
+        if (videoBlob instanceof Uint8Array) {
+          videoBytes = videoBlob;
+        } else if (typeof Buffer !== 'undefined' && Buffer.isBuffer && Buffer.isBuffer(videoBlob)) {
+          videoBytes = new Uint8Array(videoBlob);
+        } else if (typeof videoBlob.arrayBuffer === 'function') {
+          const buf = await videoBlob.arrayBuffer();
+          videoBytes = new Uint8Array(buf);
+        } else if (videoBlob instanceof ArrayBuffer) {
+          videoBytes = new Uint8Array(videoBlob);
+        } else if (typeof videoBlob === 'string') {
+          videoBytes = encodeUtf8(videoBlob);
+        } else {
+          videoBytes = new Uint8Array(0);
+        }
+      } else {
+        videoBytes = new Uint8Array(0);
+      }
+
+      const isMp4 = videoMime.toLowerCase().includes('mp4') || (videoBlob && typeof videoBlob.name === 'string' && videoBlob.name.endsWith('.mp4'));
+      const videoFileName = isMp4 ? 'recording.mp4' : 'recording.webm';
+
+      // 2. Prepare JSON payloads
+      let sensorStr;
+      if (typeof sensorJson === 'string') {
+        sensorStr = sensorJson;
+      } else if (sensorJson !== null && sensorJson !== undefined) {
+        sensorStr = JSON.stringify(sensorJson, null, 2);
+      } else {
+        sensorStr = '[]';
+      }
+      const sensorBytes = encodeUtf8(sensorStr);
+
+      let frameStr;
+      if (typeof frameTimestampsJson === 'string') {
+        frameStr = frameTimestampsJson;
+      } else if (frameTimestampsJson !== null && frameTimestampsJson !== undefined) {
+        frameStr = JSON.stringify(frameTimestampsJson, null, 2);
+      } else {
+        frameStr = '[]';
+      }
+      const frameBytes = encodeUtf8(frameStr);
+
+      let metaStr;
+      if (typeof metadataJson === 'string') {
+        metaStr = metadataJson;
+      } else if (metadataJson && typeof metadataJson === 'object') {
+        metaStr = JSON.stringify(metadataJson, null, 2);
+      } else {
+        const defaultMeta = {
+          scanId: "scan-" + Date.now(),
+          timestamp: new Date().toISOString(),
+          videoFileName: videoFileName,
+          videoMimeType: videoMime,
+          videoSizeBytes: videoBytes.length,
+          isOfflinePackage: true,
+          generator: "Woninginrichter Zero-Dependency Client PKZIP Generator",
+          clientDiagnostics: {
+            userAgent: (typeof navigator !== 'undefined') ? navigator.userAgent : '',
+            activeCamera: (stream && stream.getVideoTracks && stream.getVideoTracks().length > 0) ? {
+              label: stream.getVideoTracks()[0].label,
+              settings: (typeof stream.getVideoTracks()[0].getSettings === 'function') ? stream.getVideoTracks()[0].getSettings() : {},
+              capabilities: (typeof stream.getVideoTracks()[0].getCapabilities === 'function') ? stream.getVideoTracks()[0].getCapabilities() : {}
+            } : null,
+            currentZoom: currentZoom,
+            lensCapabilities: lensCapabilities
+          },
+          files: [videoFileName, "sensor_data.json", "frame_timestamps.json", "scan_metadata.json"]
+        };
+        metaStr = JSON.stringify(defaultMeta, null, 2);
+      }
+      const metaBytes = encodeUtf8(metaStr);
+
+      const fileEntries = [
+        { name: videoFileName, data: videoBytes },
+        { name: "sensor_data.json", data: sensorBytes },
+        { name: "frame_timestamps.json", data: frameBytes },
+        { name: "scan_metadata.json", data: metaBytes }
+      ];
+
+      // 3. Construct standard PKZIP Binary Archive
+      const now = new Date();
+      const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xFFFF;
+      const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xFFFF;
+
+      const parts = [];
+      const cdParts = [];
+      let currentOffset = 0;
+
+      for (const entry of fileEntries) {
+        const nameBytes = encodeUtf8(entry.name);
+        const dataBytes = entry.data;
+        const crc = computeCrc(dataBytes);
+        const size = dataBytes.length;
+        const localHeaderOffset = currentOffset;
+
+        // Local File Header (30 bytes + filename length)
+        const lh = new Uint8Array(30 + nameBytes.length);
+        const lhView = new DataView(lh.buffer);
+        lhView.setUint32(0, 0x04034b50, true); // PK\x03\x04
+        lhView.setUint16(4, 20, true);         // Version needed: 2.0
+        lhView.setUint16(6, 0x0800, true);     // Bit 11: UTF-8 filenames
+        lhView.setUint16(8, 0, true);          // Compression method: 0 (Stored)
+        lhView.setUint16(10, dosTime, true);
+        lhView.setUint16(12, dosDate, true);
+        lhView.setUint32(14, crc, true);
+        lhView.setUint32(18, size, true);      // Compressed size
+        lhView.setUint32(22, size, true);      // Uncompressed size
+        lhView.setUint16(26, nameBytes.length, true);
+        lhView.setUint16(28, 0, true);         // Extra field length
+        lh.set(nameBytes, 30);
+
+        parts.push(lh);
+        parts.push(dataBytes);
+        currentOffset += lh.length + size;
+
+        // Central Directory Header (46 bytes + filename length)
+        const cd = new Uint8Array(46 + nameBytes.length);
+        const cdView = new DataView(cd.buffer);
+        cdView.setUint32(0, 0x02014b50, true); // PK\x01\x02
+        cdView.setUint16(4, 20, true);         // Version made by
+        cdView.setUint16(6, 20, true);         // Version needed to extract
+        cdView.setUint16(8, 0x0800, true);     // UTF-8 flag
+        cdView.setUint16(10, 0, true);         // Method: Stored
+        cdView.setUint16(12, dosTime, true);
+        cdView.setUint16(14, dosDate, true);
+        cdView.setUint32(16, crc, true);
+        cdView.setUint32(20, size, true);
+        cdView.setUint32(24, size, true);
+        cdView.setUint16(28, nameBytes.length, true);
+        cdView.setUint16(30, 0, true);         // Extra field len
+        cdView.setUint16(32, 0, true);         // File comment len
+        cdView.setUint16(34, 0, true);         // Disk start
+        cdView.setUint16(36, 0, true);         // Internal attributes
+        cdView.setUint32(38, 0x81A40000, true);// External attributes (regular file)
+        cdView.setUint32(42, localHeaderOffset, true);
+        cd.set(nameBytes, 46);
+
+        cdParts.push(cd);
+      }
+
+      const cdOffset = currentOffset;
+      let cdSize = 0;
+      for (const c of cdParts) {
+        parts.push(c);
+        cdSize += c.length;
+      }
+
+      // End of Central Directory Record (22 bytes)
+      const eocd = new Uint8Array(22);
+      const eocdView = new DataView(eocd.buffer);
+      eocdView.setUint32(0, 0x06054b50, true); // PK\x05\x06
+      eocdView.setUint16(4, 0, true);          // Disk number
+      eocdView.setUint16(6, 0, true);          // Disk where CD starts
+      eocdView.setUint16(8, fileEntries.length, true);
+      eocdView.setUint16(10, fileEntries.length, true);
+      eocdView.setUint32(12, cdSize, true);
+      eocdView.setUint32(16, cdOffset, true);
+      eocdView.setUint16(20, 0, true);         // Comment len
+      parts.push(eocd);
+
+      // Assemble final contiguous binary buffer
+      const totalLength = cdOffset + cdSize + 22;
+      const zipBytes = new Uint8Array(totalLength);
+      let writePos = 0;
+      for (const p of parts) {
+        zipBytes.set(p, writePos);
+        writePos += p.length;
+      }
+
+      let resultBlob;
+      if (typeof Blob !== 'undefined') {
+        resultBlob = new Blob([zipBytes], { type: 'application/zip' });
+        if (!resultBlob.arrayBuffer) {
+          resultBlob.arrayBuffer = async () => zipBytes.buffer;
+        }
+      } else {
+        resultBlob = {
+          size: zipBytes.length,
+          type: 'application/zip',
+          arrayBuffer: async () => zipBytes.buffer
+        };
+      }
+      resultBlob.rawBytes = zipBytes;
+      return resultBlob;
+    }
+
+    // Network state management & Emergency Fallback
+    let isNetworkOnline = typeof navigator !== 'undefined' && 'onLine' in navigator ? navigator.onLine : true;
+
+    function updateNetworkStatus(forcedOffline = null) {
+      if (typeof forcedOffline === 'boolean') {
+        isNetworkOnline = !forcedOffline;
+      } else if (typeof navigator !== 'undefined' && 'onLine' in navigator) {
+        isNetworkOnline = navigator.onLine;
+      }
+
+      if (downloadOfflineZipBtn) {
+        if (!isNetworkOnline) {
+          downloadOfflineZipBtn.style.display = 'flex';
+          downloadOfflineZipBtn.classList.remove('hidden');
+        } else {
+          if (!downloadOfflineZipBtn.dataset || !downloadOfflineZipBtn.dataset.keepVisible) {
+            downloadOfflineZipBtn.style.display = 'none';
+            downloadOfflineZipBtn.classList.add('hidden');
+          }
+        }
+      }
+    }
+
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('online', () => updateNetworkStatus());
+      window.addEventListener('offline', () => updateNetworkStatus());
+    }
+    updateNetworkStatus();
+
+    if (downloadOfflineZipBtn) {
+      downloadOfflineZipBtn.addEventListener('click', async () => {
+        downloadOfflineZipBtn.disabled = true;
+        const origHtml = downloadOfflineZipBtn.innerHTML;
+        downloadOfflineZipBtn.innerHTML = "<span>⏳</span> Inpakken...";
+        try {
+          const videoBlob = currentVideoBlob || new Blob([], { type: currentMimeType || 'video/webm' });
+          const sensorJson = JSON.stringify(sensorData, null, 2);
+          const frameTimestampsJson = JSON.stringify(frameTimestamps, null, 2);
+          const zipBlob = await generateOfflineZip(videoBlob, sensorJson, frameTimestampsJson);
+          triggerDownload(zipBlob, `scan_offline_${Date.now()}.zip`);
+          downloadOfflineZipBtn.innerHTML = "<span>✅</span> Gedownload!";
+          setTimeout(() => {
+            downloadOfflineZipBtn.innerHTML = origHtml;
+            downloadOfflineZipBtn.disabled = false;
+          }, 2500);
+        } catch (err) {
+          console.error("Nood-ZIP fout:", err);
+          alert("Fout bij downloaden nood-ZIP: " + err.message);
+          downloadOfflineZipBtn.innerHTML = origHtml;
+          downloadOfflineZipBtn.disabled = false;
+        }
+      });
+    }
+
+    if (typeof document !== 'undefined') {
+      const diagBadge = document.getElementById('diag-hud-badge');
+      const diagPanel = document.getElementById('diag-panel');
+      const diagClose = document.getElementById('diag-close-btn');
+      const diagSend = document.getElementById('diag-send-btn');
+      const diagCopy = document.getElementById('diag-copy-btn');
+
+      if (diagBadge && diagPanel) {
+        diagBadge.addEventListener('click', () => {
+          diagPanel.classList.toggle('hidden');
+          if (!diagPanel.classList.contains('hidden') && latestDiagData) {
+            renderDiagPanel(latestDiagData);
+          }
+        });
+      }
+      if (diagClose && diagPanel) {
+        diagClose.addEventListener('click', () => {
+          diagPanel.classList.add('hidden');
+        });
+      }
+      if (diagSend) {
+        diagSend.addEventListener('click', () => {
+          sendCameraDiagnostics('manual_user_trigger');
+        });
+      }
+      async function copyTextFallback(text) {
+        if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          try {
+            await navigator.clipboard.writeText(text);
+            return true;
+          } catch (_) {}
+        }
+        if (typeof document !== 'undefined') {
+          try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            ta.setSelectionRange(0, 99999);
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            if (ok) return true;
+          } catch (_) {}
+        }
+        return false;
+      }
+
+      if (diagCopy) {
+        diagCopy.addEventListener('click', async () => {
+          if (latestDiagData) {
+            const success = await copyTextFallback(JSON.stringify(latestDiagData, null, 2));
+            if (success) {
+              diagCopy.innerText = 'Gekopieerd! ✅';
+              setTimeout(() => { diagCopy.innerText = '📋 Kopieer'; }, 2000);
+            } else {
+              diagCopy.innerText = 'Mislukt ⚠️';
+              setTimeout(() => { diagCopy.innerText = '📋 Kopieer'; }, 2000);
+            }
+          }
+        });
+      }
+    }
+
+    sendCameraDiagnostics('page_loaded');
+
+    // Export cameraController to window and CommonJS (if supported) for modularity & testing
+    const cameraController = {
+      resolveCameraStream,
+      toggleLens,
+      getLensCapabilities,
+      sendCameraDiagnostics,
+      logDiag,
+      getLatestDiagData: () => latestDiagData,
+      detectLensCapabilities,
+      updateLensToggleUI,
+      generateOfflineZip,
+      updateNetworkStatus,
+      startCamera,
+      applyOrReplaceStream,
+      scoreUltraWideLabel,
+      scoreStandardLabel,
+      getCurrentZoom: () => currentZoom,
+      getCurrentFacingMode: () => currentFacingMode,
+      setFacingMode: (mode) => { currentFacingMode = mode; },
+      getStream: () => stream,
+      setStream: (s) => { stream = s; },
+      getLensCapabilitiesRaw: () => lensCapabilities,
+      setLensCapabilitiesRaw: (caps) => { lensCapabilities = caps; },
+      getStreamRequestEpoch: () => streamRequestEpoch,
+      isRecordingActive: () => isRecording,
+      CameraBridgeAdapter,
+      isNativeCapacitor: () => (CameraBridgeAdapter ? CameraBridgeAdapter.isNative : false),
+      lockExposureAndFocus: (opts) => (CameraBridgeAdapter ? CameraBridgeAdapter.lockExposureAndFocus(opts) : Promise.resolve({ aeLocked: true, afLocked: true, success: true })),
+      startRecording: (opts) => startRecording(opts),
+      stopRecording: () => stopRecording()
+    };
+
+    if (typeof window !== 'undefined') {
+      window.cameraController = cameraController;
+      window.resolveCameraStream = resolveCameraStream;
+      window.toggleLens = toggleLens;
+      window.getLensCapabilities = getLensCapabilities;
+      window.detectLensCapabilities = detectLensCapabilities;
+      window.updateLensToggleUI = updateLensToggleUI;
+      window.generateOfflineZip = generateOfflineZip;
+      window.updateNetworkStatus = updateNetworkStatus;
+      window.BoundedImuBuffer = BoundedImuBuffer;
+      window.CameraBridgeAdapter = CameraBridgeAdapter;
+      window.isNativeCapacitor = isNativeCapacitor;
+      window.lockExposureAndFocus = (opts) => (CameraBridgeAdapter ? CameraBridgeAdapter.lockExposureAndFocus(opts) : Promise.resolve({ aeLocked: true, afLocked: true, success: true }));
+    }
+
+    if (typeof module !== 'undefined' && module.exports) {
+      module.exports = {
+        cameraController,
+        resolveCameraStream,
+        toggleLens,
+        getLensCapabilities,
+        detectLensCapabilities,
+        updateLensToggleUI,
+        generateOfflineZip,
+        updateNetworkStatus,
+        BoundedImuBuffer,
+        startCamera,
+        applyOrReplaceStream,
+        scoreUltraWideLabel,
+        scoreStandardLabel,
+        CameraBridgeAdapter,
+        checkIsNativeCapacitor,
+        isNativeCapacitor
+      };
+    }
+  </script>
+</body>
+</html>

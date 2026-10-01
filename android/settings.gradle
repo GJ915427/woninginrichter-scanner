@@ -1,0 +1,10 @@
+include ':app'
+rootProject.name = 'Woninginrichter 3D Scanner'
+
+include ':capacitor-android'
+project(':capacitor-android').projectDir = new File('../node_modules/@capacitor/android/capacitor')
+
+def capacitorSettings = file('capacitor.settings.gradle')
+if (capacitorSettings.exists()) {
+    apply from: capacitorSettings
+}
