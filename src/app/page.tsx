@@ -1,116 +1,124 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PlaceSidebar, ActiveView } from '@/components/sidebar/PlaceSidebar';
-import { ViewerCanvas } from '@/components/layout/ViewerCanvas';
-import { AddressSuggestion } from '@/data/pdok/pdok-locatieserver-client';
+import { GoogleMapCanvas } from '@/components/legacy/GoogleMapCanvas';
+import { LegacyPlaceSidebar } from '@/components/legacy/LegacyPlaceSidebar';
+import { FloorplanOverlay } from '@/components/legacy/FloorplanOverlay';
+import {
+  DEFAULT_RIJKSWEG_STATE,
+  DEFAULT_RIJKSWEG_COORDS,
+  convertCoordinatesToMeters,
+  adaptBuildingPayloadToLegacyState,
+  LegacyBuildingState,
+} from '@/domain/legacy';
 
 export default function Home() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeView, setActiveView] = useState<ActiveView>('2d');
-  const [searchedAddress, setSearchedAddress] = useState<string>('');
-  const [currentPandId, setCurrentPandId] = useState<string>('');
-  const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number }>({
-    lat: 50.80529,
-    lng: 5.73351,
+  const [legacyState, setLegacyState] = useState<LegacyBuildingState>(DEFAULT_RIJKSWEG_STATE);
+  const [searchValue, setSearchValue] = useState<string>('Rijksweg 153b');
+  const [coords, setCoords] = useState<{ lat: number; lng: number }>({
+    lat: 50.805292,
+    lng: 5.733510,
   });
-  const [isLoadingAddress, setIsLoadingAddress] = useState<boolean>(false);
-  const [currentBuildingData, setCurrentBuildingData] = useState<any | null>(null);
+  const [polygonCoords, setPolygonCoords] = useState<Array<[number, number]>>(DEFAULT_RIJKSWEG_COORDS);
+  const [isFloorplanOpen, setIsFloorplanOpen] = useState<boolean>(false);
 
-  // Fetch full building data from BFF route /api/building
-  const fetchBuildingDetails = async (pandId?: string, lat?: number, lng?: number) => {
+  const basePoints = React.useMemo(() => {
+    return convertCoordinatesToMeters(polygonCoords);
+  }, [polygonCoords]);
+
+  const handleSearchSubmit = async (query: string) => {
+    if (!query) return;
     try {
-      let url = '/api/building';
-      if (pandId) {
-        url += `?pandId=${encodeURIComponent(pandId)}`;
-      } else if (lat !== undefined && lng !== undefined) {
-        url += `?lat=${lat}&lng=${lng}`;
-      } else {
-        return;
-      }
-
-      const res = await fetch(url);
-      if (res.ok) {
-        const payload = await res.json();
-        setCurrentBuildingData(payload);
-      }
-    } catch (err) {
-      console.error('Failed to fetch building data from /api/building:', err);
-    }
-  };
-
-  const handleSelectAddress = async (suggestion: any) => {
-    const weergavenaam = suggestion?.weergavenaam || 'Adres';
-    setSearchedAddress(weergavenaam);
-
-    setIsLoadingAddress(true);
-    try {
-      const res = await fetch(
-        `https://api.pdok.nl/bzk/locatieserver/v3_1/lookup?id=${suggestion.id}`
+      // 1. Zoek via PDOK Locatieserver
+      const suggestRes = await fetch(
+        `https://api.pdok.nl/bzk/locatieserver/search/v3_1/suggest?q=${encodeURIComponent(query)}`
       );
-      if (res.ok) {
-        const data = await res.json();
-        const doc = data?.response?.docs?.[0];
-        if (doc) {
-          let lat = currentCoords.lat;
-          let lng = currentCoords.lng;
-          if (doc.centroide_ll) {
-            const match = doc.centroide_ll.match(/POINT\(([\d.]+)\s+([\d.]+)\)/);
-            if (match) {
-              lng = parseFloat(match[1]);
-              lat = parseFloat(match[2]);
-            }
+      if (!suggestRes.ok) return;
+      const suggestData = await suggestRes.json();
+      const firstDoc = suggestData?.response?.docs?.[0];
+      if (!firstDoc?.id) return;
+
+      const lookupRes = await fetch(
+        `https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id=${firstDoc.id}`
+      );
+      if (!lookupRes.ok) return;
+      const lookupData = await lookupRes.json();
+      const doc = lookupData?.response?.docs?.[0];
+      if (!doc) return;
+
+      let newLat = coords.lat;
+      let newLng = coords.lng;
+      if (doc.centroide_ll) {
+        const match = doc.centroide_ll.match(/POINT\(([\d.]+)\s+([\d.]+)\)/);
+        if (match) {
+          newLng = parseFloat(match[1]);
+          newLat = parseFloat(match[2]);
+          setCoords({ lat: newLat, lng: newLng });
+        }
+      }
+
+      const pandId = doc.pand_id || (doc.gekoppeld_pand && doc.gekoppeld_pand[0]);
+      let apiUrl = `/api/building?lat=${newLat}&lng=${newLng}`;
+      if (pandId) {
+        apiUrl = `/api/building?pandId=${encodeURIComponent(pandId)}`;
+      }
+
+      const bffRes = await fetch(apiUrl);
+      if (bffRes.ok) {
+        const payload = await bffRes.json();
+        const fullAddr = doc.weergavenaam || query;
+        const newState = adaptBuildingPayloadToLegacyState(payload, fullAddr);
+        setLegacyState(newState);
+
+        if (newState.pandGeometry?.coordinates?.[0]) {
+          let ring = newState.pandGeometry.coordinates[0];
+          if (newState.pandGeometry.type === 'MultiPolygon') {
+            ring = newState.pandGeometry.coordinates[0][0];
           }
-          const pandId = doc.pand_id || (doc.gekoppeld_pand && doc.gekoppeld_pand[0]);
-          setCurrentCoords({ lat, lng });
-          if (pandId) {
-            setCurrentPandId(pandId);
+          if (Array.isArray(ring) && ring.length > 2) {
+            setPolygonCoords(ring);
           }
-          await fetchBuildingDetails(pandId, lat, lng);
         }
       }
     } catch (err) {
-      console.error('Failed to resolve address details:', err);
-    } finally {
-      setIsLoadingAddress(false);
+      console.error('Failed to search and resolve building:', err);
     }
   };
 
-  const handleSelectSampleAddress = (address: string) => {
-    handleSelectAddress({
-      id: 'sample-lookup',
-      weergavenaam: address,
-      type: 'adres',
-      score: 1,
-    });
-  };
-
   return (
-    <div className="h-screen w-screen overflow-hidden bg-slate-950 flex relative text-slate-100">
-      {/* Floating PlaceSidebar left */}
-      <PlaceSidebar
-        isOpen={isSidebarOpen}
-        onToggleOpen={() => setIsSidebarOpen(!isSidebarOpen)}
-        activeView={activeView}
-        onSelectView={setActiveView}
-        searchedAddress={searchedAddress}
-        onSelectAddress={handleSelectAddress}
-        isLoadingAddress={isLoadingAddress}
-        buildingData={currentBuildingData}
+    <div className="relative w-screen h-screen overflow-hidden select-none bg-slate-100">
+      {/* 1. Full-Screen Google Maps Canvas Base Layer (Singleton, z-0) */}
+      <GoogleMapCanvas
+        lat={coords.lat}
+        lng={coords.lng}
+        polygonCoords={polygonCoords}
+        onMapClick={(lat, lng) => {
+          setCoords({ lat, lng });
+          fetch(`/api/building?lat=${lat}&lng=${lng}`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((payload) => {
+              if (payload) {
+                setLegacyState(adaptBuildingPayloadToLegacyState(payload, 'Gekozen Pand'));
+              }
+            });
+        }}
       />
 
-      {/* Main Full-Bleed Viewer Canvas right */}
-      <ViewerCanvas
-        activeView={activeView}
-        isSidebarOpen={isSidebarOpen}
-        currentBuildingData={currentBuildingData}
-        searchedAddress={searchedAddress}
-        currentCoords={currentCoords}
-        onSelectCoords={(coords) => {
-          setCurrentCoords(coords);
-          fetchBuildingDetails(undefined, coords.lat, coords.lng);
-        }}
-        onSelectSampleAddress={handleSelectSampleAddress}
+      {/* 2. Floating PlaceSidebar on Left (Exact google_maps_picker clone, z-20) */}
+      <LegacyPlaceSidebar
+        buildingState={legacyState}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        onSearchSubmit={handleSearchSubmit}
+        onOpenFloorplan={() => setIsFloorplanOpen(true)}
+      />
+
+      {/* 3. Floorplan / Section Overlay (z-10, centered on md:pl-[430px]) */}
+      <FloorplanOverlay
+        isOpen={isFloorplanOpen}
+        onClose={() => setIsFloorplanOpen(false)}
+        basePoints={basePoints}
+        buildingState={legacyState}
       />
     </div>
   );
