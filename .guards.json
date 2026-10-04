@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "project_name": "test_project",
+  "version": "1.0.0",
+  "stack": {
+    "has_python": true,
+    "has_node": false,
+    "has_fastapi": false,
+    "has_nextjs": false
+  },
+  "guards": {
+    "presentation_guard": {
+      "enabled": false
+    },
+    "backend_srp_guard": {
+      "enabled": false
+    },
+    "visual_freeze_guard": {
+      "enabled": true
+    },
+    "test_freeze_guard": {
+      "enabled": true
+    }
+  },
+  "exemptions": []
+}
