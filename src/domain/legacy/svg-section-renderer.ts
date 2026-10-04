@@ -32,35 +32,44 @@ export function generateLegacySectionSvg(options: SectionRenderOptions): string 
   // Diepte van hoofdvolume en aanbouw
   const f1 = computeFloorGeometry(basePts, frontWallIdx, 1, totalWoonoppervlakte);
   let depthMain = 6.0;
-  if (f1 && f1.length === 4) {
-    // In our polygon order [pA, pB, pB+inN*d, pA+inN*d], depth is distance between f1[3] and f1[0] or f1[2] and f1[1]
-    const d1 = Math.hypot(f1[3].x - f1[0].x, f1[3].y - f1[0].y);
-    const d2 = Math.hypot(f1[1].x - f1[0].x, f1[1].y - f1[0].y);
-    depthMain = Math.max(5.0, Math.min(8.0, d1 >= 4.5 && d1 <= 8.5 ? d1 : d2));
-  }
-  depthMain = Math.max(5.0, Math.min(8.0, depthMain));
 
   // Bepaal totale diepte van het pand langs de voorgevelnormaal
   const baseN = basePts.length;
-  let depthExt = 7.0;
-  if (baseN > 4) {
-    let maxD = 0;
-    const pA = basePts[frontWallIdx];
-    const pB = basePts[(frontWallIdx + 1) % baseN];
-    const fvx = pB.x - pA.x,
-      fvy = pB.y - pA.y;
-    const flen = Math.hypot(fvx, fvy);
-    const fnx = fvy / flen,
-      fny = -fvx / flen;
-    for (let i = 0; i < baseN; i++) {
-      const d = Math.abs((basePts[i].x - pA.x) * fnx + (basePts[i].y - pA.y) * fny);
-      if (d > maxD) maxD = d;
-    }
-    if (maxD > depthMain + 1.5) {
-      depthExt = +(maxD - depthMain).toFixed(1);
-    }
+  let maxD = 0;
+  const pA = basePts[frontWallIdx];
+  const pB = basePts[(frontWallIdx + 1) % baseN];
+  const fvx = pB.x - pA.x,
+    fvy = pB.y - pA.y;
+  const flen = Math.hypot(fvx, fvy);
+  const fnx = fvy / flen,
+    fny = -fvx / flen;
+  for (let i = 0; i < baseN; i++) {
+    const d = Math.abs((basePts[i].x - pA.x) * fnx + (basePts[i].y - pA.y) * fny);
+    if (d > maxD) maxD = d;
+  }
+
+  if (f1 && f1.length === 4) {
+    const d1 = Math.hypot(f1[3].x - f1[0].x, f1[3].y - f1[0].y);
+    const d2 = Math.hypot(f1[1].x - f1[0].x, f1[1].y - f1[0].y);
+    depthMain = Math.max(5.0, d1 >= 4.0 ? d1 : d2);
   } else {
-    depthExt = 0;
+    depthMain = Math.max(5.0, maxD);
+  }
+
+  // Bepaal de maximale ruimtelijke overspanning van het gebouwpolygoon
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const pt of basePts) {
+    if (pt.x < minX) minX = pt.x;
+    if (pt.x > maxX) maxX = pt.x;
+    if (pt.y < minY) minY = pt.y;
+    if (pt.y > maxY) maxY = pt.y;
+  }
+  const polySpan = Math.max(maxX - minX, maxY - minY);
+  const totalBuildingDepth = Math.max(maxD, polySpan);
+
+  let depthExt = 0;
+  if (baseN > 4 && platH < 4.5 && totalBuildingDepth > depthMain + 1.2) {
+    depthExt = +(totalBuildingDepth - depthMain).toFixed(1);
   }
 
   const totalDepth = depthMain + depthExt;

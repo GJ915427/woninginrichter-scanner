@@ -90,6 +90,13 @@ export async function GET(request: Request) {
                     gebruiksdoel: feat.properties.gebruiksdoel,
                     status: feat.properties.status,
                   };
+                  if (!pandId && feat.properties['pand.href']?.[0]) {
+                    const pandRes = await fetch(feat.properties['pand.href'][0]);
+                    if (pandRes.ok) {
+                      const pandData = await pandRes.json();
+                      pandId = pandData.properties?.identificatie || null;
+                    }
+                  }
                 }
               }
             }
@@ -128,13 +135,24 @@ export async function GET(request: Request) {
         if (containing) {
           pandId = containing.identificatie;
         } else {
-          // Sort descending by area to prefer the main residence over small sheds/garages
-          const sorted = [...nearbyPanden].sort((a, b) => {
-            const areaA = (a.geometrieRD as any)?.area?.() || a.oppervlakte || 0;
-            const areaB = (b.geometrieRD as any)?.area?.() || b.oppervlakte || 0;
-            return areaB - areaA;
-          });
-          pandId = sorted[0].identificatie;
+          // Find closest building within 5 meters tolerance instead of blind largest-area bias
+          let closestPand: any = null;
+          let minDistance = 5.0;
+          for (const p of nearbyPanden) {
+            const geom = p.geometrieRD;
+            if (geom?.vertices && Array.isArray(geom.vertices)) {
+              for (const v of geom.vertices) {
+                const dist = Math.hypot(v.x - rd.x, v.y - rd.y);
+                if (dist < minDistance) {
+                  minDistance = dist;
+                  closestPand = p;
+                }
+              }
+            }
+          }
+          if (closestPand) {
+            pandId = closestPand.identificatie;
+          }
         }
       }
     }

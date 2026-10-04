@@ -82,17 +82,17 @@ export function computeFloorGeometry(
     }
   }
 
-  // Bouwhistorische begrenzing (Nederlandse typologie, houten balkoverspanning max ca. 5.5 - 6.5 meter vóór 1945)
-  depth = Math.max(5.0, Math.min(8.0, depth));
+  // Begrenzing op realistische bouwkundige diepte (tot 25m voor diepe vrijstaande / herenhuizen / boerderijen)
+  depth = Math.max(5.0, Math.min(25.0, depth));
 
   const pPrev = basePoints[(frontIdx - 1 + n) % n];
   const leftLen = Math.hypot(pPrev.x - pA.x, pPrev.y - pA.y);
   const pNext2 = basePoints[(frontIdx + 2) % n];
   const rightLen = Math.hypot(pNext2.x - pB.x, pNext2.y - pB.y);
 
-  if (leftLen >= 5.0 && leftLen <= 8.0 && Math.abs(leftLen - depth) < 1.2) {
+  if (leftLen >= 4.5 && (Math.abs(leftLen - depth) < 3.0 || (leftLen < rightLen && Math.abs(leftLen - depth) < 4.0))) {
     depth = leftLen;
-  } else if (rightLen >= 5.0 && rightLen <= 8.0 && Math.abs(rightLen - depth) < 1.2) {
+  } else if (rightLen >= 4.5 && (Math.abs(rightLen - depth) < 3.0 || (rightLen < leftLen && Math.abs(rightLen - depth) < 4.0))) {
     depth = rightLen;
   }
 

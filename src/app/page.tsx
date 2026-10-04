@@ -11,50 +11,57 @@ import {
 } from '@/domain/legacy/legacy-state-adapter';
 import { Point2D } from '@/domain/legacy/collinear-simplifier';
 
+/**
+ * Calculates the forward bearing (in degrees, 0-360) from a viewpoint (camera lat/lng)
+ * to the geometric centroid of a building polygon.
+ */
+function calculateForwardBearing(
+  fromLat: number,
+  fromLng: number,
+  polygon: Array<[number, number]>
+): number {
+  if (!polygon || polygon.length === 0) return 0;
+  let sumLng = 0;
+  let sumLat = 0;
+  for (const pt of polygon) {
+    sumLng += pt[0];
+    sumLat += pt[1];
+  }
+  const toLat = sumLat / polygon.length;
+  const toLng = sumLng / polygon.length;
+
+  const lat1 = (fromLat * Math.PI) / 180;
+  const lat2 = (toLat * Math.PI) / 180;
+  const dLng = ((toLng - fromLng) * Math.PI) / 180;
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  const brng = (Math.atan2(y, x) * 180) / Math.PI;
+  return Math.round((brng + 360) % 360);
+}
+
 export default function HomePage() {
   const [legacyState, setLegacyState] = useState<LegacyBuildingState | null>(null);
   const [searchValue, setSearchValue] = useState<string>('');
   const [coords, setCoords] = useState<{ lat: number; lng: number }>({
-    lat: 52.15517, // Amersfoort / geografisch middelpunt NL (neutrale default)
+    lat: 52.15517, // Neutrale startlocatie NL
     lng: 5.38720,
   });
+  const [zoom, setZoom] = useState<number>(14);
+  const [mapType, setMapType] = useState<'roadmap' | 'satellite' | 'hybrid'>('roadmap');
+  const [isStreetView, setIsStreetView] = useState<boolean>(false);
   const [polygonCoords, setPolygonCoords] = useState<Array<[number, number]>>([]);
   const [isFloorplanOpen, setIsFloorplanOpen] = useState<boolean>(false);
   const [floorplanEtage, setFloorplanEtage] = useState<number | 'section'>(0);
 
-  // 1. Dynamische HTML5 Device Geolocation bij initial load
+  // 1. Google Maps Clean Start: Dynamische Geolocation voor kaart-center, GEEN pandselectie
   useEffect(() => {
     if (typeof window !== 'undefined' && 'geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
-        async (position) => {
+        (position) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           setCoords({ lat, lng });
-
-          try {
-            const res = await fetch(`/api/building?lat=${lat}&lng=${lng}`);
-            if (res.ok) {
-              const payload = await res.json();
-              if (payload) {
-                const fullAddr = payload.address || payload.bag?.weergavenaam || 'Mijn Locatie';
-                const newState = adaptBuildingPayloadToLegacyState(payload, fullAddr);
-                setLegacyState(newState);
-                setSearchValue(fullAddr);
-
-                if (newState.pandGeometry?.coordinates?.[0]) {
-                  let ring = newState.pandGeometry.coordinates[0];
-                  if (newState.pandGeometry.type === 'MultiPolygon') {
-                    ring = newState.pandGeometry.coordinates[0][0];
-                  }
-                  if (Array.isArray(ring) && ring.length > 2) {
-                    setPolygonCoords(ring);
-                  }
-                }
-              }
-            }
-          } catch (err) {
-            console.warn('Geolocation reverse building lookup error:', err);
-          }
+          setZoom(14); // Regionaal overzichtsniveau (woonplaats/wijk)
         },
         (err) => {
           console.log('Device geolocation niet actief of geweigerd:', err.message);
@@ -73,7 +80,6 @@ export default function HomePage() {
     return convertCoordinatesToMeters(polygonCoords);
   }, [legacyState, polygonCoords]);
 
-  // PDOK Locatieserver search handler
   const handleSearchSubmit = async (query: string) => {
     if (!query) return;
     try {
@@ -101,6 +107,7 @@ export default function HomePage() {
           newLng = parseFloat(match[1]);
           newLat = parseFloat(match[2]);
           setCoords({ lat: newLat, lng: newLng });
+          setZoom(19);
         }
       }
 
@@ -118,26 +125,33 @@ export default function HomePage() {
         const payload = await bffRes.json();
         const fullAddr = doc.weergavenaam || query;
         const newState = adaptBuildingPayloadToLegacyState(payload, fullAddr);
-        setLegacyState(newState);
 
+        let ring: Array<[number, number]> = [];
         if (newState.polygonCoords && newState.polygonCoords.length > 2) {
-          setPolygonCoords(newState.polygonCoords);
+          ring = newState.polygonCoords;
         } else if (newState.pandGeometry?.coordinates?.[0]) {
-          let ring = newState.pandGeometry.coordinates[0];
+          let rawRing = newState.pandGeometry.coordinates[0];
           if (newState.pandGeometry.type === 'MultiPolygon') {
-            ring = newState.pandGeometry.coordinates[0][0];
+            rawRing = newState.pandGeometry.coordinates[0][0];
           }
-          if (Array.isArray(ring) && ring.length > 2) {
-            setPolygonCoords(ring);
+          if (Array.isArray(rawRing) && rawRing.length > 2) {
+            ring = rawRing;
           }
         }
+
+        if (ring.length > 2) {
+          setPolygonCoords(ring);
+          const heading = calculateForwardBearing(newLat, newLng, ring);
+          newState.streetViewHeading = heading;
+        }
+
+        setLegacyState(newState);
       }
     } catch (err) {
       console.error('Failed to search and resolve building:', err);
     }
   };
 
-  // Map Click handler (dynamically fetches clicked building)
   const handleMapClick = async (lat: number, lng: number) => {
     setCoords({ lat, lng });
     try {
@@ -147,20 +161,29 @@ export default function HomePage() {
         if (payload) {
           const fullAddr = payload.address || payload.bag?.weergavenaam || 'Gekozen Pand';
           const newState = adaptBuildingPayloadToLegacyState(payload, fullAddr);
-          setLegacyState(newState);
-          setSearchValue(fullAddr);
 
+          let ring: Array<[number, number]> = [];
           if (newState.polygonCoords && newState.polygonCoords.length > 2) {
-            setPolygonCoords(newState.polygonCoords);
+            ring = newState.polygonCoords;
           } else if (newState.pandGeometry?.coordinates?.[0]) {
-            let ring = newState.pandGeometry.coordinates[0];
+            let rawRing = newState.pandGeometry.coordinates[0];
             if (newState.pandGeometry.type === 'MultiPolygon') {
-              ring = newState.pandGeometry.coordinates[0][0];
+              rawRing = newState.pandGeometry.coordinates[0][0];
             }
-            if (Array.isArray(ring) && ring.length > 2) {
-              setPolygonCoords(ring);
+            if (Array.isArray(rawRing) && rawRing.length > 2) {
+              ring = rawRing;
             }
           }
+
+          if (ring.length > 2) {
+            setPolygonCoords(ring);
+            const heading = calculateForwardBearing(lat, lng, ring);
+            newState.streetViewHeading = heading;
+          }
+
+          setLegacyState(newState);
+          setSearchValue(fullAddr);
+          setZoom(19);
         }
       }
     } catch (e) {
@@ -174,8 +197,13 @@ export default function HomePage() {
       <GoogleMapCanvas
         lat={coords.lat}
         lng={coords.lng}
+        zoom={zoom}
         polygonCoords={polygonCoords}
         onMapClick={handleMapClick}
+        mapTypeId={mapType}
+        isStreetView={isStreetView}
+        streetViewHeading={legacyState?.streetViewHeading}
+        onStreetViewClose={() => setIsStreetView(false)}
       />
 
       {/* 2. Floating PlaceSidebar on Left (z-20) */}
@@ -186,17 +214,18 @@ export default function HomePage() {
         onSearchChange={setSearchValue}
         onSearchSubmit={handleSearchSubmit}
         onOpenFloorplan={(etage = 0) => {
+          setIsStreetView(false);
           setFloorplanEtage(etage);
           setIsFloorplanOpen(true);
         }}
         onOpen3D={() => {
-          // Future 3D expansion
+          // 3D Model view
         }}
         onToggleStreetView={() => {
-          // Future Street View expansion
+          setIsStreetView((prev) => !prev);
         }}
         onToggleSatellite={() => {
-          // Future Satellite toggle
+          setMapType((prev) => (prev === 'roadmap' ? 'hybrid' : 'roadmap'));
         }}
         basePoints={basePoints}
       />

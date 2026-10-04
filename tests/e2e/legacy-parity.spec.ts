@@ -14,14 +14,16 @@ test.describe('1-on-1 Legacy Parity Verification (google_maps_picker.html vs Nex
 
     const searchInput = page.locator('#addressSearchInput');
     await expect(searchInput).toBeVisible();
+    await expect(searchInput).toHaveValue('');
+    const sidebar = page.locator('#placeSidebar');
+    await expect(sidebar).toBeVisible();
+    await expect(sidebar).toContainText('Kies een woning');
 
     // 3. Search for Rijksweg 153b
     await searchInput.fill('Rijksweg 153b');
     await searchInput.press('Enter');
 
     // Wait for API resolution
-    const sidebar = page.locator('#placeSidebar');
-    await expect(sidebar).toBeVisible();
     await expect(sidebar).toContainText('1969', { timeout: 10000 }); // Bouwjaar
     await expect(sidebar).toContainText('173'); // m² woonoppervlakte
     await expect(sidebar).toContainText('3 bouwlagen');

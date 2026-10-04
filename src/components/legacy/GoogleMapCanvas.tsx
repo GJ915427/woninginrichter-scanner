@@ -8,6 +8,10 @@ interface GoogleMapCanvasProps {
   zoom?: number;
   polygonCoords?: Array<[number, number]>;
   onMapClick?: (lat: number, lng: number) => void;
+  mapTypeId?: 'roadmap' | 'satellite' | 'hybrid';
+  isStreetView?: boolean;
+  streetViewHeading?: number;
+  onStreetViewClose?: () => void;
 }
 
 export const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
@@ -16,6 +20,10 @@ export const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
   zoom = 12,
   polygonCoords,
   onMapClick,
+  mapTypeId = 'roadmap',
+  isStreetView = false,
+  streetViewHeading = 0,
+  onStreetViewClose,
 }) => {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -35,7 +43,7 @@ export const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
         mapInstanceRef.current = new google.maps.Map(mapRef.current, {
           center,
           zoom,
-          mapTypeId: 'roadmap',
+          mapTypeId,
           renderingType: google.maps.RenderingType ? google.maps.RenderingType.RASTER : 'RASTER',
           disableDefaultUI: false,
           mapTypeControl: true,
@@ -45,12 +53,23 @@ export const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
           gestureHandling: 'greedy',
         });
 
+        const hasBuilding = polygonCoords && polygonCoords.length > 2;
         markerRef.current = new google.maps.Marker({
           position: center,
           map: mapInstanceRef.current,
           draggable: true,
+          visible: !!hasBuilding,
           title: 'Sleep om locatie aan te passen',
         });
+
+        const panorama = mapInstanceRef.current.getStreetView();
+        if (panorama) {
+          panorama.addListener('visible_changed', () => {
+            if (!panorama.getVisible() && onStreetViewClose) {
+              onStreetViewClose();
+            }
+          });
+        }
 
         mapInstanceRef.current.addListener('click', (e: any) => {
           if (e.latLng && onMapClick) {
@@ -79,7 +98,7 @@ export const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
     }
   }, [lat, lng, zoom, onMapClick]);
 
-  // Update center & polygon when props change
+  // Update center, polygon, mapTypeId & street view when props change
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     const google = (window as any).google;
@@ -87,15 +106,22 @@ export const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
 
     const newCenter = { lat: Number(lat), lng: Number(lng) };
     mapInstanceRef.current.setCenter(newCenter);
-    if (markerRef.current) {
-      markerRef.current.setPosition(newCenter);
+
+    if (mapTypeId && mapInstanceRef.current.getMapTypeId() !== mapTypeId) {
+      mapInstanceRef.current.setMapTypeId(mapTypeId);
     }
 
-    if (polygonCoords && polygonCoords.length > 2) {
+    const hasBuilding = polygonCoords && polygonCoords.length > 2;
+    if (markerRef.current) {
+      markerRef.current.setPosition(newCenter);
+      markerRef.current.setVisible(!!hasBuilding);
+    }
+
+    if (hasBuilding) {
       if (polygonRef.current) {
         polygonRef.current.setMap(null);
       }
-      const path = polygonCoords.map((coord) => ({ lat: coord[1], lng: coord[0] }));
+      const path = polygonCoords!.map((coord) => ({ lat: coord[1], lng: coord[0] }));
       polygonRef.current = new google.maps.Polygon({
         paths: path,
         strokeColor: '#1a73e8',
@@ -109,7 +135,20 @@ export const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
       polygonRef.current.setMap(null);
       polygonRef.current = null;
     }
-  }, [lat, lng, polygonCoords]);
+
+    const panorama = mapInstanceRef.current.getStreetView();
+    if (panorama) {
+      if (isStreetView && !panorama.getVisible()) {
+        panorama.setPosition(newCenter);
+        if (streetViewHeading != null) {
+          panorama.setPov({ heading: Number(streetViewHeading), pitch: 0 });
+        }
+        panorama.setVisible(true);
+      } else if (!isStreetView && panorama.getVisible()) {
+        panorama.setVisible(false);
+      }
+    }
+  }, [lat, lng, polygonCoords, mapTypeId, isStreetView, streetViewHeading]);
 
   return (
     <div

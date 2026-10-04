@@ -12,6 +12,7 @@ interface FloorplanOverlayProps {
   basePoints: Point2D[];
   buildingState: LegacyBuildingState | null;
   initialEtage?: number | 'section';
+  frontWallIdx?: number;
 }
 
 export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
@@ -20,8 +21,14 @@ export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
   basePoints,
   buildingState,
   initialEtage = 0,
+  frontWallIdx,
 }) => {
   const [etage, setEtage] = useState<number | 'section'>(initialEtage);
+
+  const resolvedFrontWallIdx = useMemo(() => {
+    if (frontWallIdx != null && frontWallIdx >= 0) return frontWallIdx;
+    return 0;
+  }, [frontWallIdx]);
 
   React.useEffect(() => {
     if (initialEtage !== undefined) {
@@ -41,7 +48,7 @@ export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
     if (etage === 'section') {
       return generateLegacySectionSvg({
         basePoints,
-        frontWallIdx: 0,
+        frontWallIdx: resolvedFrontWallIdx,
         totalWoonoppervlakte: buildingState?.oppervlakte || 0,
         nokhoogte: buildingState?.nokhoogte || 8.2,
         goothoogte: buildingState?.goothoogte || 5.6,
@@ -52,7 +59,7 @@ export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
 
     return generateLegacyFloorplanSvg({
       basePoints,
-      frontWallIdx: 0,
+      frontWallIdx: resolvedFrontWallIdx,
       wallThickness,
       showInnerDimensions: showInnerDims,
       showOuterDimensions: showOuterDims,

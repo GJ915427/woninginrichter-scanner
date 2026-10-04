@@ -90,4 +90,50 @@ describe('HomePage Single-Screen Component (Zero-Mock & Dynamic State)', () => {
     expect(html).toContain('id="miniSatContainer"');
     expect(html).toContain('id="miniFloorplanContainer"');
   });
+
+  it('should render miniSatContainer with Google Static Map satellite preview when coords are provided', () => {
+    const sampleState: LegacyBuildingState = {
+      address: 'Rijksweg 153B, 6247AD Gronsveld',
+      pandId: '0905100000018803',
+      vboId: '0905010000002118',
+      bouwjaar: 1969,
+      oppervlakte: 173,
+      pandOppervlakte: 130,
+      gebruiksdoel: 'Woonfunctie',
+      pandStatus: 'Pand in gebruik',
+      vboStatus: 'Verblijfsobject in gebruik',
+      volumeM3: 744,
+      nokhoogte: 9.3,
+      goothoogte: 5.8,
+      bouwlagen: 3,
+      oppDakPlat: 72,
+      oppDakSchuin: 104,
+      hellingshoek: 35,
+      dakType: 'Samengesteld',
+      inferredRoofType: 'composite',
+      oppScheidingsmuur: 42,
+      oppBuitenmuur: 210,
+      bouwtypologie: 'Halfvrijstaand',
+      pandGeometry: null,
+      bag3d: null,
+      aantalVerblijfsobjecten: 1,
+      gebouwIsObject: true,
+      perceeloppervlakte: 411,
+      perceelAanduiding: 'Gronsveld B 2882',
+      wozWaarde: 373000,
+    };
+
+    const html = renderToStaticMarkup(
+      <LegacyPlaceSidebar
+        buildingState={sampleState}
+        searchValue="Rijksweg 153B"
+        coords={{ lat: 50.805292, lng: 5.73351 }}
+        onSearchChange={() => {}}
+        onSearchSubmit={() => {}}
+      />
+    );
+
+    expect(html).toContain('maptype=satellite');
+    expect(html).toContain('center=50.805292,5.73351');
+  });
 });

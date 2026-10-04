@@ -87,6 +87,10 @@ export const LegacyPlaceSidebar: React.FC<LegacyPlaceSidebarProps> = ({
     ? `https://maps.googleapis.com/maps/api/streetview?size=600x300&location=${coords.lat},${coords.lng}&fov=90&heading=${buildingState?.streetViewHeading ?? 92}&pitch=5&key=${apiKey}`
     : '';
 
+  const satelliteUrl = coords
+    ? `https://maps.googleapis.com/maps/api/staticmap?center=${coords.lat},${coords.lng}&zoom=19&size=600x300&maptype=satellite&key=${apiKey}`
+    : '';
+
   return (
     <div
       id="placeSidebar"
@@ -519,9 +523,18 @@ export const LegacyPlaceSidebar: React.FC<LegacyPlaceSidebarProps> = ({
                   className="relative rounded-lg overflow-hidden h-28 bg-slate-900 group cursor-pointer shadow-xs border border-slate-200"
                   title="Toon Google Satelliet & Perceel"
                 >
-                  <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-400 text-xs">
-                    Satelliet
-                  </div>
+                  {satelliteUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={satelliteUrl}
+                      alt="Satelliet Thumbnail"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-400 text-xs">
+                      Satelliet
+                    </div>
+                  )}
                   <div className="absolute bottom-1.5 left-1.5 bg-black/65 backdrop-blur-xs text-white px-1.5 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1 shadow-md pointer-events-none z-10">
                     <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

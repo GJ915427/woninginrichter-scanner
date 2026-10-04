@@ -344,13 +344,22 @@ export function generateLegacyFloorplanSvg(options: FloorplanRenderOptions): str
       const mid1x = d1x + (d2x - d1x) * tShift;
       const mid1y = d1y + (d2y - d1y) * tShift;
 
+      let badgeW = 2.3;
+      let badgeH = 0.64;
+      let fontSz = 0.42;
+      if (outLen < 2.8) {
+        badgeW = Math.max(1.3, +(outLen * 0.75).toFixed(2));
+        badgeH = +(0.64 * (badgeW / 2.3)).toFixed(2);
+        fontSz = +(0.42 * (badgeW / 2.3)).toFixed(2);
+      }
+
       dimSvg += `
         <!-- Buitenmaat ${i} -->
         <line x1="${p1.x.toFixed(3)}" y1="${p1.y.toFixed(3)}" x2="${(d1x + outNx * 0.12).toFixed(3)}" y2="${(d1y + outNy * 0.12).toFixed(3)}" stroke="#0284c7" stroke-width="0.025" opacity="0.45" />
         <line x1="${p2.x.toFixed(3)}" y1="${p2.y.toFixed(3)}" x2="${d2x.toFixed(3)}" y2="${d2y.toFixed(3)}" stroke="#0284c7" stroke-width="0.05" marker-start="url(#dotBlue)" marker-end="url(#dotBlue)" />
         <g transform="translate(${mid1x.toFixed(3)}, ${mid1y.toFixed(3)}) rotate(${angle.toFixed(1)})">
-          <rect x="-1.15" y="-0.32" width="2.3" height="0.64" rx="0.18" fill="#f0f9ff" stroke="#0284c7" stroke-width="0.04" />
-          <text y="0.14" fill="#0369a1" font-size="0.42" font-family="monospace" font-weight="bold" text-anchor="middle">${outLen.toFixed(2)}m</text>
+          <rect x="${(-badgeW / 2).toFixed(2)}" y="${(-badgeH / 2).toFixed(2)}" width="${badgeW.toFixed(2)}" height="${badgeH.toFixed(2)}" rx="0.18" fill="#f0f9ff" stroke="#0284c7" stroke-width="0.04" />
+          <text y="${(fontSz * 0.33).toFixed(2)}" fill="#0369a1" font-size="${fontSz.toFixed(2)}" font-family="monospace" font-weight="bold" text-anchor="middle">${outLen.toFixed(2)}m</text>
         </g>
       `;
     }
