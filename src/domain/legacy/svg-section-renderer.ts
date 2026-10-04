@@ -81,9 +81,10 @@ export function generateLegacySectionSvg(options: SectionRenderOptions): string 
   const hasExt = depthExt > 1.0;
   const xExtEnd = depthMain + depthExt;
   const secVbWidth = Math.max(22.0, (hasExt ? xExtEnd + 4.5 : depthMain + 5.5) + 4.2);
+  const totalWidth = secVbWidth + 3.3;
 
   return `
-    <svg viewBox="-4.2 0.0 ${secVbWidth.toFixed(1)} 12.2" class="w-full h-full" preserveAspectRatio="xMidYMid meet">
+    <svg viewBox="-7.5 0.0 ${totalWidth.toFixed(1)} 12.2" class="w-full h-full" preserveAspectRatio="xMidYMid meet">
       <defs>
         <pattern id="secGroundHatch" width="0.6" height="0.6" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
           <line x1="0" y1="0" x2="0" y2="0.6" stroke="#cbd5e1" stroke-width="0.08" />
@@ -100,11 +101,11 @@ export function generateLegacySectionSvg(options: SectionRenderOptions): string 
       </defs>
 
       <!-- 1. Achtergrond raster -->
-      <rect x="-4.2" y="0.0" width="${secVbWidth.toFixed(1)}" height="12.2" fill="url(#secGrid)" />
+      <rect x="-7.5" y="0.0" width="${totalWidth.toFixed(1)}" height="12.2" fill="url(#secGrid)" />
 
       <!-- Grond / Maaiveld onder peil -->
-      <rect x="-3.8" y="${yMaaiveld.toFixed(2)}" width="${(secVbWidth - 0.8).toFixed(1)}" height="1.8" fill="url(#secGroundHatch)" opacity="0.45" />
-      <line x1="-3.8" y1="${yMaaiveld.toFixed(2)}" x2="${(secVbWidth - 0.8).toFixed(1)}" y2="${yMaaiveld.toFixed(2)}" stroke="#475569" stroke-width="0.08" />
+      <rect x="-7.0" y="${yMaaiveld.toFixed(2)}" width="${(totalWidth - 0.5).toFixed(1)}" height="1.8" fill="url(#secGroundHatch)" opacity="0.45" />
+      <line x1="-7.0" y1="${yMaaiveld.toFixed(2)}" x2="${(totalWidth - 8.0).toFixed(1)}" y2="${yMaaiveld.toFixed(2)}" stroke="#475569" stroke-width="0.08" />
 
       <!-- Straat- en tuinlabels -->
       <text x="-1.8" y="10.55" fill="#64748b" font-size="0.36" font-family="sans-serif" font-weight="bold" text-anchor="middle">◀ STRAAT (VOORGEVEL)</text>

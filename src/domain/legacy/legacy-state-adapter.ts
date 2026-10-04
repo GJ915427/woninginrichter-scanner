@@ -1,4 +1,5 @@
 import { Point2D } from './collinear-simplifier';
+import { RDNAPTransformer } from '../geometry/rd-nap-trans';
 
 export interface LegacyBuildingState {
   address: string;
@@ -27,74 +28,12 @@ export interface LegacyBuildingState {
   aantalVerblijfsobjecten: number;
   gebouwIsObject: boolean;
   streetViewHeading?: number;
+  perceeloppervlakte?: number | null;
+  perceelAanduiding?: string | null;
+  wozWaarde?: number | null;
+  polygonCoords?: Array<[number, number]>;
+  basePoints?: Point2D[];
 }
-
-export const DEFAULT_RIJKSWEG_COORDS: Array<[number, number]> = [
-  [5.733480764407996, 50.80529789932149],
-  [5.733475216943015, 50.805246481871016],
-  [5.733474713863292, 50.80524180019913],
-  [5.7335289613737475, 50.80524014540952],
-  [5.73352722343153, 50.80521827180989],
-  [5.733638227770699, 50.80521476586407],
-  [5.733735385600831, 50.80521107663399],
-  [5.73379441343073, 50.805209398388804],
-  [5.733795113320296, 50.805236614464306],
-  [5.733643490995081, 50.80524140195685],
-  [5.733648542345044, 50.80529474449715],
-  [5.733486646220092, 50.80530100081146],
-  [5.733481115300489, 50.80530119716989],
-];
-
-export const DEFAULT_RIJKSWEG_STATE: LegacyBuildingState = {
-  address: 'Rijksweg 153B, 6247AD Gronsveld',
-  pandId: '0905100000018803',
-  vboId: '0905010000002118',
-  bouwjaar: 1969,
-  oppervlakte: 173,
-  pandOppervlakte: 130,
-  gebruiksdoel: 'Woonfunctie',
-  pandStatus: 'Pand in gebruik',
-  vboStatus: 'Verblijfsobject in gebruik',
-  volumeM3: 744,
-  nokhoogte: 9.3,
-  goothoogte: 5.8,
-  bouwlagen: 3,
-  oppDakPlat: 72,
-  oppDakSchuin: 104,
-  hellingshoek: 35,
-  dakType: 'Zadeldak',
-  inferredRoofType: 'slanted',
-  oppScheidingsmuur: 42,
-  oppBuitenmuur: 210,
-  bouwtypologie: 'Halfvrijstaand',
-  pandGeometry: {
-    type: 'Polygon',
-    coordinates: [DEFAULT_RIJKSWEG_COORDS],
-  },
-  bag3d: {
-    oppGrond: 130,
-    oppDakPlat: 72,
-    oppDakSchuin: 104,
-    oppScheidingsmuur: 42,
-    oppBuitenmuur: 210,
-    volume: 744,
-    nokhoogte: 9.3,
-    goothoogte: 5.8,
-    bouwlagen: 3,
-    hellingshoek: 35,
-    inferredRoofType: 'slanted',
-    dakTypeLabel: 'Zadeldak (104m²)',
-    bouwtypologie: 'Halfvrijstaand',
-    volumes: [
-      { hMax: 67.89, hMin: 63.99, hoogteBoven: 3.9 },
-      { hMax: 73.29, hMin: 63.99, hoogteBoven: 9.3 },
-    ],
-    dakvlakken: [],
-  },
-  aantalVerblijfsobjecten: 1,
-  gebouwIsObject: true,
-  streetViewHeading: 92.4,
-};
 
 export function convertCoordinatesToMeters(rawCoords: Array<[number, number]>): Point2D[] {
   if (!rawCoords || rawCoords.length === 0) return [];
@@ -166,6 +105,32 @@ export function adaptBuildingPayloadToLegacyState(
   const rawGebruiksdoel = vbo?.gebruiksdoel || 'woonfunctie';
   const gebruiksdoel = rawGebruiksdoel.charAt(0).toUpperCase() + rawGebruiksdoel.slice(1);
 
+  let polygonCoords: Array<[number, number]> = [];
+  let basePoints: Point2D[] = [];
+
+  const rawGeom = bag?.geometrieRD || bag?.geometrieWGS84;
+  if (rawGeom?.vertices && Array.isArray(rawGeom.vertices) && rawGeom.vertices.length > 2) {
+    const verts = rawGeom.vertices;
+    polygonCoords = verts.map((v: any) => {
+      const w = RDNAPTransformer.rdToWgs84(v.x, v.y);
+      return [w.lng, w.lat];
+    });
+    const v0 = verts[0];
+    basePoints = verts.map((v: any) => ({
+      x: +(v.x - v0.x).toFixed(2),
+      y: -(v.y - v0.y).toFixed(2),
+    }));
+  } else if (rawGeom?.coordinates?.[0]) {
+    let ring = rawGeom.coordinates[0];
+    if (rawGeom.type === 'MultiPolygon') {
+      ring = rawGeom.coordinates[0][0];
+    }
+    if (Array.isArray(ring) && ring.length > 2) {
+      polygonCoords = ring;
+      basePoints = convertCoordinatesToMeters(ring);
+    }
+  }
+
   return {
     address,
     pandId: payload?.pandId || bag?.identificatie || '-',
@@ -208,5 +173,10 @@ export function adaptBuildingPayloadToLegacyState(
     },
     aantalVerblijfsobjecten: Array.isArray(payload?.vbos) ? payload.vbos.length : 1,
     gebouwIsObject: (Array.isArray(payload?.vbos) ? payload.vbos.length : 1) === 1,
+    perceeloppervlakte: payload?.kadaster?.perceeloppervlakte ?? payload?.perceeloppervlakte ?? null,
+    perceelAanduiding: payload?.kadaster?.perceelAanduiding ?? payload?.perceelAanduiding ?? null,
+    wozWaarde: payload?.woz?.wozWaarde ?? payload?.wozWaarde ?? null,
+    polygonCoords,
+    basePoints,
   };
 }

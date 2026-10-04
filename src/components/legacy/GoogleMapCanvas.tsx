@@ -11,9 +11,9 @@ interface GoogleMapCanvasProps {
 }
 
 export const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
-  lat = 50.805292,
-  lng = 5.733510,
-  zoom = 19,
+  lat = 52.15517,
+  lng = 5.38720,
+  zoom = 12,
   polygonCoords,
   onMapClick,
 }) => {
@@ -105,6 +105,9 @@ export const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
         fillOpacity: 0.25,
         map: mapInstanceRef.current,
       });
+    } else if (polygonRef.current) {
+      polygonRef.current.setMap(null);
+      polygonRef.current = null;
     }
   }, [lat, lng, polygonCoords]);
 

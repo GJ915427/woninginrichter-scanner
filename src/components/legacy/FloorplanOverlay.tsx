@@ -11,6 +11,7 @@ interface FloorplanOverlayProps {
   onClose: () => void;
   basePoints: Point2D[];
   buildingState: LegacyBuildingState | null;
+  initialEtage?: number | 'section';
 }
 
 export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
@@ -18,8 +19,16 @@ export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
   onClose,
   basePoints,
   buildingState,
+  initialEtage = 0,
 }) => {
-  const [etage, setEtage] = useState<number | 'section'>(0);
+  const [etage, setEtage] = useState<number | 'section'>(initialEtage);
+
+  React.useEffect(() => {
+    if (initialEtage !== undefined) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEtage(initialEtage);
+    }
+  }, [initialEtage, isOpen]);
   const [wallThickness, setWallThickness] = useState<number>(0.28);
   const [showInnerDims, setShowInnerDims] = useState<boolean>(true);
   const [showOuterDims, setShowOuterDims] = useState<boolean>(true);
@@ -33,9 +42,9 @@ export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
       return generateLegacySectionSvg({
         basePoints,
         frontWallIdx: 0,
-        totalWoonoppervlakte: buildingState?.oppervlakte || 173,
-        nokhoogte: buildingState?.nokhoogte || 9.3,
-        goothoogte: buildingState?.goothoogte || 5.8,
+        totalWoonoppervlakte: buildingState?.oppervlakte || 0,
+        nokhoogte: buildingState?.nokhoogte || 8.2,
+        goothoogte: buildingState?.goothoogte || 5.6,
         bouwlagen: buildingState?.bouwlagen || 3,
         goothoogteAanbouw: buildingState?.bag3d?.goothoogteAanbouw || 3.7,
       });
@@ -48,7 +57,7 @@ export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
       showInnerDimensions: showInnerDims,
       showOuterDimensions: showOuterDims,
       etageIndex: etage,
-      totalWoonoppervlakte: buildingState?.oppervlakte || 173,
+      totalWoonoppervlakte: buildingState?.oppervlakte || 0,
       roofType,
       orientation,
       oppDakPlat: buildingState?.oppDakPlat || 0,
@@ -73,7 +82,7 @@ export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
     setOrientation((prev) => (prev === 'north' ? 'front_left' : 'north'));
   };
 
-  const activeAddress = buildingState?.address || 'Rijksweg 153b, Gronsveld';
+  const activeAddress = buildingState?.address || 'Plattegrond overzicht';
   const activeFloorTitle =
     etage === 0
       ? 'Begane grond'
@@ -119,7 +128,7 @@ export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
       {/* Google Indoor Maps Floor Pillar (Right Side) */}
       <div className="absolute right-4 top-20 z-20 flex flex-col items-center bg-white/95 backdrop-blur-md rounded-xl shadow-md border border-slate-200 overflow-hidden text-xs font-medium">
         <button
-          id="btnFloor2"
+          id="floorBtn2"
           onClick={() => setEtage(2)}
           className={`w-11 h-11 flex flex-col items-center justify-center border-b border-slate-100 transition-colors cursor-pointer ${
             etage === 2 ? 'bg-[#1a73e8] text-white' : 'text-slate-600 hover:bg-slate-50'
@@ -132,7 +141,7 @@ export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
           </span>
         </button>
         <button
-          id="btnFloor1"
+          id="floorBtn1"
           onClick={() => setEtage(1)}
           className={`w-11 h-11 flex flex-col items-center justify-center border-b border-slate-100 transition-colors cursor-pointer ${
             etage === 1 ? 'bg-[#1a73e8] text-white' : 'text-slate-600 hover:bg-slate-50'
@@ -145,7 +154,7 @@ export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
           </span>
         </button>
         <button
-          id="btnFloor0"
+          id="floorBtn0"
           onClick={() => setEtage(0)}
           className={`w-11 h-11 flex flex-col items-center justify-center border-b border-slate-100 transition-colors cursor-pointer ${
             etage === 0 ? 'bg-[#1a73e8] text-white' : 'text-slate-600 hover:bg-slate-50'
@@ -158,7 +167,7 @@ export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
           </span>
         </button>
         <button
-          id="btnFloorSection"
+          id="floorBtnSection"
           onClick={() => setEtage('section')}
           className={`w-11 h-11 flex flex-col items-center justify-center transition-colors cursor-pointer ${
             etage === 'section' ? 'bg-[#1a73e8] text-white' : 'text-slate-600 hover:bg-slate-50'

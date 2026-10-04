@@ -205,9 +205,13 @@ export function generateLegacyFloorplanSvg(options: FloorplanRenderOptions): str
     }
   }
 
+  const isCompositeOrFlat =
+    (oppDakPlat && oppDakPlat > 15) ||
+    (bag3d?.dakTypeLabel && bag3d.dakTypeLabel.toLowerCase().includes('samengesteld')) ||
+    roofType === 'flat';
   const isSlanted =
     roofType === 'slanted' ||
-    (roofType === 'auto' && oppDakSchuin && oppDakSchuin > (oppDakPlat || 0) * 1.4);
+    (roofType === 'auto' && !isCompositeOrFlat && Boolean(oppDakSchuin && oppDakSchuin > (oppDakPlat || 0) * 1.5));
 
   // SPECIFIEKE RENDERING VOOR ZOLDER / KAP (BIJ SCHUIN DAK)
   if (numericEtage === 2 && n === 4 && isSlanted) {

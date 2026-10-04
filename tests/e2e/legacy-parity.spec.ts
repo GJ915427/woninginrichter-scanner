@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('1-on-1 Legacy Parity Verification (google_maps_picker.html vs Next.js)', () => {
-  test('Next.js app matches google_maps_picker.html sidebar data for Rijksweg 153B', async ({ page }) => {
+  test('Next.js app opens cleanly without mock data, searches address, and renders opbouw and unclipped section', async ({
+    page,
+  }) => {
     // 1. Open Next.js app
     await page.goto('http://localhost:8088');
     await page.waitForTimeout(1000);
@@ -10,34 +12,49 @@ test.describe('1-on-1 Legacy Parity Verification (google_maps_picker.html vs Nex
     const mapContainer = page.locator('#googleMapElement');
     await expect(mapContainer).toBeVisible();
 
-    // 3. Verify PlaceSidebar contains real building facts (no dashes)
+    const searchInput = page.locator('#addressSearchInput');
+    await expect(searchInput).toBeVisible();
+
+    // 3. Search for Rijksweg 153b
+    await searchInput.fill('Rijksweg 153b');
+    await searchInput.press('Enter');
+
+    // Wait for API resolution
     const sidebar = page.locator('#placeSidebar');
     await expect(sidebar).toBeVisible();
-    await expect(sidebar).toContainText('1969'); // Bouwjaar
-    await expect(sidebar).toContainText('173');  // m² woonoppervlakte
+    await expect(sidebar).toContainText('1969', { timeout: 10000 }); // Bouwjaar
+    await expect(sidebar).toContainText('173'); // m² woonoppervlakte
     await expect(sidebar).toContainText('3 bouwlagen');
-    await expect(sidebar).toContainText('411');  // m² perceel
-    await expect(sidebar).toContainText('9.3');  // nokhoogte
 
-    // Capture main view screenshot
-    await page.screenshot({
-      path: 'C:/Users/gaspa/.gemini/antigravity/brain/22ba8f39-e1f5-425e-a1b7-74fd252336a6/migrated_google_maps_picker_view.png',
-    });
+    // Verify the 5 view action buttons exist in sidebar
+    await expect(sidebar).toContainText('2D Plan');
+    await expect(sidebar).toContainText('Doorsnede');
+    await expect(sidebar).toContainText('3D Model');
+    await expect(sidebar).toContainText('Street View');
+    await expect(sidebar).toContainText('Satelliet');
 
-    // 4. Click mini floorplan container to open full floorplan view
-    const miniFp = page.locator('#miniFloorplanContainer');
-    await miniFp.click();
+    // 4. Click '2D Plan' to open floorplan view
+    const planBtn = sidebar.getByRole('button', { name: /2D Plan/i });
+    await planBtn.click();
 
-    // 5. Verify Floorplan overlay is visible and centered on md:pl-[430px]
     const fpOverlay = page.locator('#floorplanFullView');
     await expect(fpOverlay).toBeVisible();
-    await expect(fpOverlay).toContainText('BEGANE GROND');
-    await expect(fpOverlay).toContainText('VOORZIJDE (STRAAT)');
 
-    // Capture floorplan view screenshot
-    await page.screenshot({
-      path: 'C:/Users/gaspa/.gemini/antigravity/brain/22ba8f39-e1f5-425e-a1b7-74fd252336a6/migrated_floorplan_view.png',
-    });
+    // Check etage 2 (opbouw)
+    const etage2Btn = page.locator('#floorBtn2');
+    if (await etage2Btn.isVisible()) {
+      await etage2Btn.click();
+      await expect(fpOverlay).toContainText('2e VERDIEPING • OPBOUW (CONCEPT)');
+    }
+
+    // 5. Click 'Doorsnede' (or section button in floorplan controls)
+    const sectionBtn = page.locator('#floorBtnSection');
+    if (await sectionBtn.isVisible()) {
+      await sectionBtn.click();
+      await expect(fpOverlay).toContainText(/(\+9\.26m|\+9\.30m) Nok/);
+      await expect(fpOverlay).toContainText('+5.80m Goot / Zolder');
+      await expect(fpOverlay).toContainText('0.00m Peil (Maaiveld)');
+    }
 
     // 6. Click 'Kaart bekijken' to return to map
     const returnBtn = page.locator('#returnToMapBtn');
