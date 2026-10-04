@@ -107,6 +107,10 @@ export const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
     const newCenter = { lat: Number(lat), lng: Number(lng) };
     mapInstanceRef.current.setCenter(newCenter);
 
+    if (zoom != null && mapInstanceRef.current.getZoom() !== zoom) {
+      mapInstanceRef.current.setZoom(zoom);
+    }
+
     if (mapTypeId && mapInstanceRef.current.getMapTypeId() !== mapTypeId) {
       mapInstanceRef.current.setMapTypeId(mapTypeId);
     }
@@ -148,7 +152,7 @@ export const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
         panorama.setVisible(false);
       }
     }
-  }, [lat, lng, polygonCoords, mapTypeId, isStreetView, streetViewHeading]);
+  }, [lat, lng, zoom, polygonCoords, mapTypeId, isStreetView, streetViewHeading]);
 
   return (
     <div

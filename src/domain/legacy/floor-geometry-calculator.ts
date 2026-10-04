@@ -82,17 +82,18 @@ export function computeFloorGeometry(
     }
   }
 
-  // Begrenzing op realistische bouwkundige diepte (tot 25m voor diepe vrijstaande / herenhuizen / boerderijen)
-  depth = Math.max(5.0, Math.min(25.0, depth));
+  // Bouwkundige dieptebegrenzing voor hoofdvolume bij samengestelde panden met aanbouw:
+  // Het hoofdvolume aan de straatzijde heeft een typische diepte van 5.0m tot 8.0m
+  depth = Math.max(5.0, Math.min(8.0, depth));
 
   const pPrev = basePoints[(frontIdx - 1 + n) % n];
   const leftLen = Math.hypot(pPrev.x - pA.x, pPrev.y - pA.y);
   const pNext2 = basePoints[(frontIdx + 2) % n];
   const rightLen = Math.hypot(pNext2.x - pB.x, pNext2.y - pB.y);
 
-  if (leftLen >= 4.5 && (Math.abs(leftLen - depth) < 3.0 || (leftLen < rightLen && Math.abs(leftLen - depth) < 4.0))) {
+  if (leftLen >= 5.0 && leftLen <= 8.5 && Math.abs(leftLen - depth) < 1.5) {
     depth = leftLen;
-  } else if (rightLen >= 4.5 && (Math.abs(rightLen - depth) < 3.0 || (rightLen < leftLen && Math.abs(rightLen - depth) < 4.0))) {
+  } else if (rightLen >= 5.0 && rightLen <= 8.5 && Math.abs(rightLen - depth) < 1.5) {
     depth = rightLen;
   }
 

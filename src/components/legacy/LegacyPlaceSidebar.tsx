@@ -8,8 +8,11 @@ interface LegacyPlaceSidebarProps {
   buildingState: LegacyBuildingState | null;
   searchValue: string;
   coords?: { lat: number; lng: number };
+  suggestions?: Array<{ id: string; weergavenaam: string }>;
+  isDropdownOpen?: boolean;
   onSearchChange: (val: string) => void;
   onSearchSubmit: (query: string) => void;
+  onSelectSuggestion?: (id: string, weergavenaam: string) => void;
   onOpenFloorplan?: (etage?: number | 'section') => void;
   onOpen3D?: () => void;
   onToggleStreetView?: () => void;
@@ -21,8 +24,11 @@ export const LegacyPlaceSidebar: React.FC<LegacyPlaceSidebarProps> = ({
   buildingState,
   searchValue,
   coords,
+  suggestions = [],
+  isDropdownOpen = false,
   onSearchChange,
   onSearchSubmit,
+  onSelectSuggestion,
   onOpenFloorplan,
   onOpen3D,
   onToggleStreetView,
@@ -97,11 +103,15 @@ export const LegacyPlaceSidebar: React.FC<LegacyPlaceSidebarProps> = ({
       className="absolute top-0 left-0 bottom-0 w-full sm:w-[400px] z-20 bg-white shadow-2xl flex flex-col transition-all duration-300 pointer-events-auto border-r border-slate-200"
     >
       {/* 1. Search Bar Header */}
-      <div className="p-3 bg-white border-b border-slate-200 z-10">
+      <div className="p-3 bg-white border-b border-slate-200 z-30 relative">
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (searchValue.trim()) onSearchSubmit(searchValue.trim());
+            if (isDropdownOpen && suggestions && suggestions.length > 0 && onSelectSuggestion) {
+              onSelectSuggestion(suggestions[0].id, suggestions[0].weergavenaam);
+            } else if (searchValue.trim()) {
+              onSearchSubmit(searchValue.trim());
+            }
           }}
           className="relative flex items-center bg-white rounded-full shadow-md border border-slate-200 px-3.5 py-2 hover:shadow-lg focus-within:shadow-lg transition-shadow"
         >
@@ -116,6 +126,7 @@ export const LegacyPlaceSidebar: React.FC<LegacyPlaceSidebarProps> = ({
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Zoek een adres of postcode..."
+            autoComplete="off"
             className="flex-1 bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none"
           />
           {searchValue && (
@@ -140,6 +151,29 @@ export const LegacyPlaceSidebar: React.FC<LegacyPlaceSidebarProps> = ({
             </svg>
           </button>
         </form>
+
+        {/* Autocomplete Suggestions Dropdown */}
+        {isDropdownOpen && suggestions && suggestions.length > 0 && (
+          <div
+            id="suggestionsDropdown"
+            className="absolute top-14 left-3 right-3 bg-white rounded-lg shadow-2xl border border-slate-200 overflow-hidden mt-1 z-50 max-h-80 overflow-y-auto"
+          >
+            <div id="suggestionsList" className="divide-y divide-slate-100 text-xs">
+              {suggestions.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => onSelectSuggestion?.(item.id, item.weergavenaam)}
+                  className="px-3.5 py-2.5 flex items-center gap-2.5 hover:bg-slate-50 cursor-pointer transition-colors text-slate-800"
+                >
+                  <svg className="w-4 h-4 text-[#007b83] shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                  </svg>
+                  <span className="text-xs font-medium text-slate-700 truncate">{item.weergavenaam}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Scrollable Content */}

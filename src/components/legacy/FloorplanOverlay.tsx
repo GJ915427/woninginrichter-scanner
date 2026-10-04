@@ -27,7 +27,7 @@ export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
 
   const resolvedFrontWallIdx = useMemo(() => {
     if (frontWallIdx != null && frontWallIdx >= 0) return frontWallIdx;
-    return 0;
+    return undefined;
   }, [frontWallIdx]);
 
   React.useEffect(() => {
@@ -72,6 +72,7 @@ export const FloorplanOverlay: React.FC<FloorplanOverlayProps> = ({
       bag3d: buildingState?.bag3d,
       isMandelig: buildingState ? buildingState.oppScheidingsmuur > 10 : true,
       mandeligWallIdx: 3,
+      streetViewHeading: buildingState?.streetViewHeading,
     });
   }, [
     isOpen,

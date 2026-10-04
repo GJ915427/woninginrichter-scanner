@@ -28,6 +28,15 @@ describe('Legacy Floor Geometry Calculator (1-on-1 port from google_maps_picker.
     const depth = Math.hypot(f1[3].x - f1[0].x, f1[3].y - f1[0].y);
     expect(depth).toBeGreaterThanOrEqual(5.0);
     expect(depth).toBeLessThanOrEqual(8.0);
+    expect(depth).toBeCloseTo(8.0, 1);
+  });
+
+  it('should not stretch upper floor along long 18m annex wall', () => {
+    // When front wall is 6m and side wall is 18m, upper floor must not exceed 8.0m
+    const f1 = computeFloorGeometry(sampleLBuilding, 0, 1, 173, 0.28);
+    const depth = Math.hypot(f1[3].x - f1[0].x, f1[3].y - f1[0].y);
+    expect(depth).not.toBeCloseTo(18.0, 0);
+    expect(depth).toBeLessThanOrEqual(8.0);
   });
 
   it('should return base contour if building has <= 4 corners (simple rectangle)', () => {

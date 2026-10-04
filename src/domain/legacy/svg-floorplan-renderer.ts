@@ -54,7 +54,7 @@ export function generateLegacyFloorplanSvg(options: FloorplanRenderOptions): str
       const outNx = (vy / len) * baseSign;
       const outNy = (-vx / len) * baseSign;
       const dot = outNx * toStreetX + outNy * toStreetY;
-      const score = dot * len;
+      const score = dot * Math.sqrt(len);
       if (score > bestScore) {
         bestScore = score;
         frontWallIdx = i;

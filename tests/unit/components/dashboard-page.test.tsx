@@ -136,4 +136,26 @@ describe('HomePage Single-Screen Component (Zero-Mock & Dynamic State)', () => {
     expect(html).toContain('maptype=satellite');
     expect(html).toContain('center=50.805292,5.73351');
   });
+
+  it('should render autocomplete suggestions dropdown when open', () => {
+    const html = renderToStaticMarkup(
+      <LegacyPlaceSidebar
+        buildingState={null}
+        searchValue="Rijksweg"
+        suggestions={[
+          { id: 'adr-1', weergavenaam: 'Rijksweg 153B, Gronsveld' },
+          { id: 'adr-2', weergavenaam: 'Rijksweg 153, Gronsveld' },
+        ]}
+        isDropdownOpen={true}
+        onSearchChange={() => {}}
+        onSearchSubmit={() => {}}
+      />
+    );
+
+    expect(html).toContain('id="suggestionsDropdown"');
+    expect(html).toContain('id="suggestionsList"');
+    expect(html).toContain('Rijksweg 153B, Gronsveld');
+    expect(html).toContain('Rijksweg 153, Gronsveld');
+    expect(html).toContain('autoComplete="off"');
+  });
 });
