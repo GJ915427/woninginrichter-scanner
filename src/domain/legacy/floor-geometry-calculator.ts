@@ -1,10 +1,11 @@
 import { Point2D } from './collinear-simplifier';
+import { FrontDoorDetector } from '../geometry/front-door-detector';
 
 /**
- * 1-on-1 port of computeFloorGeometry from google_maps_picker.html.
+ * 1-on-1 port of computeFloorGeometry from google_maps_picker.html,
+ * enhanced with volumetric telemetry and VBO entrance point detection.
  * For etageIndex === 0: returns base contour.
- * For compound buildings (n > 4, floorRatio < 0.85): isolates the street-side main volume
- * with depth bounded between 5.0m and 8.0m.
+ * For compound buildings (n > 4, floorRatio < 0.85): isolates the street-side main volume.
  * Returns vertices in standard polygon traversal order: [pA, pB, pB + inN * depth, pA + inN * depth],
  * where edge 0 is front wall (width), edge 1 is side wall (depth), etc.
  */
@@ -17,6 +18,7 @@ export function computeFloorGeometry(
   bag3d?: {
     volumes?: Array<{ hMax: number; hMin: number; hoogteBoven: number }>;
     oppGrond?: number | null;
+    vboEntrancePoint?: [number, number] | Point2D;
   }
 ): Point2D[] {
   if (etageIndex === 0 || !basePoints || basePoints.length < 3) {
@@ -53,7 +55,21 @@ export function computeFloorGeometry(
   }
 
   // Samengesteld pand met 1-laags aanbouw (hoofdvolume aan straatzijde, zoals Rijksweg 153b)
-  if (frontIdx < 0 || frontIdx >= n) frontIdx = 0;
+  if (frontIdx < 0 || frontIdx >= n) {
+    if (bag3d?.vboEntrancePoint) {
+      const vboPt: [number, number] = Array.isArray(bag3d.vboEntrancePoint)
+        ? [bag3d.vboEntrancePoint[0], bag3d.vboEntrancePoint[1]]
+        : [bag3d.vboEntrancePoint.x, bag3d.vboEntrancePoint.y];
+      const result = FrontDoorDetector.detectFrontWall({
+        footprintCoords: basePoints.map((p) => [p.x, p.y]),
+        vboEntrancePoint: vboPt,
+      });
+      frontIdx = result.frontWallIndex;
+    } else {
+      frontIdx = 0;
+    }
+  }
+
   const pA = basePoints[frontIdx];
   const pB = basePoints[(frontIdx + 1) % n];
   const vx = pB.x - pA.x;
@@ -68,7 +84,7 @@ export function computeFloorGeometry(
   // Buitenwerks diepte (inclusief 2x spouwmuur):
   let depth = dInner + 2 * wallThickness;
 
-  // LoD 1.3 volume-gebaseerde diepteverfijning (3D BAG feitelijke geometrie)
+  // LoD 1.3 / LoD 2.2 volume-gebaseerde diepteverfijning (3D BAG feitelijke geometrie)
   if (bag3d && bag3d.volumes && bag3d.volumes.length >= 2) {
     const mainVol = bag3d.volumes[bag3d.volumes.length - 1];
     const aanbouwVol = bag3d.volumes[0];
@@ -76,25 +92,25 @@ export function computeFloorGeometry(
     const aanbouwH = aanbouwVol.hoogteBoven || 3.9;
     if (mainH > aanbouwH * 1.4 && bag3d.oppGrond && fLen > 2) {
       const bag3dDepth = upperRemainingArea / wInner + 2 * wallThickness;
-      if (bag3dDepth >= 4.0 && bag3dDepth <= 10.0) {
+      if (bag3dDepth >= 4.0 && bag3dDepth <= 12.0) {
         depth = bag3dDepth;
       }
     }
   }
 
   // Bouwkundige dieptebegrenzing voor hoofdvolume bij samengestelde panden met aanbouw:
-  // Het hoofdvolume aan de straatzijde heeft een typische diepte van 5.0m tot 8.0m
-  depth = Math.max(5.0, Math.min(8.0, depth));
-
+  // Detecteer of de footprint een werkelijke goot- of muursprong heeft (bijv. 8.0m voor Rijksweg 153B)
   const pPrev = basePoints[(frontIdx - 1 + n) % n];
   const leftLen = Math.hypot(pPrev.x - pA.x, pPrev.y - pA.y);
   const pNext2 = basePoints[(frontIdx + 2) % n];
   const rightLen = Math.hypot(pNext2.x - pB.x, pNext2.y - pB.y);
 
-  if (leftLen >= 5.0 && leftLen <= 8.5 && Math.abs(leftLen - depth) < 1.5) {
+  if (leftLen >= 4.5 && leftLen <= 12.0 && Math.abs(leftLen - depth) < 2.0) {
     depth = leftLen;
-  } else if (rightLen >= 5.0 && rightLen <= 8.5 && Math.abs(rightLen - depth) < 1.5) {
+  } else if (rightLen >= 4.5 && rightLen <= 12.0 && Math.abs(rightLen - depth) < 2.0) {
     depth = rightLen;
+  } else {
+    depth = Math.max(5.0, Math.min(8.0, depth));
   }
 
   const ux = vx / fLen;

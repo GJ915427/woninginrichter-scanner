@@ -1,6 +1,7 @@
 import { Point2D, simplifyCollinearPoints } from './collinear-simplifier';
 import { computeFloorGeometry } from './floor-geometry-calculator';
 import { FloorplanRenderOptions } from './types';
+import { FrontDoorDetector } from '../geometry/front-door-detector';
 
 /**
  * 1-on-1 port of renderFloorplan SVG generator from google_maps_picker.html.
@@ -44,20 +45,33 @@ export function generateLegacyFloorplanSvg(options: FloorplanRenderOptions): str
 
   let frontWallIdx = options.frontWallIdx ?? -1;
   if (frontWallIdx < 0 || frontWallIdx >= baseN) {
-    let bestScore = -Infinity;
-    for (let i = 0; i < baseN; i++) {
-      const p1 = basePts[i];
-      const p2 = basePts[(i + 1) % baseN];
-      const vx = p2.x - p1.x;
-      const vy = p2.y - p1.y;
-      const len = Math.hypot(vx, vy);
-      const outNx = (vy / len) * baseSign;
-      const outNy = (-vx / len) * baseSign;
-      const dot = outNx * toStreetX + outNy * toStreetY;
-      const score = dot * Math.sqrt(len);
-      if (score > bestScore) {
-        bestScore = score;
-        frontWallIdx = i;
+    const vboPoint = options.bag3d?.vboEntrancePoint || (options as any).vboEntrancePoint;
+    if (vboPoint) {
+      const vboCoords: [number, number] = Array.isArray(vboPoint)
+        ? [vboPoint[0], vboPoint[1]]
+        : [vboPoint.x, vboPoint.y];
+      const detection = FrontDoorDetector.detectFrontWall({
+        footprintCoords: basePts.map((p) => [p.x, p.y]),
+        vboEntrancePoint: vboCoords,
+        streetViewHeadingDeg: streetViewHeading,
+      });
+      frontWallIdx = detection.frontWallIndex;
+    } else {
+      let bestScore = -Infinity;
+      for (let i = 0; i < baseN; i++) {
+        const p1 = basePts[i];
+        const p2 = basePts[(i + 1) % baseN];
+        const vx = p2.x - p1.x;
+        const vy = p2.y - p1.y;
+        const len = Math.hypot(vx, vy);
+        const outNx = (vy / len) * baseSign;
+        const outNy = (-vx / len) * baseSign;
+        const dot = outNx * toStreetX + outNy * toStreetY;
+        const score = dot * Math.sqrt(len);
+        if (score > bestScore) {
+          bestScore = score;
+          frontWallIdx = i;
+        }
       }
     }
   }

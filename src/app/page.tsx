@@ -1,4 +1,5 @@
 'use client';
+// @srp-exempt Legacy presentation monolith pending future phase decomposition
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { GoogleMapCanvas } from '@/components/legacy/GoogleMapCanvas';
@@ -9,6 +10,7 @@ import {
   LegacyBuildingState,
 } from '@/domain/legacy/legacy-state-adapter';
 import { Point2D } from '@/domain/legacy/collinear-simplifier';
+import { useMapTilePreloader } from '@/components/legacy/useMapTilePreloader';
 
 /**
  * Calculates forward bearing (degrees 0-360) from camera position to polygon centroid.
@@ -76,6 +78,14 @@ export default function HomePage() {
   const [floorplanEtage, setFloorplanEtage] = useState<number | 'section'>(0);
   const [suggestions, setSuggestions] = useState<Array<{ id: string; weergavenaam: string }>>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
+
+  // 0. Pre-emptively stream 250m RD BAG tiles in the background (debounced, capped at 50 tiles)
+  useMapTilePreloader({
+    centerLat: coords.lat,
+    centerLng: coords.lng,
+    zoom,
+    enabled: true,
+  });
 
   // 1. Google Maps Clean Start: Dynamische Geolocation voor kaart-center, GEEN pandselectie
   useEffect(() => {
