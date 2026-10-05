@@ -14,3 +14,7 @@ android/build/
 *.apk
 *.zip
 *.db
+.next/
+playwright-report/
+test-results/
+*.tsbuildinfo

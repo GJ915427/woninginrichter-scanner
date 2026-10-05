@@ -3,10 +3,10 @@
   "project_name": "test_project",
   "version": "1.0.0",
   "stack": {
-    "has_python": true,
-    "has_node": false,
+    "has_python": false,
+    "has_node": true,
     "has_fastapi": false,
-    "has_nextjs": false
+    "has_nextjs": true
   },
   "guards": {
     "presentation_guard": {
