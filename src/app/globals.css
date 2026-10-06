@@ -1,0 +1,79 @@
+@import 'tailwindcss';
+
+:root {
+  --background: #ffffff;
+  --foreground: #222222;
+  --font-geist-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Custom Dark Blue Branding Colors */
+  --color-brand: #0a3875;
+  --color-brand-hover: #072b5c;
+  --color-brand-muted: #ebf2fa;
+
+  /* Custom Neutrals */
+  --color-neutral-dark: #222222;
+  --color-neutral-medium: #555555;
+  --color-neutral-light: #dddddd;
+  --color-neutral-border: #b0b0b0;
+  --color-neutral-bg: #f7f7f7;
+
+  /* Semantic Styling Tokens */
+  --color-error: #c13515;
+  --color-error-bg: #fef2f2;
+  --color-success: #10b981;
+  --color-success-bg: #ecfdf5;
+  --color-warning: #f59e0b;
+
+  /* Architectural Drawing & Floorplan Tokens */
+  --color-wall-outer: #1e293b;
+  --color-wall-shared: #dc2626;
+  --color-facade-front: #0284c7;
+  --color-nen-headroom: #f59e0b;
+  --color-dimension-line: #64748b;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--color-neutral-dark, #222222);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+}
+
+/* Prevent native browser red outlines on valid/typing inputs */
+input:invalid,
+input:user-invalid,
+textarea:invalid,
+textarea:user-invalid {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+input,
+textarea,
+select {
+  border-color: #b0b0b0;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #222222 !important;
+  box-shadow: 0 0 0 1px #222222 !important;
+  outline: none !important;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible {
+  outline: 2px solid var(--color-brand, #0a3875) !important;
+  outline-offset: 2px !important;
+}
