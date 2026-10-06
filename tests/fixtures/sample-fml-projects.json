@@ -1,0 +1,100 @@
+{
+  "simple_room_with_partition": {
+    "id": 90000001,
+    "name": "Eenvoudige Woning met Binnenmuur",
+    "public": true,
+    "floors": [
+      {
+        "id": 101,
+        "name": "Begane grond",
+        "level": 0,
+        "height": 280,
+        "designs": [
+          {
+            "id": 201,
+            "name": "Design 1",
+            "walls": [
+              { "a": { "x": 0, "y": 0 }, "b": { "x": 600, "y": 0 }, "thickness": 30 },
+              { "a": { "x": 600, "y": 0 }, "b": { "x": 600, "y": 800 }, "thickness": 30 },
+              { "a": { "x": 600, "y": 800 }, "b": { "x": 0, "y": 800 }, "thickness": 30 },
+              { "a": { "x": 0, "y": 800 }, "b": { "x": 0, "y": 0 }, "thickness": 30 },
+              { "a": { "x": 0, "y": 400 }, "b": { "x": 300, "y": 400 }, "thickness": 10 }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "l_shaped_house": {
+    "id": 90000002,
+    "name": "L-Vormige Woning met Aanbouw",
+    "public": true,
+    "floors": [
+      {
+        "id": 102,
+        "name": "Begane grond",
+        "level": 0,
+        "height": 280,
+        "designs": [
+          {
+            "id": 202,
+            "name": "Design 1",
+            "walls": [
+              { "a": { "x": 0, "y": 0 }, "b": { "x": 600, "y": 0 }, "thickness": 30 },
+              { "a": { "x": 600, "y": 0 }, "b": { "x": 600, "y": 1200 }, "thickness": 30 },
+              { "a": { "x": 600, "y": 1200 }, "b": { "x": 300, "y": 1200 }, "thickness": 30 },
+              { "a": { "x": 300, "y": 1200 }, "b": { "x": 300, "y": 800 }, "thickness": 30 },
+              { "a": { "x": 300, "y": 800 }, "b": { "x": 0, "y": 800 }, "thickness": 30 },
+              { "a": { "x": 0, "y": 800 }, "b": { "x": 0, "y": 0 }, "thickness": 30 },
+              { "a": { "x": 300, "y": 400 }, "b": { "x": 600, "y": 400 }, "thickness": 10 }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 103,
+        "name": "1e verdieping",
+        "level": 1,
+        "height": 260,
+        "designs": [
+          {
+            "id": 203,
+            "name": "Design 1",
+            "walls": [
+              { "a": { "x": 0, "y": 0 }, "b": { "x": 600, "y": 0 }, "thickness": 30 },
+              { "a": { "x": 600, "y": 0 }, "b": { "x": 600, "y": 800 }, "thickness": 30 },
+              { "a": { "x": 600, "y": 800 }, "b": { "x": 0, "y": 800 }, "thickness": 30 },
+              { "a": { "x": 0, "y": 800 }, "b": { "x": 0, "y": 0 }, "thickness": 30 }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "singel_13_bussum_snippet": {
+    "id": 21000075,
+    "name": "Singel 13 Bussum",
+    "public": true,
+    "creator_email": "info@123meten.nl",
+    "floors": [
+      {
+        "id": 21259950,
+        "name": "Begane grond",
+        "level": 0,
+        "height": 280,
+        "designs": [
+          {
+            "id": 22356950,
+            "name": "Begane grond",
+            "walls": [
+              { "a": { "x": 848, "y": 169 }, "b": { "x": 1223, "y": 169 }, "thickness": 25 },
+              { "a": { "x": 1223, "y": 169 }, "b": { "x": 1223, "y": 1160 }, "thickness": 25 },
+              { "a": { "x": 1223, "y": 1160 }, "b": { "x": 848, "y": 1160 }, "thickness": 25 },
+              { "a": { "x": 848, "y": 1160 }, "b": { "x": 848, "y": 169 }, "thickness": 25 }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
