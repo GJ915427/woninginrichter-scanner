@@ -1,0 +1,112 @@
+{
+  "timestamp": "2026-10-06T19:07:17.691Z",
+  "summary": {
+    "totalRecords": 6,
+    "successfulCount": 4,
+    "failedCount": 2,
+    "totalDurationMs": 948,
+    "averageDurationPerRecordMs": 670,
+    "p50DurationMs": 739,
+    "p95DurationMs": 769
+  },
+  "typologyBreakdown": {
+    "Onbekend": {
+      "total": 6,
+      "successful": 4,
+      "failed": 2,
+      "avgIoU": 0.428,
+      "avgDeltaAreaM2": 92.82,
+      "avgDurationMs": 670
+    }
+  },
+  "results": [
+    {
+      "index": 0,
+      "query": "Singel 13 Bussum",
+      "typology": "Onbekend",
+      "success": true,
+      "durationMs": 769,
+      "pandId": "0381100000114840",
+      "vboId": "0381010000030960",
+      "oppervlakteVboM2": 145,
+      "groundNapM": 5.55,
+      "eavesNapM": 12.69,
+      "ridgeNapM": 14.2,
+      "perceelnummer": "532",
+      "calculatedFloorsCount": 3,
+      "overallMatch": false,
+      "avgIoU": 0.387,
+      "maxDeltaAreaM2": 49.61
+    },
+    {
+      "index": 1,
+      "query": "Kilstraat 18 Deventer",
+      "typology": "Onbekend",
+      "success": true,
+      "durationMs": 739,
+      "pandId": "0150100000037779",
+      "vboId": "0150010000018722",
+      "oppervlakteVboM2": 91,
+      "groundNapM": 6.75,
+      "eavesNapM": 18.24,
+      "ridgeNapM": 18.33,
+      "perceelnummer": "296",
+      "calculatedFloorsCount": 3,
+      "overallMatch": false,
+      "avgIoU": 0.343,
+      "maxDeltaAreaM2": 137.48999999999998
+    },
+    {
+      "index": 2,
+      "query": "Vondelstraat 45 Amsterdam",
+      "typology": "Onbekend",
+      "success": false,
+      "error": "Geen pand/evaluatie gevonden voor adres: Vondelstraat 45 Amsterdam",
+      "durationMs": 0
+    },
+    {
+      "index": 3,
+      "query": "Jan van Goyenstraat 12 Utrecht",
+      "typology": "Onbekend",
+      "success": false,
+      "error": "Geen pand/evaluatie gevonden voor adres: Jan van Goyenstraat 12 Utrecht",
+      "durationMs": 0
+    },
+    {
+      "index": 4,
+      "query": "Sweelinckstraat 32 Den Haag",
+      "typology": "Onbekend",
+      "success": true,
+      "durationMs": 684,
+      "pandId": "0518100000243250",
+      "vboId": "0518010000673872",
+      "oppervlakteVboM2": 373,
+      "groundNapM": 1.33,
+      "eavesNapM": 15.32,
+      "ridgeNapM": 15.73,
+      "perceelnummer": "2327",
+      "calculatedFloorsCount": 3,
+      "overallMatch": false,
+      "avgIoU": 0.507,
+      "maxDeltaAreaM2": 62.730000000000004
+    },
+    {
+      "index": 5,
+      "query": "Rembrandtlaan 14 Bilthoven",
+      "typology": "Onbekend",
+      "success": true,
+      "durationMs": 489,
+      "pandId": "0310100000729330",
+      "vboId": "0310010000729145",
+      "oppervlakteVboM2": 234,
+      "groundNapM": 4.03,
+      "eavesNapM": 9.29,
+      "ridgeNapM": 12.05,
+      "perceelnummer": "5696",
+      "calculatedFloorsCount": 3,
+      "overallMatch": false,
+      "avgIoU": 0.474,
+      "maxDeltaAreaM2": 121.47
+    }
+  ]
+}
