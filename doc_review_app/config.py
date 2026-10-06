@@ -4,6 +4,7 @@ Provides strongly typed settings using pydantic-settings, resolving project
 paths, database URLs, session secrets, and default server configurations.
 """
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -51,8 +52,16 @@ class Settings(BaseSettings):
     session_cookie_name: str = "session_token"
 
     # Server Bind Configuration
-    host: str = "127.0.0.1"
-    port: int = 8095
+    host: str = Field(
+        default_factory=lambda: (
+            "0.0.0.0" if ("PORT" in os.environ or "RENDER" in os.environ) else "127.0.0.1"
+        )
+    )
+    port: int = Field(
+        default_factory=lambda: (
+            int(os.environ["PORT"]) if "PORT" in os.environ else 8095
+        )
+    )
 
     # Default Initial Admin Credentials
     admin_username: str = "admin"

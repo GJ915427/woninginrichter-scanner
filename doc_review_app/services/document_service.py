@@ -182,18 +182,32 @@ def list_documents(db: Optional[sqlite3.Connection] = None) -> List[Dict[str, An
     def _execute(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
         cursor = conn.execute(query)
         rows = cursor.fetchall()
-        return [
-            {
+        from doc_review_app.storage.json_storage import get_sidecar_path, read_sidecar
+        result = []
+        for row in rows:
+            comment_count = row["comment_count"]
+            sidecar_path = get_sidecar_path(row["filename"])
+            if sidecar_path.exists():
+                sidecar_data = read_sidecar(sidecar_path, filename_hint=row["filename"])
+                sidecar_comments = sum(
+                    1 for ann in sidecar_data.get("annotations", [])
+                    if not ann.get("is_deleted", False)
+                    for c in ann.get("comments", [])
+                    if not c.get("is_deleted", False)
+                )
+                if sidecar_comments > 0 or comment_count == 0:
+                    comment_count = sidecar_comments
+
+            result.append({
                 "id": row["id"],
                 "filename": row["filename"],
                 "title": row["title"],
                 "format": row["format"],
                 "size_bytes": row["size_bytes"],
                 "updated_at": row["updated_at"],
-                "comment_count": row["comment_count"],
-            }
-            for row in rows
-        ]
+                "comment_count": comment_count,
+            })
+        return result
 
     if db is not None:
         return _execute(db)
@@ -396,10 +410,14 @@ def delete_document(doc_id: int, db: Optional[sqlite3.Connection] = None) -> Dic
         
         # Remove file from local_documents directory if present
         from doc_review_app.config import settings
+        from doc_review_app.storage.json_storage import get_sidecar_path
         file_path = (settings.documents_dir / filename).resolve()
+        sidecar_path = get_sidecar_path(filename, settings.documents_dir).resolve()
         try:
             if file_path.is_relative_to(settings.documents_dir.resolve()):
                 file_path.unlink(missing_ok=True)
+            if sidecar_path.is_relative_to(settings.documents_dir.resolve()):
+                sidecar_path.unlink(missing_ok=True)
         except Exception:
             pass
 

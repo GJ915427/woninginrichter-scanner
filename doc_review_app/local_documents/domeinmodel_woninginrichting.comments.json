@@ -1,0 +1,223 @@
+{
+  "document_filename": "domeinmodel_woninginrichting.md",
+  "schema_version": 1,
+  "updated_at": "2026-10-06T18:04:33.074995+00:00",
+  "annotations": [
+    {
+      "id": 370,
+      "document_id": 360,
+      "author_id": 1229,
+      "start_offset": 62513,
+      "end_offset": 62520,
+      "selected_text": "Facette",
+      "badge_color": "#FF6D00",
+      "color": "#FF6D00",
+      "status": "open",
+      "is_deleted": false,
+      "deleted_at": null,
+      "ast_path": "3.3 Categorie 2: Raamdecoratie (Binnenzonwering, Horren & Buitenscreens) > 3.3.1 Productgroepen, Merken & Configuratoren > Binnenzonwering & Merken > Productgroepen",
+      "node_type": "ListItem",
+      "created_at": "2026-10-06T14:19:08.228331+00:00",
+      "updated_at": "2026-10-06T14:19:08.228331+00:00",
+      "comments": [
+        {
+          "id": 412,
+          "annotation_id": 370,
+          "parent_comment_id": null,
+          "user_id": 1229,
+          "author_id": 1229,
+          "author_initials": "GJ",
+          "author_name": "Gaspard Jaspars",
+          "author_username": "admin",
+          "content": "moet weg",
+          "is_edited": false,
+          "is_deleted": false,
+          "deleted_at": null,
+          "created_at": "2026-10-06T14:19:08.228331+00:00",
+          "updated_at": "2026-10-06T14:19:08.228331+00:00"
+        }
+      ]
+    },
+    {
+      "id": 371,
+      "document_id": 360,
+      "author_id": 1229,
+      "start_offset": 62635,
+      "end_offset": 62643,
+      "selected_text": "textiel ",
+      "badge_color": "#FF6D00",
+      "color": "#FF6D00",
+      "status": "open",
+      "is_deleted": false,
+      "deleted_at": null,
+      "ast_path": "3.3 Categorie 2: Raamdecoratie (Binnenzonwering, Horren & Buitenscreens) > 3.3.1 Productgroepen, Merken & Configuratoren > Binnenzonwering & Merken > Productgroepen",
+      "node_type": "ListItem",
+      "created_at": "2026-10-06T14:20:09.330132+00:00",
+      "updated_at": "2026-10-06T14:20:09.330132+00:00",
+      "comments": [
+        {
+          "id": 413,
+          "annotation_id": 371,
+          "parent_comment_id": null,
+          "user_id": 1229,
+          "author_id": 1229,
+          "author_initials": "GJ",
+          "author_name": "Gaspard Jaspars",
+          "author_username": "admin",
+          "content": "+ pvc en aluminium",
+          "is_edited": false,
+          "is_deleted": false,
+          "deleted_at": null,
+          "created_at": "2026-10-06T14:20:09.330132+00:00",
+          "updated_at": "2026-10-06T14:20:09.330132+00:00"
+        }
+      ]
+    },
+    {
+      "id": 372,
+      "document_id": 360,
+      "author_id": 1229,
+      "start_offset": 62668,
+      "end_offset": 62681,
+      "selected_text": "Vouwgordijnen",
+      "badge_color": "#FF6D00",
+      "color": "#FF6D00",
+      "status": "open",
+      "is_deleted": false,
+      "deleted_at": null,
+      "ast_path": "3.3 Categorie 2: Raamdecoratie (Binnenzonwering, Horren & Buitenscreens) > 3.3.1 Productgroepen, Merken & Configuratoren > Binnenzonwering & Merken > Productgroepen",
+      "node_type": "ListItem",
+      "created_at": "2026-10-06T14:21:10.104096+00:00",
+      "updated_at": "2026-10-06T14:21:10.104096+00:00",
+      "comments": [
+        {
+          "id": 414,
+          "annotation_id": 372,
+          "parent_comment_id": null,
+          "user_id": 1229,
+          "author_id": 1229,
+          "author_initials": "GJ",
+          "author_name": "Gaspard Jaspars",
+          "author_username": "admin",
+          "content": "+ paneelgordijnen",
+          "is_edited": false,
+          "is_deleted": false,
+          "deleted_at": null,
+          "created_at": "2026-10-06T14:21:10.104096+00:00",
+          "updated_at": "2026-10-06T14:21:10.104096+00:00"
+        }
+      ]
+    }
+  ],
+  "audit_logs": [
+    {
+      "id": 370,
+      "entity_type": "annotation",
+      "entity_id": 370,
+      "action": "CREATE",
+      "actor_id": 1229,
+      "actor_initials": "GJ",
+      "old_value": null,
+      "new_value": "Facette",
+      "details": "Aangemaakt via Document Review",
+      "timestamp": "2026-10-06T14:19:08.228331+00:00"
+    },
+    {
+      "id": 371,
+      "entity_type": "annotation",
+      "entity_id": 371,
+      "action": "CREATE",
+      "actor_id": 1229,
+      "actor_initials": "GJ",
+      "old_value": null,
+      "new_value": "textiel ",
+      "details": "Aangemaakt via Document Review",
+      "timestamp": "2026-10-06T14:20:09.330132+00:00"
+    },
+    {
+      "id": 372,
+      "entity_type": "annotation",
+      "entity_id": 372,
+      "action": "CREATE",
+      "actor_id": 1229,
+      "actor_initials": "GJ",
+      "old_value": null,
+      "new_value": "Vouwgordijnen",
+      "details": "Aangemaakt via Document Review",
+      "timestamp": "2026-10-06T14:21:10.104096+00:00"
+    },
+    {
+      "id": 5,
+      "entity_type": "annotation",
+      "entity_id": 370,
+      "action": "CREATE",
+      "actor_id": 1229,
+      "actor_initials": "GJ",
+      "old_value": null,
+      "new_value": "Facette",
+      "details": "",
+      "timestamp": "2026-10-06T14:19:08.231863+00:00"
+    },
+    {
+      "id": 6,
+      "entity_type": "comment",
+      "entity_id": 412,
+      "action": "CREATE",
+      "actor_id": 1229,
+      "actor_initials": "GJ",
+      "old_value": null,
+      "new_value": "moet weg",
+      "details": "",
+      "timestamp": "2026-10-06T14:19:08.235323+00:00"
+    },
+    {
+      "id": 7,
+      "entity_type": "annotation",
+      "entity_id": 371,
+      "action": "CREATE",
+      "actor_id": 1229,
+      "actor_initials": "GJ",
+      "old_value": null,
+      "new_value": "textiel ",
+      "details": "",
+      "timestamp": "2026-10-06T14:20:09.330612+00:00"
+    },
+    {
+      "id": 8,
+      "entity_type": "comment",
+      "entity_id": 413,
+      "action": "CREATE",
+      "actor_id": 1229,
+      "actor_initials": "GJ",
+      "old_value": null,
+      "new_value": "+ pvc en aluminium",
+      "details": "",
+      "timestamp": "2026-10-06T14:20:09.330738+00:00"
+    },
+    {
+      "id": 9,
+      "entity_type": "annotation",
+      "entity_id": 372,
+      "action": "CREATE",
+      "actor_id": 1229,
+      "actor_initials": "GJ",
+      "old_value": null,
+      "new_value": "Vouwgordijnen",
+      "details": "",
+      "timestamp": "2026-10-06T14:21:10.104965+00:00"
+    },
+    {
+      "id": 10,
+      "entity_type": "comment",
+      "entity_id": 414,
+      "action": "CREATE",
+      "actor_id": 1229,
+      "actor_initials": "GJ",
+      "old_value": null,
+      "new_value": "+ paneelgordijnen",
+      "details": "",
+      "timestamp": "2026-10-06T14:21:10.105412+00:00"
+    }
+  ],
+  "document_hash": "54b35f46aa8d39e280e5a4835529d0e5154110d72a82a7a9246873f811a7d5a0"
+}

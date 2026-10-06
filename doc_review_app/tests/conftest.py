@@ -44,6 +44,11 @@ def clean_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("DOC_REVIEW_DB_PATH", str(test_db_path))
     settings.db_path = test_db_path
 
+    # Isolate documents_dir per test to ensure local_documents/ remains 100% clean
+    test_docs_dir = tmp_path / "test_docs"
+    test_docs_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(settings, "documents_dir", test_docs_dir)
+
     # Initialize schema
     init_db(test_db_path)
 
@@ -85,6 +90,16 @@ def clean_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             conn.close()
     except Exception:
         pass
+
+
+@pytest.fixture
+def sidecar_test_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Provide an isolated documents directory for JSON sidecar tests."""
+    from doc_review_app.config import settings
+    docs_dir = tmp_path / "test_documents"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(settings, "documents_dir", docs_dir)
+    return docs_dir
 
 
 # Adapt Challenger 2's proof-of-defect test to verify remediation

@@ -14,6 +14,11 @@ if len(sys.argv) > 1:
         PORT = int(sys.argv[1])
     except ValueError:
         pass
+elif "PORT" in os.environ:
+    try:
+        PORT = int(os.environ["PORT"])
+    except ValueError:
+        pass
 
 def main() -> None:
     script_dir = Path(__file__).resolve().parent
@@ -37,7 +42,8 @@ def main() -> None:
         print("=" * 65)
 
     from doc_review_app.config import settings
-    host = os.getenv("DOC_REVIEW_HOST", settings.host)
+    default_host = "0.0.0.0" if ("PORT" in os.environ or "RENDER" in os.environ) else settings.host
+    host = os.getenv("DOC_REVIEW_HOST", default_host)
 
     uvicorn.run(
         "doc_review_app.main:app",

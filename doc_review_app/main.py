@@ -53,6 +53,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             except user_service.UserAlreadyExistsError:
                 pass
 
+        existing_guy = user_service.get_user_by_username(db, "guy.wolters")
+        if not existing_guy:
+            try:
+                user_service.create_user(
+                    db=db,
+                    username="guy.wolters",
+                    password="GuyReview2026!Woning",
+                    full_name="Guy Wolters",
+                    initials="GW",
+                    email="guy.wolters@groterinwonen.nl",
+                    is_admin=False,
+                )
+            except user_service.UserAlreadyExistsError:
+                pass
+
+    # Auto-migrate existing annotations and comments from SQLite to JSON sidecars
+    from doc_review_app.storage.migration import auto_migrate_if_needed
+    auto_migrate_if_needed()
+
     yield
 
     # Clean up and checkpoint WAL state on shutdown

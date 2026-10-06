@@ -200,7 +200,7 @@ def create_annotation(
                 "updated_at": now_iso,
             })
 
-        return {
+        ann_dict = {
             "id": ann_id,
             "document_id": document_id,
             "author_id": user_id,
@@ -218,6 +218,28 @@ def create_annotation(
             "updated_at": now_iso,
             "comments": comments,
         }
+        try:
+            from doc_review_app.storage.json_storage import save_annotation_to_sidecar
+            doc_row = conn.execute("SELECT filename FROM documents WHERE id = ?", (document_id,)).fetchone()
+            if doc_row:
+                filename = doc_row["filename"]
+                audit_entry = {
+                    "id": ann_id,
+                    "entity_type": "annotation",
+                    "entity_id": ann_id,
+                    "action": "CREATE",
+                    "actor_id": user_id,
+                    "actor_initials": user_initials,
+                    "old_value": None,
+                    "new_value": selected_text,
+                    "details": "Aangemaakt via Document Review",
+                    "timestamp": now_iso,
+                }
+                save_annotation_to_sidecar(filename, ann_dict, audit_entry)
+        except Exception:
+            pass
+
+        return ann_dict
 
     if db is not None:
         return _execute(db)
@@ -248,6 +270,57 @@ def list_annotations(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Document with ID {document_id} not found",
             )
+
+        # Check sidecar first
+        try:
+            from doc_review_app.storage.json_storage import get_sidecar_path, read_sidecar
+            sidecar_path = get_sidecar_path(doc["filename"])
+            if sidecar_path.exists():
+                sidecar_data = read_sidecar(sidecar_path, filename_hint=doc["filename"])
+                sidecar_anns = sidecar_data.get("annotations", [])
+                if sidecar_anns:
+                    results = []
+                    for ann in sorted(sidecar_anns, key=lambda a: (a.get("start_offset", 0), a.get("id", 0))):
+                        if ann.get("is_deleted", False):
+                            continue
+                        comments = []
+                        for c in sorted(ann.get("comments", []), key=lambda x: (x.get("created_at", ""), x.get("id", 0))):
+                            comments.append({
+                                "id": c.get("id"),
+                                "annotation_id": c.get("annotation_id", ann.get("id")),
+                                "parent_comment_id": c.get("parent_comment_id"),
+                                "user_id": c.get("author_id") or c.get("user_id"),
+                                "author_id": c.get("author_id") or c.get("user_id"),
+                                "author_initials": c.get("author_initials", "??"),
+                                "author_name": c.get("author_name"),
+                                "author_username": c.get("author_username"),
+                                "content": "[Opmerking verwijderd]" if c.get("is_deleted") else c.get("content"),
+                                "is_edited": bool(c.get("is_edited", False)),
+                                "is_deleted": bool(c.get("is_deleted", False)),
+                                "deleted_at": c.get("deleted_at"),
+                                "created_at": c.get("created_at"),
+                                "updated_at": c.get("updated_at"),
+                            })
+                        results.append({
+                            "id": ann.get("id"),
+                            "document_id": document_id,
+                            "author_id": ann.get("author_id"),
+                            "start_offset": ann.get("start_offset"),
+                            "end_offset": ann.get("end_offset"),
+                            "selected_text": ann.get("selected_text"),
+                            "badge_color": ann.get("color") or ann.get("badge_color", "#FF6D00"),
+                            "color": ann.get("color") or ann.get("badge_color", "#FF6D00"),
+                            "status": ann.get("status", "open"),
+                            "is_deleted": bool(ann.get("is_deleted", False)),
+                            "ast_path": ann.get("ast_path"),
+                            "node_type": ann.get("node_type"),
+                            "created_at": ann.get("created_at"),
+                            "updated_at": ann.get("updated_at", ann.get("created_at")),
+                            "comments": comments,
+                        })
+                    return results
+        except Exception:
+            pass
 
         ann_cursor = conn.execute(
             """
@@ -482,6 +555,42 @@ def add_comment_reply(
         user_name = getattr(user, "full_name", None) or (user.get("full_name") if isinstance(user, dict) else None)
         user_username = getattr(user, "username", None) or (user.get("username") if isinstance(user, dict) else None)
 
+        try:
+            from doc_review_app.storage.json_storage import save_comment_reply_to_sidecar
+            doc_row = conn.execute("SELECT filename FROM documents WHERE id = ?", (ann["document_id"],)).fetchone()
+            if doc_row:
+                filename = doc_row["filename"]
+                comment_dict = {
+                    "id": comment_id,
+                    "annotation_id": annotation_id,
+                    "parent_comment_id": parent_comment_id,
+                    "author_id": user_id,
+                    "author_initials": user_initials,
+                    "author_name": user_name,
+                    "author_username": user_username,
+                    "content": clean_content,
+                    "is_edited": False,
+                    "is_deleted": False,
+                    "deleted_at": None,
+                    "created_at": now_iso,
+                    "updated_at": now_iso,
+                }
+                audit_entry = {
+                    "id": comment_id,
+                    "entity_type": "comment",
+                    "entity_id": comment_id,
+                    "action": "CREATE",
+                    "actor_id": user_id,
+                    "actor_initials": user_initials,
+                    "old_value": None,
+                    "new_value": clean_content,
+                    "details": "Antwoord geplaatst",
+                    "timestamp": now_iso,
+                }
+                save_comment_reply_to_sidecar(filename, annotation_id, comment_dict, audit_entry)
+        except Exception:
+            pass
+
         return {
             "id": comment_id,
             "annotation_id": annotation_id,
@@ -629,6 +738,27 @@ def edit_comment(
             new_value=clean_content,
         )
 
+        try:
+            from doc_review_app.storage.json_storage import save_comment_edit_to_sidecar
+            doc_row = conn.execute("SELECT filename FROM documents WHERE id = ?", (row["document_id"],)).fetchone()
+            if doc_row:
+                filename = doc_row["filename"]
+                audit_entry = {
+                    "id": comment_id,
+                    "entity_type": "comment",
+                    "entity_id": comment_id,
+                    "action": "UPDATE",
+                    "actor_id": user_id,
+                    "actor_initials": row["author_initials"],
+                    "old_value": row["content"],
+                    "new_value": clean_content,
+                    "details": "Opmerking bewerkt",
+                    "timestamp": now_iso,
+                }
+                save_comment_edit_to_sidecar(filename, comment_id, clean_content, True, now_iso, audit_entry)
+        except Exception:
+            pass
+
         return {
             "id": comment_id,
             "annotation_id": row["annotation_id"],
@@ -761,6 +891,27 @@ def delete_comment(
                 new_value=None,
             )
             annotation_deleted = True
+
+        try:
+            from doc_review_app.storage.json_storage import save_comment_delete_to_sidecar
+            doc_row = conn.execute("SELECT filename FROM documents WHERE id = ?", (row["document_id"],)).fetchone()
+            if doc_row:
+                filename = doc_row["filename"]
+                audit_entry = {
+                    "id": comment_id,
+                    "entity_type": "comment",
+                    "entity_id": comment_id,
+                    "action": "SOFT_DELETE",
+                    "actor_id": user_id,
+                    "actor_initials": user_initials,
+                    "old_value": row["content"],
+                    "new_value": None,
+                    "details": "Opmerking verwijderd",
+                    "timestamp": now_iso,
+                }
+                save_comment_delete_to_sidecar(filename, comment_id, now_iso, audit_entry)
+        except Exception:
+            pass
 
         return {
             "id": comment_id,

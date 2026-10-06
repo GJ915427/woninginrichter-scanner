@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: doc-review-app
+    runtime: python
+    region: frankfurt
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn doc_review_app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DOC_REVIEW_HOST
+        value: 0.0.0.0
+      - key: PYTHON_VERSION
+        value: 3.11.9
