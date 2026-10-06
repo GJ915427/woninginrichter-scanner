@@ -53,11 +53,15 @@ De rekenmodule (`computeFloorGeometry`) ontvangt tijdens runtime **uitsluitend**
 Via `PolygonSimilarityEngine.calculateRotationInvariantSimilarity` worden berekende contouren getoetst tegen de FML grondwaarheid op:
 - **Intersection over Union (IoU):** $\ge 0.95$ (95%)
 - **Bidirectionele Hausdorff-afstand:** $\le 0.20\text{m}$ (20 cm)
-- **Relatieve oppervlakte-afwijking:** $\le 5.0\%$
+- **NEN 2580 / BBMI Oppervlakte Koppelingsgarantie:** $\le 5.0\%$ (maximaal toelaatbare afwijking tussen gemeten FML GO en officiële BAG VBO GO conform de Waarderingskamer norm).
 
-### Uitvoeren van de Benchmark
+### Uitvoeren van de Benchmark & Ingestie
 ```bash
+# Offline benchmark referentietest (< 150ms in Vitest)
 npm run test:benchmark
+
+# Authentieke referentie-ingestie runner (3-traps Funda/Floorplanner harvester)
+npm run harvest:reference
 ```
 *Draait offline in Vitest in $< 100\text{ms}$ zonder externe netwerkafhankelijkheden.*
 

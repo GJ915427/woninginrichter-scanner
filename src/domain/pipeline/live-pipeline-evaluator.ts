@@ -274,6 +274,26 @@ export class LivePipelineEvaluator {
     };
   }
 
+  /**
+   * Evalueert een BenchmarkRecord130 dynamisch tegen de Live Open Data Pipeline
+   */
+  async evaluateBenchmarkRecord(record: {
+    address: { street: string; houseNumber: string; city: string; postalCode?: string };
+    ground_truth_floors: Array<{ level: number; outerPolygonM: Array<[number, number]>; measuredGrossAreaM2?: number }>;
+  }): Promise<{
+    evaluation: LivePipelineEvaluation | null;
+    comparison: { overallMatch: boolean; floorComparisons: Array<{ level: number; iou: number; hausdorffDistanceM: number; deltaAreaM2: number }> } | null;
+  }> {
+    const query = `${record.address.street} ${record.address.houseNumber} ${record.address.city}`;
+    const evaluation = await this.evaluateAddress(query);
+    if (!evaluation) {
+      return { evaluation: null, comparison: null };
+    }
+
+    const comparison = this.compareFloorsWithGroundTruth(evaluation.calculatedFloors, record.ground_truth_floors);
+    return { evaluation, comparison };
+  }
+
   private calculatePolygonArea(points: Array<{ x: number; y: number }>): number {
     let a = 0;
     const n = points.length;

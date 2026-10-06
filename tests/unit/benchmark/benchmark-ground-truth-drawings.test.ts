@@ -69,6 +69,15 @@ describe('Canonieke 130-Panden Ground Truth Referentietest (Floorplanner FML)', 
       expect(singel13!.ground_truth_floors[0].measuredGrossAreaM2).toBeCloseTo(37.16, 1);
     });
 
+    it('moet voor alle 130 panden een geverifieerde NEN 2580 oppervlakte en Funda URL bevatten (INV-REF-02)', () => {
+      for (const r of records) {
+        expect(r.meta.funda_url).toMatch(/^https:\/\/www\.funda\.nl\/detail\/koop\//);
+        expect(r.meta.fml_validation_status).toBe('VALIDATED_NEN2580');
+        expect(r.meta.bag_vbo_oppervlakte).toBeGreaterThan(0);
+        expect(r.meta.fml_oppervlakte).toBeGreaterThan(0);
+      }
+    });
+
     it('moet strikte bipartiete isolatie handhaven: telemetry_input bevat géén grondwaarheid', () => {
       for (const r of records) {
         const telemetry = r.telemetry_input as any;

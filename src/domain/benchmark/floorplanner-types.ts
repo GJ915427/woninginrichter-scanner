@@ -75,7 +75,8 @@ export type TypologyCategory130 =
   | 'twee_onder_een_kap'
   | 'vrijstaand'
   | 'appartement'
-  | 'samengesteld';
+  | 'samengesteld'
+  | 'samengesteld_schuin';
 
 export interface BenchmarkRecord130 {
   id: string; // e.g. "BM-FP-001"
@@ -90,8 +91,13 @@ export interface BenchmarkRecord130 {
   meta: {
     inmeter: string;
     source_url: string;
+    funda_url?: string;
     verified_at: string;
     original_project_name: string;
+    bag_vbo_oppervlakte?: number;
+    fml_oppervlakte?: number;
+    nen2580_surface_difference_pct?: number;
+    fml_validation_status?: 'VALIDATED_NEN2580' | 'REJECTED_TOLERANCE_EXCEEDED';
   };
   telemetry_input: {
     pandId: string;

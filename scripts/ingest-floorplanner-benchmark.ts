@@ -7,20 +7,24 @@ import {
   TypologyCategory130,
 } from '../src/domain/benchmark/floorplanner-types';
 import { FmlOuterPolygonExtractor } from './fml-outer-polygon-extractor';
+import { FundaFloorplannerCrawler } from './funda-floorplanner-crawler';
 
 export interface IngestOptions {
   cacheDir?: string;
   rateLimitMs?: number;
   dryRun?: boolean;
+  maxSurfaceTolerancePct?: number; // NEN 2580 gate, default 5.0%
 }
 
 export class FloorplannerIngestRunner {
   private cacheDir: string;
   private rateLimitMs: number;
+  private maxSurfaceTolerancePct: number;
 
   constructor(options: IngestOptions = {}) {
     this.cacheDir = options.cacheDir || path.join(process.cwd(), '.cache', 'fml');
     this.rateLimitMs = options.rateLimitMs ?? 200;
+    this.maxSurfaceTolerancePct = options.maxSurfaceTolerancePct ?? 5.0;
 
     if (!fs.existsSync(this.cacheDir)) {
       fs.mkdirSync(this.cacheDir, { recursive: true });
@@ -38,7 +42,7 @@ export class FloorplannerIngestRunner {
       try {
         const raw = fs.readFileSync(cacheFile, 'utf8');
         return JSON.parse(raw) as FmlProject;
-      } catch (err) {
+      } catch {
         console.warn(`[Ingest] Corrupt cache file for project ${projectId}, refetching...`);
       }
     }
@@ -75,6 +79,8 @@ export class FloorplannerIngestRunner {
     city: string;
     postalCode: string;
     coords: [number, number]; // [lng, lat]
+    bouwjaar?: number;
+    oppervlakte?: number;
   } | null> {
     const encoded = encodeURIComponent(query);
     const url = `https://api.pdok.nl/bzk/locatieserver/search/v3_1/suggest?q=${encoded}`;
@@ -114,6 +120,8 @@ export class FloorplannerIngestRunner {
         city: doc.woonplaatsnaam || '',
         postalCode: doc.postcode || '',
         coords: [lng, lat],
+        bouwjaar: doc.bouwjaar ? parseInt(doc.bouwjaar, 10) : undefined,
+        oppervlakte: doc.oppervlakte ? parseInt(doc.oppervlakte, 10) : undefined,
       };
     } catch (err) {
       console.warn(`[Ingest] PDOK lookup failed for "${query}":`, (err as Error).message);
@@ -122,12 +130,14 @@ export class FloorplannerIngestRunner {
   }
 
   /**
-   * Builds a benchmark record by combining FML geometry with Kadaster BAG telemetry.
+   * Builds a benchmark record by combining FML geometry with Kadaster BAG telemetry
+   * and enforcing NEN 2580 surface tolerance (INV-REF-02: <= 5.0%).
    */
   public async buildRecord(
     projectId: number,
     typology: TypologyCategory130,
-    overrideAddressQuery?: string
+    overrideAddressQuery?: string,
+    fundaUrl?: string
   ): Promise<BenchmarkRecord130 | null> {
     const project = await this.fetchFmlProject(projectId);
     if (!project) return null;
@@ -140,6 +150,21 @@ export class FloorplannerIngestRunner {
 
     const groundFloor = floors.find(f => f.level === 0) || floors[0];
     const bagFootprint2D = groundFloor.outerPolygonM;
+
+    // Calculate total FML measured gross area across all floors
+    const totalFmlAreaM2 = floors.reduce((sum, f) => sum + f.measuredGrossAreaM2, 0);
+    const bagVboAreaM2 = pdokInfo?.oppervlakte || groundFloor.measuredGrossAreaM2;
+
+    // NEN 2580 surface validation gate
+    const isToleranceValid = FundaFloorplannerCrawler.validateSurfaceTolerance(
+      totalFmlAreaM2,
+      bagVboAreaM2,
+      this.maxSurfaceTolerancePct
+    );
+
+    const surfaceDiffPct = bagVboAreaM2 > 0
+      ? (Math.abs(totalFmlAreaM2 - bagVboAreaM2) / bagVboAreaM2) * 100
+      : 0;
 
     return {
       id: `BM-FP-${String(projectId).padStart(8, '0')}`,
@@ -154,16 +179,21 @@ export class FloorplannerIngestRunner {
       meta: {
         inmeter: project.creator_email || 'Gecertificeerd Inmeter',
         source_url: `https://floorplanner.com/projects/${projectId}`,
+        funda_url: fundaUrl,
         verified_at: new Date().toISOString(),
         original_project_name: project.name,
+        bag_vbo_oppervlakte: bagVboAreaM2,
+        fml_oppervlakte: Math.round(totalFmlAreaM2 * 10) / 10,
+        nen2580_surface_difference_pct: Math.round(surfaceDiffPct * 100) / 100,
+        fml_validation_status: isToleranceValid ? 'VALIDATED_NEN2580' : 'REJECTED_TOLERANCE_EXCEEDED',
       },
       telemetry_input: {
         pandId: pdokInfo?.pandId || `pand-${projectId}`,
         vboId: pdokInfo?.vboId || `vbo-${projectId}`,
         bagFootprint2D,
         vboEntrancePoint: bagFootprint2D[0] || [0, 0],
-        bouwjaar: 1980,
-        oppervlakteVboM2: groundFloor.measuredGrossAreaM2,
+        bouwjaar: pdokInfo?.bouwjaar || 1980,
+        oppervlakteVboM2: bagVboAreaM2,
       },
       ground_truth_floors: floors,
     };
