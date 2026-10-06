@@ -19,6 +19,8 @@ android/build/
 *.log
 .env
 *.env
+.env*.local
+*.env.local
 doc_review_app/.env
 doc_review_app/server.log
 .next/
