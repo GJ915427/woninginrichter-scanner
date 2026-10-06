@@ -11,6 +11,7 @@
     "test:benchmark": "vitest run tests/unit/benchmark/benchmark-ground-truth-drawings.test.ts",
     "test:reference": "vitest run tests/unit/benchmark/benchmark-ground-truth-drawings.test.ts",
     "test:pipeline": "vitest run tests/unit/pipeline/live-pipeline-benchmark.test.ts",
+    "test:pipeline:full": "tsx scripts/run-all-130-live-pipeline.ts",
     "harvest:reference": "tsx scripts/ingest-floorplanner-benchmark.ts",
     "test:e2e": "playwright test",
     "prepare-assets": "node scripts/sync_web_assets.js",

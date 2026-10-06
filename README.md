@@ -79,8 +79,13 @@ Naast de statische offline-benchmark beschikt de architectuur over een **100% dy
 
 ### Uitvoeren van de Live Pipeline Benchmark
 ```bash
+# Snelle integratietest van de live pipeline
 npm run test:pipeline
+
+# Volledige Live Pipeline Batch Sweep over alle 130 referentiewoningen (met rate-limiting C=5 en typologie-scorecard)
+npm run test:pipeline:full
 ```
-*Toetst referentieadressen real-time via de live pipeline en verifieert de berekende verdiepingen tegen de grondwaarheid zonder data statisch op te slaan.*
+*Toetst alle 130 referentieadressen real-time via de live pipeline met gecontroleerde worker pool ($C=5$, ~15-20s totale duur), bewaakt foutisolatie en genereert automatisch een typologie-scorecard (NEN 2580 oppervlakte en IoU) naar `tests/fixtures/batch-sweep-summary.json`.*
+
 
 

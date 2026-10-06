@@ -8,6 +8,7 @@ import {
   SupplierBasic,
   LogicTradePagination
 } from '@/types/product';
+import { isSupabaseConfigured, getSyncState, searchProductsFts } from '@/lib/supabase/client';
 
 const DEFAULT_API_KEY = '621dcae6617349d0896d3ca9ba96d4b6';
 const DEFAULT_BASE_URL = 'https://api.logictrade.cloud/rest/v1';
@@ -290,7 +291,49 @@ export async function GET(request: Request): Promise<NextResponse<SearchApiRespo
     const baseUrl = (process.env.LOGICTRADE_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
     const adminGuid = process.env.LOGICTRADE_ADMIN_GUID;
 
-    // Leveranciers ophalen voor multi-token herkenning
+    // 1. Probeer primair de snelle Supabase Full-Text Search index (sub-10ms)
+    if (isSupabaseConfigured()) {
+      try {
+        const syncState = await getSyncState('catalog_sync');
+        const isCatalogInitialized = (syncState?.total_synced ?? 0) > 0;
+
+        if (isCatalogInitialized) {
+          const { rows, totalCount } = await searchProductsFts(cleanQuery, 20, 0);
+
+          const items: SearchResultItem[] = rows.map((r) => ({
+            id: r.id,
+            code: r.code,
+            name: r.name,
+            salesGroup: r.sales_group,
+            supplierName: r.supplier_name,
+            supplierId: r.supplier_id,
+            groups: r.groups && r.groups.length > 0 ? r.groups : (r.group_name ? [r.group_name] : []),
+            salesPrice: Number(r.sales_price) || 0,
+            vatCode: r.vat_code,
+            unit: r.unit
+          }));
+
+          return NextResponse.json({
+            success: true,
+            query: cleanQuery,
+            count: items.length,
+            items,
+            pagination: {
+              page: 1,
+              pageSize: 20,
+              totalResults: totalCount,
+              totalPages: Math.max(1, Math.ceil(totalCount / 20)),
+              hasMore: totalCount > 20
+            }
+          });
+        }
+      } catch (dbErr) {
+        console.warn('Supabase FTS zoekquery gefaald, schakel over naar live LogicTrade fallback:', dbErr);
+        // Val automatisch door naar LogicTrade live API fallback
+      }
+    }
+
+    // 2. Fallback: Live LogicTrade API bevraging
     const suppliers = await getSuppliersCache();
     const { matchedSupplier, searchTerm, productTokens } = parseMultiTokenQuery(cleanQuery, suppliers);
 
