@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { RDNAPTransformer } from '@/domain/geometry/rd-nap-trans';
+import { KadasterBagClient } from '@/data/bag/kadaster-bag-client';
 
 interface TileData {
   tileKey: string;
@@ -86,13 +87,31 @@ export async function GET(request: Request) {
     );
   }
 
-  // 2. Tile data payload (preloading ready for vector polygons & VBOs)
+  // 2. Query actual Kadaster BAG buildings within the 250m tile bounding box
+  const bagClient = new KadasterBagClient();
+  const rawPanden = await bagClient
+    .getPandenByBbox({ minX, minY, maxX, maxY }, 50)
+    .catch(() => []);
+
+  const buildings = rawPanden.map((p) => {
+    let footprint: Array<[number, number]> | undefined;
+    if (p.geometrieRD && typeof (p.geometrieRD as any).toArray === 'function') {
+      footprint = (p.geometrieRD as any).toArray();
+    }
+    return {
+      pandId: p.identificatie,
+      footprint,
+      bouwjaar: p.oorspronkelijkBouwjaar || p.bouwjaar,
+      status: p.status,
+    };
+  });
+
   const tilePayload: TileData = {
     tileKey,
     tileX,
     tileY,
     bbox,
-    buildings: [],
+    buildings,
     cachedAt: Date.now(),
   };
 

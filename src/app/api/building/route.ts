@@ -3,6 +3,7 @@ import { KadasterBagClient } from '@/data/bag/kadaster-bag-client';
 import { ThreeDBagClient } from '@/data/cityjson/three-d-bag-client';
 import { PdokBgtClient } from '@/data/bgt/pdok-bgt-client';
 import { EpOnlineClient } from '@/data/ep-online/ep-online-client';
+import { AhnElevationClient } from '@/data/ahn/ahn-elevation-client';
 import { RDNAPTransformer } from '@/domain/geometry/rd-nap-trans';
 
 // In-memory BFF server cache (1 hour TTL)
@@ -28,6 +29,7 @@ export async function GET(request: Request) {
   const threeDBagClient = new ThreeDBagClient();
   const bgtClient = new PdokBgtClient();
   const epClient = new EpOnlineClient();
+  const ahnClient = new AhnElevationClient();
 
   // 1. Resolve via VBO ID if provided and pandId is missing
   let initialVbo: any = null;
@@ -189,6 +191,7 @@ export async function GET(request: Request) {
         : (cityJson?.vertices ? cityJson.vertices.map((v) => ({ x: v.x, y: v.y })) : []);
     let bgtInstallaties: any[] = [];
     let bgtBomen: any[] = [];
+    let bgtWegdelen: any[] = [];
     let neighbors: any[] = [];
 
     if (geom && geom.length > 0) {
@@ -205,9 +208,10 @@ export async function GET(request: Request) {
       const bboxWgs84: [number, number, number, number] = [pMin.lng, pMin.lat, pMax.lng, pMax.lat];
 
       // Parallel BGT en buren ophalen
-      const [installaties, bomen, nbs] = await Promise.all([
+      const [installaties, bomen, wegdelen, nbs] = await Promise.all([
         bgtClient.getGebouwInstallaties(bboxWgs84).catch(() => []),
         bgtClient.getVegetatieObjecten(bboxWgs84).catch(() => []),
+        bgtClient.getWegdelen(bboxWgs84).catch(() => []),
         bagClient
           .getPandenByBbox({
             minX: minX - 25,
@@ -220,6 +224,7 @@ export async function GET(request: Request) {
 
       bgtInstallaties = installaties;
       bgtBomen = bomen;
+      bgtWegdelen = wegdelen;
       neighbors = nbs.filter((n) => n.identificatie !== bagPand?.identificatie);
     }
 
@@ -233,14 +238,34 @@ export async function GET(request: Request) {
     ]);
 
     const finalVbos = (vbos && vbos.length > 0) ? vbos : (initialVbo ? [initialVbo] : []);
+
+    // 3. Resolveer AHN maaiveldhoogte (3D BAG of directe WMS fallback)
+    let ahnResult: any = null;
+    if (cityJson && typeof cityJson.groundHeightNAP === 'number') {
+      ahnResult = AhnElevationClient.getGroundDatumFrom3DBAG(cityJson);
+    } else if (geom && geom.length > 0) {
+      const xs = geom.map((p) => p.x);
+      const ys = geom.map((p) => p.y);
+      const cX = (Math.min(...xs) + Math.max(...xs)) / 2;
+      const cY = (Math.min(...ys) + Math.max(...ys)) / 2;
+      ahnResult = await ahnClient.getGroundElevationPoint(cX, cY).catch(() => ({
+        groundLevelNAP: 0.0,
+        source: 'FALLBACK' as const,
+      }));
+    } else {
+      ahnResult = { groundLevelNAP: 0.0, source: 'FALLBACK' };
+    }
+
     const result = {
       pandId,
       bag: bagPand,
       cityJson,
+      ahn: ahnResult,
       vbos: finalVbos,
       bgt: {
         installaties: bgtInstallaties,
         bomen: bgtBomen,
+        wegdelen: bgtWegdelen,
       },
       neighbors,
       epOnline: epData,
