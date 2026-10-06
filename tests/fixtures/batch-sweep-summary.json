@@ -1,31 +1,31 @@
 {
-  "timestamp": "2026-10-06T19:07:17.691Z",
+  "timestamp": "2026-10-06T19:08:23.129Z",
   "summary": {
     "totalRecords": 6,
-    "successfulCount": 4,
-    "failedCount": 2,
-    "totalDurationMs": 948,
-    "averageDurationPerRecordMs": 670,
-    "p50DurationMs": 739,
-    "p95DurationMs": 769
+    "successfulCount": 6,
+    "failedCount": 0,
+    "totalDurationMs": 1062,
+    "averageDurationPerRecordMs": 619,
+    "p50DurationMs": 653,
+    "p95DurationMs": 786
   },
   "typologyBreakdown": {
-    "Onbekend": {
+    "tussenwoning": {
       "total": 6,
-      "successful": 4,
-      "failed": 2,
-      "avgIoU": 0.428,
-      "avgDeltaAreaM2": 92.82,
-      "avgDurationMs": 670
+      "successful": 6,
+      "failed": 0,
+      "avgIoU": 0.471,
+      "avgDeltaAreaM2": 72.22,
+      "avgDurationMs": 619
     }
   },
   "results": [
     {
       "index": 0,
       "query": "Singel 13 Bussum",
-      "typology": "Onbekend",
+      "typology": "tussenwoning",
       "success": true,
-      "durationMs": 769,
+      "durationMs": 786,
       "pandId": "0381100000114840",
       "vboId": "0381010000030960",
       "oppervlakteVboM2": 145,
@@ -41,9 +41,9 @@
     {
       "index": 1,
       "query": "Kilstraat 18 Deventer",
-      "typology": "Onbekend",
+      "typology": "tussenwoning",
       "success": true,
-      "durationMs": 739,
+      "durationMs": 650,
       "pandId": "0150100000037779",
       "vboId": "0150010000018722",
       "oppervlakteVboM2": 91,
@@ -59,25 +59,45 @@
     {
       "index": 2,
       "query": "Vondelstraat 45 Amsterdam",
-      "typology": "Onbekend",
-      "success": false,
-      "error": "Geen pand/evaluatie gevonden voor adres: Vondelstraat 45 Amsterdam",
-      "durationMs": 0
+      "typology": "tussenwoning",
+      "success": true,
+      "durationMs": 653,
+      "pandId": "0034100000081512",
+      "vboId": "0034010000069678",
+      "oppervlakteVboM2": 148,
+      "groundNapM": -3.06,
+      "eavesNapM": 4.08,
+      "ridgeNapM": 6.22,
+      "perceelnummer": "5751",
+      "calculatedFloorsCount": 3,
+      "overallMatch": false,
+      "avgIoU": 0.504,
+      "maxDeltaAreaM2": 21.340000000000003
     },
     {
       "index": 3,
       "query": "Jan van Goyenstraat 12 Utrecht",
-      "typology": "Onbekend",
-      "success": false,
-      "error": "Geen pand/evaluatie gevonden voor adres: Jan van Goyenstraat 12 Utrecht",
-      "durationMs": 0
+      "typology": "tussenwoning",
+      "success": true,
+      "durationMs": 686,
+      "pandId": "0762100000016007",
+      "vboId": "0762010000002697",
+      "oppervlakteVboM2": 138,
+      "groundNapM": 25.34,
+      "eavesNapM": 31.24,
+      "ridgeNapM": 33.76,
+      "perceelnummer": "798",
+      "calculatedFloorsCount": 3,
+      "overallMatch": false,
+      "avgIoU": 0.609,
+      "maxDeltaAreaM2": 40.660000000000004
     },
     {
       "index": 4,
       "query": "Sweelinckstraat 32 Den Haag",
-      "typology": "Onbekend",
+      "typology": "tussenwoning",
       "success": true,
-      "durationMs": 684,
+      "durationMs": 627,
       "pandId": "0518100000243250",
       "vboId": "0518010000673872",
       "oppervlakteVboM2": 373,
@@ -93,9 +113,9 @@
     {
       "index": 5,
       "query": "Rembrandtlaan 14 Bilthoven",
-      "typology": "Onbekend",
+      "typology": "tussenwoning",
       "success": true,
-      "durationMs": 489,
+      "durationMs": 310,
       "pandId": "0310100000729330",
       "vboId": "0310010000729145",
       "oppervlakteVboM2": 234,

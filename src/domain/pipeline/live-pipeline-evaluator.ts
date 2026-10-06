@@ -284,8 +284,14 @@ export class LivePipelineEvaluator {
     evaluation: LivePipelineEvaluation | null;
     comparison: { overallMatch: boolean; floorComparisons: Array<{ level: number; iou: number; hausdorffDistanceM: number; deltaAreaM2: number }> } | null;
   }> {
-    const query = `${record.address.street} ${record.address.houseNumber} ${record.address.city}`;
-    const evaluation = await this.evaluateAddress(query);
+    let evaluation: LivePipelineEvaluation | null = null;
+    if (record.address.postalCode) {
+      evaluation = await this.evaluateAddress(`${record.address.postalCode} ${record.address.houseNumber}`);
+    }
+    if (!evaluation) {
+      const query = `${record.address.street} ${record.address.houseNumber} ${record.address.city}`;
+      evaluation = await this.evaluateAddress(query);
+    }
     if (!evaluation) {
       return { evaluation: null, comparison: null };
     }

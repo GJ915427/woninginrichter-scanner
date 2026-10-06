@@ -80,6 +80,7 @@ export class BatchPipelineRunner {
   async runBatch(
     records: Array<{
       address: { street: string; houseNumber: string; city: string; postalCode?: string };
+      typology?: string;
       typologie?: string;
       housing_typology?: string;
       funda_url?: string;
@@ -103,7 +104,7 @@ export class BatchPipelineRunner {
       record: (typeof records)[0],
       idx: number
     ): Promise<BatchItemResult> => {
-      const typology = record.typologie || record.housing_typology || 'Onbekend';
+      const typology = record.typology || record.typologie || record.housing_typology || 'Onbekend';
       const query = `${record.address.street} ${record.address.houseNumber} ${record.address.city}`.trim();
       let lastError: Error | null = null;
 
