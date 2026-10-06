@@ -490,7 +490,7 @@ Onderstaande matrix definieert de integrale inmeetchecklist voor Categorie 1 (Go
 * **Binnenzonwering & Merken:**  
   * *Merken & Fabrikanten:* Hunter Douglas (*Luxaflex, Sunway*).  
   * *Private label / Huismerk:* Dealer-eigen huismerken (zoals *Groter in Wonen*, in het ERP en op inkoopbonnen vastgelegd onder de merkcode **'GiW'**, o.a. geproduceerd door *Zonnelux* als private label).  
-  * *Productgroepen:* Rolgordijnen, Duettes / plissés, Silhouette (kantelbare stoffen lamellen tussen transparante sluiers), Facette, Duo-rolgordijnen / Twist (afwisselend dichte en transparante banen), Jaloezieën (horizontaal hout/alu, verticaal textiel zoals Luminette/Allure), Vouwgordijnen.
+  * *Productgroepen:* Rolgordijnen, Duettes / plissés, Silhouette (kantelbare stoffen lamellen tussen transparante sluiers), Duo-rolgordijnen / Twist (afwisselend dichte en transparante banen), Jaloezieën (horizontaal hout/alu, verticaal textiel, pvc en aluminium zoals Luminette/Allure), Vouwgordijnen, Paneelgordijnen.
 * **Configurator-uniformiteit:** Bestelsystemen (zoals Hunter Douglas configurator, Woontotaal, Logic Trade) hanteren in de kern exact dezelfde technische parameters; uitsluitend de vraagvolgorde verschilt per leverancier.
 
 * **Productievoorschriften & Identificatie:**  

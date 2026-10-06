@@ -1132,7 +1132,7 @@
     if (els.btnExportAstFeedback) els.btnExportAstFeedback.disabled = true;
 
     try {
-      showToast('AI-Feedback genereren...', 'info');
+      showToast('Feedback genereren...', 'info');
       const res = await api(`/api/documents/${state.currentDoc.id}/export-feedback`, {
         method: 'POST'
       });
