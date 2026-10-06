@@ -72,6 +72,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from doc_review_app.storage.migration import auto_migrate_if_needed
     auto_migrate_if_needed()
 
+    # Auto-sync local documents folder with SQLite on startup
+    from doc_review_app.services.document_service import sync_local_directory_with_db
+    with get_db() as db:
+        sync_local_directory_with_db(db=db)
+
     yield
 
     # Clean up and checkpoint WAL state on shutdown
