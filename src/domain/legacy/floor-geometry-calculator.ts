@@ -3,7 +3,7 @@ import { FrontDoorDetector } from '../geometry/front-door-detector';
 
 /**
  * 1-on-1 port of computeFloorGeometry from google_maps_picker.html,
- * enhanced with volumetric telemetry and VBO entrance point detection.
+ * enhanced with volumetric telemetry, VBO entrance point detection, and DKK boundaries.
  * For etageIndex === 0: returns base contour.
  * For compound buildings (n > 4, floorRatio < 0.85): isolates the street-side main volume.
  * Returns vertices in standard polygon traversal order: [pA, pB, pB + inN * depth, pA + inN * depth],
@@ -19,6 +19,7 @@ export function computeFloorGeometry(
     volumes?: Array<{ hMax: number; hMin: number; hoogteBoven: number }>;
     oppGrond?: number | null;
     vboEntrancePoint?: [number, number] | Point2D;
+    dkkPerceel?: { polygonRD?: Array<[number, number]> };
   }
 ): Point2D[] {
   if (etageIndex === 0 || !basePoints || basePoints.length < 3) {

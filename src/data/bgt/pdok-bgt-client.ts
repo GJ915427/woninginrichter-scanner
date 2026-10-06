@@ -21,6 +21,20 @@ export interface BgtWegdeel {
   polygon: Point2D[];
 }
 
+export interface BgtScheiding {
+  id: string;
+  type: string; // 'hek', 'muur', 'draadafscheiding', etc.
+  status: string;
+  line: Point2D[];
+}
+
+export interface BgtTerreindeel {
+  id: string;
+  fysiekVoorkomen: string; // 'erf', 'tuin', 'verhard', etc.
+  status: string;
+  polygon: Point2D[];
+}
+
 export class PdokBgtClient {
   private readonly baseUrl = 'https://api.pdok.nl/lv/bgt/ogc/v1';
 
@@ -97,6 +111,61 @@ export class PdokBgtClient {
             'wegdeel',
           status: f.properties?.['bgt-status'] || f.properties?.status || 'bestaand',
           straatnaam: f.properties?.openbare_ruimte_naam || undefined,
+          polygon,
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Haalt erfscheidingen (hekken, tuinmuren, keermuren) op binnen een bounding box
+   */
+  async getScheidingen(bbox: [number, number, number, number]): Promise<BgtScheiding[]> {
+    const url = `${this.baseUrl}/collections/scheiding_lijn/items?bbox=${bbox.join(',')}&f=json&limit=50`;
+    try {
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!data.features) return [];
+
+      return data.features.map((f: any) => {
+        const coords = f.geometry?.coordinates || [];
+        const line: Point2D[] = coords.map((c: number[]) => ({ x: c[0], y: c[1] }));
+        return {
+          id: f.id || f.properties?.lokaalid || '',
+          type: f.properties?.plus_type || f.properties?.type || 'scheiding',
+          status: f.properties?.['bgt-status'] || f.properties?.status || 'bestaand',
+          line,
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Haalt onbegroeide terreindelen (erven, tuinen, verharding) op binnen een bounding box
+   */
+  async getTerreindelen(bbox: [number, number, number, number]): Promise<BgtTerreindeel[]> {
+    const url = `${this.baseUrl}/collections/onbegroeidterreindeel/items?bbox=${bbox.join(',')}&f=json&limit=50`;
+    try {
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!data.features) return [];
+
+      return data.features.map((f: any) => {
+        const coords = f.geometry?.coordinates?.[0] || [];
+        const polygon: Point2D[] = coords.map((c: number[]) => ({ x: c[0], y: c[1] }));
+        return {
+          id: f.id || f.properties?.lokaalid || '',
+          fysiekVoorkomen:
+            f.properties?.plus_fysiek_voorkomen ||
+            f.properties?.fysiek_voorkomen ||
+            'onbegroeidterreindeel',
+          status: f.properties?.status || 'bestaand',
           polygon,
         };
       });

@@ -9,6 +9,7 @@
     "start": "next start -p 8088",
     "test": "vitest run",
     "test:benchmark": "vitest run tests/unit/benchmark/benchmark-ground-truth-drawings.test.ts",
+    "test:pipeline": "vitest run tests/unit/pipeline/live-pipeline-benchmark.test.ts",
     "test:e2e": "playwright test",
     "prepare-assets": "node scripts/sync_web_assets.js",
     "sync-assets": "node scripts/sync_web_assets.js",

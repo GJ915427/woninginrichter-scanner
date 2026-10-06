@@ -61,3 +61,22 @@ npm run test:benchmark
 ```
 *Draait offline in Vitest in $< 100\text{ms}$ zonder externe netwerkafhankelijkheden.*
 
+---
+
+## 🏛️ Live Openbare Data Pipeline & Dynamische Verificatie
+
+Naast de statische offline-benchmark beschikt de architectuur over een **100% dynamische Live Data Pipeline** die bij elke pandevaluatie alle openbare overheidsdata live aggregeert:
+1. **Kadaster BAG 2.0 (OGC API v2):** 2D pandgeometrie (RD), bouwjaar, status en officiële verblijfsobjecten (VBO) via `verblijfsobject.href` met exacte voordeurcoördinaten en GO-oppervlaktes.
+2. **TU Delft 3D BAG (LoD 2.2 CityJSON):** 3D dakvlakken, individuele nok- en goothoogtes, dakvormen en maaiveldhoogte.
+3. **PDOK AHN (Actueel Hoogtebestand Nederland - WMS):** Betrouwbare NAP-maaiveldhoogte fallback met 2000ms `AbortSignal.timeout` guard.
+4. **Kadaster DKK (Digitale Kadastrale Kaart - WFS v5_0):** Echte kadastrale percelen (`kadastralekaart:Perceel`) en erfgrenzen (`kadastralekaart:KadastraleGrens`) voor mandeligheid en perceelsoppervlakte.
+5. **PDOK BGT (Basisregistratie Grootschalige Topografie):** Openbare wegdelen (rijbanen, trottoirs), erfscheidingen (`scheiding_lijn`), tuinen/erven (`onbegroeidterreindeel`) en bomen.
+6. **RVO EP-Online:** Definitief energielabel (A++++ t/m G) gekoppeld via het primaire VBO-adres.
+
+### Uitvoeren van de Live Pipeline Benchmark
+```bash
+npm run test:pipeline
+```
+*Toetst referentieadressen real-time via de live pipeline en verifieert de berekende verdiepingen tegen de grondwaarheid zonder data statisch op te slaan.*
+
+
