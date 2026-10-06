@@ -65,3 +65,4 @@ init_governance_schema.py
 archive/
 implementation_plan_*.md
 README_MAPS.md
+tests/fixtures/batch-sweep-summary.json
