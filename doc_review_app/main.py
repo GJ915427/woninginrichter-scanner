@@ -68,14 +68,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             except user_service.UserAlreadyExistsError:
                 pass
 
-    # Auto-migrate existing annotations and comments from SQLite to JSON sidecars
-    from doc_review_app.storage.migration import auto_migrate_if_needed
-    auto_migrate_if_needed()
-
     # Auto-sync local documents folder with SQLite on startup
     from doc_review_app.services.document_service import sync_local_directory_with_db
     with get_db() as db:
         sync_local_directory_with_db(db=db)
+
+    # Auto-migrate existing annotations and comments between SQLite and JSON sidecars (and hydrate sidecars to SQLite)
+    from doc_review_app.storage.migration import auto_migrate_if_needed
+    auto_migrate_if_needed()
 
     yield
 

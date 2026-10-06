@@ -214,5 +214,139 @@ def auto_migrate_if_needed() -> None:
                             logger.info(f"Restored sidecar from archive backup: {sidecar_path.name}")
                         except Exception as e:
                             logger.warning(f"Could not restore from archive backup {backup_file}: {e}")
+
+        # Hydrate sidecars into SQLite
+        hydrated = hydrate_sidecars_to_sqlite()
+        if hydrated > 0:
+            logger.info(f"Successfully hydrated {hydrated} annotations from JSON sidecars into SQLite.")
     except Exception as exc:
-        logger.warning(f"Auto-migration from SQLite to sidecars skipped or encountered error: {exc}")
+        logger.warning(f"Auto-migration or hydration skipped or encountered error: {exc}")
+
+
+def hydrate_sidecars_to_sqlite(db: Optional[sqlite3.Connection] = None) -> int:
+    """Hydrate annotations and comments from JSON sidecars into SQLite if missing.
+
+    Ensures that ephemeral environments (such as Render or fresh clones) where SQLite
+    is created fresh on boot still have all existing annotations and comments
+    loaded from committed *.comments.json sidecars.
+    """
+    def _execute(conn: sqlite3.Connection) -> int:
+        doc_rows = conn.execute("SELECT id, filename FROM documents").fetchall()
+        if not doc_rows:
+            return 0
+
+        hydrated_count = 0
+
+        # Fetch existing users to safely resolve author_id foreign keys
+        user_rows = conn.execute("SELECT id, username, initials FROM users").fetchall()
+        user_by_username = {u["username"].lower(): u["id"] for u in user_rows if u["username"]}
+        user_by_initials = {u["initials"].upper(): u["id"] for u in user_rows if u["initials"]}
+        default_user_id = user_rows[0]["id"] if user_rows else 1
+
+        for doc in doc_rows:
+            doc_id = doc["id"]
+            filename = doc["filename"]
+            sidecar_path = get_sidecar_path(filename)
+            if not sidecar_path.exists():
+                continue
+
+            sidecar_data = read_sidecar(sidecar_path, filename_hint=filename)
+            anns = sidecar_data.get("annotations", [])
+
+            for ann in anns:
+                ann_id = ann.get("id")
+                if not ann_id:
+                    continue
+
+                existing = conn.execute(
+                    "SELECT id FROM annotations WHERE id = ?", (ann_id,)
+                ).fetchone()
+
+                author_username = (ann.get("author_username") or "").lower()
+                author_initials = (ann.get("author_initials") or "").upper()
+                author_id = (
+                    user_by_username.get(author_username)
+                    or user_by_initials.get(author_initials)
+                    or default_user_id
+                )
+
+                if not existing:
+                    conn.execute(
+                        """
+                        INSERT INTO annotations (
+                            id, document_id, author_id, start_offset, end_offset,
+                            selected_text, badge_color, status, is_deleted,
+                            ast_path, node_type, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            ann_id,
+                            doc_id,
+                            author_id,
+                            ann.get("start_offset", 0),
+                            ann.get("end_offset", 0),
+                            ann.get("selected_text", ""),
+                            ann.get("color") or ann.get("badge_color", "#FF6D00"),
+                            ann.get("status", "open"),
+                            1 if ann.get("is_deleted") else 0,
+                            ann.get("ast_path"),
+                            ann.get("node_type"),
+                            ann.get("created_at") or datetime.now(timezone.utc).isoformat(),
+                            ann.get("updated_at") or ann.get("created_at") or datetime.now(timezone.utc).isoformat(),
+                        ),
+                    )
+                    hydrated_count += 1
+                else:
+                    conn.execute(
+                        "UPDATE annotations SET document_id = ? WHERE id = ?",
+                        (doc_id, ann_id),
+                    )
+
+                # Hydrate comments
+                comments = ann.get("comments", [])
+                for c in comments:
+                    c_id = c.get("id")
+                    if not c_id:
+                        continue
+                    c_existing = conn.execute(
+                        "SELECT id FROM comments WHERE id = ?", (c_id,)
+                    ).fetchone()
+                    if not c_existing:
+                        c_user = (c.get("author_username") or "").lower()
+                        c_init = (c.get("author_initials") or "").upper()
+                        c_author_id = (
+                            user_by_username.get(c_user)
+                            or user_by_initials.get(c_init)
+                            or default_user_id
+                        )
+                        conn.execute(
+                            """
+                            INSERT INTO comments (
+                                id, annotation_id, parent_comment_id, user_id,
+                                author_initials, content, is_edited, is_deleted,
+                                deleted_at, created_at, updated_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                c_id,
+                                ann_id,
+                                c.get("parent_comment_id"),
+                                c_author_id,
+                                c.get("author_initials", "??"),
+                                c.get("content", ""),
+                                1 if c.get("is_edited") else 0,
+                                1 if c.get("is_deleted") else 0,
+                                c.get("deleted_at"),
+                                c.get("created_at") or datetime.now(timezone.utc).isoformat(),
+                                c.get("updated_at") or datetime.now(timezone.utc).isoformat(),
+                            ),
+                        )
+        conn.commit()
+        return hydrated_count
+
+    if db is not None:
+        return _execute(db)
+    from doc_review_app.database import get_db
+    with get_db() as conn:
+        return _execute(conn)
+

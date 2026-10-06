@@ -99,3 +99,93 @@ def test_ast_feedback_unauthenticated(client: TestClient):
 
     resp_post = client.post("/api/documents/dummy-doc-id/export-feedback")
     assert resp_post.status_code == 401
+
+
+def test_ast_feedback_from_pure_json_sidecar(
+    client: TestClient,
+    auth_headers_reviewer1: dict,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    import json
+    monkeypatch.setattr(settings, "documents_dir", tmp_path)
+
+    # 1. Write a markdown file and sidecar directly to tmp_path (simulating disk files committed in git)
+    doc_filename = "vloeren_gids.md"
+    doc_path = tmp_path / doc_filename
+    doc_path.write_text("# Vloeren Gids\n\n## PVC Vloeren\n\nVisgraat motief vereist vakkundige egalisatie.", encoding="utf-8")
+
+    sidecar_path = tmp_path / "vloeren_gids.comments.json"
+    sidecar_data = {
+        "document_filename": doc_filename,
+        "schema_version": 1,
+        "updated_at": "2026-10-06T18:00:00Z",
+        "annotations": [
+            {
+                "id": 9991,
+                "document_id": 999,
+                "author_id": 1,
+                "author_username": "admin",
+                "author_initials": "GJ",
+                "author_name": "Gaspard Jaspars",
+                "start_offset": 31,
+                "end_offset": 47,
+                "selected_text": "Visgraat motief",
+                "color": "#FF6D00",
+                "status": "open",
+                "is_deleted": False,
+                "ast_path": "Vloeren Gids > PVC Vloeren > Visgraat motief",
+                "node_type": "Paragraph",
+                "created_at": "2026-10-06T18:00:00Z",
+                "comments": [
+                    {
+                        "id": 8881,
+                        "annotation_id": 9991,
+                        "user_id": 1,
+                        "author_id": 1,
+                        "author_username": "admin",
+                        "author_initials": "GJ",
+                        "author_name": "Gaspard Jaspars",
+                        "content": "Controleer de toleranties van de dekvloer (NEN-EN 13813).",
+                        "is_edited": False,
+                        "is_deleted": False,
+                        "created_at": "2026-10-06T18:01:00Z",
+                    }
+                ],
+            }
+        ],
+        "audit_logs": [],
+    }
+    sidecar_path.write_text(json.dumps(sidecar_data), encoding="utf-8")
+
+    # 2. Trigger folder sync
+    sync_resp = client.post("/api/documents/sync-folder", headers=auth_headers_reviewer1)
+    assert sync_resp.status_code == 200
+
+    # 3. Retrieve documents list to find doc_id
+    docs_resp = client.get("/api/documents", headers=auth_headers_reviewer1)
+    assert docs_resp.status_code == 200
+    docs = docs_resp.json()
+    matched = [d for d in docs if d["filename"] == doc_filename]
+    assert len(matched) == 1
+    doc_id = matched[0]["id"]
+
+    # 4. Fetch feedback endpoint and verify it returns the annotation & comment from sidecar
+    fb_resp = client.get(f"/api/documents/{doc_id}/feedback", headers=auth_headers_reviewer1)
+    assert fb_resp.status_code == 200
+    fb = fb_resp.json()
+    assert fb["annotations_count"] == 1
+    assert "Visgraat motief" in fb["markdown"]
+    assert "Controleer de toleranties van de dekvloer" in fb["markdown"]
+    assert "Gaspard Jaspars (GJ)" in fb["markdown"]
+    assert "Totaal:** 1 opmerkingen verdeeld over 1 tekstsecties" in fb["markdown"]
+
+    # 5. Export to file via POST
+    export_resp = client.post(f"/api/documents/{doc_id}/export-feedback", headers=auth_headers_reviewer1)
+    assert export_resp.status_code == 200
+    exp = export_resp.json()
+    assert exp["status"] == "success"
+    assert exp["annotations_count"] == 1
+    assert Path(exp["export_path"]).exists()
+    assert "Controleer de toleranties van de dekvloer" in Path(exp["export_path"]).read_text(encoding="utf-8")
+

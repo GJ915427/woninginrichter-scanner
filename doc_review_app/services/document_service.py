@@ -761,6 +761,13 @@ def sync_local_directory_with_db(db: Optional[sqlite3.Connection] = None) -> Dic
         cursor.execute("SELECT COUNT(*) as cnt FROM documents")
         total_count = cursor.fetchone()["cnt"]
 
+        # Ensure any sidecars on disk are hydrated into SQLite
+        try:
+            from doc_review_app.storage.migration import hydrate_sidecars_to_sqlite
+            hydrate_sidecars_to_sqlite(db=conn)
+        except Exception as e:
+            logger.warning(f"Sidecar hydration during folder sync encountered warning: {e}")
+
         return {
             "added": added,
             "updated": updated,

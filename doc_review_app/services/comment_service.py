@@ -1059,15 +1059,8 @@ def generate_document_ast_feedback(
         doc_title = doc["title"] or filename
         doc_content = doc["content"] or ""
 
-        ann_rows = conn.execute(
-            """
-            SELECT id, document_id, author_id, start_offset, end_offset, selected_text, badge_color, status, is_deleted, ast_path, node_type, created_at, updated_at
-            FROM annotations
-            WHERE document_id = ? AND is_deleted = 0
-            ORDER BY start_offset ASC, id ASC
-            """,
-            (document_id,),
-        ).fetchall()
+        # Sourced dynamically via list_annotations (which prioritizes .comments.json sidecars with SQLite fallback)
+        ann_rows = list_annotations(document_id=document_id, db=conn)
 
         feedback_items = []
         md_sections = []
@@ -1075,11 +1068,8 @@ def generate_document_ast_feedback(
 
         # Pre-count total comments
         for ann in ann_rows:
-            com_count = conn.execute(
-                "SELECT COUNT(id) FROM comments WHERE annotation_id = ? AND is_deleted = 0",
-                (ann["id"],),
-            ).fetchone()[0]
-            total_comments += com_count
+            active_comments = [c for c in ann.get("comments", []) if not c.get("is_deleted")]
+            total_comments += len(active_comments)
 
         now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         md_sections.append(f"# AST Review Feedback voor `{filename}`\n")
@@ -1095,14 +1085,14 @@ def generate_document_ast_feedback(
 
         for idx, ann in enumerate(ann_rows, 1):
             ann_id = ann["id"]
-            ast_path = ann["ast_path"]
-            node_type = ann["node_type"]
-            selected_text = ann["selected_text"] or ""
+            ast_path = ann.get("ast_path")
+            node_type = ann.get("node_type")
+            selected_text = ann.get("selected_text") or ""
 
             # Automatic fallback to dynamic markdown AST resolution if ast_path is missing or generic
             if not ast_path or ast_path == "Document Root":
                 resolved_path, resolved_type = resolve_ast_from_markdown(
-                    doc_content, ann["start_offset"], selected_text
+                    doc_content, ann.get("start_offset", 0), selected_text
                 )
                 ast_path = resolved_path
                 node_type = node_type or resolved_type
@@ -1116,17 +1106,7 @@ def generate_document_ast_feedback(
             else:
                 passage_preview = clean_st
 
-            com_rows = conn.execute(
-                """
-                SELECT c.id, c.user_id, c.author_initials, c.content, c.is_edited, c.created_at,
-                       u.full_name AS author_name, u.username AS author_username
-                FROM comments c
-                LEFT JOIN users u ON c.user_id = u.id
-                WHERE c.annotation_id = ? AND c.is_deleted = 0
-                ORDER BY c.created_at ASC, c.id ASC
-                """,
-                (ann_id,),
-            ).fetchall()
+            com_rows = [c for c in ann.get("comments", []) if not c.get("is_deleted")]
 
             item_lines = []
             item_lines.append(f"### #{idx} AST: `{ast_path}`")
@@ -1136,9 +1116,9 @@ def generate_document_ast_feedback(
             if com_rows:
                 item_lines.append(f"* **Opmerkingen ({len(com_rows)}):**")
                 for c in com_rows:
-                    author = c["author_name"] or c["author_username"] or "Reviewer"
-                    initials = c["author_initials"] or "??"
-                    content = c["content"]
+                    author = c.get("author_name") or c.get("author_username") or "Reviewer"
+                    initials = c.get("author_initials") or "??"
+                    content = c.get("content") or ""
                     item_lines.append(f"  - **{author} ({initials}):** {content}")
             else:
                 item_lines.append("* **Opmerkingen:** *(Geen opmerkingstekst ingevoerd)*")
