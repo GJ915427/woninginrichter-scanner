@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Google Material Design 3 Document Review Web Application with Real-Time Annotation and Threaded Comments">
+  <title>Document Review</title>
+
+  <!-- Google Fonts: Roboto & Material Symbols Outlined -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+
+  <!-- Material Design 3 Theme Stylesheet -->
+  <link rel="stylesheet" href="/static/css/m3_theme.css?v=20261006_v9">
+
+  <style>
+    /* Material Symbols default presentation */
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-weight: normal;
+      font-style: normal;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top App Bar -->
+    <header class="top-app-bar" id="top-app-bar">
+      <div class="top-app-bar__leading">
+        <button id="btn-nav-toggle" class="m3-icon-button m3-touch-target" aria-label="Open document menu" title="Open document menu">
+          <span class="material-symbols-outlined">menu</span>
+        </button>
+        <h1 class="top-app-bar__title" id="app-title">Document Review</h1>
+      </div>
+
+      <div class="top-app-bar__trailing">
+        <div id="user-avatar" class="m3-avatar-badge m3-avatar-badge--header m3-touch-target" role="button" tabindex="0" title="User Profile">
+          --
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area: Split Navigation Drawer + Center Document Reader + Comments Bottom Sheet -->
+    <div class="main-layout">
+      <!-- Backdrop Scrim for Mobile Modals -->
+      <div class="scrim" id="scrim"></div>
+
+      <!-- Navigation Drawer -->
+      <nav class="nav-drawer" id="nav-drawer" aria-label="Document Navigation">
+        <div class="nav-drawer__header">
+          <button id="btn-open-folder" class="nav-drawer__headline-btn" onclick="handleOpenFolder()" title="Open documentenmap in Windows Verkenner" aria-label="Open documentenmap in Windows Verkenner">
+            <span class="material-symbols-outlined" style="font-size: 22px; color: var(--md-sys-color-primary); pointer-events: none;">folder_open</span>
+            <span class="nav-drawer__headline-text" style="pointer-events: none;">Documents</span>
+            <span class="material-symbols-outlined nav-drawer__external-icon" style="font-size: 16px; color: var(--md-sys-color-outline); pointer-events: none;" title="Open in Verkenner">open_in_new</span>
+          </button>
+          <button id="btn-drawer-close" class="m3-icon-button" aria-label="Sluit menu" title="Sluit menu">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <!-- Quick Actions: Select/Add Document -->
+        <div class="nav-drawer__toolbar">
+          <input type="file" id="file-picker-input" accept=".md,.txt" style="display: none;" onchange="handleFileSelected(event)">
+          <button id="btn-pick-file" class="m3-button m3-button--filled" style="width: 100%; gap: 8px;" onclick="document.getElementById('file-picker-input').click()" title="Kies een document van uw computer">
+            <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+            <span>Document Selecteren</span>
+          </button>
+        </div>
+
+        <div class="nav-drawer__section-header">
+          <span class="nav-drawer__section-title">Documenten</span>
+          <span class="nav-drawer__file-count" id="doc-file-count" title="Aantal documenten">0</span>
+        </div>
+        <ul class="document-nav-list" id="document-list">
+          <!-- Populated dynamically by app.js -->
+        </ul>
+
+        <!-- Inhoudsopgave (TOC) inside Left Drawer under Documents -->
+        <div class="nav-drawer__toc-section" id="nav-drawer-toc-section" data-doc-review-ignore="true" style="display: none;">
+          <div class="nav-drawer__section-header" style="margin-top: 1rem;">
+            <span class="nav-drawer__section-title">Inhoud</span>
+          </div>
+          <nav class="document-toc__nav" id="document-toc-nav" data-doc-review-ignore="true"></nav>
+        </div>
+      </nav>
+
+      <!-- Center Document Reader View -->
+      <main class="document-container">
+        <article class="document-card">
+          <header class="document-header">
+            <div class="document-header__info">
+              <h2 class="document-header__title" id="doc-header-title">Loading Document...</h2>
+              <div class="document-header__meta" id="doc-header-meta">
+                <span>Checking document library...</span>
+              </div>
+            </div>
+            <div class="document-header__actions">
+              <button id="btn-export-ast-feedback" class="m3-button m3-button--tonal" title="Exporteer review-feedback met AST-paden voor AI">
+                <span class="material-symbols-outlined" style="font-size: 16px;">account_tree</span>
+                <span>Exporteer AI-Feedback (AST)</span>
+              </button>
+            </div>
+          </header>
+
+          <div class="document-content" id="document-content">
+            <p class="m3-typography-body-medium" style="color: var(--md-sys-color-outline);">
+              Connecting to document review server...
+            </p>
+          </div>
+        </article>
+      </main>
+
+    </div>
+
+    <!-- Floating Selection Action Tooltip Pill ("Reageer") -->
+    <button id="btn-floating-comment" class="floating-comment-pill" aria-label="Reageer op geselecteerde tekst">
+      <span class="material-symbols-outlined" style="font-size: 18px;">add_comment</span>
+      <span>Reageer</span>
+    </button>
+
+    <!-- Floating Comment Input Popover (Antigravity Balloon Style) -->
+    <div id="comment-input-popover" class="m3-comment-popover" role="dialog" aria-label="Nieuwe opmerking">
+      <textarea id="popover-input-textarea" class="m3-textarea" placeholder="Laat een opmerking achter..." rows="2"></textarea>
+      <div class="m3-comment-popover__actions">
+        <button id="btn-cancel-input-popover" type="button" class="m3-button m3-button--text">Annuleren</button>
+        <button id="btn-submit-input-popover" type="button" class="m3-button m3-button--filled">
+          <span class="material-symbols-outlined" style="font-size: 16px;">add_comment</span>
+          <span>Plaatsen</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Floating Comment View / Thread Popover (Antigravity Balloon Style) -->
+    <div id="comment-view-popover" class="m3-comment-popover m3-comment-popover--view" role="dialog" aria-label="Opmerkingen">
+      <div class="m3-comment-popover__body" id="popover-view-body">
+        <!-- Threads rendered dynamically -->
+      </div>
+      <div class="m3-comment-popover__reply-box" id="popover-view-reply-box" style="display: none;">
+        <textarea id="popover-view-textarea" class="m3-textarea" placeholder="Antwoord toevoegen..." rows="2"></textarea>
+        <div class="m3-comment-popover__actions">
+          <button id="btn-close-view-popover" type="button" class="m3-button m3-button--text">Annuleren</button>
+          <button id="btn-submit-view-reply" type="button" class="m3-button m3-button--filled">
+            <span class="material-symbols-outlined" style="font-size: 16px;">send</span>
+            <span>Verstuur</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Global M3 Snackbar Notification -->
+    <div id="snackbar" class="m3-snackbar" role="alert" aria-live="polite">
+      <span id="snackbar-text">Notification message</span>
+    </div>
+
+    <!-- Delete Document Confirmation Dialog Modal -->
+    <div id="delete-doc-dialog" class="m3-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-doc-title" style="display: none;">
+      <div class="m3-dialog">
+        <div class="m3-dialog__header" style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+          <span class="material-symbols-outlined" style="color: var(--md-sys-color-error); font-size: 28px;">delete_forever</span>
+          <h2 id="delete-doc-title" class="m3-dialog__title">Document verwijderen?</h2>
+        </div>
+        <p id="delete-doc-message" class="m3-typography-body-medium" style="margin: 0.5rem 0 1.25rem 0; color: var(--md-sys-color-on-surface-variant); line-height: 1.4;">
+          Weet je zeker dat je dit document wilt verwijderen? Alle bijbehorende annotaties en opmerkingen worden definitief gewist.
+        </p>
+        <div class="m3-dialog__actions">
+          <button id="btn-cancel-delete-doc" type="button" class="m3-button m3-button--text">Annuleren</button>
+          <button id="btn-confirm-delete-doc" type="button" class="m3-button m3-button--filled" style="background-color: var(--md-sys-color-error); color: var(--md-sys-color-on-error);">
+            <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
+            <span>Verwijderen</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Authentication Dialog Modal -->
+    <div id="auth-modal" class="m3-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+      <div class="m3-dialog">
+        <h2 id="auth-modal-title" class="m3-dialog__title">Sign In</h2>
+        <p style="margin: 0; font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant);">
+          Enter your reviewer credentials to access documents and annotations.
+        </p>
+
+        <form id="login-form" class="m3-dialog__body">
+          <div>
+            <label for="login-username" style="display: block; font: var(--md-sys-typescale-label-medium); margin-bottom: 0.25rem;">Username</label>
+            <input type="text" id="login-username" class="m3-input" required autocomplete="username" placeholder="e.g. admin or reviewer">
+          </div>
+
+          <div>
+            <label for="login-password" style="display: block; font: var(--md-sys-typescale-label-medium); margin-bottom: 0.25rem;">Password</label>
+            <input type="password" id="login-password" class="m3-input" required autocomplete="current-password" placeholder="Password">
+          </div>
+
+          <div id="login-error" style="color: var(--md-sys-color-error); font-size: 0.8125rem; min-height: 1.25rem;"></div>
+
+          <div class="m3-dialog__actions">
+            <button type="submit" class="m3-button m3-button--filled" style="width: 100%;">
+              <span class="material-symbols-outlined">login</span>
+              <span>Sign In</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client JavaScript Modules -->
+  <script src="/static/js/markdown.js?v=20261006_v9"></script>
+  <script src="/static/js/selection.js?v=20261006_v9"></script>
+  <script src="/static/js/comments.js?v=20261006_v9"></script>
+  <script src="/static/js/app.js?v=20261006_v9"></script>
+</body>
+</html>
