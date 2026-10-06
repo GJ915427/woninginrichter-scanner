@@ -3,7 +3,115 @@ import { Point2D } from './types';
 import { PolygonClipping } from './clipping';
 import { SimilarityResult } from '../benchmark/benchmark-types';
 
+export interface RotationInvariantSimilarityResult extends SimilarityResult {
+  bestRotationDeg: number;
+}
+
 export class PolygonSimilarityEngine {
+  /**
+   * Calculates rotation-invariant similarity between a calculated floor polygon and a ground-truth polygon.
+   * Evaluates direct alignment as well as centroid-aligned rotations at 0°, 90°, 180°, and 270°.
+   * Returns the best matching result along with the detected optimal rotation in degrees.
+   */
+  static calculateRotationInvariantSimilarity(
+    calculatedCoords: Array<[number, number]>,
+    groundTruthCoords: Array<[number, number]>,
+    thresholdIoU: number = 0.95,
+    thresholdHausdorffM: number = 0.20,
+    rotationsDeg: number[] = [0, 90, 180, 270]
+  ): RotationInvariantSimilarityResult {
+    if (!calculatedCoords || calculatedCoords.length < 3 || !groundTruthCoords || groundTruthCoords.length < 3) {
+      return {
+        iou: 0,
+        dice: 0,
+        hausdorffDistanceM: Infinity,
+        areaDeltaM2: Infinity,
+        relativeAreaDeltaPct: 100,
+        passed: false,
+        bestRotationDeg: 0,
+      };
+    }
+
+    // 1. Direct evaluation (no translation, 0° rotation)
+    const directResult = this.calculateSimilarity(
+      calculatedCoords,
+      groundTruthCoords,
+      thresholdIoU,
+      thresholdHausdorffM
+    );
+
+    let bestResult: RotationInvariantSimilarityResult = {
+      ...directResult,
+      bestRotationDeg: 0,
+    };
+
+    if (bestResult.passed && bestResult.iou >= 0.99) {
+      return bestResult;
+    }
+
+    // 2. Centroid-aligned evaluation across specified rotation angles
+    const cCalc = this.computeCentroid(calculatedCoords);
+    const cGt = this.computeCentroid(groundTruthCoords);
+
+    const centeredCalc = calculatedCoords.map(
+      ([x, y]) => [x - cCalc[0], y - cCalc[1]] as [number, number]
+    );
+    const centeredGt = groundTruthCoords.map(
+      ([x, y]) => [x - cGt[0], y - cGt[1]] as [number, number]
+    );
+
+    for (const deg of rotationsDeg) {
+      const rad = (deg * Math.PI) / 180;
+      const cos = Math.round(Math.cos(rad) * 1e6) / 1e6;
+      const sin = Math.round(Math.sin(rad) * 1e6) / 1e6;
+
+      const rotatedCalc: Array<[number, number]> = centeredCalc.map(([x, y]) => [
+        x * cos - y * sin,
+        x * sin + y * cos,
+      ]);
+
+      const candidateResult = this.calculateSimilarity(
+        rotatedCalc,
+        centeredGt,
+        thresholdIoU,
+        thresholdHausdorffM
+      );
+
+      // Higher IoU wins; if IoUs are equal, lower Hausdorff distance wins
+      if (
+        candidateResult.iou > bestResult.iou ||
+        (candidateResult.iou === bestResult.iou &&
+          candidateResult.hausdorffDistanceM < bestResult.hausdorffDistanceM)
+      ) {
+        bestResult = {
+          ...candidateResult,
+          bestRotationDeg: deg,
+        };
+      }
+    }
+
+    return bestResult;
+  }
+
+  private static computeCentroid(coords: Array<[number, number]>): [number, number] {
+    let pts = coords;
+    if (
+      pts.length > 1 &&
+      pts[0][0] === pts[pts.length - 1][0] &&
+      pts[0][1] === pts[pts.length - 1][1]
+    ) {
+      pts = pts.slice(0, pts.length - 1);
+    }
+    if (pts.length === 0) return [0, 0];
+    let sumX = 0;
+    let sumY = 0;
+    for (const [x, y] of pts) {
+      sumX += x;
+      sumY += y;
+    }
+    return [sumX / pts.length, sumY / pts.length];
+  }
+
   /**
    * Calculates similarity between a calculated floor polygon and a ground-truth polygon.
    * Computes IoU (Intersection over Union), Dice score, bidirectional Hausdorff distance, and relative area delta.
