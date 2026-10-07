@@ -266,25 +266,33 @@ Het fundament van het inmeet- en berekeningsproces rust op het strikte ondersche
 #### 3.1.2 Uniforme Werkwijze, Referentiepunten & Visuele Opname
 * **Filosofie van de Uniforme Werkwijze:**  
   Een kwalitatieve inmeting staat of valt met standaardisatie. Software maakt zelfstandig geen rekenfouten, mits de juiste invoer op de juiste plek belandt. Door iedere adviseur en inmeter exact dezelfde vaste werkwijze te laten hanteren, worden menselijke vergissingen, verwisselingen van breedte en hoogte en misverstanden tussen inmeting en montage tot een absoluut minimum beperkt.
-* **Vaste Meetrichting, Meetvolgorde & Gestandaardiseerde Meetpuntnummering:**  
-  * *Horizontaal:* Altijd van **links naar rechts** (gezien vanuit de standaard kijkrichting).
-  * *Verticaal:* Altijd van **boven naar onder**.
-  * *Semantische Codering & Nummering van Meetpunten (B1, B2... / H1, H2... / D1, D2... / X1, X2...):* Elk individueel meetpunt binnen een gevelopening of wandvlak krijgt een semantisch betekenisvolle code:
-    * **Breedtemetingen (B1, B2, B3):** B1 = boven, B2 = midden, B3 = onder, gemeten van links naar rechts.
-    * **Hoogtemetingen (H1, H2, H3):** H1 = links, H2 = midden, H3 = rechts, gemeten van boven naar beneden.
-    * **Dagkant- & Neggemetingen (D1, D2):** D1 = dagkant/negge links, D2 = dagkant/negge rechts (beschikbare inbouwdiepte).
-    * **Diagonale Meetlijnen (X1, X2):** Diagonale kruismetingen voor haaksheids- en scheluwtecontrole bij scheve of niet-haakse kozijnen, erkers of trapeziumramen: **X1** meet van linksboven naar rechtsonder (↖ → ↘), **X2** meet van rechtsboven naar linksonder (↗ → ↙). Het verschil tussen X1 en X2 toont direct de mate van scheefstand of afwijking van de 90°-hoek.
-    Hiermee is voor zowel inmeter, werkvoorbereider als software direct inzichtelijk over welke fysieke maatlijn het gaat en wordt verwarring met ruimtelijke posities (Niveau 6/7) geëlimineerd. Zo kan te allen tijde eenduidig worden gerefereerd aan een specifiek meetpunt bij tolerantieverschillen of scheefstand. *(GJ: Guy vragen naar zijn volgorde).*
+* **Vaste Meetvolgorde & Werken per Gevelopening:**  
+  * **Strikte Meetvolgorde:** Altijd **eerst de breedte, daarna pas de hoogte**.
+  * **Werken per Gevelopening:** De inmeter werkt en registreert strikt **per afzonderlijke gevelopening** (Positie 1, 2, 3...) in plaats van kriskras over een wandvlak. Dit elimineert nummeringssprongen in de software en waarborgt dat posities en meervoudige raamdecoratieproducten eenduidig aan elkaar gekoppeld blijven.
+  * *Horizontaal (Breedte B1, B2, B3):* Altijd gemeten van **boven naar onder** (B1 = boven, B2 = midden, B3 = onder, gemeten van links naar rechts).
+  * *Verticaal (Hoogte H1, H2, H3):* Altijd gemeten van **links naar rechts** (H1 = links, H2 = midden, H3 = rechts, gemeten van boven naar onder).
+  * *Dagkant- & Neggemetingen (D1, D2):* D1 = dagkant/negge links, D2 = dagkant/negge rechts (beschikbare inbouwdiepte).
+  * *Diagonale Kruismetingen (D1, D2):* Gestandaardiseerd voor haaksheids- en scheefstandscontrole bij kozijnen of nissen: **D1 meet van linksonder naar rechtsboven (↙ → ↗)** en **D2 meet van rechtsonder naar linksboven (↘ → ↖)**. Het verschil tussen D1 en D2 toont direct de mate van scheefstand of afwijking van de 90°-hoek.
+* **Trapeziumramen & Schuine Gevels (Wiskundige Inmeetregel):**  
+  Bij schuine raampartijen of trapeziumramen meet de inmeter uitsluitend:
+  1. De **rechte breedte** aan de onderzijde (of bovenzijde bij omgekeerd trapezium);
+  2. De **kortste hoogte** (punt-naar-punt);
+  3. De **grootste hoogte** (punt-naar-punt).  
+  * **Strikt verbod op tussenhoogtemeting:** Er mag bij trapeziumramen **geen tussenmaat in het midden** worden gemeten. Indien een tussenmaat niet exact op het wiskundige middenpunt wordt opgenomen, ontstaat een afwijking die de wiskundige berekeningsalgoritmen van de confectie- en productiesoftware corrumpeert. De fabrikant berekent de exacte schuinte en snijhoek zuiver wiskundig op basis van de breedte en de twee uiterste hoogtematen.
 * **Kijkrichting (Binnen vs. Buiten):**  
   * *Standaard (Raamdecoratie, Gordijnen & Binnentoepassingen):* De inmeter staat in de ruimte en kijkt van **binnen naar buiten** tegen het kozijn of het vlak aan. Links is fysiek links vanuit de kamer gezien.
   * *Uitzondering (Buitenzonwering & Screens):* Bij buitentoepassingen (zoals zipscreens of rolluiken gemonteerd op de buitengevel) wordt gemeten en gekeken **van buitenaf tegen de gevel**. De software markeert deze kijkrichting expliciet in de positie-interface (`[Kijkrichting: Buitenaf Gevel]`).
-* **Vaste Referentiepunten:**  
-  * *Vloerpeil:* Er wordt altijd gemeten vanaf het definitieve afwerkvloerpeil. Indien de dekvloer of afwerkvloer nog niet aanwezig is (nieuwbouw of casco-renovatie), wordt de geplande vloerdikte expliciet geregistreerd en verrekend (zie 3.1).
-  * *Plafond & Latei:* Vaste referentielijnen worden genomen vanaf de onderzijde van het dragende plafond of de dragende latei.
+* **Vaste Referentiepunten & Klantverantwoordelijkheid bij Onvoltooide Situaties:**  
+  * *Vloerpeil & Plafondpeil:* Er wordt gemeten vanaf het definitieve afwerkvloerpeil en tot aan het definitieve plafond.
+  * *Onvoltooide Situaties (Nog aan te brengen vloeren of stucwerk):*  
+    De inmeter doet **géén eigen aannames** over de dikte van nog te plaatsen vloeren (zoals tegels met lijmbed, parket of gietvloer) of nog aan te brengen plafondafwerkingen (stucwerk, spachtelputz, verlaagde plafonds).  
+    1. De klant is te allen tijde zelf verantwoordelijk voor het exact en schriftelijk opgeven van de benodigde aftrekmaat in millimeters.
+    2. De inmeter meet de ruwe strakke maat en registreert de door de klant opgegeven aftrek met de verplichte statusnotitie: *"Aftrekmaat conform schriftelijke opgave klant: X mm"*. Dit wordt direct opgenomen in het digitale meetverslag dat de klant per e-mail ontvangt.
+    3. Is de exacte maat tijdens de inmeting nog onbekend (bijv. in afwachting van parketteur of aannemer)? Dan krijgt de positie de status **"Concept / In afwachting klantinfo"**. Zodra de klant de definitieve millimeters per e-mail aanlevert, logt de binnendienst (bijv. Carlo) dit met tijdstempel en gebruikers-ID in het dossier, waarna de status definitief wordt.
 * **Visuele Maatschets & Overzichtsfoto-Opnameplicht:**  
   Voor elke bezochte ruimte of gevelwand geldt een strikte visuele vastleggingsplicht:
   * *Overzichtsfoto & Detailfoto's:* Minimaal één overzichtsfoto per vlak/ruimte waarop de gehele gevelpartij inclusief obstakels (radiatoren, leidingen, kranen, deuren) zichtbaar is. Van eventuele bijzonderheden of zaken die niet goed zichtbaar zijn op de overzichtsfoto's, worden detailfoto's vastgelegd.
-  * *Analoge Maatvoering & Maatschetsen (Interstil Rails & Roedes):* Bij complexe railtracés (zoals Interstil designroedes met buigingen, erkers of afgeschuinde plafonds) is een handgetekende maatschets met exacte hoekgraden, projectiematen en detailfoto's van de neggekanten verplicht als bijlage in het inmeetdossier. *(GJ: Navragen bij Guy hoe dit precies gaat)*.
+  * *Complexe Railtracés & Fabrieksinmeting (Interstil):* Bij complexe railtracés (zoals roedes met meer dan 70% ronding of meer dan 5 hoeken) wordt de inmeting ter risicoafwenteling door fabrikant Interstil zelf uitgevoerd (zie 3.2.3). Eenvoudigere bogen en maatschetsen worden voorzien van exacte graden en detailfoto's van de dagkanten.
 
 #### 3.1.3 Meetpuntdichtheid & Scheefstandscontrole (Het 50 cm Raster)
 Kozijnen en muren zijn in de praktijk zelden perfect haaks of waterpas. Daarom geldt een strikt meervoudig meetprotocol:
@@ -335,7 +343,7 @@ Kozijnen en muren zijn in de praktijk zelden perfect haaks of waterpas. Daarom g
 De bouwkundige constructie verschilt sterk per bouwlaag en bepaalt direct de montagetechniek, benodigde bevestigingsmiddelen en montagetijd:
 * **Constructieverschillen per Verdieping:**  
   * *Begane Grond:* Vaak massief gewapend beton, breedplaat of zandcementdekvloeren. Vereist SDS-boorhamers, zware pluggen of keilbouten.
-  * *Verdiepingen:* Vaak houten balklagen, gipskartonplafonds op rachelwerk of holle kanaalplaten. Gipskarton bezit onvoldoende uittrekwaarde voor dynamische trekbelastingen (zoals zware gordijnen of koordbediening). De inmeter inspecteert de aanwezigheid van houten rachels of achterhout; bij afwezigheid daarvan is wandmontage verplicht.
+  * *Verdiepingen:* Vaak houten balklagen, gipskartonplafonds op rachelwerk of holle kanaalplaten. Gipskarton bezit onvoldoende uittrekwaarde voor dynamische trekbelastingen (zoals zware gordijnen of koordbediening). De inmeter inspecteert **indien mogelijk** (bijv. in een vroege ruwbouwfase vóór het aanbrengen van het gips, waarbij foto's met maataanduiding vanaf links worden vastgelegd, zoals "eerste rachel op 58 cm") de aanwezigheid van houten rachels of achterhout. Bij afwezigheid of onbekendheid van achterhout wordt zware plafondbelasting vermeden of wandmontage voorgeschreven.
 * **Stucprofielen No-Drill Zone:**  
   Rond alle dagkanten, hoeken en raamkanten bevindt zich in gestukte wanden een metalen of kunststof hoekbeschermer (stucprofiel). Binnen een zone van **3 tot 5 cm vanaf de hoek geldt een absoluut boorverbod**. Boren in deze zone veroorzaakt scheuren en afspringen van het stucwerk. Bevestigingen dienen ofwel direct in het kozijn, ofwel minimaal 5 cm buiten de dagkant te worden geplaatst.
 * **Gevelopeningen, Kozijndetails & Bevestigingstechniek:**  
@@ -343,11 +351,11 @@ De bouwkundige constructie verschilt sterk per bouwlaag en bepaalt direct de mon
   * *Kunststof:* Nooit zomaar boren in holle kunststof kamers wegens risico op koudebruggen en lekkage van isolatielucht. Uitsluitend boren met speciale klemsteunen, schroeven in de interne staalversterking, of kleefmontage (TruFit / FrameFix).
   * *Aluminium:* Voorboren met metaalboor en tappen of zelftappende metaalschroeven toepassen.
 * **Dekvloer-Inspectievoorbehoud & Vochtmeting:**  
-  Bij vloerbekleding registreert de inmeter het type constructie- en dekvloer (zandcement vs. anhydriet vs. hout). Bij anhydriet is specifieke primer vereist; bij zandcement moet de schraapvastheid getoetst worden. Vochtmeting (carbidmeting of CM-waarde < 1,8% bij zandcement, < 0,5% bij anhydriet zonder vloerverwarming) is een verplicht inspectiepunt.
-* **Vloerverwarming Boorverbod:**  
-  Op vloeren met vloerverwarming (standaard op begane grond, toenemend op verdiepingen) is **boren in de vloer ten strengste verboden**. Deuraansluitingen, plintmontage en matranden mogen uitsluitend worden verlijmd met geschikte MS-polymeerkitten.
+  Bij vloerbekleding registreert de inmeter het type constructie- en dekvloer (zandcement vs. anhydriet vs. hout). Vochtmeting gebeurt standaard niet-destructief met een **capacitieve bolvochtmeter (strooiveldmeting)** om snel en betrouwbaar de oppervlaktezone te scannen. De destructieve Carbid-meting (CM-meting) is prijzig en wordt gereserveerd als formele escalatie- en bewijslastmeting bij ernstige twijfel of juridische geschillen (< 2,0% / met vloerverwarming < 1,5% bij zandcement; < 0,5% / met vloerverwarming < 0,3% bij anhydriet).
+* **Algeheel Boorverbod in álle Vloeren:**  
+  Op **álle vloeren geldt een absoluut en algeheel boor- en schroefverbod** (ter voorkoming van schade aan vloerverwarming, water-/gasleidingen, elektra, betonijzer en nieuwbouwgaranties). Deuraansluitingen, plintmontage, overgangsprofielen en deurstoppers mogen uitsluitend worden verlijmd met geschikte MS-polymeerkitten of montagelijm.
 * **Geluidsnormering Harde Vloeren (10 dB VvE-Norm):**  
-  Bij montage van harde vloeren (laminaat, PVC) in appartementencomplexen en verdiepingen geldt conform VvE-reglementen een verplichte contactgeluidreductie van minimaal ΔLlin ≥ 10 dB (aantoonbaar met TNO/TÜV certificaat). De juiste ondervloerkeuze is direct gekoppeld aan de verdiepingslaag.
+  Bij montage van harde vloeren (laminaat, PVC) in appartementencomplexen en etagevloeren geldt conform VvE-reglementen een verplichte contactgeluidreductie van minimaal ΔLlin ≥ 10 dB (aantoonbaar met TNO/TÜV certificaat). **Akoestische randvoorwaarde:** De vloer moet rondom **volledig vrij liggen van alle wanden, kozijnen en leidingen**; elk contact met plinten of wanden veroorzaakt geluidslekken (akoestische bruggen) waardoor de 10 dB werking tenietgedaan wordt.
 
 #### 3.1.8 Integrale Inmeetchecklist & Hiërarchisch Matrix-Model: Bestaande Situatie, Uitvoeringscondities & Nieuwe Situatie
 Tijdens het inmeten doorloopt de inmeter een gestandaardiseerde inmeetchecklist. De software dwingt mechanisch af dat een (deel)meting pas formeel kan worden afgerond en vrijgegeven als alle verplichte checklist-items van die positie of ruimte zijn afgehandeld.
@@ -378,7 +386,7 @@ Om faalkosten uit te bannen en de inmeter op de ladder niet te overspoelen met i
 #### 3.2.1 Productassortiment, Merken & Configuratoren
 * **Producten:** Overgordijnen, Vitrage, Inbetweens, Fopgordijntjes.
 * **Rails & Roedes:** Losse rails, roedes, rails met hoeken/bochten (bijv. links 20 cm, rechts 30 cm retourbocht).  
-  * *Uitzondering zónder configurator (Interstil):* Hoogwaardige designrails en roedes met bogen/bochten (Interstil) kennen géén online bestelconfigurator; orderinvoer verloopt analoog via fysieke monsterboeken, as-lijnen en maatschetsen.
+  * *Merken & Configuratoren:* Hoogwaardige designrails en roedes (*Interstil*) beschikken over een eigen **Interstil Configurator** voor orderinvoer en technische verificatie. Complexe bogen (zoals erkers > 70% ronding) worden direct door Interstil zelf op locatie ingemeten (zie 3.2.3).
 * **Merken, Confectie & Configurators:**  
   * *Gordijnstoffen & Ateliers:* Hunter Douglas merken (*De Ploeg, Kendix, Artelux*), evenals *House of Happiness / Frisco, Holland Haag* en *Mart Visser* worden centraal geconfigureerd via **Woontotaal**.  
   * *White label / Huismerk:* Confectie via *Vadain* gebruikt een eigen configurator, ingebed via ERP-systeem **Logic Trade**. In het systeem en op inkoopbonnen wordt dit eenduidig aangeduid met merkcode **'GiW'** (Groter in Wonen), nooit als 'merkloos'.
@@ -388,9 +396,9 @@ Om faalkosten uit te bannen en de inmeter op de ladder niet te overspoelen met i
   * *Enkele Plooi:* Bescheiden stofverbruik (1,8× tot 2,0× de railbreedte).
   * *Dubbele Plooi (Vlinderplooi):* Standaard luxe valling (2,2× tot 2,5× de railbreedte).
   * *Retourplooi (Enkele of Dubbele Retourplooi):* Afwisselend naar voren en achteren geplooide confectie. Bij montage strak onder het plafond geldt: **hoofdje = 0 mm**, zodat het gordijn niet tegen het plafond aanloopt.
-  * *Wave-Plooi (Wave 6 cm & Wave 8 cm):* Vaste runner-afstand via koord, hangt altijd strak en gelijkmatig onder de rail (hangwijze verplicht onder de rail).
-    * *60 mm runnergordel:* Resulteert in een golfdiepte van circa 16 cm (8 cm naar voren, 8 cm naar achteren). Minimale koofdiepte / afstand tot glas: 10 cm.
-    * *80 mm runnergordel:* Resulteert in een diepere en luxere golf van circa 25 cm (12,5 cm naar voren, 12,5 cm naar achteren). Minimale koofdiepte / afstand tot glas: 15 cm.
+  * *Wave-Plooi (Wave 6 cm & Wave 8 cm):* Vaste runner-afstand via koord, hangt altijd strak en gelijkmatig onder de rail (hangwijze verplicht onder de rail):
+    * *60 mm runnergordel:* Resulteert in een totale golfdiepte van **12 cm** (**6 cm naar voren en 6 cm naar achteren**). Vereiste vrije koofruimte / afstand tot glas: **8 tot 10 cm** (minimaal 10 cm koofdiepte voor een enkele rail).
+    * *80 mm runnergordel:* Resulteert in een diepere en luxere golf van **16 cm** (**8 cm naar voren en 8 cm naar achteren**). Vereiste vrije koofruimte / afstand tot glas: **10 tot 12 cm** (minimaal 15 cm koofdiepte voor een enkele rail).
     * Bij onvoldoende vrije diepte (bijv. uitstekende vensterbank of radiator) dwingt de software automatisch 60 mm runners af of signaleert verlengde wandsteunen.
 * **Indeling van de delen op de rail:**
   * **1 stuk links of rechts:** Waslabel standaard muurzijde ingenaaid.
@@ -405,13 +413,15 @@ Om faalkosten uit te bannen en de inmeter op de ladder niet te overspoelen met i
     * Stofbehoefte = Aantal banen × (Gordijnhoogte + Zoomtoeslag + Rapportverspringing).
     * *Rekenvoorbeeld patroonrapport:* Bij een patroonrapport van 64 cm en een snijhoogte van 270 cm wordt de snijmaat naar boven afgerond op een veelvoud van 64 cm (5 × 64 = 320 cm) om perfecte horizontale patroonaansluiting over de gehele breedte te garanderen.
 * **Voorbeeld Confectiehoogte Gordijnen:**  
-  260,0 cm (Gemeten strakke hoogte) → -1,2 cm railhoogte (Nieuwe rail) & -2,0 cm zwevend boven vloer → **256,8 cm (Confectiehoogte)**.
+  260,0 cm (Gemeten strakke hoogte) - 2,0 cm (Wave-railhoogte) - 1,5 cm (Vloerspeling harde vloer) = **256,5 cm (Confectiehoogte)**.
 
 #### 3.2.3 Rails, Roedes, Bochten & Montagewijze
 * **Steunafstanden & Bevestiging:**  
   Gordijnrails worden standaard gemonteerd met plafondsteunen of wandsteunen om de maximaal **70 cm**. Bij zware stoffen (zoals gevoerde velours of verduisterende gordijnen) wordt de steunafstand verkleind naar maximaal **50 cm**.
+* **Complexe Railtraçés & Risicoafwenteling (Interstil Inmeting):**  
+  Bij complexe railverbuigingen (meer dan 70% ronding, meer dan 5 hoeken, gecompliceerde erkers of afgeschuinde plafonds) wordt de inmeting **door fabrikant Interstil zelf op locatie uitgevoerd**. De inmeetkosten van de fabrikant zijn verwaarloosbaar ten opzichte van de faalkosten van een verkeerd gewalste designroede; het maatvoeringsrisico ligt hierdoor contractueel bij de fabrikant. Reguliere bochten en hoeken worden bij voorkeur **op locatie gebogen** door de monteur met het mobiele buigblok voor een perfecte pasvorm.
 * **Meerdelige Rails & Tussenverbinders:**  
-  Bij raillengtes > 6,00 m of bij moeilijke transportroutes (zoals een smal trappenhuis) wordt de rail opgedeeld in meerdere delen met interne verbindingsstukken. De deling wordt bij voorkeur geplaatst op het middensluitpunt of achter een tussenstijl.
+  Bij raillengtes > 6,00 m of bij moeilijke transportroutes (zoals een smal trappenhuis) wordt de rail opgedeeld in meerdere delen met interne verbindingsstukken. De positie van de tussenverbinder (links, rechts of in het midden) wordt **altijd in overleg met de klant** bepaald en vastgelegd.
 * **Buigradii Rekenvoorbeeld (Huismerk Rail R=10 vs. Standaard R=15 & R=20):**  
   Bij railbochten (in erkers of bij retourbochten naar de muur) bepaalt de buigradius de exacte zaagmaat en een soepele geleiding van de glijders:
   * *Huismerk GiW rail (Radius R = 10 cm):* U-maten: 25 cm wandlinks + 170 cm breedte + 25 cm wandrechts (som = 220 cm) → Correctie 2 bochten met R = 10 cm: 2 × [2R - (π × R)/2] = 2 × [20 - 15,7] = 8,6 cm reductie → **Werkelijke zaaglengte profiel = 211,4 cm**.
@@ -422,30 +432,38 @@ Om faalkosten uit te bannen en de inmeter op de ladder niet te overspoelen met i
 * **Bochten, Erkers & Ronde Systemen:**  
   * *Retourbochten aan Uiteinden:* Rails kunnen aan één of beide uiteinden worden voorzien van een retourbocht (buiging van 90° naar de wand toe). Dit zorgt voor een naadloze sluiting tegen de muur, elimineert zijwaartse lichtspleten en verhoogt de isolatie en privacy.
   * *Tussenbochten (Binnen- en Buitenhoeken):* Voor erkers, serres en hoekkozijnen worden rails op maat gebogen in binnenhoeken (hoek in de kamer) of buitenhoeken. De inmeter registreert exact de hoekgraad (bijv. 90°, 135° of afwijkend) en de tussenlengtes.
-  * *Ronde Gordijnen & Gebogen Rails (Edge Cases):* Voor gebogen gevelpuien, torens of ronde erkers kan een rail in een continue cirkel of boog worden gewalst. De inmeter meet hierbij de diameter, straal (radius) en booglengte/omtrek.
 * **Inmeetinstructies per Plaatsings- en Montagewijze (Wat meet de inmeter exact?):**  
   De keuze van de montagewijze bepaalt welke fysieke maten de inmeter moet opnemen en welke aftrek/optelsom de software hanteert:
   * *In de dag / Nis / Wand-tot-Wand (in een koof of tussen twee muren):*
     * **Wat meten?** 
       1. *Strakke nisbreedte:* Meet de strakke wand-tot-wand maat op montageniveau (zowel aan de voorzijde als achterzijde van het geplande railtracé). De kleinste strakke maat geldt als invoer.
       2. *Strakke hoogte op 3 punten:* Meet de hoogte vanaf het plafond/bovenzijde nis tot de vloer of vensterbank op minimaal 3 posities: Links (H1), Midden (H2) en Rechts (H3). Doorhangende plafonds of aflopende vloeren worden direct gesignaleerd; de kleinste maat is sturend voor de confectiehoogte.
-      3. *Koofdiepte / Nisdiepte:* Meet de vrije diepte tussen het raam/kozijn en de voorzijde van de koof/stucrand. Vereiste vrije koofdiepte: minimaal 10 cm voor Wave 60 mm, minimaal 15 cm voor Wave 80 mm, en minimaal 18–20 cm voor een dubbele rail (vitrage + overgordijn).
-    * **Rekenregel:** Rail zaagmaat = strakke wand-/nisbreedte minus vaste nisafslag van **-10 mm tot -20 mm** (voor speling en eindkappen). Confectiehoogte = kleinste strakke hoogte minus railhoogte (ca. 12 mm) minus vloerspeling (zie 3.2.4).
+      3. *Koofdiepte / Nisdiepte:* Meet de vrije diepte tussen het raam/kozijn en de voorzijde van de koof/stucrand. Vereiste vrije koofdiepte: minimaal 10 cm voor Wave 60 mm (12 cm golf), minimaal 15 cm voor Wave 80 mm (16 cm golf), en minimaal 18–20 cm voor een dubbele rail (vitrage + overgordijn).
+    * **Rekenregel:** Rail zaagmaat = strakke wand-/nisbreedte minus vaste nisafslag van **exact 15 mm** (`Rail zaagmaat = Strakke nisbreedte - 15 mm`). Confectiehoogte = kleinste strakke hoogte minus railhoogte minus vloerspeling (zie 3.2.4).
   * *Op de dag (over het raam / wand- of plafondmontage vóór de gevel):*
     * **Wat meten?**
       1. *Dagmaat kozijn:* Strakke kozijnbreedte en strakke kozijnhoogte.
       2. *Beschikbare vrije muurbreedte (Links & Rechts):* Vrije wandruimte naast het kozijn tot aan de hoek of obstakels om het geopende gordijnpakket buiten het raam te parkeren.
-      3. *Vrije lateihoogte:* Hoogte van bovenzijde kozijn tot het plafond (bepaalt of wandsteunen boven het kozijn passen: minimaal 50–70 mm nodig voor solide plugbevestiging).
+      3. *Vrije lateihoogte (veldterm "over de dagkant"):* Afstand van de bovenkant van de negge/kozijn tot aan het plafond (bepaalt of wandsteunen boven het kozijn passen: minimaal 50–70 mm nodig voor solide bevestiging).
       4. *Diepte overstek obstakels:* Hoever steekt de vensterbank, radiator, thermostaatknop of raamkruk naar voren uit vanaf de wand?
-    * **Rekenregel:** Railbreedte = kozijnbreedte plus gewenste pakket-overlap (standaard **+150 tot +250 mm aan weerszijden**). Wandsteunlengte = overstek obstakel **+ 5 cm** vrije speling (zodat het gordijn soepel valt en niet 'knikt' over de vensterbank).
+    * **Rekenregel:** Railbreedte = kozijnbreedte plus gewenste pakket-overlap (standaard **+150 tot +250 mm aan weerszijden**). Wandsteunlengte = overstek obstakel **+ 5 cm** vrije speling (zodat het gordijn soepel valt en niet knikt over de vensterbank).
 
 #### 3.2.4 Vloerspeling & Vrijhangende Maten
-* **Harde Vloeren (Tegels, Parket, PVC):**  
-  Vaste aftrek van **15 mm tot 20 mm** boven de afgewerkte vloer.
-* **Zachte Vloeren (Hoogpolig Tapijt):**  
-  Vaste aftrek van **20 mm tot 25 mm** om slepen en wrijving te voorkomen.
+* **Harde Vloeren (Tegels, Parket, PVC, Gietvloer):**  
+  Vaste aftrek van **15 mm** boven de afgewerkte vloer.
+* **Zachte Vloeren (Hoogpolig Tapijt, Karpet):**  
+  Vaste aftrek van **20 mm** om slepen en wrijving te voorkomen.
 * **Slepend Gordijn:**  
-  Toeslag van **+50 mm tot +100 mm** voor een weelderige, klassieke valling op de vloer.
+  Standaard toeslag van **+50 mm** (overschrijfbaar door klant/inmeter met verplichte toelichting, bijv. tot +100 mm voor een royale klassieke valling).
+* **Confectiehoogte Formule per Railtype:**  
+  De confectiehoogte wordt berekend op basis van de werkelijke railhoogte van het gekozen profiel:  
+  `H_confectie = Kleinste strakke hoogte - Railhoogte (per railtype) - Vloerspeling`  
+  *Standaard railhoogtes in de software:*  
+  * Standaard railprofiel: 15–20 mm  
+  * Wave-railprofiel: 20 mm  
+  * Wave Pro Smal: 15 mm  
+  * Interstil designroedes: tot 35 mm  
+  *Blijvende maat overschrijving:* De inmeter heeft te allen tijde de bevoegdheid om de berekende blijvende confectiehoogte handmatig te overschrijven (bijv. bij een scheeflopende vloer of om het gordijn optisch strakker te laten aansluiten). Elke overschrijving vereist een verplichte toelichting in het dossier en wordt gelogd.
 
 #### 3.2.5 Gordijnpakketten & Doorgangscontrole
 * **Pakketbreedte Gordijnen & Vrije Muurruimte:**  
@@ -459,12 +477,12 @@ Onderstaande matrix definieert de integrale inmeetchecklist voor Categorie 1 (Go
 | **1** | **Fase A: Schouw** | Oude rails/ophanging aanwezig; demontage door klant vs. monteur? | **[C]** | **[G]** | - | - | - | Verplicht veld; bepaalt demontage-arbeidsuren in Fase 4 planning. |
 | **2** | **Fase A: Schouw** | Hergebruik bestaande rail (inspectie glijders, bochten, steunen, pluggen)? | - | **[G]** | - | - | - | Keuze hergebruik vs. nieuw; blokkeert nieuwe railregel indien hergebruikt. |
 | **3** | **Fase B: Ondergrond** | Plafondconstructie & draagkracht (massief beton, stuc op riet, gipsplaat)? | **[C]** | **[G]** | - | - | - | Bepaalt montagemateriaal (SDS boorhamer vs. speciale hollewandpluggen). |
-| **4** | **Fase B: Ondergrond** | Plafondhoogteverloop & vlakheid (verschil H1, H2, H3 > 15 mm)? | - | - | **[G]** | - | - | Indien verloop > 15 mm: automatische signalering schuin afsnijden/confectie. |
-| **5** | **Fase C: Montage** | Montagewijze: Plafondmontage vs. Wandmontage (lateihoogte ≥ 50–70 mm)? | - | **[G]** | - | - | - | Wandmontage vereist controle vrije lateihoogte boven het kozijn. |
-| **6** | **Fase C: Montage** | Koofdiepte & koofhoogte (nisruimte vóór en achter de rail)? | - | **[G]** | - | **[P]** (min. 10 cm Wave 60; min. 15 cm Wave 80; min. 18–20 cm dubbel) | - | Validatie: Koofdiepte te krap? Triggert waarschuwing klemmen plooien. |
-| **7** | **Fase C: Montage** | Railbochten & buigradii (erker/hoek, R=10/15/20 cm, retour naar wand)? | - | **[G]** | - | - | - | Activeert bochttoeslag-formule en radiusberekening in werkvoorbereiding. |
+| **4** | **Fase B: Ondergrond** | Plafondhoogteverloop & vlakheid (verschil H1, H2, H3 > 15 mm)? | - | - | **[G]** | - | - | Automatische validatie op H1-H3: verschil > 15 mm signaleert schuin afsnijden. |
+| **5** | **Fase C: Montage** | Montagewijze: Plafondmontage vs. Wandmontage (lateihoogte ≥ 50–70 mm)? | - | **[G]** | - | - | - | Veldterm "over de dagkant": controle vrije lateihoogte boven het kozijn. |
+| **6** | **Fase C: Montage** | Koofdiepte & koofhoogte (nisruimte vóór en achter de rail)? | - | **[G]** | - | **[P]** (min. 10 cm Wave 60; min. 15 cm Wave 80; min. 18–20 cm dubbel) | - | Validatie: Wave 60 vereist 12 cm golfruimte (6 voor/6 achter); Wave 80 vereist 16 cm. |
+| **7** | **Fase C: Montage** | Railbochten & buigradii (erker/hoek, R=10/15/20 cm, retour naar wand)? | - | **[G]** | - | - | - | >70% ronding/5 hoeken: Interstil inmeting; regulier: buigen op locatie met buigblok. |
 | **8** | **Fase D: Maatvoering** | Obstakeloverstek vensterbank / radiator / kruk (wandsteun = overstek + 5 cm)? | **[C]** | **[G]** | - | **[P]** (Wave-diepte overstek) | - | Berekent automatisch de benodigde wandsteunlengte (6, 10, 15 of 20 cm). |
-| **9** | **Fase D: Maatvoering** | Vloerspeling t.o.v. vloertype (10 mm harde vloer, 15 mm tapijt, 0 mm slepend)? | - | - | **[G]** | - | - | Bepaalt aftrekmaat confectiehoogte: H_confectie = H_gemeten - H_rail - Vloerspeling. |
+| **9** | **Fase D: Maatvoering** | Vloerspeling t.o.v. vloertype (15 mm harde vloer, 20 mm tapijt, +50 mm slepend)? | - | - | **[G]** | - | - | Bepaalt aftrek: H_confectie = Kleinste H - Railhoogte (15–35 mm) - Vloerspeling. |
 | **10** | **Fase D: Maatvoering** | Overlap bij stelgordijnen (standaard 100 mm overlap in het midden)? | - | - | **[G]** | - | - | Verrekent 10 cm extra stofbreedte in de confectieberekening. |
 | **11** | **Fase D: Maatvoering** | Pakketbreedte & doorgangscontrole (gordijnpakket vrij van glas/deur)? | **[C]** | - | **[G]** | **[P]** (Wave-pakket factor) | - | Toetst vrije muurbreedte links/rechts; signaleert lichtverlies bij te krappe muur. |
 | **12** | **Fase E: Bediening** | Bedieningstype: Handbediend, trekstang vs. gemotoriseerd? | **[C]** | **[G]** | - | - | - | Valideert conceptwaarde; koppelt trekstanglengte aan vloerhoogte. |
@@ -480,10 +498,11 @@ Onderstaande matrix definieert de integrale inmeetchecklist voor Categorie 1 (Go
 
 | Productgroep | Primaire Dagmaat (Invoer Inmeter) | Blijvende Maat (Formule & Aftrekregel) | Verplichte Referentie & Validatie | Output naar Productie & Montage |
 | :--- | :--- | :--- | :--- | :--- |
-| **Rails & Roedes (Recht & Gebogen)** | Wand-tot-wand nisbreedte, of kozijnbreedte + gewenste overlap links/rechts; Bochtgraden / Uiteinde retour (15-25 cm) / Straal & Diameter bij ronde puien | *In de dag:* Dagmaat - 10 mm tot - 20 mm; *Op de dag:* Dagmaat + pakketoverlap (2 × 150-250 mm); *Retourbocht:* Zaaglengte incl. buigtoeslag conform buigradius (R=10, R=15 of R=20) | Plafondtype (kanaalplaat/SDS vs. gips/hout), wand- vs plafondmontage, maximale steunafstand ≤ 70 cm (zware stoffen ≤ 50 cm) | Zaagmaat rail (mm), aantal bochten/graden, aantal plafond-/wandsteunen, type glijders/runners (Wave 60/80 mm) |
-| **Gordijnstoffen (Confectie)** | Plafond tot vloerpeil / bovenzijde vensterbank op 3 meetpunten (H1, H2, H3); Breedte railtracé | Confectiehoogte = Kleinste gemeten hoogte - railhoogte (ca. 12 mm) - vloerspeling (-15 tot -20 mm harde vloer; -20 tot -25 mm tapijt; +50 tot +100 mm slepend) | Definitief afwerkvloerpeil, wand vs plafond, in vs op de dag, plooitype (hoofdje = 0 mm bij strak plafond) | Maatwerk kniphoogte gordijn (cm), aantal banen (bij baanstof incl. rapport), aantal plooien / runners, zoommaat |
+| **Rails & Roedes (Recht & Gebogen)** | Wand-tot-wand nisbreedte, of kozijnbreedte + gewenste overlap links/rechts; Bochtgraden / Uiteinde retour (15-25 cm) / Straal & Diameter bij ronde puien | *In de dag (nis):* Zaagmaat = Dagmaat - 15 mm; *Op de dag:* Dagmaat + pakketoverlap (2 × 150-250 mm); *Retourbocht:* Zaaglengte incl. buigtoeslag conform buigradius (R=10, R=15 of R=20) | Plafondtype (kanaalplaat/SDS vs. gips/hout), wand- vs plafondmontage, maximale steunafstand ≤ 70 cm (zware stoffen ≤ 50 cm), >70% rond Interstil inmeting | Zaagmaat rail (mm), aantal bochten/graden, aantal plafond-/wandsteunen, type glijders/runners (Wave 60/80 mm) |
+| **Gordijnstoffen (Confectie)** | Plafond tot vloerpeil / bovenzijde vensterbank op 3 meetpunten (H1, H2, H3); Breedte railtracé | Confectiehoogte = Kleinste gemeten hoogte - railhoogte per gekozen profiel (15-35 mm) - vloerspeling (vast 15 mm harde vloer; vast 20 mm tapijt; standaard +50 mm slepend) | Definitief afwerkvloerpeil (of schriftelijke aftrek klant), wand vs plafond, in vs op de dag, plooitype (hoofdje = 0 mm bij strak plafond) | Maatwerk kniphoogte gordijn (cm), aantal banen (bij baanstof incl. rapport), aantal plooien / runners, zoommaat |
 
 ---
+
 ### 3.3 Categorie 2: Raamdecoratie (Binnenzonwering, Horren & Buitenscreens)
 
 #### 3.3.1 Productgroepen, Merken & Configuratoren
@@ -664,11 +683,17 @@ Onderstaande matrix definieert de integrale inmeetchecklist voor Categorie 2 (Ra
   De inmeter verifieert de bouwkundige conditie van de ondervloer vóór vrijgave naar planning en stoffering:
   1. *Type dekvloer:* Vaststellen of de constructievloer bestaat uit zandcement, calciumsulfaat (anhydriet), monoliet beton, hout/balklaag of tegelvloer.
   2. *Vlakheidsmeting (2-meter rei):* Controleer met een 2-meter aluminium rei en meetspie de vlakheid. Oneffenheden en glooiingen van > 2 mm onder de 2-meter rei vereisen mechanisch schuren en projectegalisatie conform NEN-EN 13813 (klasse NEN-vlakheid voor verlijmd PVC).
-  3. *Vochtmeting (CM-meting / Carbidemethode):*  
-     * *Zandcementdekvloer:* Maximaal **2,0 CM-%** (zonder vloerverwarming) of maximaal **1,5 CM-%** (met vloerverwarming).  
-     * *Anhydrietgietvloer:* Maximaal **0,5 CM-%** (zonder vloerverwarming) of maximaal **0,3 CM-%** (met vloerverwarming).  
+  3. *Vochtmeting (Capacitief vs. Carbidemethode/CM):*  
+     * *Standaard veldmeting:* Niet-destructieve capacitieve meting met een geijkte **bolvochtmeter (strooiveldmeting)** om snel en betrouwbaar de oppervlaktezone te scannen.
+     * *Formele normering & escalatie (CM-meting):* De destructieve Carbid-meting geldt als formele escalatie- en bewijslastmeting bij twijfel of geschillen. Grenswaarden:
+       * *Zandcementdekvloer:* Maximaal **2,0 CM-%** (zonder vloerverwarming) of maximaal **1,5 CM-%** (met vloerverwarming).  
+       * *Anhydrietgietvloer:* Maximaal **0,5 CM-%** (zonder vloerverwarming) of maximaal **0,3 CM-%** (met vloerverwarming).  
      * Bij overschrijding van deze grenswaarden dwingt het portaal automatisch een droogtijd-blokkade af.
-  4. *Vloerverwarming & Opstookprotocol:* Registratie van aanwezigheid vloerverwarming (traditioneel ingestort, infrees-vloerverwarming of elektrische matten) en valideren of het officiële opstook- en afkoelprotocol volledig is doorlopen.
+  4. *Algeheel Boorverbod in álle Vloeren:*  
+     Op **álle vloeren geldt een absoluut en algeheel boor- en schroefverbod** (ter voorkoming van schade aan vloerverwarming, leidingwerk, nieuwbouwgaranties en betonconstructies). Plinten, overgangsprofielen en deurstoppers worden te allen tijde verlijmd/gekit met montagelijm of MS-polymeerkit.
+  5. *Geluidsnormering Harde Vloeren (10 dB VvE-Norm bij Appartementen):*  
+     Bij montage op etagevloeren (verdiepingen) in appartementencomplexen geldt conform VvE-reglementen een verplichte contactgeluidreductie van minimaal **ΔLlin ≥ 10 dB** (met officieel certificaat). De vloer moet rondom **volledig vrij liggen van wanden en kozijnen**; elk contact met plinten of muren veroorzaakt akoestische lekken waardoor de 10 dB normering vervalt.
+  6. *Vloerverwarming & Opstookprotocol:* Registratie van aanwezigheid vloerverwarming (traditioneel ingestort, infrees-vloerverwarming of elektrische matten) en valideren of het officiële opstook- en afkoelprotocol volledig is doorlopen en ondertekend.
 
 #### 3.4.3 Maatbepaling, Zone-indeling & Vleugrichting
 * **Langste Lengte & Breedte:**  
@@ -692,7 +717,9 @@ Onderstaande matrix definieert de integrale inmeetchecklist voor Categorie 2 (Ra
 * **Deurspeling & Deurnaad-Inmeting:**  
   De inmeter meet bij alle binnendeuren de vrije ruimte tussen de bestaande dekvloer en de onderzijde van het deurblad.  
   * *Berekening restantspeling:* Vrije deurnaadhoogte minus totale nieuwe vloeropbouw (egalisatielaag 3 mm + lijmbed 1 mm + PVC 2,5 mm = **6,5 mm totale opbouw**; of Click-PVC + ondervloer = **7,0 tot 9,0 mm**).  
-  * Indien de resterende speling onder de deur < 4 mm bedraagt, signaleert de software dat de deuren moeten worden ingekort. De inmeter registreert exact het **aantal in te korten binnendeuren** en het deurtype (opdek vs. stomp, massief vs. honingraat).
+  * Indien de resterende speling onder de deur < 4 mm bedraagt, signaleert de software dat de deuren moeten worden ingekort. De inmeter registreert exact het **aantal knelpunten** en het deurtype (opdek vs. stomp).
+* **Beleid Deuren Inkorten (Strikte Taakafbakening):**  
+  De eigen monteurs van de woninginrichter korten **definitief géén binnendeuren meer in**. Dit beleid is ingesteld om substantiële schaderisico's (zoals het splijten van fineerdeuren, beschadiging van honingraatconstructies of contact met interne stalen stabilisatiestaven) uit te sluiten. De inmeter registreert de noodzaak tot inkorten uitsluitend als **signalerend adviespunt in het inmeetverslag**. De klant draagt zelf zorg voor het inkorten via een aannemer of timmerman.
 * **Het 4-Stappenplan Ontbrekende Plinten:**  
   1. *Stap 1: Bestaande Situatie:* Controleren of er bestaande plinten zijn en of deze behouden, overzet- of verwijderd moeten worden.  
   2. *Stap 2: Strekkende Meters Meten:* Meten van alle netto wandlengtes minus kozijnopeningen.  
@@ -704,26 +731,27 @@ Onderstaande matrix definieert de integrale inmeetchecklist voor Categorie 2 (Ra
 #### 3.4.6 Hiërarchische Inmeetchecklist-Matrix: Vloerbekleding
 Onderstaande matrix definieert de integrale inmeetchecklist voor Categorie 3 (Vloerbekleding), gerangschikt in de chronologische werkvolgorde van de inmeter op locatie (Fase A t/m F). In elke cel staat aangegeven op welk niveau de checkvraag resideert: **[C]** Categorie-breed (geldt voor elke vloer), **[G]** Productgroep-niveau, **[P]** Product-/Optie-specifiek, of **[-]** Niet van toepassing.
 
-| Nr. | Fase | Checkvraag / Veldinspectie | [C] Vloerbekleding (Algemeen) | [G] Verlijmd PVC (Dryback) | [G] Click-PVC & Laminaat | [G] Tapijt & Vinyl | [P] Visgraat / Patroonvloer | [P] Vloerverwarming / -koeling | [P] Deuren Inkorten | Software-Validatie & Gating |
+| Nr. | Fase | Checkvraag / Veldinspectie | [C] Vloerbekleding (Algemeen) | [G] Verlijmd PVC (Dryback) | [G] Click-PVC & Laminaat | [G] Tapijt & Vinyl | [P] Visgraat / Patroonvloer | [P] Vloerverwarming / -koeling | [P] Deuren Inkorten (Advies) | Software-Validatie & Gating |
 | :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
 | **1** | **Fase A: Schouw** | Oude vloer/lijmresten aanwezig; strippen/schuren door klant vs. monteur? | **[C]** | **[G]** | - | **[G]** | - | - | - | Bepaalt schuur- en freesuren; definieert afvoercontainer. |
 | **2** | **Fase B: Ondergrond** | Type dekvloer & hechtsterkte (zandcement, anhydriet, beton, hout)? | **[C]** | **[G]** | - | - | - | - | - | Selecteert primersoort (poreus/zuigend vs. calciumsulfaat/dicht). |
 | **3** | **Fase B: Ondergrond** | Vlakheidsmeting 2m rei (oneffenheden > 2 mm onder de rei)? | **[C]** | **[G]** (vlakheid < 2 mm verplicht) | **[G]** (vlakheid < 2 mm) | - | **[P]** (zeer strenge tolerantie) | - | - | Oneffenheden > 2 mm activeert verplicht egalisatieadvies (NEN-EN 13813). |
-| **4** | **Fase B: Ondergrond** | CM-vochtmeting dekvloer (restvochtpercentage conform norm)? | **[C]** | **[G]** | **[G]** | - | - | **[P]** (striktere norm) | - | Zandcement < 2,0% (vvw < 1,5%); Anhydriet < 0,5% (vvw < 0,3%). Blokkade bij overschrijding! |
+| **4** | **Fase B: Ondergrond** | Vochtmeting dekvloer (capacitieve bolmeter standaard; CM-norm)? | **[C]** | **[G]** | **[G]** | - | - | **[P]** (striktere norm) | - | Zandcement < 2,0% (vvw < 1,5%); Anhydriet < 0,5% (vvw < 0,3%). Blokkade bij overschrijding! |
 | **5** | **Fase B: Ondergrond** | Opstook- en afkoelprotocol vloerverwarming doorlopen & afgetekend? | - | - | - | - | - | **[P]** (opstookprotocol) | - | Zonder getekend protocol vervalt fabrieksgarantie; software blokkeert planning. |
 | **6** | **Fase C: Montage** | Egalisatielaagdikte & primerverbruik (1,6 kg/m² per mm laagdikte)? | - | **[G]** (min. 2–3 mm egaline) | - | - | **[P]** (min. 3 mm spiegelglad) | - | - | Berekent automatisch het aantal zakken egaline en cans primer. |
 | **7** | **Fase C: Montage** | Drukvaste ondervloer & dampremming (CS ≥ 200 kPa, SD > 100 m)? | - | - | **[G]** (geschikte ondervloer) | - | - | **[P]** (warmteweerstand R ≤ 0,15 m²K/W) | - | Voorkomt doortekening en breuk van klikverbindingen. |
-| **8** | **Fase C: Montage** | Dilatatieruimte rondom (8–10 mm bij wanden, kozijnen en leidingen)? | - | - | **[G]** (dilatatievoeg verplicht) | - | - | - | - | Click-vloeren vereisen rondom 8–10 mm uitzetruimte. |
-| **9** | **Fase D: Maatvoering** | Legrichting & vleugvector (evenwijdig aan hoofdlichtinval / lengte)? | **[C]** | **[G]** | **[G]** | **[G]** (vleugrichting) | - | - | - | Valideert esthetische oriëntatie en looprichting in de ruimte. |
-| **10** | **Fase D: Maatvoering** | Hartlijn & bies/band uitzetten (startpunt visgraatpatroon)? | - | - | - | - | **[P]** (hartlijn & bies) | - | - | Bepaalt symmetrische aansnijding langs buitenmuren. |
-| **11** | **Fase D: Maatvoering** | Deurnaadspeling t.o.v. totale vloeropbouw (restruimte onder deurblad)? | **[C]** | **[G]** | **[G]** | **[G]** | - | - | **[P]** (deurspeling < 4 mm) | Restruimte < 4 mm signaleert direct: "Binnendeuren inkorten vereist". |
-| **12** | **Fase D: Maatvoering** | Aantal en type in te korten binnendeuren (opdek vs. stompe deuren)? | - | - | - | - | - | - | **[P]** (aantal deuren tellen) | Telt aantal deuren en voegt zaagtarief (opdek vs. stomp) toe aan calculatie. |
-| **13** | **Fase D: Maatvoering** | Plinttype & dilatatiedekking (MDF renovatie 18/28 mm vs. plakplint)? | **[C]** | **[G]** | **[G]** | - | - | - | - | Controleert of plintdikte de dilatatievoeg (8–10 mm) volledig afdekt. |
-| **14** | **Fase D: Maatvoering** | Snijverliespercentage & volle pakken (10% recht, 12–15% visgraat)? | **[C]** | **[G]** | **[G]** | **[G]** | **[P]** (12–15% toeslag) | - | - | Rondt netto m² automatisch af naar volle verpakkingseenheden. |
-| **15** | **Fase F: Logistiek** | Acclimatisatiecondities (pakken 48u horizontaal opslaan bij 18–22 °C)? | **[C]** | **[G]** | **[G]** | - | - | - | - | Instructie op inmeetverslag: materialen tijdig binnen leveren. |
+| **8** | **Fase C: Montage** | Algeheel boorverbod vloeren & dilatatieruimte (8–10 mm)? | **[C]** (boorverbod; kitten) | - | **[G]** (dilatatievoeg verplicht) | - | - | - | - | Absoluut boorverbod in álle vloeren; profielen en plinten verlijmen. |
+| **9** | **Fase C: Montage** | 10 dB VvE contactgeluidnorm (alleen bij etagevloeren/appartementen)? | **[C]** (etagevloer) | - | **[G]** (10 dB ondervloer) | - | - | - | - | Verplicht 10 dB certificaat; randen rondom 100% akoestisch vrijhouden. |
+| **10** | **Fase D: Maatvoering** | Legrichting & vleugvector (evenwijdig aan hoofdlichtinval / lengte)? | **[C]** | **[G]** | **[G]** | **[G]** (vleugrichting) | - | - | - | Valideert esthetische oriëntatie en looprichting in de ruimte. |
+| **11** | **Fase D: Maatvoering** | Hartlijn & bies/band uitzetten (startpunt visgraatpatroon)? | - | - | - | - | **[P]** (hartlijn & bies) | - | - | Bepaalt symmetrische aansnijding langs buitenmuren. |
+| **12** | **Fase D: Maatvoering** | Deurnaadspeling t.o.v. vloeropbouw (restruimte onder deurblad)? | **[C]** | **[G]** | **[G]** | **[G]** | - | - | **[P]** (deurspeling < 4 mm) | Restruimte < 4 mm signaleert adviespunt: klant laat deuren inkorten door timmerman. |
+| **13** | **Fase D: Maatvoering** | Aantal en type binnendeuren met te krappe speling tellen? | - | - | - | - | - | - | **[P]** (aantal deuren tellen) | Telt aantal knelpunten; legt advies vast in inmeetverslag (geen eigen montagedienst). |
+| **14** | **Fase D: Maatvoering** | Plinttype & dilatatiedekking (MDF renovatie 18/28 mm vs. plakplint)? | **[C]** | **[G]** | **[G]** | - | - | - | - | Controleert of plintdikte de dilatatievoeg (8–10 mm) volledig afdekt. |
+| **15** | **Fase D: Maatvoering** | Snijverliespercentage & volle pakken (10% recht, 12–15% visgraat)? | **[C]** | **[G]** | **[G]** | **[G]** | **[P]** (12–15% toeslag) | - | - | Rondt netto m² automatisch af naar volle verpakkingseenheden. |
+| **16** | **Fase F: Logistiek** | Acclimatisatiecondities (pakken 48u horizontaal opslaan bij 18–22 °C)? | **[C]** | **[G]** | **[G]** | - | - | - | - | Instructie op inmeetverslag: materialen tijdig binnen leveren. |
 
-*Bestaande situatie-afspraken:* Aanwezigheid van oud tapijt, verlijmd linoleum of parket; verwijderen en afvoeren door woninginrichter of opdrachtgever; lijmresten strippen en schuren; vochtmeting dekvloer (CM-meting).  
-*Nieuwe situatie & concepttoetsing:* Type plint (MDF renovatieplint, plakplint, hoge plint), legrichting (lengte/breedte/lichtinval), deurkier-hoogte (moeten binnendeuren worden ingekort?), dilatatievoegen en overgangsprofielen.
+*Bestaande situatie-afspraken:* Aanwezigheid van oud tapijt, verlijmd linoleum of parket; verwijderen en afvoeren door woninginrichter of opdrachtgever; lijmresten strippen en schuren; vochtmeting dekvloer (capacitief / CM-meting).  
+*Nieuwe situatie & concepttoetsing:* Type plint (MDF renovatieplint, plakplint, hoge plint), legrichting (lengte/breedte/lichtinval), deurkier-hoogte (signalerend advies deuren inkorten door timmerman bij restantruimte < 4 mm), 10 dB VvE-norm op etagevloeren, dilatatievoegen en overgangsprofielen (alles lijmen/kitten conform boorverbod).
 
 ---
 
@@ -731,10 +759,11 @@ Onderstaande matrix definieert de integrale inmeetchecklist voor Categorie 3 (Vl
 
 | Productgroep | Primaire Dagmaat (Invoer Inmeter) | Blijvende Maat (Formule & Aftrekregel) | Verplichte Referentie & Validatie | Output naar Productie & Montage |
 | :--- | :--- | :--- | :--- | :--- |
-| **PVC & Laminaat (Dryback, Click, Visgraat)** | Netto m² laser-contourmeting lengte × breedte incl. alle nissen en deuropeningen | Bestelhoeveelheid m² = Netto m² + snijverliestoeslag (Wildverband +10%; Visgraat +12%; Hongaarse/Weense punt +15%; Bies & band +12%), afgerond naar boven op hele pakken (bijv. à 2,16 m²) | Vochtmeting (CM-percentage), 2m rei vlakheidsmeting (egalisatieklasse), 10 dB VvE-geluidsnorm, opstookprotocol | Aantal te bestellen pakken PVC/laminaat, zakken egaline (1,6 kg/m²/mm laagdikte), cans primer, strekkende meters plinten (+10%), aantal in te korten deuren |
-| **Tapijt & Vinyl (Kamerbreed op Rol)** | Uiterste maximale lengte en uiterste breedte per ruimte (inclusief diepste nissen, convectorputten en doorgangen) | Afsnijmaat rol = Langste lengte + 10 cm snijmarge (5 cm rondom); Rolbreedte keuze 400 cm of 500 cm breed | Vleugrichting pijlvector (identiek in alle aansluitende ruimtes), coupon- en restantrol hergebruik voor overlopen/kasten | Rolafsnede (strekkende meters op 400/500 cm rol), m² ondertapijt / rubber vilt, strekkende meters spanlatten, overgangsprofielen |
+| **PVC & Laminaat (Dryback, Click, Visgraat)** | Netto m² laser-contourmeting lengte × breedte incl. alle nissen en deuropeningen | Bestelhoeveelheid m² = Netto m² + snijverliestoeslag (Wildverband +10%; Visgraat +12%; Hongaarse/Weense punt +15%; Bies & band +12%), afgerond naar boven op hele pakken (bijv. à 2,16 m²) | Vochtmeting (capacitieve bolmeter / CM-norm), 2m rei vlakheidsmeting (egalisatieklasse), 10 dB VvE-geluidsnorm (etagevloer), algeheel boorverbod (kitten) | Aantal te bestellen pakken PVC/laminaat, zakken egaline (1,6 kg/m²/mm laagdikte), cans primer, strekkende meters plinten (+10%), aantal binnendeuren advies timmerman |
+| **Tapijt & Vinyl (Kamerbreed op Rol)** | Uiterste maximale lengte en uiterste breedte per ruimte (inclusief diepste nissen, convectorputten en doorgangen) | Afsnijmaat rol = Langste lengte + 10 cm snijmarge (5 cm rondom); Rolbreedte keuze 400 cm of 500 cm breed | Vleugrichting pijlvector (identiek in alle aansluitende ruimtes), coupon- en restantrol hergebruik voor overlopen/kasten, algeheel boorverbod (profielen kitten) | Rolafsnede (strekkende meters op 400/500 cm rol), m² ondertapijt / rubber vilt, strekkende meters spanlatten, overgangsprofielen |
 
 ---
+
 ### 3.5 Categorie 4: Trapbekleding & Traprenovatie
 
 #### 3.5.1 Trapvormen, Bekledingssystemen & Producten

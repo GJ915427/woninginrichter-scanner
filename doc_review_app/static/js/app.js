@@ -27,6 +27,9 @@
     topAppBar: document.getElementById('top-app-bar'),
     btnNavToggle: document.getElementById('btn-nav-toggle'),
     btnOpenFolder: document.getElementById('btn-open-folder'),
+    drawerHeaderTitle: document.getElementById('nav-drawer-header-title'),
+    drawerToolbar: document.getElementById('nav-drawer-toolbar'),
+    drawerDocsHeader: document.getElementById('nav-drawer-docs-header'),
     filePickerInput: document.getElementById('file-picker-input'),
     btnPickFile: document.getElementById('btn-pick-file'),
     docFileCount: document.getElementById('doc-file-count'),
@@ -167,14 +170,51 @@
     }
   }
 
+  /**
+   * Role-Based Access Control (RBAC) UI Adaptation
+   * Document selection, feedback export, and OS file explorer are admin-only features.
+   */
+  function applyRolePermissions(user) {
+    const isAdmin = Boolean(user && user.is_admin);
+
+    // 1. Exporteer feedback: admin only
+    if (els.btnExportAstFeedback) {
+      els.btnExportAstFeedback.style.display = isAdmin ? '' : 'none';
+    }
+
+    // 2. File Explorer openen: admin only
+    if (els.btnOpenFolder) {
+      els.btnOpenFolder.style.display = isAdmin ? '' : 'none';
+    }
+    if (els.drawerHeaderTitle) {
+      els.drawerHeaderTitle.style.display = isAdmin ? 'none' : 'inline-block';
+    }
+
+    // 3. Document selecteren & lijstbeheer: admin only
+    if (els.drawerToolbar) {
+      els.drawerToolbar.style.display = isAdmin ? '' : 'none';
+    }
+    if (els.btnPickFile) {
+      els.btnPickFile.style.display = isAdmin ? '' : 'none';
+    }
+    if (els.drawerDocsHeader) {
+      els.drawerDocsHeader.style.display = isAdmin ? '' : 'none';
+    }
+    if (els.documentList) {
+      els.documentList.style.display = isAdmin ? '' : 'none';
+    }
+  }
+
   async function checkAuthSession() {
     try {
       const user = await api('/api/auth/me');
       state.currentUser = user;
       updateUserAvatar(user);
+      applyRolePermissions(user);
       hideAuthDialog();
       await loadDocuments();
     } catch (err) {
+      applyRolePermissions(null);
       showAuthDialog();
     }
   }
@@ -211,6 +251,7 @@
         localStorage.setItem('doc_review_token', resp.token);
         state.currentUser = resp.user;
         updateUserAvatar(resp.user);
+        applyRolePermissions(resp.user);
         hideAuthDialog();
         showToast(`Welcome back, ${resp.user.full_name || resp.user.username}!`, 'success');
         await loadDocuments();
@@ -229,6 +270,7 @@
     } catch (e) {}
     state.token = null;
     state.currentUser = null;
+    applyRolePermissions(null);
     localStorage.removeItem('doc_review_token');
     showAuthDialog();
     showToast('Signed out successfully.', 'info');
@@ -328,6 +370,13 @@
       const isMd = (doc.filename || '').endsWith('.md') || (doc.filename || '').endsWith('.markdown');
       const iconName = isMd ? 'description' : 'text_snippet';
 
+      const isAdmin = Boolean(state.currentUser && state.currentUser.is_admin);
+      const deleteButtonHtml = isAdmin
+        ? `<button class="document-nav-item__delete m3-icon-button" type="button" title="Verwijder ${MarkdownRenderer.escapeHtml(doc.filename)}" aria-label="Verwijder ${MarkdownRenderer.escapeHtml(doc.filename)}">
+            <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
+          </button>`
+        : '';
+
       li.innerHTML = `
         <span class="document-nav-item__name">
           <span class="material-symbols-outlined" style="font-size: 20px;">${iconName}</span>
@@ -337,13 +386,12 @@
           <span class="document-nav-item__badge" title="${doc.comment_count || 0} comment(s)">
             ${doc.comment_count || 0}
           </span>
-          <button class="document-nav-item__delete m3-icon-button" type="button" title="Verwijder ${MarkdownRenderer.escapeHtml(doc.filename)}" aria-label="Verwijder ${MarkdownRenderer.escapeHtml(doc.filename)}">
-            <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
-          </button>
+          ${deleteButtonHtml}
         </div>
       `;
 
       li.addEventListener('click', function (e) {
+        if (!state.currentUser || !state.currentUser.is_admin) return;
         if (e.target.closest('.document-nav-item__delete')) return;
         selectDocument(doc.id);
         if (window.innerWidth < 840) {
@@ -352,7 +400,7 @@
       });
 
       const delBtn = li.querySelector('.document-nav-item__delete');
-      if (delBtn) {
+      if (delBtn && isAdmin) {
         delBtn.addEventListener('click', function (e) {
           e.stopPropagation();
           openDeleteModal(doc);
@@ -364,6 +412,10 @@
   }
 
   function openDeleteModal(doc) {
+    if (!state.currentUser || !state.currentUser.is_admin) {
+      showToast('Uitsluitend toegankelijk voor beheerders.', 'error');
+      return;
+    }
     state.pendingDeleteDoc = doc;
     if (els.deleteDocMessage) {
       els.deleteDocMessage.textContent = `Weet je zeker dat je "${doc.filename}" wilt verwijderen? Alle bijbehorende annotaties en opmerkingen worden definitief gewist.`;
@@ -414,6 +466,10 @@
   let isOpeningFolder = false;
 
   async function handleOpenFolder() {
+    if (!state.currentUser || !state.currentUser.is_admin) {
+      showToast('Uitsluitend toegankelijk voor beheerders.', 'error');
+      return;
+    }
     if (isOpeningFolder) return;
     isOpeningFolder = true;
     showToast('Documentenmap wordt geopend in Windows Verkenner...', 'info');
@@ -432,6 +488,11 @@
   window.handleOpenFolder = handleOpenFolder;
 
   window.handleFileSelected = async function handleFileSelected(event) {
+    if (!state.currentUser || !state.currentUser.is_admin) {
+      showToast('Uitsluitend toegankelijk voor beheerders.', 'error');
+      event.target.value = '';
+      return;
+    }
     const file = event.target.files && event.target.files[0];
     if (!file) return;
 
@@ -477,7 +538,7 @@
   let focusDebounceTimer = null;
 
   async function triggerFocusSync() {
-    if (!state.token || isSyncing) return;
+    if (!state.token || isSyncing || !state.currentUser || !state.currentUser.is_admin) return;
     try {
       isSyncing = true;
       const res = await api('/api/documents/sync-folder', { method: 'POST' });
@@ -1124,6 +1185,10 @@
   }
 
   async function handleExportAstFeedback() {
+    if (!state.currentUser || !state.currentUser.is_admin) {
+      showToast('Uitsluitend toegankelijk voor beheerders.', 'error');
+      return;
+    }
     if (!state.currentDoc) {
       showToast('Selecteer eerst een document.', 'error');
       return;
@@ -1312,6 +1377,7 @@
   // Application Entry Point
   document.addEventListener('DOMContentLoaded', function () {
     initListeners();
+    applyRolePermissions(null);
     checkAuthSession();
   });
 })();

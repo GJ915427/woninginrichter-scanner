@@ -4,7 +4,14 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from doc_review_app.config import settings
 
-def test_ast_annotation_crud_and_feedback(client: TestClient, auth_headers_reviewer1: dict, auth_headers_reviewer2: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_ast_annotation_crud_and_feedback(
+    client: TestClient,
+    auth_headers_admin: dict,
+    auth_headers_reviewer1: dict,
+    auth_headers_reviewer2: dict,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
     monkeypatch.setattr(settings, "documents_dir", tmp_path)
     # 1. Create a markdown document
     doc_content = (
@@ -65,8 +72,11 @@ def test_ast_annotation_crud_and_feedback(client: TestClient, auth_headers_revie
     assert matched[0]["ast_path"] == ast_path
     assert matched[0]["node_type"] == node_type
 
-    # 5. Fetch AST Feedback markdown via GET endpoint
-    feedback_resp = client.get(f"/api/documents/{doc_id}/feedback", headers=auth_headers_reviewer1)
+    # 5. Fetch AST Feedback markdown via GET endpoint (reviewer forbidden, admin allowed)
+    fb_forbidden = client.get(f"/api/documents/{doc_id}/feedback", headers=auth_headers_reviewer1)
+    assert fb_forbidden.status_code == 403
+
+    feedback_resp = client.get(f"/api/documents/{doc_id}/feedback", headers=auth_headers_admin)
     assert feedback_resp.status_code == 200
     fb_data = feedback_resp.json()
     assert fb_data["document_id"] == doc_id
@@ -81,8 +91,11 @@ def test_ast_annotation_crud_and_feedback(client: TestClient, auth_headers_revie
     assert "Controleer of de stofinname van 1.8x klopt" in md
     assert "Bij kamerhoge stoffen adviseren we standaard minimaal 2.0x" in md
 
-    # 6. Trigger AST Feedback export to file via POST endpoint
-    export_resp = client.post(f"/api/documents/{doc_id}/export-feedback", headers=auth_headers_reviewer1)
+    # 6. Trigger AST Feedback export to file via POST endpoint (reviewer forbidden, admin allowed)
+    exp_forbidden = client.post(f"/api/documents/{doc_id}/export-feedback", headers=auth_headers_reviewer1)
+    assert exp_forbidden.status_code == 403
+
+    export_resp = client.post(f"/api/documents/{doc_id}/export-feedback", headers=auth_headers_admin)
     assert export_resp.status_code == 200
     export_data = export_resp.json()
     assert export_data["status"] == "success"
@@ -103,6 +116,7 @@ def test_ast_feedback_unauthenticated(client: TestClient):
 
 def test_ast_feedback_from_pure_json_sidecar(
     client: TestClient,
+    auth_headers_admin: dict,
     auth_headers_reviewer1: dict,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -158,8 +172,11 @@ def test_ast_feedback_from_pure_json_sidecar(
     }
     sidecar_path.write_text(json.dumps(sidecar_data), encoding="utf-8")
 
-    # 2. Trigger folder sync
-    sync_resp = client.post("/api/documents/sync-folder", headers=auth_headers_reviewer1)
+    # 2. Trigger folder sync (reviewer forbidden, admin allowed)
+    sync_forbidden = client.post("/api/documents/sync-folder", headers=auth_headers_reviewer1)
+    assert sync_forbidden.status_code == 403
+
+    sync_resp = client.post("/api/documents/sync-folder", headers=auth_headers_admin)
     assert sync_resp.status_code == 200
 
     # 3. Retrieve documents list to find doc_id
@@ -170,8 +187,11 @@ def test_ast_feedback_from_pure_json_sidecar(
     assert len(matched) == 1
     doc_id = matched[0]["id"]
 
-    # 4. Fetch feedback endpoint and verify it returns the annotation & comment from sidecar
-    fb_resp = client.get(f"/api/documents/{doc_id}/feedback", headers=auth_headers_reviewer1)
+    # 4. Fetch feedback endpoint (reviewer forbidden, admin allowed)
+    fb_forbidden = client.get(f"/api/documents/{doc_id}/feedback", headers=auth_headers_reviewer1)
+    assert fb_forbidden.status_code == 403
+
+    fb_resp = client.get(f"/api/documents/{doc_id}/feedback", headers=auth_headers_admin)
     assert fb_resp.status_code == 200
     fb = fb_resp.json()
     assert fb["annotations_count"] == 1
@@ -180,8 +200,11 @@ def test_ast_feedback_from_pure_json_sidecar(
     assert "Gaspard Jaspars (GJ)" in fb["markdown"]
     assert "Totaal:** 1 opmerkingen verdeeld over 1 tekstsecties" in fb["markdown"]
 
-    # 5. Export to file via POST
-    export_resp = client.post(f"/api/documents/{doc_id}/export-feedback", headers=auth_headers_reviewer1)
+    # 5. Export to file via POST (reviewer forbidden, admin allowed)
+    exp_forbidden = client.post(f"/api/documents/{doc_id}/export-feedback", headers=auth_headers_reviewer1)
+    assert exp_forbidden.status_code == 403
+
+    export_resp = client.post(f"/api/documents/{doc_id}/export-feedback", headers=auth_headers_admin)
     assert export_resp.status_code == 200
     exp = export_resp.json()
     assert exp["status"] == "success"

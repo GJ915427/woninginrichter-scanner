@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 
-from doc_review_app.auth import get_current_user
+from doc_review_app.auth import get_current_user, require_admin
 from doc_review_app.database import get_db_session
 from doc_review_app.models import (
     DocumentDetail,
@@ -156,7 +156,7 @@ def create_document_annotation(
 )
 async def upload_documents(
     files: List[UploadFile] = File(...),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> List[Dict[str, Any]]:
     """Upload one or more documents (.md, .txt) directly into the library."""
@@ -192,7 +192,7 @@ async def upload_documents(
 )
 def delete_document(
     doc_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Delete a document by ID and unlink from local_documents."""
@@ -205,7 +205,7 @@ def delete_document(
     summary="Open Documents Folder in OS Explorer",
 )
 def open_documents_folder(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ) -> Dict[str, Any]:
     """Open the local_documents folder in the native OS file explorer."""
     return document_service.open_local_documents_folder()
@@ -217,7 +217,7 @@ def open_documents_folder(
     summary="Synchronize Local Documents Folder with Database",
 )
 def sync_local_folder(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Scan local_documents folder, normalize line endings, and synchronize SQLite state."""

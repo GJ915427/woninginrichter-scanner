@@ -165,6 +165,29 @@ class TestDocumentExplorerAPI:
         res_delete = client.delete("/api/documents/1")
         assert res_delete.status_code in (401, 403)
 
+    def test_reviewer_forbidden_on_admin_endpoints(self, client: TestClient, auth_headers_reviewer1: dict):
+        """Reviewers without admin privileges are rejected with 403 on upload, delete, open-folder, sync-folder, feedback export."""
+        files = [
+            ("files", ("forbidden.md", io.BytesIO(b"# Forbidden"), "text/markdown"))
+        ]
+        res_upload = client.post("/api/documents/upload", files=files, headers=auth_headers_reviewer1)
+        assert res_upload.status_code == 403
+
+        res_delete = client.delete("/api/documents/1", headers=auth_headers_reviewer1)
+        assert res_delete.status_code == 403
+
+        res_open = client.post("/api/documents/open-folder", headers=auth_headers_reviewer1)
+        assert res_open.status_code == 403
+
+        res_sync = client.post("/api/documents/sync-folder", headers=auth_headers_reviewer1)
+        assert res_sync.status_code == 403
+
+        res_export = client.post("/api/documents/1/export-feedback", headers=auth_headers_reviewer1)
+        assert res_export.status_code == 403
+
+        res_fb = client.get("/api/documents/1/feedback", headers=auth_headers_reviewer1)
+        assert res_fb.status_code == 403
+
     def test_static_frontend_elements_and_m3_tokens(self, client: TestClient):
         """Verify HTML, CSS, and JS file explorer components and M3 tokens."""
         # 1. HTML elements

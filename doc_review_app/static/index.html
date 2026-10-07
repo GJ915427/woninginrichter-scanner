@@ -65,13 +65,14 @@
             <span class="nav-drawer__headline-text" style="pointer-events: none;">Documents</span>
             <span class="material-symbols-outlined nav-drawer__external-icon" style="font-size: 16px; color: var(--md-sys-color-outline); pointer-events: none;" title="Open in Verkenner">open_in_new</span>
           </button>
+          <span id="nav-drawer-header-title" class="nav-drawer__headline-text" style="display: none; font-weight: 600; font-size: 15px; margin-left: 8px;">Documenten</span>
           <button id="btn-drawer-close" class="m3-icon-button" aria-label="Sluit menu" title="Sluit menu">
             <span class="material-symbols-outlined">close</span>
           </button>
         </div>
 
         <!-- Quick Actions: Select/Add Document -->
-        <div class="nav-drawer__toolbar">
+        <div class="nav-drawer__toolbar" id="nav-drawer-toolbar">
           <input type="file" id="file-picker-input" accept=".md,.txt" style="display: none;" onchange="handleFileSelected(event)">
           <button id="btn-pick-file" class="m3-button m3-button--filled" style="width: 100%; gap: 8px;" onclick="document.getElementById('file-picker-input').click()" title="Kies een document van uw computer">
             <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
@@ -79,7 +80,7 @@
           </button>
         </div>
 
-        <div class="nav-drawer__section-header">
+        <div class="nav-drawer__section-header" id="nav-drawer-docs-header">
           <span class="nav-drawer__section-title">Documenten</span>
           <span class="nav-drawer__file-count" id="doc-file-count" title="Aantal documenten">0</span>
         </div>

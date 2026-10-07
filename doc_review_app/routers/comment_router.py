@@ -5,7 +5,7 @@ import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from doc_review_app.auth import get_current_token, get_current_user
+from doc_review_app.auth import get_current_token, get_current_user, require_admin
 from doc_review_app.database import get_db_session
 from doc_review_app.models import User
 from doc_review_app.services import comment_service
@@ -269,7 +269,7 @@ def get_document_audit_logs(
 )
 def get_document_ast_feedback(
     doc_id: int,
-    current_user: User = Depends(get_comment_user),
+    current_user: User = Depends(require_admin),
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Retrieve compiled AST-anchored review feedback for AI agents."""
@@ -286,7 +286,7 @@ def get_document_ast_feedback(
 )
 def export_document_ast_feedback(
     doc_id: int,
-    current_user: User = Depends(get_comment_user),
+    current_user: User = Depends(require_admin),
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Compile and save AST feedback file to local_documents/<filename>.feedback.md."""

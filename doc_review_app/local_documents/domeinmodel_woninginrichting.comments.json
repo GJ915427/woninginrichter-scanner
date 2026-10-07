@@ -1,7 +1,7 @@
 {
   "document_filename": "domeinmodel_woninginrichting.md",
   "schema_version": 1,
-  "updated_at": "2026-10-06T19:12:34.813741+00:00",
+  "updated_at": "2026-10-07T05:36:42.168673+00:00",
   "annotations": [
     {
       "id": 370,
@@ -219,5 +219,5 @@
       "timestamp": "2026-10-06T14:21:10.105412+00:00"
     }
   ],
-  "document_hash": "54b35f46aa8d39e280e5a4835529d0e5154110d72a82a7a9246873f811a7d5a0"
+  "document_hash": "d84211393feccdce869a17c85926572f04fd584a2f3fba66b9a22516d56b9bec"
 }
