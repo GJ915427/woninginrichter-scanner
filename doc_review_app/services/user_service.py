@@ -1,6 +1,8 @@
 """User service module handling user CRUD, session management, and authentication."""
 
 from datetime import datetime, timedelta, timezone
+import hashlib
+import hmac
 import secrets
 import sqlite3
 from typing import Any, Dict, List, Optional
@@ -25,9 +27,17 @@ def create_session(
     if duration_days is None:
         duration_days = settings.session_expiry_days
 
-    token = secrets.token_urlsafe(32)
     now = datetime.now(timezone.utc)
     expires = now + timedelta(days=duration_days)
+    ts = int(now.timestamp())
+    salt = secrets.token_hex(8)
+    payload = f"{user_id}:{ts}:{salt}"
+    sig = hmac.new(
+        settings.session_secret.encode("utf-8"),
+        payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()[:32]
+    token = f"{user_id}.{ts}.{salt}.{sig}"
 
     db.execute(
         """
@@ -66,6 +76,52 @@ def lookup_and_validate_session(
     )
     row = cursor.fetchone()
     if not row:
+        # Fallback: cryptographic verification if database was wiped on Render restart
+        parts = token.split(".")
+        if len(parts) == 4:
+            try:
+                user_id_str, ts_str, salt, sig = parts
+                user_id = int(user_id_str)
+                ts = int(ts_str)
+                payload = f"{user_id}:{ts}:{salt}"
+                expected_sig = hmac.new(
+                    settings.session_secret.encode("utf-8"),
+                    payload.encode("utf-8"),
+                    hashlib.sha256,
+                ).hexdigest()[:32]
+                if hmac.compare_digest(sig, expected_sig):
+                    token_time = datetime.fromtimestamp(ts, tz=timezone.utc)
+                    now = datetime.now(timezone.utc)
+                    max_age = timedelta(days=settings.session_expiry_days)
+                    if now - token_time < max_age:
+                        user = get_user_by_id(db, user_id)
+                        if user and bool(user.get("is_active")):
+                            # Re-cache into sessions table so subsequent lookups hit fast-path
+                            expires = token_time + max_age
+                            try:
+                                db.execute(
+                                    """
+                                    INSERT OR REPLACE INTO sessions (token, user_id, created_at, expires_at)
+                                    VALUES (?, ?, ?, ?)
+                                    """,
+                                    (token, user_id, token_time.isoformat(), expires.isoformat()),
+                                )
+                                db.commit()
+                            except Exception:
+                                pass
+                            return {
+                                "id": user["id"],
+                                "username": user["username"],
+                                "initials": user["initials"],
+                                "full_name": user["full_name"],
+                                "email": user.get("email"),
+                                "is_admin": bool(user.get("is_admin")),
+                                "is_active": bool(user.get("is_active")),
+                                "created_at": user.get("created_at"),
+                                "updated_at": user.get("updated_at"),
+                            }
+            except Exception:
+                pass
         return None
 
     # Expiration check

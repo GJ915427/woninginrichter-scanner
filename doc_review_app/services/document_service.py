@@ -374,18 +374,28 @@ def create_annotation_for_document(
                 "updated_at": now_iso,
             })
 
-        return {
+        ann_dict = {
             "id": ann_id,
             "document_id": doc_id,
             "author_id": author_id,
+            "author_initials": author_initials,
             "start_offset": start_offset,
             "end_offset": end_offset,
             "selected_text": selected_text,
             "badge_color": badge_color,
+            "color": badge_color,
             "status": "open",
+            "is_deleted": False,
             "created_at": now_iso,
             "comments": comments,
         }
+        try:
+            from doc_review_app.storage.json_storage import save_annotation_to_sidecar
+            save_annotation_to_sidecar(filename=doc["filename"], annotation=ann_dict)
+        except Exception:
+            pass
+
+        return ann_dict
 
     if db is not None:
         return _execute(db)

@@ -96,6 +96,11 @@ def write_sidecar_atomic(sidecar_path: Path, data: Dict[str, Any]) -> None:
     for attempt in range(max_retries):
         try:
             os.replace(tmp_path, sidecar_path)
+            try:
+                from doc_review_app.storage.cloud_sync import push_sidecar_to_cloud
+                push_sidecar_to_cloud(sidecar_path.name, data, background=True)
+            except Exception:
+                pass
             return
         except (PermissionError, OSError) as exc:
             if attempt == max_retries - 1:

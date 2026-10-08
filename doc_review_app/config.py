@@ -48,8 +48,14 @@ class Settings(BaseSettings):
 
     # Security & Session Authentication
     session_secret: str = "doc-review-session-secret-change-in-production-random-token-32"
-    session_expiry_days: int = 7
+    session_expiry_days: int = 30
     session_cookie_name: str = "session_token"
+
+    # Cloud Persistence (Supabase)
+    supabase_url: str = "https://cizpyycszaszknffofhq.supabase.co"
+    supabase_anon_key: str = (
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpenB5eWNzemFzemtuZmZvZmhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MDM5NjksImV4cCI6MjEwNjE3OTk2OX0.GAW_ETVoIN2stQ79-nPSkjqF5mnlx6rMASyfNRY7G6w"
+    )
 
     # Server Bind Configuration
     host: str = Field(

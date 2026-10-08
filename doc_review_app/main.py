@@ -33,6 +33,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Ensure all required runtime directories exist
     settings.ensure_directories()
 
+    # Pull persistent sidecars from cloud storage (Supabase) before DB sync
+    try:
+        from doc_review_app.storage.cloud_sync import pull_sidecars_from_cloud
+        pull_sidecars_from_cloud(settings.documents_dir)
+    except Exception:
+        pass
+
     # Initialize SQLite database schema
     init_db()
 

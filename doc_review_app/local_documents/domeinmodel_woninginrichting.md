@@ -273,6 +273,22 @@ Het fundament van het inmeet- en berekeningsproces rust op het strikte ondersche
   * *Verticaal (Hoogte H1, H2, H3):* Altijd gemeten van **links naar rechts** (H1 = links, H2 = midden, H3 = rechts, gemeten van boven naar onder).
   * *Dagkant- & Neggemetingen (D1, D2):* D1 = dagkant/negge links, D2 = dagkant/negge rechts (beschikbare inbouwdiepte).
   * *Diagonale Kruismetingen (D1, D2):* Gestandaardiseerd voor haaksheids- en scheefstandscontrole bij kozijnen of nissen: **D1 meet van linksonder naar rechtsboven (↙ → ↗)** en **D2 meet van rechtsonder naar linksboven (↘ → ↖)**. Het verschil tussen D1 en D2 toont direct de mate van scheefstand of afwijking van de 90°-hoek.
+* **De Gouden 3-Punts Meetregel & Verloop-Communicatie:**  
+  * **Altijd minimaal 3 breedtes en 3 hoogtes:** Zelfs bij ramen die op het oog zuiver recht lijken, meet de inmeter altijd minimaal 3 breedtes (B1, B2, B3) en 3 hoogtes (H1, H2, H3).
+  * *Waarom minimaal 3 metingen?*  
+    1. *Verloop & scheefstand detecteren:* In de bouwpraktijk vertoont een gevelopening vrijwel altijd verloop van 1 tot 2 cm (bijv. H1 = 85 cm, H2 = 84 cm, H3 = 83 cm).
+    2. *Verloopcommunicatie met de klant (voorkomen opleverklachten):* Wordt een verloop van > 5 mm geconstateerd? Dan bespreekt de inmeter dit ter plekke met de klant en legt dit vast op het digitale inmeetverslag (*"Verloop van X mm besproken met klant; risico op optische scheefstand of lichtkieren geaccepteerd"*). Hiermee wordt voorkomen dat de klant de monteur bij oplevering aanspreekt op scheefhangen of kieren.
+    3. *Maatbepaling:* De kleinste strakke breedte en kleinste strakke hoogte bepalen de blijvende maat (bestelmaat) bij montage in de dag.
+  * *Kruismeting uitsluitend bij uitzondering:* In de dagelijkse praktijk is een tijdrovende kruismeting op standaard ramen overbodig, omdat de 3 breedtes en 3 hoogtes eventueel verloop al aantonen. Een diagonale kruismeting is uitsluitend verplicht bij:
+    1. Zichtbaar scheve openingen of grote erkers;
+    2. Vaste kadersystemen die exact haaks moeten sluiten (zoals TruFit of FrameFix).
+* **Ingangscontrole Monteurs Vóór Boren en Uitpakken (Faalkosten- en Schadeborging):**  
+  Monteurs mogen nooit blindelings beginnen met boren of verpakkingen opensnijden op basis van doosstickers of werkbonnen.  
+  * *Vast protocol bij binnenkomst:*  
+    1. *Laser-controlemeting:* De monteur pakt direct zijn laserafstandsmeter en meet in 10 seconden snel de strakke breedte en hoogte van de opening (klik-klik).  
+    2. *Vergelijking met fabriekssticker & werkbon:* De monteur vergelijkt deze controlematen met de productiesticker op de gesloten doos en de inmeetbon.  
+    3. *Vrijgave voor montage:* Pas wanneer de gemeten maten matchen met het product (binnen de toleranties), legt de monteur de beschermdeken neer, opent de verpakking en start het boorwerk.  
+    4. *Escalatie bij afwijking:* Wijkt het geleverde product af van de opening (bijv. doossticker vermeldt 1,50 m of 2,38 m terwijl de sparing 2,24 m is)? Dan blijft de verpakking hermetisch gesloten en neemt de monteur direct contact op met de binnendienst/planning. Dit voorkomt onnodige gaten in klantmuren en garandeert dat ongeschonden producten direct retour fabrikant kunnen.
 * **Trapeziumramen & Schuine Gevels (Wiskundige Inmeetregel):**  
   Bij schuine raampartijen of trapeziumramen meet de inmeter uitsluitend:
   1. De **rechte breedte** aan de onderzijde (of bovenzijde bij omgekeerd trapezium);
@@ -282,6 +298,16 @@ Het fundament van het inmeet- en berekeningsproces rust op het strikte ondersche
 * **Kijkrichting (Binnen vs. Buiten):**  
   * *Standaard (Raamdecoratie, Gordijnen & Binnentoepassingen):* De inmeter staat in de ruimte en kijkt van **binnen naar buiten** tegen het kozijn of het vlak aan. Links is fysiek links vanuit de kamer gezien.
   * *Uitzondering (Buitenzonwering & Screens):* Bij buitentoepassingen (zoals zipscreens of rolluiken gemonteerd op de buitengevel) wordt gemeten en gekeken **van buitenaf tegen de gevel**. De software markeert deze kijkrichting expliciet in de positie-interface (`[Kijkrichting: Buitenaf Gevel]`).
+* **Montagehoogte, Reikhoogte & Child Safety (EN 13120):**  
+  Montagehoogte (afstand van afgewerkte vloer tot bovenzijde montagesteun) is een **verplicht invoerveld** voor alle raamdecoratie en gordijnen.  
+  1. *Materieelkeuze monteur:* Geeft logistiek aan of een standaard huishoudtrap (tot 2,60 m) volstaat of dat een kamersteiger/hoge bordestrap (vanaf 3,50 m) moet worden meegeladen.  
+  2. *Child Safety (EN 13120):* Bedieningskettingen en -koorden moeten te allen tijde minimaal **1,50 m boven de afgewerkte vloer** hangen.  
+  3. *Reikhoogte-advies:* Bij handbediende Top-Down / Bottom-Up plissés en Duettes op een montagehoogte > 2,10 m kan de bovenste handgreep niet meer vanaf de vloer worden bediend. De inmeettool toont verplicht een adviesmelding om een magnetische bedieningsstang aan de order toe te voegen of over te stappen op SmartCord® / accumotorisatie (bespreken met klant).
+* **Drie Afzonderlijke Procesvragen voor Oude Raambekleding:**  
+  Op de inmeetbon en checklist worden drie afzonderlijke vragen gesteld i.p.v. één samengestelde vraag:  
+  1. *Demontage:* Moet bestaande raambekleding of raamfolie worden gedemonteerd? (Ja/Nee; door monteur of klant).  
+  2. *Afvoer:* Moet het oude materiaal worden afgevoerd? (Ja/Nee; door monteur of klant).  
+  3. *Herplaatsing naar andere positie:* Moet een gedemonteerd product op een andere plek in de woning worden herplaatst? (Ja/Nee). Indien ja: dit vormt een **zelfstandige orderpositie** die apart wordt ingemeten en geoffereerd, inclusief beoordeling of bestaande schroefgaten herbruikbaar zijn.
 * **Vaste Referentiepunten & Klantverantwoordelijkheid bij Onvoltooide Situaties:**  
   * *Vloerpeil & Plafondpeil:* Er wordt gemeten vanaf het definitieve afwerkvloerpeil en tot aan het definitieve plafond.
   * *Onvoltooide Situaties (Nog aan te brengen vloeren of stucwerk):*  
@@ -510,13 +536,67 @@ Onderstaande matrix definieert de integrale inmeetchecklist voor Categorie 1 (Go
   * *Merken & Fabrikanten:* Hunter Douglas (*Luxaflex, Sunway*).  
   * *Private label / Huismerk:* Dealer-eigen huismerken (zoals *Groter in Wonen*, in het ERP en op inkoopbonnen vastgelegd onder de merkcode **'GiW'**, o.a. geproduceerd door *Zonnelux* als private label).  
   * *Productgroepen:* Rolgordijnen, Duettes / plissés, Silhouette (kantelbare stoffen lamellen tussen transparante sluiers), Duo-rolgordijnen / Twist (afwisselend dichte en transparante banen), Jaloezieën (horizontaal hout/alu, verticaal textiel, pvc en aluminium zoals Luminette/Allure), Vouwgordijnen, Paneelgordijnen.
+* **Duette® Marktaandeel & Onderhoudseigenschappen:**  
+  Duettes / honingraatplissés vertegenwoordigen circa **80% van de raamdecoratieverkopen** in de woninginrichtingspraktijk.  
+  * *Veelzijdigheid:* Toepasbaar in vrijwel elke bouwkundige situatie: rechthoekig, trapezium, driehoek, rond/boog, serre-/plafondmontage, vrijhangend, ingespannen met spandraden, direct op het glas (TruFit/klemsteunen), Top-Down / Bottom-Up en elektrisch.  
+  * *Onderhoudsvriendelijkheid:* De gesloten honingraatstructuur vangt aanzienlijk minder zichtbaar stof op dan traditionele horizontale lamellen. Door de Duette® eenmaal volledig op en neer te trekken, dwarrelt eventueel oppervlakkig stof vanzelf van het doek af.
+* **Complete Reeks Lamelbreedtes Aluminium Jaloezieën:**  
+  Aluminium jaloezieën worden geleverd in vijf gestandaardiseerde lamelbreedtes:  
+  * `16 mm`: Ultrafijne detaillering voor kleine ramen of smalle glaslatten.  
+  * `25 mm`: De absolute standaard; meest verkocht, compacte inbouwdiepte, Top-Down / Bottom-Up optie beschikbaar.  
+  * `35 mm`: Incidenteel toegepaste tussenmaat.  
+  * `50 mm`: Robuuste, moderne industriële uitstraling; zeer populair bij grotere raampartijen (alleen traditioneel ophalen en tuimelen).  
+  * `70 mm`: Extra brede XXL-lamellen voor zeer grote glasoppervlakken (zelden toegepast).  
+  * *Bedieningsvormen jaloezieën:* Tuimelen via tuimelstang (tuimelen/fix), optrekken via koord (tuimelen/koord), monobediening via eindloze ketting, of elektrisch via motor (Somfy/PowerView).
+* **Luxaflex Modelcodering & Systeemspecificaties (EOS-Systematiek):**  
+  Luxaflex en Sunway hanteren een strikt logische modelcodering voor Duette® en Plissé:  
+  * *Prefix (Positie & Montagevorm):*  
+    * `A...` = **Vrijhangend** verticaal (zonder zijspandraden).  
+    * `B...` = **Ingespannen** verticaal (voorzien van spandraden boven en onder, ideaal voor draaikiepramen).  
+    * `P...` = **Plafond / Horizontaal / Serre** (horizontale of schuine dakmontage, voorzien van meervoudige metalen spandraden tegen doorhangen onder zwaartekracht; bediening via trekstang, slinger of motor, géén losse koorden mogelijk).  
+  * *Letter 2 (Bedieningsmechanisme):*  
+    * `..O..` = **Optrekkoord** (standaard handbediend koord, bijv. AO, BO).  
+    * `..U..` = **SmartCord®** (intrekbaar enkelvoudig veermechanisme met constante koordlengte).  
+    * `..K..` = **Kettingbediening** (eindloze metalen of kunststof ketting).  
+    * `..E..` = **Elektrisch** (motorbediend, PowerView / 24V / accumotor).  
+    * `..C..` = **LiteRise® / Handgreep** (veerbediend direct op de onder-/middenlijst).  
+  * *Cijfer (Functie & Bedieningsconfiguratie):*  
+    * `..10` = 1 bediening (standaard Bottom-Up).  
+    * `..20` = 2 bedieningen (Top-Down / Bottom-Up, onafhankelijk bedienbare tussen- en onderlijst).  
+    * `..30` = Dag & Nacht / 2 stoffen in 1 product (bijv. verduisterend onder en transparant boven).  
+  * *Speciale Geometrische Modellen:*  
+    * `BB60 / BB61`: Trapeziumramen en schuine gevels (ingespannen).  
+    * `BB70 / BB71`: Driehoekige ramen (BB71 gelijkbenige driehoek met 2 maten: basisbreedte en nokhoogte).  
+    * `BB80`: Vijfhoekige ramen.  
+    * `PB70 / PB71`: Plafond- en serresystemen in schuine of getrapte constructies.
+* **Verticale Lamellen, Paneelgordijnen & Buitenscreens:**  
+  * *Verticale Lamellen:* Leverbaar in textiel (inclusief luxe transparante segmenten zoals Versos), hoogwaardig PVC (vochtbestendig voor keukens/badkamers) en aluminium.  
+  * *Paneelgordijnen:* Zelfstandige productgroep voor schuifpuien en grote glaswanden (meersporige rails met brede schuivende stofpanelen).  
+  * *Facette definitief geschrapt:* Facette wordt niet meer besteld en is uit het actieve assortiment verwijderd.  
+  * *Buitenscreens & Buitenzonwering:* Wordt als zelfstandige buitengroep gepositioneerd (windvaste ZIP-screens, solar/accu en 230V bedraad).
 * **Configurator-uniformiteit:** Bestelsystemen (zoals Hunter Douglas configurator, Woontotaal, Logic Trade) hanteren in de kern exact dezelfde technische parameters; uitsluitend de vraagvolgorde verschilt per leverancier.
-
 * **Productievoorschriften & Identificatie:**  
 * **De Fabrieks-Productiesticker:**  
   Elk geleverd raamdecoratieproduct is voorzien van een fabrieks-productiesticker. **Cruciaal:** De fabriekssticker vermeldt altijd de **definitieve bestelmaat / productiemaat (blijvende maat)**, inclusief fabrieksaftrek. Deze maat mag **nooit** worden verward met de gemeten dagmaat. Bij montagecontrole controleert de monteur de maat op de sticker tegen de blijvende maat op de werkbon.
 
 #### 3.3.2 Productspecifieke Eigenschappen, Lamellen & Montagetechnieken
+* **Standaardisatie Montageprofiel vs. Losse Montagesteunen (Faalkostenreductie):**  
+  * *Voorkeur voor montageprofiel:* In de woninginrichtingspraktijk geldt het dwingende beleid om rolgordijnen en raamdecoratie standaard te adviseren en offreren met een **montageprofiel (draagprofiel)** in plaats van losse montagesteuntjes.  
+  * *Praktijkproblemen losse steunen (Meers-casus):* Bij een project in Meers resulteerden losse steunen op een scheef plafond in scheefhangende steuntjes, een rolgordijn dat 1,5 cm te breed leek, aanliep tegen de dagkant en doek dat begon te rafelen.  
+  * *Voordelen montageprofiel:*  
+    1. *Maximale stelbaarheid & uitvullen:* Het doorlopende profiel kan perfect waterpas worden uitgevuld met stelplaatjes, ongeacht hoe scheef het plafond of de muur loopt.  
+    2. *Vrije boorpositie:* De monteur hoeft niet exact op de kwetsbare buitenhoeken van de nis te boren (waar vaak wapening, leidingen of broze hoeken zitten), maar kan de bevestigingsclips over de gehele breedte van het profiel vrij verdelen.  
+    3. *Opvangen motorkant-asymmetrie:* Bij een elektrisch rolgordijn staat de steun aan de motorkant fysiek verder naar binnen dan aan de niet-motorkant om symmetrische speling van het doek te creëren. Een montageprofiel absorbeert deze asymmetrie kant-en-klaar in de fabriek, waardoor de monteur het rolgordijn er simpelweg tussen klikt.  
+    4. *Montagesnelheid & Kostensystematiek:* Een montageprofiel is in aanschaf iets duurder, maar reduceert de montagetijd aanzienlijk ("boren, pluggen, profiel inklikken"). De tijdwinst compenseert de materiaalkosten ruimschoots. In het ERP en offertesysteem (LogicTrade) worden montagetijden en prijzen productspecifiek ingericht.
+* **Doorlopende Zijgeleiders tot Vloer/Plint (Verdiepingshoge Puien):**  
+  * *Standaard:* Bij reguliere ramen stopt raamdecoratie met zijgeleiding strak op de vensterbank.  
+  * *Verdiepingshoge puien (Spauwen-casus):* Bij ramen die van plafond tot de vloer doorlopen (bijv. vast glaspaneel onder en draaikiepraam boven) moet op de inmeet- en montagebon **expliciet worden vastgelegd** of de zijgeleiders moeten doorlopen tot op de afgewerkte vloer, óf moeten aansluiten boven de vloerplint.  
+  * *Foto-vastlegging:* De inmeter maakt verplicht een detailfoto van de aansluiting tussen kozijn, vloer en plint, zodat de werkvoorbereiding direct ziet of de plint moet worden ingekeept of dat het geleideprofiel op de plint stopt.
+* **Dagmaat vs. Blijvende Maat & LogicTrade Koppeling:**  
+  * De software berekent uit de strakke dagmaat automatisch de blijvende maat (bestelmaat) conform de fabrikantregels.  
+  * *Overschrijving door inmeter:* De inmeter heeft te allen tijde de bevoegdheid om de berekende blijvende maat handmatig te overschrijven (bijv. bij scheve wanden of afwijkende speling).  
+  * *Kleurmarkering & Permanente Dagmaat:* Bij handmatige overschrijving kleurt het veld in de interface direct opvallend (rood/oranje) met een verplichte toelichtingsnotitie. De oorspronkelijke gemeten dagmaat blijft permanent zichtbaar als referentie.  
+  * *Export naar LogicTrade / Fabrikantconfigurator:* Bij orderoverdracht naar LogicTrade of bestelsystemen wordt bij overschrijving **altijd de overschreven blijvende maat geëxporteerd**, zodat de fabrikant exact de gewenste bestelmaat produceert. Fabriekstoleranties (tot 25 mm toegestane afwijking bij textielconfectie en 5 tot 10 mm fabrieksaftrek per fabrikant) worden hierbij contractueel geborgd.
 * **Technische Restricties & Montagetechnieken:**
   * *Aluminium Jaloezieën (25 mm vs. 50 mm):*
     * *25 mm lamellen:* Fijne detaillering; Top-Down / Bottom-Up (TDBU) is mogelijk.
@@ -552,15 +632,27 @@ Onderstaande matrix definieert de integrale inmeetchecklist voor Categorie 1 (Go
 #### 3.3.5 Inmeetinstructies per Plaatsings- en Montagewijze (Wat meet de inmeter exact?)
 Om absolute passing te garanderen en productiefouten uit te sluiten, hanteert de inmeter per situatie en montagewijze een vast inmeetprotocol:
 
+* **Ontrafeling van Montagelocatie vs. Montagevlak vs. Steuntenterminologie:**  
+  In de praktijk ontstaat vaak begripsverwarring doordat de termen "in de dag" en "op de dag" door fabrikanten zowel voor de ruimtelijke positie als voor het type montagesteun worden gebruikt. De inmeettool hanteert een strikt 2-assige scheiding:  
+  1. **As 1: Montagelocatie (Waar hangt het product?):**  
+     * `In de dag`: Binnen de kozijnopening / tussen de dagkanten van de nis.  
+     * `Op de dag`: Vóór de opening, overlappend over het kozijn of op de wand/boven de opening.  
+     * `Op de vleugel / Glaslat`: Direct bevestigd op het draaiende raamdeel of op het glas (TruFit, klemsteun).  
+  2. **As 2: Montagevlak / Bevestiging (Waartegen wordt geschroefd?):**  
+     * `Bovenmontage / Plafond`: Bevestiging omhoog in de bovenste dagkant (latei) of het plafond -> vereist bovenclips (fabrikantterm: "in de dag-steun").  
+     * `Wandmontage / Achterwand`: Bevestiging achterwaarts tegen het verticale kozijnprofiel of de muur -> vereist haakse wandsteunen (fabrikantterm: "op de dag-steun").  
+     * `Zijmontage / Kopse montage`: Bevestiging zijwaarts tegen de linker en rechter dagkant (bijv. in erkers of bij zachte plafonds).  
+  3. **Edge cases & Foto-annotatie op Tablet:**  
+     * Bij situaties met een zacht gipsplafond, spanplafond of holle koof waarboven niet geboord mag worden: het product hangt ruimtelijk "in de dag", maar wordt met wandsteunen tegen het houten of aluminium kozijnkader geschroefd ("In de dag met wandmontage").  
+     * Erkersituaties: aan één zijde een kopse wandsteun en aan de andere zijde een plafondclip.  
+     * De inmeter documenteert deze situaties via de **foto-annotatietool op de tablet**: met stylus/vinger worden montagelijnen, pijlrichtingen en schroefpunten direct op de situatiefoto getekend.
+
 * **In de dag (in het kozijn / tussen de muren van de nis):**
   * **Wat meten?**
     1. *Breedte op 3 hoogtes:* B1 (bovenin waar de bak/steunen komen), B2 (midden) en B3 (onderin bij de vensterbank/dorpel).  
        **Strikte inmeetregel:** De **kleinste / strakste breedte** is altijd de primaire dagmaat die in de software wordt ingevoerd!
     2. *Hoogte op 3 breedtes:* H1 (links), H2 (midden) en H3 (rechts). De strakste hoogte geldt als invoer.
     3. *Diagonale kruismeting (X1 en X2):* Van linkerbovenhoek naar rechteronderhoek en vice versa. Een verschil van > 5 mm signaleert scheefstand/parallellogram (risico op schuintrekkende doeken of lamelklemmen).
-    4. *Plaatsingsdiepte kozijn / dagkant:* Meet de vrije diepte van de voorzijde van het kozijn tot aan het glas of uitstekende raamboompjes/ventilatieroosters.  
-       *Minimaal vereiste inbouwdiepte bovenbak:* 25 mm jaloezie = min. 30 mm; 50 mm jaloezie = min. 65–75 mm; Duette 25 mm = min. 35 mm; Duette 64 mm = min. 75 mm; cassette-rolgordijn = min. 70–90 mm.
-    5. *Klinkvrijheid:* Afstand van de zijkant van de dagopening tot de hartlijn van de raamkruk (minimaal **25 mm vrije ruimte** verplicht).
   * **Rekenregel / Aftrek:** De software berekent automatisch de blijvende productiemaat conform de fabrieksaftrekmatrix (zie 3.3.9): bijv. Duette AU10/AU20 -8 mm; jaloezieën -10 mm; rolgordijn -5 mm op het mechanisme.
 * **Op de dag (over het kozijn / op de wand of op het plafond vóór de nis):**
   * **Wat meten?**
@@ -581,7 +673,7 @@ Om absolute passing te garanderen en productiefouten uit te sluiten, hanteert de
   * **Wat meten?**
     1. *Montagehoogte bovenbak:* Afstand van de vloer tot de bovenzijde van het product (montagepunt).
     2. *Kettinglengte:* De onderzijde van de bedieningsketting moet minimaal **150 cm boven het afwerkvloerpeil** hangen: Kettinglengte ≤ Montagehoogte - 150 cm.
-    3. *Reikhoogte LiteRise / Handgreep:* Bij montagehoogtes > 220 cm kan een handbediende Top-Down / Bottom-Up niet meer met de hand vanaf de vloer bediend worden; de software signaleert verplicht een bedieningsstok of overstap naar SmartCord / motorisatie.
+    3. *Reikhoogte LiteRise / Handgreep:* Bij montagehoogtes > 210 cm kan een handbediende Top-Down / Bottom-Up niet meer met de hand vanaf de vloer bediend worden; de software signaleert verplicht een bedieningsstok of overstap naar SmartCord / motorisatie.
 
 #### 3.3.6 Pakkethoogte & Doorgangscontrole bij Gevelopeningen
 * **Pakketdikte in Opgetrokken Toestand:**  
@@ -619,7 +711,7 @@ Om absolute passing te garanderen en productiefouten uit te sluiten, hanteert de
 * **Voorbeeld Hoogte-optimalisatie (Staffelgrens 2,60 m):**  
   2604 mm (Gemeten strakke hoogte) → Software signaleert prijssprong boven de 2,60 m grens → **Suggestie Software: Inkorten naar 2600 mm (-4 mm op overlap) behoudt normale prijsstaffel en voorkomt zware maattoeslag**.
 * **Voorbeeld Modelcodering Mapping (EOS-Pompsysteem):**  
-  Klantwens: Duette vrijhangend, SmartCord bediening, Top-Down / Bottom-Up → **Luxaflex/Sunway modelcode: AU20** \| **Zonnelux modelcode: AS20** \| *Elektrische uitvoering:* **AE20** \| *Enkelvoudige bediening (boven naar onder):* **AU10**.
+  Klantwens: Duette vrijhangend, SmartCord bediening, Top-Down / Bottom-Up → **Luxaflex/Sunway modelcode: AU20** | **Zonnelux modelcode: AS20** | *Elektrische uitvoering:* **AE20** | *Enkelvoudige bediening (boven naar onder):* **AU10**.
 * **Voorbeeld Multi-Positie Duette (Samenvoegen Gevelopeningen):**  
   Positie 1 (Raam links, dagmaat 1080 mm) + Tussenstijl 170 mm + Positie 2 (Raam rechts, dagmaat 1080 mm) + Overlap 2 × 120 mm → **2570 mm (1 geaggregeerde Duette met SmartCord i.p.v. 2 losse delen)**.
 * **Voorbeeld 25 mm Jaloezieën Set-Uitlijning:**  
@@ -628,29 +720,37 @@ Om absolute passing te garanderen en productiefouten uit te sluiten, hanteert de
   Glasingetogen voordeur met dagmaat glasbreedte 28 cm. Gewenste overlap op de dag: +5,5 cm aan scharnierzijde, maar slechts +2 cm aan klinkzijde wegens afstand tot de deurkruk. Bestelbreedte = 28 + 5,5 + 2 = 35,5 cm, waarbij klinkvrijheid (≥ 25 mm) behouden blijft.
 
 #### 3.3.11 Hiërarchische Inmeetchecklist-Matrix: Raamdecoratie & Binnenzonwering
+
 Onderstaande matrix definieert de integrale inmeetchecklist voor Categorie 2 (Raamdecoratie, Horren & Binnenzonwering), gerangschikt in de chronologische werkvolgorde van de inmeter op locatie (Fase A t/m F). In elke cel staat aangegeven op welk niveau de checkvraag resideert: **[C]** Categorie-breed (geldt voor elk raamdecoratieproduct), **[G]** Productgroep-niveau, **[P]** Product-/Optie-specifiek, of **[-]** Niet van toepassing.
 
 | Nr. | Fase | Checkvraag / Veldinspectie | [C] Raamdecoratie (Algemeen) | [G] Horizontale Jaloezieën | [G] Duette & Plissé | [G] Rolgordijnen | [G] Horren & Screens | [P] TruFit / FrameFix (Boorvrij) | [P] Klemsteun Draaikiep | [P] LiteRise / Handgreep | [P] Accu-Motor (Brel/Somfy) | Software-Validatie & Gating |
 | :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **1** | **Fase A: Schouw** | Oude raambekleding/folie aanwezig; demontage door klant vs. monteur? | **[C]** | - | - | - | - | - | - | - | - | Verplicht veld; registreert afvoer en demontagetijd. |
-| **2** | **Fase B: Ondergrond** | Kozijnmateriaal & staat (hout, kunststof, aluminium, staal; boorverbod)? | **[C]** | - | - | - | - | - | - | - | - | Kunststof met boorverbod forceert TruFit, FrameFix of Klemsteun. |
-| **3** | **Fase B: Ondergrond** | Diagonale haaksheid kozijn (kruismeting X1, X2; verschil > 5 mm)? | **[C]** | **[G]** | **[G]** | **[G]** | **[G]** | - | - | - | - | Verschil > 5 mm triggert scheefstandwaarschuwing en klemrisico. |
-| **4** | **Fase C: Montage** | Montagewijze: In de dag (nis) vs. Op de dag (wand/plafond) vs. Vleugel? | **[C]** | **[G]** | **[G]** | **[G]** | **[G]** | - | - | - | - | Bepaalt aftrek- (-5 tot -10 mm) of optelformule (+ overlap). |
-| **5** | **Fase C: Montage** | Inbouwdiepte dagkant t.o.v. systeemdiepte bovenbak / cassette? | - | **[G]** (≥30mm voor 25mm; ≥65mm voor 50mm) | **[G]** (≥35mm voor 25mm; ≥75mm voor 64mm) | **[G]** (≥70–90mm cassette) | **[G]** | - | - | - | - | Onvoldoende diepte forceert overschakeling naar 'Op de dag'. |
-| **6** | **Fase C: Montage** | Glaslatdiepte & contour (diepte ≥ 18–25 mm, schuinte > 15°)? | - | - | **[G]** (bij glaslatmontage) | - | - | **[P]** (plakstrook ≥ 15 mm) | - | - | - | Schuinte > 15° vereist wigvormige compensatie-adapters. |
-| **7** | **Fase C: Montage** | Sponningdikte raamvleugel (15–24 mm) & kaderruimte (≥ 3 mm)? | - | - | - | - | - | - | **[P]** (15–24 mm vleugel) | - | - | Speling < 3 mm sluit klemsteun uit (raam sluit niet meer). |
-| **8** | **Fase D: Maatvoering** | Klinkvrijheid & raambeslag (speling tussen product en raamkruk ≥ 25 mm)? | **[C]** | **[G]** | **[G]** | **[G]** | - | **[P]** | **[P]** | - | - | Klinkruimte < 25 mm blokkeert bestelling; vereist afstandsteun/krukverlenger. |
-| **9** | **Fase D: Maatvoering** | Draaikiepraam openingsradius & valhoek (kanteling ≤ 15°)? | **[C]** | **[G]** | **[G]** | - | - | **[P]** | **[P]** | - | - | Bij valramen: openingsbegrenzer verplicht om botsing te voorkomen. |
-| **10** | **Fase D: Maatvoering** | Pakkethoogte t.o.v. naar binnendraaiend raam (bovenzijde kozijn/latei)? | - | **[G]** (lamelpakket) | **[G]** (plissépakket) | **[G]** (rolcassette) | - | - | - | - | - | Toetst of het raam nog geopend kan worden bij opgetrokken product. |
-| **11** | **Fase D: Maatvoering** | Afrolrichting doek (standaard afrollend vs. contra-rollend)? | - | - | - | **[G]** | - | - | - | - | - | Contra-rollend verplicht indien kruk of raamboompje uitsteekt. |
-| **12** | **Fase E: Bediening** | Bedieningszijde links vs. rechts (t.o.v. meubels, wanden en looproute)? | **[C]** | **[G]** | **[G]** | **[G]** | - | - | - | - | - | Valideert conceptwaarde; voorkomt bediening achter een kast of deur. |
-| **13** | **Fase E: Bediening** | Kindveiligheid EN 13120: ketting-/koordhoogte ≥ 150 cm boven vloer? | **[C]** | **[G]** | **[G]** | **[G]** | - | - | - | - | - | Mechanische blokkade: Kettinglengte ≤ Montagehoogte - 150 cm. |
-| **14** | **Fase E: Bediening** | Reikhoogte LiteRise / handgreep (montagehoogte max. 220 cm)? | - | - | - | - | - | - | - | **[P]** (max. 220 cm) | - | Boven 220 cm: bedieningsstok verplicht toevoegen aan de order. |
-| **15** | **Fase E: Bediening** | Accu-laadpunt bereikbaarheid (USB-C magnetische kabel binnen bereik)? | - | - | - | - | - | - | - | - | **[P]** (Accu USB-C poort) | Toetst bereikbaarheid laadpoort; adviseert optionele magnetische verlengkabel. |
-| **16** | **Fase F: Logistiek** | Uitvoeringscondities (vensterbank vrijgemaakt, meubels verplaatst)? | **[C]** | - | - | - | - | - | - | - | - | Klantinstructie vastleggen in inmeetverslag. |
+| **1** | **Fase A: Schouw** | Oude raambekleding/folie aanwezig; demontage door klant vs. monteur? | **[C]** | - | - | - | - | - | - | - | - | Verplicht procesveld; registreert demontagetijd en verantwoordelijkheid. |
+| **2** | **Fase A: Schouw** | Afvoer van oud materiaal gewenst door monteur vs. klant zelf afvoeren? | **[C]** | - | - | - | - | - | - | - | - | Verplicht veld; stuurt afvalcontainer- en milieutoeslag in werkorder aan. |
+| **3** | **Fase A: Schouw** | Herplaatsing van gedemonteerd product naar andere positie in woning? | **[C]** | - | - | - | - | - | - | - | - | Genereert zelfstandige orderpositie met eigen inmeting en gatencontrole. |
+| **4** | **Fase A: Schouw** | Ingangscontrole monteur: Lasercontrole dagmaten vs. doossticker vóór boren? | **[C]** | **[G]** | **[G]** | **[G]** | **[G]** | - | - | - | - | Faalkostenpreventie: bij maatafwijking blijft verpakking dicht en volgt melding. |
+| **5** | **Fase B: Ondergrond** | Kozijnmateriaal & staat (hout, kunststof, aluminium, staal; boorverbod)? | **[C]** | - | - | - | - | - | - | - | - | Kunststof met boorverbod forceert TruFit, FrameFix of Klemsteun. |
+| **6** | **Fase B: Ondergrond** | Verloopcontrole (minimaal 3 breedtes, 3 hoogtes; verloop > 5 mm besproken)? | **[C]** | **[G]** | **[G]** | **[G]** | **[G]** | - | - | - | - | Verloop > 5 mm verplicht vastleggen op meetverslag ter voorkoming van klachten. |
+| **7** | **Fase B: Ondergrond** | Diagonale haaksheid kozijn (kruismeting X1, X2 bij scheefstand of kaders)? | **[C]** | **[G]** | **[G]** | **[G]** | **[G]** | - | - | - | - | Verschil > 5 mm triggert scheefstandwaarschuwing en klemrisico bij kaders. |
+| **8** | **Fase C: Montage** | Montagelocatie (In/Op de dag/Vleugel) & Montagevlak (Plafond/Wand/Kopse)? | **[C]** | **[G]** | **[G]** | **[G]** | **[G]** | - | - | - | - | Scheidt locatie van vlak; bepaalt juiste steun (plafondclip vs wandbeugel). |
+| **9** | **Fase C: Montage** | Montagesteun keuze: Standaard montageprofiel vs. losse montagesteuntjes? | - | - | **[G]** | **[G]** (Standaard) | - | - | - | - | - | Montageprofiel standaard; absorbeert motorkant-asymmetrie en scheefstand. |
+| **10** | **Fase C: Montage** | Doortrekkende zijgeleiders tot vloer/plint bij verdiepingshoge puien? | - | - | - | **[G]** (Geleiders) | **[G]** | - | - | - | - | Verplichte detailfoto; legt vast of geleider doorloopt tot vloer of stopt op plint. |
+| **11** | **Fase C: Montage** | Inbouwdiepte dagkant t.o.v. systeemdiepte bovenbak / cassette? | - | **[G]** (≥30mm voor 25mm; ≥65mm voor 50mm) | **[G]** (≥35mm voor 25mm; ≥75mm voor 64mm) | **[G]** (≥70–90mm cassette) | **[G]** | - | - | - | - | Onvoldoende diepte forceert overschakeling naar 'Op de dag'. |
+| **12** | **Fase C: Montage** | Glaslatdiepte & contour (diepte ≥ 18–25 mm, schuinte > 15°)? | - | - | **[G]** (bij glaslatmontage) | - | - | **[P]** (plakstrook ≥ 15 mm) | - | - | - | Schuinte > 15° vereist wigvormige compensatie-adapters. |
+| **13** | **Fase C: Montage** | Sponningdikte raamvleugel (15–24 mm) & kaderruimte (≥ 3 mm)? | - | - | - | - | - | - | **[P]** (15–24 mm vleugel) | - | - | Speling < 3 mm sluit klemsteun uit (raam sluit niet meer). |
+| **14** | **Fase D: Maatvoering** | Klinkvrijheid & raambeslag (speling tussen product en raamkruk ≥ 25 mm)? | **[C]** | **[G]** | **[G]** | **[G]** | - | **[P]** | **[P]** | - | - | Klinkruimte < 25 mm blokkeert bestelling; vereist afstandsteun/krukverlenger. |
+| **15** | **Fase D: Maatvoering** | Draaikiepraam openingsradius & valhoek (kanteling ≤ 15°)? | **[C]** | **[G]** | **[G]** | - | - | **[P]** | **[P]** | - | - | Bij valramen: openingsbegrenzer verplicht om botsing te voorkomen. |
+| **16** | **Fase D: Maatvoering** | Pakkethoogte t.o.v. naar binnendraaiend raam (bovenzijde kozijn/latei)? | - | **[G]** (lamelpakket) | **[G]** (plissépakket) | **[G]** (rolcassette) | - | - | - | - | - | Toetst of het raam nog geopend kan worden bij opgetrokken product. |
+| **17** | **Fase D: Maatvoering** | Afrolrichting doek (standaard afrollend vs. contra-rollend)? | - | - | - | **[G]** | - | - | - | - | - | Contra-rollend verplicht indien kruk of raamboompje uitsteekt. |
+| **18** | **Fase E: Bediening** | Bedieningszijde links vs. rechts (t.o.v. meubels, wanden en looproute)? | **[C]** | **[G]** | **[G]** | **[G]** | - | - | - | - | - | Valideert conceptwaarde; voorkomt bediening achter een kast of deur. |
+| **19** | **Fase E: Bediening** | Montagehoogte bovenbak (invoerveld voor trap- en steigerkeuze monteur)? | **[C]** | **[G]** | **[G]** | **[G]** | **[G]** | - | - | - | - | Verplicht veld: selecteert huishoudtrap (≤2,6m) of kamersteiger (>3,5m). |
+| **20** | **Fase E: Bediening** | Kindveiligheid EN 13120: ketting-/koordhoogte ≥ 150 cm boven vloer? | **[C]** | **[G]** | **[G]** | **[G]** | - | - | - | - | - | Mechanische blokkade: Kettinglengte ≤ Montagehoogte - 150 cm. |
+| **21** | **Fase E: Bediening** | Reikhoogte LiteRise / handgreep (montagehoogte > 210 cm adviseert stang)? | - | - | **[G]** | - | - | - | - | **[P]** (> 210 cm) | - | Boven 210 cm: adviseert bedieningsstok of SmartCord/motorisatie. |
+| **22** | **Fase E: Bediening** | Accu-laadpunt bereikbaarheid (USB-C magnetische kabel binnen bereik)? | - | - | - | - | - | - | - | - | **[P]** (Accu USB-C poort) | Toetst bereikbaarheid laadpoort; adviseert optionele magnetische verlengkabel. |
+| **23** | **Fase F: Logistiek** | Uitvoeringscondities (vensterbank vrij, meubels verplaatst, deken gereed)? | **[C]** | - | - | - | - | - | - | - | - | Klantinstructie en beschermingsprotocol vastleggen in inmeetverslag. |
 
-*Bestaande situatie-afspraken:* Aanwezigheid van oude jaloezieën, screens of folies; demontage en afvoer door klant of monteur; controle op lijmresten of boorgaten.  
-*Nieuwe situatie & concepttoetsing:* Bedieningszijde links of rechts (conceptwaarde uit verkoopgesprek valideren t.o.v. wanden, deuren en looproutes); Bedieningstype (handgreep LiteRise, SmartCord, ketting of gemotoriseerd); Montagewijze (in de dag vs. op de dag, wand- vs plafondsteunen, boorvrij TruFit/FrameFix); Klinkspeling & draaikiepvrijheid (toetsing klinkafstand ≥ 25 mm en kiepstandhoek, eventueel plaatsen van kier- of openingsbegrenzer); Kindveiligheid (bedieningshoogte minimaal 150 cm boven het afwerkvloerpeil).
+*Bestaande situatie-afspraken:* Aanwezigheid van oude jaloezieën, screens of folies; demontage en afvoer door klant of monteur; herplaatsing naar andere positie als zelfstandige orderpositie; controle op lijmresten of boorgaten.  
+*Nieuwe situatie & concepttoetsing:* Bedieningszijde links of rechts (conceptwaarde uit verkoopgesprek valideren t.o.v. wanden, deuren en looproutes); Bedieningstype (handgreep LiteRise, SmartCord, ketting of gemotoriseerd); Montagewijze (in de dag vs. op de dag, wand- vs plafondsteunen, montageprofiel vs losse steunen, boorvrij TruFit/FrameFix); Klinkspeling & draaikiepvrijheid (toetsing klinkafstand ≥ 25 mm en kiepstandhoek, eventueel plaatsen van kier- of openingsbegrenzer); Kindveiligheid (bedieningshoogte minimaal 150 cm boven het afwerkvloerpeil); Reikhoogte (bedieningsstang bij montagehoogte > 210 cm); Vaste ingangscontrole met laser vóór openen van verpakkingen.
 
 ---
 
@@ -658,11 +758,13 @@ Onderstaande matrix definieert de integrale inmeetchecklist voor Categorie 2 (Ra
 
 | Productgroep | Primaire Dagmaat (Invoer Inmeter) | Blijvende Maat (Formule & Aftrekregel) | Verplichte Referentie & Validatie | Output naar Productie & Montage |
 | :--- | :--- | :--- | :--- | :--- |
-| **Duette / Plissé (AU10, AU20, AE20, AS20)** | Strakste dagmaat breedte op 3 punten (B1, B2, B3) & hoogte op 3 punten (H1, H2, H3); Diagonaal X1/X2 | *In de dag:* Blijvende breedte = strakste dagmaat - 8 mm, Hoogte = dagmaat - 0 mm; *Op de dag:* Dagmaat + gewenste overlap (2 × 50-100 mm); *Vleugel/TruFit:* Glasmaat | Glaslatdiepte ≥ 25 mm (in de dag) of vlakke hechtstrook ≥ 15 mm; klinkvrijheid ≥ 25 mm; wand- vs plafondmontage | Fabrieks-productiemaat (blijvende maat op sticker), modelcode EOS (bijv. AU20), bedieningszijde, montagesteunen |
-| **Horizontale Jaloezieën (Hout & Aluminium)** | Strakste dagmaat breedte (B1, B2, B3) & hoogte (H1, H2, H3); Diagonaal X1/X2 | *In de dag:* Blijvende breedte = strakste dagmaat - 10 mm (5 mm per zijde), Hoogte = dagmaat - 0 mm; *Op de dag:* Dagmaat + gewenste overlap | Pakkethoogte t.o.v. draaiende ramen/deuren; lameldoorloop gekoppelde sets ≤ 12 mm; gewichtsbegrenzing hout | Productiemaat (mm), lamelstapel-pakkethoogte, ladderband- vs ladderkoord-optie, tuimel-/bedieningszijde |
-| **Rolgordijnen & Duo-Rolgordijnen** | Strakste dagmaat breedte (B1, B2, B3) & hoogte (H1, H2, H3) | *In de dag:* Systeembreedte = strakste dagmaat - 5 mm (let op: doekbreedte ca. 35 mm smaller dan systeem); *Op de dag:* Dagmaat + overlap | Lichtspleet-acceptatie klant (15-18 mm per zijde bij in de dag); rolrichting (voorover vs achterover vallend); wand vs plafond | Systeembreedte (mm), effectieve doekbreedte (mm), buisdiameter (28/38/50 mm), bedieningszijde, kettinglengte |
+| **Duette / Plissé (AU10, AU20, AE20, AS20, EOS)** | Strakste dagmaat breedte op 3 punten (B1, B2, B3) & hoogte op 3 punten (H1, H2, H3); Diagonaal X1/X2 bij kaders | *In de dag:* Blijvende breedte = strakste dagmaat - 8 mm, Hoogte = dagmaat - 0 mm; *Op de dag:* Dagmaat + gewenste overlap (2 × 50-100 mm); *Vleugel/TruFit:* Glasmaat | Glaslatdiepte ≥ 25 mm (in de dag) of vlakke hechtstrook ≥ 15 mm; klinkvrijheid ≥ 25 mm; wand- vs plafondmontage | Fabrieks-productiemaat (blijvende maat op sticker), modelcode EOS (bijv. AU20), bedieningszijde, montagesteunen |
+| **Horizontale Jaloezieën Aluminium (16, 25, 35, 50, 70 mm)** | Strakste dagmaat breedte (B1, B2, B3) & hoogte (H1, H2, H3); Diagonaal X1/X2 | *In de dag:* Blijvende breedte = strakste dagmaat - 10 mm (5 mm per zijde), Hoogte = dagmaat - 0 mm; *Op de dag:* Dagmaat + gewenste overlap | Pakkethoogte t.o.v. draaiende ramen/deuren; lameldoorloop gekoppelde sets ≤ 12 mm; TDBU alleen bij 25 mm | Productiemaat (mm), lamelbreedte (16/25/35/50/70 mm), pakkethoogte, tuimel-/bedieningszijde, ladderband/-koord |
+| **Houten Jaloezieën (50 / 65 mm)** | Strakste dagmaat breedte (B1, B2, B3) & hoogte (H1, H2, H3); Diagonaal X1/X2 | *In de dag:* Blijvende breedte = strakste dagmaat - 10 mm, Hoogte = dagmaat - 0 mm; *Op de dag:* Dagmaat + gewenste overlap | Zwaar gewicht hout; zware bovenbakdiepte (min. 65 mm); pakkethoogtecontrole bij draaiende delen | Productiemaat (mm), houtsoort/kleur, ladderband breedte (25/38 mm), tuimel- en optrekzijde |
+| **Rolgordijnen & Duo-Rolgordijnen (met Montageprofiel)** | Strakste dagmaat breedte (B1, B2, B3) & hoogte (H1, H2, H3) | *In de dag:* Systeembreedte = strakste dagmaat - 5 mm (doek ca. 35 mm smaller dan systeem); *Op de dag:* Dagmaat + overlap | Montageprofiel standaard; absorbeert motorkantasymmetrie; doorloop zijgeleiders vloer/plint bij pui | Systeembreedte (mm), doekbreedte (mm), buisdiameter (28/38/50 mm), montageprofiel-type, kettinglengte |
+| **Verticale Lamellen (Textiel/Versos, PVC, Aluminium) & Paneelgordijnen** | Strakste dagmaat breedte op 3 punten & hoogte op 3 punten; niscontrole | *In de dag:* Railbreedte = dagmaat - 10 mm; Hoogte = dagmaat minus 15–20 mm vloer-/vensterbankspeling; *Op de dag:* + overlap | Pakketbreedte lamellen/panelen (vrije raamopening); railspoor (2-, 3-, 4- of 5-sporig); lamelbreedte (89/127 mm) | Railmaat (mm), lamelhoogte (mm), pakketzijde (links/rechts/stel), materiaalsoort (textiel/pvc/alu), aantal panelen |
+| **Buitenscreens & Horren (ZIP-screens, Solar & Inzethorren)** | Strakste dagmaat breedte en hoogte; buitengevelinspectie | *In de dag:* Kast- en geleidermaat = dagmaat - 2 mm; *Op de dag (buiten):* Dagmaat + breedte zijgeleiders + kasthoogte | Vlakheid buitengevel; obstakels (waterdorpels, ventilatieroosters); zonnepaneeloriëntatie bij solar | Buitenwerkse maat (mm), kasttype (afgeschuind/rond), ZIP-ritsgeleiders, motortype (Solar/230V), doekcode |
 
----
 ### 3.4 Categorie 3: Vloerbekleding
 
 #### 3.4.1 Productsoorten, Rolbreedtes & Legpatronen
