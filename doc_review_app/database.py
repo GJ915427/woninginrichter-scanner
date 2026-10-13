@@ -36,6 +36,12 @@ CREATE TABLE IF NOT EXISTS sessions (
     expires_at TEXT NOT NULL
 );
 
+-- Revoked tokens table: tracks explicitly revoked tokens to prevent HMAC resurrection
+CREATE TABLE IF NOT EXISTS revoked_tokens (
+    token TEXT PRIMARY KEY,
+    revoked_at TEXT NOT NULL
+);
+
 -- Documents table: ingested markdown and text documents
 CREATE TABLE IF NOT EXISTS documents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

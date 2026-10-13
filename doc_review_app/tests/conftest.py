@@ -16,6 +16,32 @@ from fastapi.testclient import TestClient
 import pytest
 
 
+def pytest_configure(config):
+    """Register custom markers to avoid PytestUnknownMarkWarning."""
+    config.addinivalue_line("markers", "live_cloud: mark test to run with live Supabase credentials.")
+
+
+@pytest.fixture(autouse=True)
+def mock_cloud_sync_globally(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
+    """Globally intercepts Supabase HTTP calls for all tests unless explicitly testing cloud.
+
+    Permits pass-through for tests marked with @pytest.mark.live_cloud or located in
+    cloud sync test modules so that unit tests can verify real request schemas with mock urlopen.
+    """
+    if "live_cloud" in request.keywords or "cloud_sync" in request.node.nodeid or "cloud_documents" in request.node.nodeid:
+        yield
+        return
+
+    from doc_review_app.storage import cloud_sync
+    monkeypatch.setattr(cloud_sync, "push_document_to_cloud", lambda *a, **kw: True)
+    monkeypatch.setattr(cloud_sync, "delete_document_from_cloud", lambda *a, **kw: True)
+    monkeypatch.setattr(cloud_sync, "pull_documents_from_cloud", lambda *a, **kw: (0, set(), set()))
+    monkeypatch.setattr(cloud_sync, "pull_sidecars_from_cloud", lambda *a, **kw: 0)
+    monkeypatch.setattr(cloud_sync, "push_sidecar_to_cloud", lambda *a, **kw: True)
+    monkeypatch.setattr(cloud_sync, "check_connection", lambda *a, **kw: True)
+    yield
+
+
 @pytest.fixture(scope="session")
 def app_instance():
     """Import and yield the FastAPI application instance.
@@ -60,6 +86,10 @@ def clean_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         db.execute("DELETE FROM annotations;")
         db.execute("DELETE FROM documents;")
         db.execute("DELETE FROM sessions;")
+        try:
+            db.execute("DELETE FROM revoked_tokens;")
+        except sqlite3.OperationalError:
+            pass
         db.execute("DELETE FROM users;")
         try:
             db.execute("DELETE FROM sqlite_sequence;")

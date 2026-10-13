@@ -55,6 +55,14 @@ def lookup_and_validate_session(
     token: str,
 ) -> Optional[Dict[str, Any]]:
     """Look up session token, enforce expiration, and return associated user."""
+    # Check if token was explicitly revoked
+    try:
+        rev_cursor = db.execute("SELECT 1 FROM revoked_tokens WHERE token = ?", (token,))
+        if rev_cursor.fetchone():
+            return None
+    except Exception:
+        pass
+
     cursor = db.execute(
         """
         SELECT
@@ -157,6 +165,14 @@ def lookup_and_validate_session(
 
 def revoke_session(db: sqlite3.Connection, token: str) -> bool:
     """Revoke an active session token."""
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        db.execute(
+            "INSERT OR REPLACE INTO revoked_tokens (token, revoked_at) VALUES (?, ?)",
+            (token, now),
+        )
+    except Exception:
+        pass
     cursor = db.execute("DELETE FROM sessions WHERE token = ?", (token,))
     db.commit()
     return cursor.rowcount > 0
@@ -164,6 +180,16 @@ def revoke_session(db: sqlite3.Connection, token: str) -> bool:
 
 def revoke_all_user_sessions(db: sqlite3.Connection, user_id: int) -> int:
     """Revoke all active sessions for a given user."""
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        cursor = db.execute("SELECT token FROM sessions WHERE user_id = ?", (user_id,))
+        for row in cursor.fetchall():
+            db.execute(
+                "INSERT OR REPLACE INTO revoked_tokens (token, revoked_at) VALUES (?, ?)",
+                (row["token"], now),
+            )
+    except Exception:
+        pass
     cursor = db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
     db.commit()
     return cursor.rowcount

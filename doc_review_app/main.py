@@ -7,7 +7,8 @@ and access-controlled document/annotation route stubs.
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List
+import sqlite3
+from typing import Any, AsyncGenerator, Dict, List, Set
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,108 +28,136 @@ from doc_review_app.routers import (
 from doc_review_app.services import user_service
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Handle application startup and shutdown lifecycle events."""
-    # Ensure all required runtime directories exist
-    settings.ensure_directories()
+def _seed_default_users(db: sqlite3.Connection) -> None:
+    """Seed system administrator and pre-configured reviewers from Groter In Wonen."""
+    existing_admin = user_service.get_user_by_username(db, settings.admin_username)
+    if not existing_admin:
+        try:
+            user_service.create_user(
+                db=db,
+                username=settings.admin_username,
+                password=settings.admin_password,
+                full_name=settings.admin_full_name,
+                initials=settings.admin_initials,
+                email=settings.admin_email,
+                is_admin=True,
+            )
+        except user_service.UserAlreadyExistsError:
+            pass
+    else:
+        # Keep admin password synced to settings.admin_password
+        from doc_review_app.auth import hash_password
+        new_hash = hash_password(settings.admin_password)
+        db.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (new_hash, existing_admin["id"]),
+        )
+        db.commit()
 
-    # Pull persistent sidecars from cloud storage (Supabase) before DB sync
-    try:
-        from doc_review_app.storage.cloud_sync import pull_sidecars_from_cloud
-        pull_sidecars_from_cloud(settings.documents_dir)
-    except Exception:
-        pass
-
-    # Initialize SQLite database schema
-    init_db()
-
-    # Seed default system administrator account if no users exist
-    with get_db() as db:
-        existing_admin = user_service.get_user_by_username(db, settings.admin_username)
-        if not existing_admin:
+    seed_reviewers = [
+        {
+            "username": "guy.wolters",
+            "password": "GuyReview2026!Woning",
+            "full_name": "Guy Wolters",
+            "initials": "GW",
+            "email": "guy.wolters@groterinwonen.nl",
+        },
+        {
+            "username": "stefan.houten",
+            "password": "ParketEnVloeren#26",
+            "full_name": "Stefan Houten",
+            "initials": "SH",
+            "email": "stefan.houten@groterinwonen.nl",
+        },
+        {
+            "username": "maria.houten",
+            "password": "GordijnCreaties*48",
+            "full_name": "Maria Houten",
+            "initials": "MH",
+            "email": "maria.houten@groterinwonen.nl",
+        },
+        {
+            "username": "simon.bak",
+            "password": "StrakkeMaatvoering@39",
+            "full_name": "Simon Bak",
+            "initials": "SB",
+            "email": "simon.bak@groterinwonen.nl",
+        },
+        {
+            "username": "carlo.heinemans",
+            "password": "MooiInrichten$57",
+            "full_name": "Carlo Heinemans",
+            "initials": "CH",
+            "email": "carlo.heinemans@groterinwonen.nl",
+        },
+    ]
+    for reviewer in seed_reviewers:
+        existing_rev = user_service.get_user_by_username(db, reviewer["username"])
+        if not existing_rev:
             try:
                 user_service.create_user(
                     db=db,
-                    username=settings.admin_username,
-                    password=settings.admin_password,
-                    full_name=settings.admin_full_name,
-                    initials=settings.admin_initials,
-                    email=settings.admin_email,
-                    is_admin=True,
+                    username=reviewer["username"],
+                    password=reviewer["password"],
+                    full_name=reviewer["full_name"],
+                    initials=reviewer["initials"],
+                    email=reviewer["email"],
+                    is_admin=False,
                 )
             except user_service.UserAlreadyExistsError:
                 pass
+        else:
+            from doc_review_app.auth import hash_password
+            new_hash = hash_password(reviewer["password"])
+            db.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (new_hash, existing_rev["id"]),
+            )
+            db.commit()
 
-        # Seed pre-configured reviewers from Groter In Wonen
-        seed_reviewers = [
-            {
-                "username": "guy.wolters",
-                "password": "GuyReview2026!Woning",
-                "full_name": "Guy Wolters",
-                "initials": "GW",
-                "email": "guy.wolters@groterinwonen.nl",
-            },
-            {
-                "username": "stefan.houten",
-                "password": "ParketEnVloeren#26",
-                "full_name": "Stefan Houten",
-                "initials": "SH",
-                "email": "stefan.houten@groterinwonen.nl",
-            },
-            {
-                "username": "maria.houten",
-                "password": "GordijnCreaties*48",
-                "full_name": "Maria Houten",
-                "initials": "MH",
-                "email": "maria.houten@groterinwonen.nl",
-            },
-            {
-                "username": "simon.bak",
-                "password": "StrakkeMaatvoering@39",
-                "full_name": "Simon Bak",
-                "initials": "SB",
-                "email": "simon.bak@groterinwonen.nl",
-            },
-            {
-                "username": "carlo.heinemans",
-                "password": "MooiInrichten$57",
-                "full_name": "Carlo Heinemans",
-                "initials": "CH",
-                "email": "carlo.heinemans@groterinwonen.nl",
-            },
-        ]
-        for reviewer in seed_reviewers:
-            existing_rev = user_service.get_user_by_username(db, reviewer["username"])
-            if not existing_rev:
-                try:
-                    user_service.create_user(
-                        db=db,
-                        username=reviewer["username"],
-                        password=reviewer["password"],
-                        full_name=reviewer["full_name"],
-                        initials=reviewer["initials"],
-                        email=reviewer["email"],
-                        is_admin=False,
-                    )
-                except user_service.UserAlreadyExistsError:
-                    pass
-            else:
-                # Keep seed passwords updated if modified
-                from doc_review_app.auth import hash_password
-                new_hash = hash_password(reviewer["password"])
-                db.execute(
-                    "UPDATE users SET password_hash = ? WHERE id = ?",
-                    (new_hash, existing_rev["id"]),
-                )
-                db.commit()
 
-    # Auto-sync local documents folder with SQLite on startup
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Handle application startup and shutdown lifecycle events."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # 1. Ensure all required runtime directories exist
+    settings.ensure_directories()
+
+    # 2. Pull documents & tombstones from Supabase cloud store (Anti-Zombie Git Purge)
+    tombstone_filenames: Set[str] = set()
+    tombstone_stems: Set[str] = set()
+    try:
+        from doc_review_app.storage import cloud_sync
+        _, tombstone_filenames, tombstone_stems = cloud_sync.pull_documents_from_cloud(settings.documents_dir)
+    except Exception as e:
+        logger.warning("Cloud document pull on startup encountered warning: %s", e)
+
+    # 3. Pull persistent sidecars from cloud storage (respecting tombstones)
+    try:
+        from doc_review_app.storage import cloud_sync
+        cloud_sync.pull_sidecars_from_cloud(
+            settings.documents_dir,
+            tombstone_filenames=tombstone_filenames,
+            tombstone_stems=tombstone_stems,
+        )
+    except Exception as e:
+        logger.warning("Cloud sidecar pull on startup encountered warning: %s", e)
+
+    # 4. Initialize SQLite database schema
+    init_db()
+
+    # 5. Seed default system administrator and pre-configured reviewers
+    with get_db() as db:
+        _seed_default_users(db)
+
+    # 6. Auto-sync local documents folder with SQLite on startup (sync_cloud=False to prevent overwriting cloud)
     from doc_review_app.services.document_service import sync_local_directory_with_db
     with get_db() as db:
-        sync_local_directory_with_db(db=db)
+        sync_local_directory_with_db(db=db, sync_cloud=False)
 
-    # Auto-migrate existing annotations and comments between SQLite and JSON sidecars (and hydrate sidecars to SQLite)
+    # 7. Auto-migrate existing annotations and comments between SQLite and JSON sidecars
     from doc_review_app.storage.migration import auto_migrate_if_needed
     auto_migrate_if_needed()
 

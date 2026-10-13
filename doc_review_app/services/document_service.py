@@ -403,8 +403,11 @@ def create_annotation_for_document(
         return _execute(conn)
 
 
-def delete_document(doc_id: int, db: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
-    """Delete a document by ID, cascading annotations and comments, and unlinking from disk."""
+def delete_document(doc_id: int, db: Optional[sqlite3.Connection] = None, *, sync_cloud: bool = False) -> Dict[str, Any]:
+    """Delete a document by ID, cascading annotations and comments, unlinking from disk, and conditionally tombstones in cloud."""
+    from doc_review_app.config import settings
+    from doc_review_app.storage.json_storage import get_sidecar_path
+
     def _execute(conn: sqlite3.Connection) -> Dict[str, Any]:
         cursor = conn.execute("SELECT id, filename FROM documents WHERE id = ?", (doc_id,))
         row = cursor.fetchone()
@@ -415,21 +418,50 @@ def delete_document(doc_id: int, db: Optional[sqlite3.Connection] = None) -> Dic
             )
         filename = row["filename"]
         
-        # Foreign keys will cascade delete annotations and comments
+        # Foreign keys will cascade delete annotations and comments in SQLite
         conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
         
         # Remove file from local_documents directory if present
-        from doc_review_app.config import settings
-        from doc_review_app.storage.json_storage import get_sidecar_path
-        file_path = (settings.documents_dir / filename).resolve()
-        sidecar_path = get_sidecar_path(filename, settings.documents_dir).resolve()
+        clean_name = Path(filename).name
+        target_dir = settings.documents_dir
+        file_path = (target_dir / clean_name).resolve()
+        
         try:
-            if file_path.is_relative_to(settings.documents_dir.resolve()):
+            if file_path.is_relative_to(target_dir.resolve()):
                 file_path.unlink(missing_ok=True)
-            if sidecar_path.is_relative_to(settings.documents_dir.resolve()):
-                sidecar_path.unlink(missing_ok=True)
         except Exception:
             pass
+
+        # Handle sidecar unlinking:
+        # 1. Unlink unique sidecar (<filename>.comments.json)
+        unique_sidecar = target_dir / f"{clean_name}.comments.json"
+        try:
+            if unique_sidecar.is_relative_to(target_dir.resolve()):
+                unique_sidecar.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+        # 2. Check if stem sidecar should be unlinked
+        # If there's an active sibling on disk with the same stem, keep stem sidecar for that sibling!
+        stem = Path(clean_name).stem
+        ext = Path(clean_name).suffix.lower()
+        is_md = ext in [".md", ".markdown"]
+        
+        has_active_stem_sibling = any(
+            f.is_file()
+            and f.name != clean_name
+            and f.suffix.lower() in [".md", ".markdown", ".txt"]
+            and f.stem == stem
+            for f in target_dir.iterdir()
+        ) if target_dir.exists() else False
+
+        if is_md or not has_active_stem_sibling:
+            stem_sidecar = target_dir / f"{stem}.comments.json"
+            try:
+                if stem_sidecar.is_relative_to(target_dir.resolve()):
+                    stem_sidecar.unlink(missing_ok=True)
+            except Exception:
+                pass
 
         return {
             "id": doc_id,
@@ -438,10 +470,22 @@ def delete_document(doc_id: int, db: Optional[sqlite3.Connection] = None) -> Dic
             "message": f"Document '{filename}' successfully deleted."
         }
 
+    # Execute SQLite transaction strictly bounded
     if db is not None:
-        return _execute(db)
-    with get_db() as conn:
-        return _execute(conn)
+        result = _execute(db)
+    else:
+        with get_db() as conn:
+            result = _execute(conn)
+
+    # Cloud sync happens OUTSIDE the SQLite write lock!
+    if sync_cloud:
+        try:
+            from doc_review_app.storage import cloud_sync
+            cloud_sync.delete_document_from_cloud(result["filename"])
+        except Exception as e:
+            logger.warning("Cloud tombstone creation failed for '%s': %s", result["filename"], e)
+
+    return result
 
 
 def save_uploaded_file(
@@ -677,21 +721,40 @@ def open_local_documents_folder() -> Dict[str, Any]:
     }
 
 
-def sync_local_directory_with_db(db: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
+def sync_local_directory_with_db(
+    db: Optional[sqlite3.Connection] = None,
+    *,
+    sync_cloud: bool = False,
+    folder: Optional[Path] = None,
+) -> Dict[str, Any]:
     """Synchronize physical files in settings.documents_dir with SQLite.
     
-    1. Scans settings.documents_dir for .md and .txt files.
-    2. Normalizes CRLF to LF and calculates SHA-256 for each disk file.
-    3. Inserts or updates documents whose content_hash changed.
-    4. Deletes database records whose physical file is no longer on disk.
-    5. Gracefully handles file locks (PermissionError/OSError).
+    1. Pre-scan: if sync_cloud=True, probe Supabase and pull latest documents/tombstones.
+    2. Scans documents_dir for .md and .txt files.
+    3. Normalizes CRLF to LF and calculates SHA-256 for each disk file.
+    4. Inserts or updates documents whose content_hash changed in bounded SQLite transaction.
+    5. Deletes database records whose physical file is no longer on disk (sync_cloud=False).
+    6. Post-commit: if sync_cloud=True, pushes added/updated documents to Supabase outside DB lock.
     """
     import logging
     from doc_review_app.config import settings
 
     logger = logging.getLogger(__name__)
-    folder = settings.documents_dir.resolve()
-    folder.mkdir(parents=True, exist_ok=True)
+    target_folder = (folder or settings.documents_dir).resolve()
+    target_folder.mkdir(parents=True, exist_ok=True)
+
+    # Pre-Scan Connectivity Probe & Cloud Pull (if sync_cloud=True)
+    if sync_cloud:
+        try:
+            from doc_review_app.storage import cloud_sync
+            if cloud_sync.check_connection():
+                logger.info("Supabase connectivity verified; pulling cloud state before local scan.")
+                try:
+                    cloud_sync.pull_documents_from_cloud(target_folder)
+                except Exception as e:
+                    logger.warning("Cloud pull failed during pre-scan: %s", e)
+        except Exception as e:
+            logger.debug("Pre-scan probe warning: %s", e)
 
     added: List[str] = []
     updated: List[str] = []
@@ -709,9 +772,9 @@ def sync_local_directory_with_db(db: Optional[sqlite3.Connection] = None) -> Dic
         disk_filenames = set()
 
         try:
-            entries = list(os.scandir(str(folder)))
+            entries = list(os.scandir(str(target_folder)))
         except (OSError, PermissionError) as exc:
-            logger.error(f"Cannot scan documents_dir '{folder}': {exc}")
+            logger.error(f"Cannot scan documents_dir '{target_folder}': {exc}")
             return {
                 "added": [],
                 "updated": [],
@@ -763,9 +826,9 @@ def sync_local_directory_with_db(db: Optional[sqlite3.Connection] = None) -> Dic
 
         for db_name, db_info in existing_docs.items():
             if db_name not in disk_filenames:
-                file_on_disk = folder / db_name
+                file_on_disk = target_folder / db_name
                 if not file_on_disk.exists():
-                    delete_document(doc_id=db_info["id"], db=conn)
+                    delete_document(doc_id=db_info["id"], db=conn, sync_cloud=False)
                     removed.append(db_name)
 
         cursor.execute("SELECT COUNT(*) as cnt FROM documents")
@@ -786,11 +849,41 @@ def sync_local_directory_with_db(db: Optional[sqlite3.Connection] = None) -> Dic
             "total_documents": total_count,
         }
 
+    # Bounded SQLite transaction
     if db is not None:
-        return _execute_sync(db)
+        sync_result = _execute_sync(db)
     else:
         with get_db() as conn:
-            return _execute_sync(conn)
+            sync_result = _execute_sync(conn)
+
+    # Post-Commit Cloud Sync (Strictly OUTSIDE SQLite lock)
+    if sync_cloud:
+        try:
+            from doc_review_app.storage import cloud_sync
+            if not cloud_sync.cloud_sync_degraded:
+                for name in added + updated:
+                    if cloud_sync.cloud_sync_degraded:
+                        break
+                    try:
+                        fpath = target_folder / name
+                        if fpath.exists():
+                            fcontent = fpath.read_text(encoding="utf-8")
+                            cloud_sync.push_document_to_cloud(
+                                filename=name,
+                                content=fcontent,
+                                file_size=len(fcontent.encode("utf-8")),
+                                sha256_hash="",
+                            )
+                    except Exception as e:
+                        logger.warning("Post-sync cloud push failed for '%s': %s", name, e)
+            sync_result["cloud_sync_degraded"] = cloud_sync.cloud_sync_degraded
+        except Exception as e:
+            logger.debug("Post-sync cloud push warning: %s", e)
+            sync_result["cloud_sync_degraded"] = True
+    else:
+        sync_result["cloud_sync_degraded"] = False
+
+    return sync_result
 
 
 def backup_document_comments_to_archive(

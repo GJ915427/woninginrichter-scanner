@@ -7,6 +7,8 @@ Implements:
 - POST /api/documents/{id}/annotations: Create annotation with initial comment
 """
 
+import asyncio
+import logging
 import sqlite3
 from typing import Any, Dict, List, Optional
 
@@ -22,6 +24,9 @@ from doc_review_app.models import (
     User,
 )
 from doc_review_app.services import document_service
+from doc_review_app.storage import cloud_sync
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
 
@@ -157,9 +162,8 @@ def create_document_annotation(
 async def upload_documents(
     files: List[UploadFile] = File(...),
     current_user: User = Depends(require_admin),
-    db: sqlite3.Connection = Depends(get_db_session),
 ) -> List[Dict[str, Any]]:
-    """Upload one or more documents (.md, .txt) directly into the library."""
+    """Upload one or more documents (.md, .txt) directly into the library with thread-isolated SQLite & Cloud sync."""
     if not files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -175,12 +179,26 @@ async def upload_documents(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"File '{filename}' is empty."
             )
-        res = document_service.save_uploaded_file(
+        res = await asyncio.to_thread(
+            document_service.save_uploaded_file,
             filename=filename,
             content_bytes=content_bytes,
-            db=db,
+            db=None,
         )
         results.append(res)
+
+        # Cloud sync happens OUTSIDE the SQLite write lock!
+        try:
+            content_str = content_bytes.decode("utf-8", errors="replace")
+            await asyncio.to_thread(
+                cloud_sync.push_document_to_cloud,
+                filename=res["filename"],
+                content=content_str,
+                file_size=len(content_bytes),
+                sha256_hash="",
+            )
+        except Exception as e:
+            logger.warning("Cloud sync on upload failed for '%s': %s", filename, e)
 
     return results
 
@@ -193,10 +211,9 @@ async def upload_documents(
 def delete_document(
     doc_id: int,
     current_user: User = Depends(require_admin),
-    db: sqlite3.Connection = Depends(get_db_session),
 ) -> Dict[str, Any]:
-    """Delete a document by ID and unlink from local_documents."""
-    return document_service.delete_document(doc_id=doc_id, db=db)
+    """Delete a document by ID, unlink from disk, and register tombstone in cloud."""
+    return document_service.delete_document(doc_id=doc_id, sync_cloud=True)
 
 
 @router.post(
@@ -218,7 +235,6 @@ def open_documents_folder(
 )
 def sync_local_folder(
     current_user: User = Depends(require_admin),
-    db: sqlite3.Connection = Depends(get_db_session),
 ) -> Dict[str, Any]:
-    """Scan local_documents folder, normalize line endings, and synchronize SQLite state."""
-    return document_service.sync_local_directory_with_db(db=db)
+    """Scan local_documents folder, normalize line endings, and synchronize SQLite & Cloud state."""
+    return document_service.sync_local_directory_with_db(sync_cloud=True)

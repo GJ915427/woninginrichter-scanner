@@ -34,19 +34,19 @@ class LockManager:
 def get_sidecar_path(filename: str, documents_dir: Optional[Path] = None) -> Path:
     """Determine the sidecar path for a given document filename.
     
-    Prefers <stem>.comments.json, and supports <filename>.comments.json if already on disk.
+    Markdown files (.md, .markdown) canonicalize to <stem>.comments.json
+    for backward compatibility with legacy tests and existing repos.
+    Non-markdown files (.txt, etc.) strictly use <clean_name>.comments.json
+    to prevent stem crosstalk and ensure 1-to-1 sidecar mapping.
     """
     base_dir = documents_dir or settings.documents_dir
     clean_name = os.path.basename(filename)
-    stem = Path(clean_name).stem
+    p = Path(clean_name)
+    suffix = p.suffix.lower()
     
-    # If <filename>.comments.json already exists, use it
-    full_ext_path = base_dir / f"{clean_name}.comments.json"
-    stem_path = base_dir / f"{stem}.comments.json"
-    
-    if full_ext_path.exists() and not stem_path.exists():
-        return full_ext_path
-    return stem_path
+    if suffix in [".md", ".markdown"]:
+        return base_dir / f"{p.stem}.comments.json"
+    return base_dir / f"{clean_name}.comments.json"
 
 
 def default_sidecar_data(filename: str) -> Dict[str, Any]:
