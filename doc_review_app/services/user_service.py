@@ -173,10 +173,14 @@ def get_user_by_username(
     db: sqlite3.Connection,
     username: str,
 ) -> Optional[Dict[str, Any]]:
-    """Fetch user record by username (case-insensitive)."""
+    """Fetch user record by username or email (case-insensitive)."""
     cursor = db.execute(
-        "SELECT * FROM users WHERE username = ? COLLATE NOCASE",
-        (username,),
+        """
+        SELECT * FROM users 
+        WHERE username = ? COLLATE NOCASE 
+           OR email = ? COLLATE NOCASE
+        """,
+        (username, username),
     )
     row = cursor.fetchone()
     if not row:

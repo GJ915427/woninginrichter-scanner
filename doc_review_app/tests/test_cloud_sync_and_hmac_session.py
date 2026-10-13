@@ -161,3 +161,28 @@ def test_cloud_sync_pull_mocked(tmp_path):
         assert restored_file.exists()
         saved_content = json.loads(restored_file.read_text(encoding="utf-8"))
         assert saved_content["annotations"][0]["id"] == "cloud-ann-1"
+
+
+def test_all_seeded_users_can_authenticate_by_username_and_email():
+    from doc_review_app.main import app
+    from fastapi.testclient import TestClient
+
+    with TestClient(app) as client:
+        users = [
+            ("admin", "AdminSecurePassword123!"),
+            ("guy.wolters", "GuyReview2026!Woning"),
+            ("stefan.houten", "StefanReview2026!"),
+            ("stefan.houten@groterinwonen.nl", "StefanReview2026!"),
+            ("maria.houten", "MariaReview2026!"),
+            ("maria.houten@groterinwonen.nl", "MariaReview2026!"),
+            ("simon.bak", "SimonReview2026!"),
+            ("simon.bak@groterinwonen.nl", "SimonReview2026!"),
+            ("carlo.heinemans", "CarloReview2026!"),
+            ("carlo.heinemans@groterinwonen.nl", "CarloReview2026!"),
+        ]
+        for identifier, password in users:
+            resp = client.post("/api/auth/login", json={"username": identifier, "password": password})
+            assert resp.status_code == 200, f"Failed for {identifier}: {resp.text}"
+            data = resp.json()
+            assert "token" in data
+            assert data["user"]["is_active"] is True

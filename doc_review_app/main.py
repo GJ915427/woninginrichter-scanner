@@ -60,20 +60,59 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             except user_service.UserAlreadyExistsError:
                 pass
 
-        existing_guy = user_service.get_user_by_username(db, "guy.wolters")
-        if not existing_guy:
-            try:
-                user_service.create_user(
-                    db=db,
-                    username="guy.wolters",
-                    password="GuyReview2026!Woning",
-                    full_name="Guy Wolters",
-                    initials="GW",
-                    email="guy.wolters@groterinwonen.nl",
-                    is_admin=False,
-                )
-            except user_service.UserAlreadyExistsError:
-                pass
+        # Seed pre-configured reviewers from Groter In Wonen
+        seed_reviewers = [
+            {
+                "username": "guy.wolters",
+                "password": "GuyReview2026!Woning",
+                "full_name": "Guy Wolters",
+                "initials": "GW",
+                "email": "guy.wolters@groterinwonen.nl",
+            },
+            {
+                "username": "stefan.houten",
+                "password": "StefanReview2026!",
+                "full_name": "Stefan Houten",
+                "initials": "SH",
+                "email": "stefan.houten@groterinwonen.nl",
+            },
+            {
+                "username": "maria.houten",
+                "password": "MariaReview2026!",
+                "full_name": "Maria Houten",
+                "initials": "MH",
+                "email": "maria.houten@groterinwonen.nl",
+            },
+            {
+                "username": "simon.bak",
+                "password": "SimonReview2026!",
+                "full_name": "Simon Bak",
+                "initials": "SB",
+                "email": "simon.bak@groterinwonen.nl",
+            },
+            {
+                "username": "carlo.heinemans",
+                "password": "CarloReview2026!",
+                "full_name": "Carlo Heinemans",
+                "initials": "CH",
+                "email": "carlo.heinemans@groterinwonen.nl",
+            },
+        ]
+        for reviewer in seed_reviewers:
+            existing_rev = user_service.get_user_by_username(db, reviewer["username"])
+            if not existing_rev:
+                try:
+                    user_service.create_user(
+                        db=db,
+                        username=reviewer["username"],
+                        password=reviewer["password"],
+                        full_name=reviewer["full_name"],
+                        initials=reviewer["initials"],
+                        email=reviewer["email"],
+                        is_admin=False,
+                    )
+                except user_service.UserAlreadyExistsError:
+                    pass
 
     # Auto-sync local documents folder with SQLite on startup
     from doc_review_app.services.document_service import sync_local_directory_with_db
