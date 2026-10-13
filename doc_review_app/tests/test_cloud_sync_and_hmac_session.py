@@ -171,14 +171,14 @@ def test_all_seeded_users_can_authenticate_by_username_and_email():
         users = [
             ("admin", "AdminSecurePassword123!"),
             ("guy.wolters", "GuyReview2026!Woning"),
-            ("stefan.houten", "StefanReview2026!"),
-            ("stefan.houten@groterinwonen.nl", "StefanReview2026!"),
-            ("maria.houten", "MariaReview2026!"),
-            ("maria.houten@groterinwonen.nl", "MariaReview2026!"),
-            ("simon.bak", "SimonReview2026!"),
-            ("simon.bak@groterinwonen.nl", "SimonReview2026!"),
-            ("carlo.heinemans", "CarloReview2026!"),
-            ("carlo.heinemans@groterinwonen.nl", "CarloReview2026!"),
+            ("stefan.houten", "ParketEnVloeren#26"),
+            ("stefan.houten@groterinwonen.nl", "ParketEnVloeren#26"),
+            ("maria.houten", "GordijnCreaties*48"),
+            ("maria.houten@groterinwonen.nl", "GordijnCreaties*48"),
+            ("simon.bak", "StrakkeMaatvoering@39"),
+            ("simon.bak@groterinwonen.nl", "StrakkeMaatvoering@39"),
+            ("carlo.heinemans", "MooiInrichten$57"),
+            ("carlo.heinemans@groterinwonen.nl", "MooiInrichten$57"),
         ]
         for identifier, password in users:
             resp = client.post("/api/auth/login", json={"username": identifier, "password": password})

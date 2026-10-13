@@ -71,28 +71,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             },
             {
                 "username": "stefan.houten",
-                "password": "StefanReview2026!",
+                "password": "ParketEnVloeren#26",
                 "full_name": "Stefan Houten",
                 "initials": "SH",
                 "email": "stefan.houten@groterinwonen.nl",
             },
             {
                 "username": "maria.houten",
-                "password": "MariaReview2026!",
+                "password": "GordijnCreaties*48",
                 "full_name": "Maria Houten",
                 "initials": "MH",
                 "email": "maria.houten@groterinwonen.nl",
             },
             {
                 "username": "simon.bak",
-                "password": "SimonReview2026!",
+                "password": "StrakkeMaatvoering@39",
                 "full_name": "Simon Bak",
                 "initials": "SB",
                 "email": "simon.bak@groterinwonen.nl",
             },
             {
                 "username": "carlo.heinemans",
-                "password": "CarloReview2026!",
+                "password": "MooiInrichten$57",
                 "full_name": "Carlo Heinemans",
                 "initials": "CH",
                 "email": "carlo.heinemans@groterinwonen.nl",
@@ -113,6 +113,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     )
                 except user_service.UserAlreadyExistsError:
                     pass
+            else:
+                # Keep seed passwords updated if modified
+                from doc_review_app.auth import hash_password
+                new_hash = hash_password(reviewer["password"])
+                db.execute(
+                    "UPDATE users SET password_hash = ? WHERE id = ?",
+                    (new_hash, existing_rev["id"]),
+                )
+                db.commit()
 
     # Auto-sync local documents folder with SQLite on startup
     from doc_review_app.services.document_service import sync_local_directory_with_db
