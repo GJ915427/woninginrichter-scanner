@@ -78,7 +78,8 @@
     snackbar: document.getElementById('snackbar'),
     snackbarText: document.getElementById('snackbar-text'),
     navDrawerTocSection: document.getElementById('nav-drawer-toc-section'),
-    documentTocNav: document.getElementById('document-toc-nav')
+    documentTocNav: document.getElementById('document-toc-nav'),
+    overviewRuler: document.getElementById('m3-overview-ruler')
   };
 
   /**
@@ -103,11 +104,18 @@
     const res = await fetch(url, fetchConfig);
 
     if (res.status === 401) {
+      let detail = 'Authentication required';
+      try {
+        const body = await res.json();
+        if (body && (body.detail || body.error)) {
+          detail = body.detail || body.error;
+        }
+      } catch (e) {}
       state.token = null;
       state.currentUser = null;
       localStorage.removeItem('doc_review_token');
       showAuthDialog();
-      const err = new Error('Authentication required');
+      const err = new Error(detail);
       err.status = 401;
       throw err;
     }
@@ -258,7 +266,9 @@
       }
     } catch (err) {
       if (els.loginError) {
-        els.loginError.textContent = err.message || 'Invalid username or password.';
+        els.loginError.textContent = (err.message === 'Authentication required' || err.message === 'Invalid username or password.')
+          ? 'Ongeldige gebruikersnaam of wachtwoord.'
+          : (err.message || 'Ongeldige gebruikersnaam of wachtwoord.');
       }
     }
   }
@@ -272,43 +282,211 @@
     state.currentUser = null;
     applyRolePermissions(null);
     localStorage.removeItem('doc_review_token');
+    clearActiveDocumentState();
     showAuthDialog();
     showToast('Signed out successfully.', 'info');
   }
 
+  function clearActiveDocumentState() {
+    state.currentDoc = null;
+    state.annotations = [];
+    if (state.tocObserver) {
+      state.tocObserver.disconnect();
+      state.tocObserver = null;
+    }
+    if (els.documentContainer) {
+      els.documentContainer.innerHTML = '';
+    }
+    if (els.documentHeaderTitle) {
+      els.documentHeaderTitle.textContent = 'Select a document';
+    }
+    if (els.documentHeaderMeta) {
+      els.documentHeaderMeta.textContent = '';
+      els.documentHeaderMeta.style.display = 'none';
+    }
+    if (els.documentTocNav) {
+      els.documentTocNav.innerHTML = '';
+    }
+    if (els.navDrawerTocSection) {
+      els.navDrawerTocSection.style.display = 'none';
+    }
+    if (window.SelectionManager && typeof window.SelectionManager.hidePill === 'function') {
+      window.SelectionManager.hidePill();
+    }
+    if (els.floatingCommentPill) {
+      els.floatingCommentPill.style.display = 'none';
+    }
+    hideViewPopover();
+    hideInputPopover();
+    if (typeof OverviewRulerManager !== 'undefined' && typeof OverviewRulerManager.clear === 'function') {
+      OverviewRulerManager.clear();
+    }
+  }
+
+  const OverviewRulerManager = (function() {
+    let rulerEl = null;
+    let resizeObserver = null;
+    let clusters = [];
+    let resizeTimer = null;
+
+    function debouncedUpdate() {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(update, 150);
+    }
+
+    function init() {
+      rulerEl = els.overviewRuler || document.getElementById('m3-overview-ruler');
+      if (!rulerEl) return;
+
+      const container = els.documentContainer || document.getElementById('document-content');
+      if (window.ResizeObserver && container) {
+        resizeObserver = new ResizeObserver(function() {
+          update();
+        });
+        resizeObserver.observe(container);
+      }
+      window.addEventListener('resize', debouncedUpdate);
+    }
+
+    function clear() {
+      if (rulerEl) {
+        rulerEl.innerHTML = '';
+      }
+      clusters = [];
+    }
+
+    function update() {
+      if (!rulerEl) {
+        rulerEl = els.overviewRuler || document.getElementById('m3-overview-ruler');
+      }
+      if (!rulerEl) return;
+      rulerEl.innerHTML = '';
+      clusters = [];
+
+      const docPane = document.getElementById('document-pane') || rulerEl.parentElement;
+      const contentEl = els.documentContainer || document.getElementById('document-content');
+      if (!docPane || !contentEl) return;
+
+      const paneRect = docPane.getBoundingClientRect();
+      const paneHeight = paneRect.height;
+      const scrollHeight = docPane.scrollHeight;
+      if (paneHeight <= 0 || scrollHeight <= 0) return;
+
+      const badges = contentEl.querySelectorAll('.m3-orange-badge');
+      if (!badges || badges.length === 0) return;
+
+      const rawItems = [];
+      badges.forEach(function(badge) {
+        const badgeId = badge.getAttribute('data-badge-id');
+        const ann = (state.annotations || []).find(function(a) { return String(a.id) === String(badgeId); });
+        if (!ann) return;
+
+        const badgeRect = badge.getBoundingClientRect();
+        const relativeTop = badgeRect.top - paneRect.top + docPane.scrollTop;
+        const normalizedY = (relativeTop / scrollHeight) * paneHeight;
+        const clampedY = Math.max(8, Math.min(paneHeight - 14, normalizedY));
+
+        rawItems.push({
+          y: clampedY,
+          ann: ann,
+          badgeEl: badge
+        });
+      });
+
+      rawItems.sort(function(a, b) { return a.y - b.y; });
+
+      rawItems.forEach(function(item) {
+        const lastCluster = clusters[clusters.length - 1];
+        if (lastCluster && Math.abs(lastCluster.y - item.y) <= 8) {
+          lastCluster.items.push(item);
+        } else {
+          clusters.push({
+            y: item.y,
+            items: [item],
+            currentIndex: 0
+          });
+        }
+      });
+
+      clusters.forEach(function(cluster) {
+        const marker = document.createElement('div');
+        marker.className = 'm3-overview-ruler__marker';
+        marker.style.top = `${Math.round(cluster.y)}px`;
+
+        if (cluster.items.length > 1) {
+          marker.classList.add('m3-overview-ruler__marker--clustered');
+          marker.setAttribute('title', `${cluster.items.length} opmerkingen`);
+        } else {
+          const author = (cluster.items[0].ann.author && cluster.items[0].ann.author.full_name) || 'Opmerking';
+          marker.setAttribute('title', author);
+        }
+
+        marker.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const target = cluster.items[cluster.currentIndex % cluster.items.length];
+          cluster.currentIndex++;
+
+          target.badgeEl.scrollIntoView({ behavior: 'auto', block: 'center' });
+
+          target.badgeEl.classList.remove('m3-annotation-highlight--pulse');
+          void target.badgeEl.offsetWidth;
+          target.badgeEl.classList.add('m3-annotation-highlight--pulse');
+
+          openCommentThread(target.ann, target.badgeEl);
+        });
+
+        rulerEl.appendChild(marker);
+      });
+    }
+
+    return {
+      init: init,
+      clear: clear,
+      update: update
+    };
+  })();
+  window.OverviewRulerManager = OverviewRulerManager;
+
   /**
    * Document Navigation & Content Rendering
    */
-  function updateDocumentHeaderMeta() {
-    if (!state.currentDoc || !els.documentHeaderMeta) return;
-    const doc = state.currentDoc;
-    const commentTotal = state.annotations.reduce(function (acc, a) {
-      if (a.is_deleted) return acc;
-      const active = a.comments
-        ? a.comments.filter(function (c) { return !c.is_deleted; }).length
-        : 1;
-      return acc + active;
-    }, 0);
-    const activeAnnotationsCount = state.annotations.filter(function (a) {
+  function updateDocumentHeaderMeta(docParam) {
+    const doc = docParam || state.currentDoc;
+    if (!doc || !els.documentHeaderMeta) return;
+
+    const parts = [];
+    if (doc.filename) {
+      parts.push(`<span class="m3-document-meta-chip m3-document-meta-chip--filename">${MarkdownRenderer.escapeHtml(doc.filename)}</span>`);
+    }
+    const annCount = Array.isArray(state.annotations) ? state.annotations.filter(function (a) {
       if (a.is_deleted) return false;
       if (a.comments && a.comments.length > 0) {
         return a.comments.some(function (c) { return !c.is_deleted; });
       }
       return true;
-    }).length;
+    }).length : (doc.annotations_count || 0);
+
+    const commentTotal = Array.isArray(state.annotations) ? state.annotations.reduce(function (acc, a) {
+      if (a.is_deleted) return acc;
+      const active = a.comments
+        ? a.comments.filter(function (c) { return !c.is_deleted; }).length
+        : 1;
+      return acc + active;
+    }, 0) : 0;
 
     const wordCount = (doc.content || '').trim().split(/\s+/).filter(Boolean).length;
     const readingTime = Math.max(1, Math.round(wordCount / 190));
 
-    els.documentHeaderMeta.innerHTML = `
-      <span>Format: <strong>${doc.format ? doc.format.toUpperCase() : 'TEXT'}</strong></span>
-      <span>&bull;</span>
-      <span>Leestijd: <strong>~${readingTime} min</strong> (${wordCount.toLocaleString()} woorden)</span>
-      <span>&bull;</span>
-      <span>Annotations: <strong>${activeAnnotationsCount}</strong></span>
-      <span>&bull;</span>
-      <span>Total Comments: <strong>${commentTotal}</strong></span>
-    `;
+    parts.push(`<span class="m3-document-meta-chip">Leestijd: ~${readingTime} min (${wordCount.toLocaleString()} woorden)</span>`);
+    parts.push(`<span class="m3-document-meta-chip">${annCount} ${annCount === 1 ? 'annotatie' : 'annotaties'} (${commentTotal} ${commentTotal === 1 ? 'opmerking' : 'opmerkingen'})</span>`);
+
+    if (doc.updated_at) {
+      const d = new Date(doc.updated_at);
+      parts.push(`<span class="m3-document-meta-chip">${d.toLocaleDateString()}</span>`);
+    }
+
+    els.documentHeaderMeta.innerHTML = parts.join(' ');
+    els.documentHeaderMeta.style.display = 'flex';
   }
 
   async function refreshDocumentList() {
@@ -448,14 +626,13 @@
 
       // If the deleted document was currently active, fall back to another or empty state
       if (state.currentDoc && state.currentDoc.id === docToDelete.id) {
+        clearActiveDocumentState();
         if (state.documents.length > 0) {
           await selectDocument(state.documents[0].id);
         } else {
-          state.currentDoc = null;
-          state.annotations = [];
           if (els.documentHeaderTitle) els.documentHeaderTitle.textContent = 'Geen documenten';
           if (els.documentHeaderMeta) els.documentHeaderMeta.innerHTML = '';
-          els.documentContainer.innerHTML = '<p class="m3-typography-body-medium" style="color: var(--md-sys-color-outline);">Geen documenten in bibliotheek. Sleep bestanden (.md, .txt) hierheen om te beginnen.</p>';
+          els.documentContainer.innerHTML = '<p class="m3-typography-body-medium" style="color: var(--md-sys-color-outline);">Geen documenten in bibliotheek. Kies een map om te beginnen.</p>';
         }
       }
     } catch (err) {
@@ -555,11 +732,10 @@
       if (state.currentDoc) {
         const stillExists = state.documents.some(function (d) { return d.id === state.currentDoc.id; });
         if (!stillExists) {
+          clearActiveDocumentState();
           if (state.documents.length > 0) {
             await selectDocument(state.documents[0].id);
           } else {
-            state.currentDoc = null;
-            state.annotations = [];
             if (els.documentHeaderTitle) els.documentHeaderTitle.textContent = 'Geen documenten';
             if (els.documentHeaderMeta) els.documentHeaderMeta.innerHTML = '';
             els.documentContainer.innerHTML = '<p class="m3-typography-body-medium" style="color: var(--md-sys-color-outline);">Geen documenten in bibliotheek. Plaats bestanden in de lokale map om te beginnen.</p>';
@@ -617,6 +793,7 @@
 
   async function selectDocument(docId, maintainScroll = false) {
     try {
+      clearActiveDocumentState();
       const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
       const doc = await api(`/api/documents/${docId}`);
       const annotations = await api(`/api/documents/${docId}/annotations`);
@@ -628,7 +805,7 @@
       if (els.documentHeaderTitle) {
         els.documentHeaderTitle.textContent = doc.filename;
       }
-      updateDocumentHeaderMeta();
+      updateDocumentHeaderMeta(doc);
 
       // Render document content via safe pipeline
       const renderedHtml = MarkdownRenderer.renderDocument(doc.content, doc.filename);
@@ -651,6 +828,8 @@
       // Re-highlight active document item in drawer
       renderDocumentDrawerList();
 
+      OverviewRulerManager.update();
+
       // Scroll document reader only when explicitly not maintaining scroll
       if (maintainScroll) {
         window.scrollTo({ top: currentScrollY, behavior: 'instant' });
@@ -658,6 +837,8 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (err) {
+      console.error('Failed to load document content:', err);
+      clearActiveDocumentState();
       showToast('Error loading document: ' + err.message, 'error');
     }
   }
@@ -1003,6 +1184,7 @@
           );
         }
         updateDocumentHeaderMeta();
+        OverviewRulerManager.update();
         await refreshDocumentList();
         window.scrollTo({ top: currentScrollY, behavior: 'instant' });
       }
@@ -1062,6 +1244,7 @@
         handleBadgeHover
       );
       updateDocumentHeaderMeta();
+      OverviewRulerManager.update();
       await refreshDocumentList();
       window.scrollTo({ top: currentScrollY, behavior: 'instant' });
     }
@@ -1377,6 +1560,7 @@
   // Application Entry Point
   document.addEventListener('DOMContentLoaded', function () {
     initListeners();
+    OverviewRulerManager.init();
     applyRolePermissions(null);
     checkAuthSession();
   });

@@ -1608,13 +1608,121 @@ html, body {
 /* =============================================================================
    Print Stylesheet: Crisp Clean Document Export
    ============================================================================= */
+/* ==========================================================================
+   Overview Ruler (Scrollbar Comment Markers) & Document Meta Tokens
+   ========================================================================== */
+
+.document-pane {
+  position: relative;
+}
+
+.m3-overview-ruler {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 18px;
+  width: 14px;
+  pointer-events: none;
+  z-index: 40;
+}
+
+.m3-overview-ruler__marker {
+  position: absolute;
+  right: 0;
+  width: 10px;
+  height: 6px;
+  border-radius: 3px;
+  background-color: #FF6D00;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  transform-origin: right center;
+}
+
+.m3-overview-ruler__marker:hover {
+  transform: scale(1.4);
+  background-color: #E65100;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.m3-overview-ruler__marker::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  left: -10px;
+  right: 0px;
+}
+
+.m3-overview-ruler__marker--clustered::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background-color: #FFFFFF;
+}
+
+/* Pulse highlight for focused annotation */
+@keyframes m3-annotation-pulse {
+  0% {
+    outline-color: rgba(255, 109, 0, 0.9);
+    background-color: rgba(255, 109, 0, 0.45);
+  }
+  50% {
+    outline-color: rgba(255, 109, 0, 0.3);
+    background-color: rgba(255, 109, 0, 0.15);
+  }
+  100% {
+    outline-color: rgba(255, 109, 0, 0.9);
+    background-color: rgba(255, 109, 0, 0.35);
+  }
+}
+
+.m3-annotation-highlight--pulse {
+  outline: 2px solid #FF6D00 !important;
+  outline-offset: 2px !important;
+  animation: m3-annotation-pulse 0.6s ease-in-out 3 !important;
+}
+
+/* Document Meta Filename Chip Tokens */
+.m3-document-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  background-color: var(--md-sys-color-surface-variant, #E7E0EC);
+  color: var(--md-sys-color-on-surface-variant, #49454F);
+}
+
+.m3-document-meta-chip--filename {
+  background-color: var(--md-sys-color-secondary-container, #E8DEF8);
+  color: var(--md-sys-color-on-secondary-container, #1D192B);
+  font-family: var(--md-sys-typescale-body-medium-font, monospace);
+  font-weight: 600;
+}
+
+/* Mobile Responsive Invariant */
+@media (max-width: 840px) {
+  .m3-overview-ruler {
+    display: none !important;
+  }
+}
+
 @media print {
   .nav-drawer,
   .document-header__actions,
   .floating-comment-pill,
   .m3-comment-popover,
   .m3-code-copy-btn,
-  .m3-orange-badge {
+  .m3-orange-badge,
+  .m3-overview-ruler {
     display: none !important;
   }
   .document-container,
@@ -1628,3 +1736,4 @@ html, body {
     margin: 0 !important;
   }
 }
+

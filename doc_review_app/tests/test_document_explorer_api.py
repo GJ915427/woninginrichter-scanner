@@ -302,3 +302,43 @@ class TestDocumentExplorerAPI:
         md_content = md_p.read_text(encoding="utf-8")
         assert "Belangrijke review opmerking over de titel" in md_content
         assert "# Archival Test Document" in md_content
+
+    def test_overview_ruler_and_toc_sanitation_contract(self, client: TestClient):
+        """Verify DOM elements, CSS anti-hijacking invariants, and JS lifecycle cleanup."""
+        # 1. HTML DOM verankering
+        res_html = client.get("/")
+        assert res_html.status_code == 200
+        html = res_html.text
+        assert 'id="m3-overview-ruler"' in html
+        assert 'class="m3-overview-ruler"' in html
+        assert 'data-doc-review-ignore="true"' in html
+        assert 'id="btn-export-ast-feedback"' in html
+
+        # 2. CSS Invarianten, Anti-Hijacking & Print Uitsluiting
+        res_css = client.get("/static/css/m3_theme.css")
+        assert res_css.status_code == 200
+        css = res_css.text
+        assert ".m3-overview-ruler" in css
+        assert "right: 18px;" in css
+        assert ".m3-overview-ruler__marker" in css
+        assert "transform-origin: right center;" in css
+        assert ".m3-overview-ruler__marker::before" in css
+        assert "left: -10px;" in css
+        assert "right: 0px;" in css
+        assert "@media (max-width: 840px)" in css
+        assert "@media print" in css
+        assert ".m3-annotation-highlight--pulse" in css
+        assert ".m3-document-meta-chip--filename" in css
+
+        # 3. JS Architecture, Scoping & Lifecycle Sanitisatie
+        res_js = client.get("/static/js/app.js")
+        assert res_js.status_code == 200
+        js = res_js.text
+        assert "function clearActiveDocumentState()" in js
+        assert "const OverviewRulerManager" in js
+        assert "SelectionManager.hidePill" in js
+        assert "OverviewRulerManager.clear" in js
+        assert "OverviewRulerManager.update" in js
+        assert "updateDocumentHeaderMeta" in js
+        assert "MarkdownRenderer.escapeHtml" in js
+

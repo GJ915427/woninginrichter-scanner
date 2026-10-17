@@ -90,6 +90,13 @@ def _seed_default_users(db: sqlite3.Connection) -> None:
             "initials": "CH",
             "email": "carlo.heinemans@groterinwonen.nl",
         },
+        {
+            "username": "kelly.schreurs",
+            "password": "KleurAdvies&82",
+            "full_name": "Kelly Schreurs",
+            "initials": "KS",
+            "email": "kelly.schreurs@groterinwonen.nl",
+        },
     ]
     for reviewer in seed_reviewers:
         existing_rev = user_service.get_user_by_username(db, reviewer["username"])
