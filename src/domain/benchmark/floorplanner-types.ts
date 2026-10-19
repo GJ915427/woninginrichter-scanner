@@ -75,8 +75,7 @@ export type TypologyCategory130 =
   | 'twee_onder_een_kap'
   | 'vrijstaand'
   | 'appartement'
-  | 'samengesteld'
-  | 'samengesteld_schuin';
+  | 'samengesteld';
 
 export interface BenchmarkRecord130 {
   id: string; // e.g. "BM-FP-001"

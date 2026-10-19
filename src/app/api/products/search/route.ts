@@ -9,6 +9,22 @@ import {
   LogicTradePagination
 } from '@/types/product';
 import { isSupabaseConfigured, getSyncState, searchProductsFts } from '@/lib/supabase/client';
+import { resolveModelCode, resolveFeatureIntent } from '@/lib/logictrade/model-codes';
+import {
+  getDynamicAttributeRegistry,
+  evaluateArticleVennMatch,
+  resolveEffectiveProductCategory
+} from '@/domain/search/dynamic-attribute-registry';
+import { determineProductCategory } from '@/domain/configurator/conclaaf-rules-engine';
+
+const KNOWN_NON_SUPPLIER_TOKENS = new Set([
+  'duette', 'duettes', 'shades', 'shade', 'jaloezie', 'jaloezieen',
+  'rolgordijn', 'rolgordijnen', 'gordijn', 'gordijnen', 'plisse',
+  'tapijt', 'tapijten', 'vloer', 'vloerbedekking', 'pvc', 'vinyl',
+  'laminaat', 'parket', 'raam', 'raamdecoratie', 'smartcord',
+  'powerview', 'trufit', 'klemsteun', 'klemsteunen', 'antraciet',
+  'au20', 'ab21', 'db42', 'vs2'
+]);
 
 const DEFAULT_API_KEY = '621dcae6617349d0896d3ca9ba96d4b6';
 const DEFAULT_BASE_URL = 'https://api.logictrade.cloud/rest/v1';
@@ -153,7 +169,7 @@ export function parseMultiTokenQuery(query: string, suppliers: SupplierBasic[]):
   if (normTokens.length > 1) {
     for (let i = 0; i < normTokens.length; i++) {
       const t = normTokens[i];
-      if (t.length < 3) continue;
+      if (t.length < 3 || KNOWN_NON_SUPPLIER_TOKENS.has(t)) continue;
 
       for (const s of suppliers) {
         const sNorm = normalizeForComparison(s.companyName);
@@ -167,11 +183,13 @@ export function parseMultiTokenQuery(query: string, suppliers: SupplierBasic[]):
     }
   } else if (normTokens.length === 1 && normTokens[0].length >= 3) {
     const t = normTokens[0];
-    for (const s of suppliers) {
-      const sNorm = normalizeForComparison(s.companyName);
-      if (sNorm.startsWith(t) || (t.length >= 4 && sNorm.includes(t))) {
-        matchedSupplier = s;
-        return { matchedSupplier: s, searchTerm: query, productTokens: [] };
+    if (!KNOWN_NON_SUPPLIER_TOKENS.has(t)) {
+      for (const s of suppliers) {
+        const sNorm = normalizeForComparison(s.companyName);
+        if (sNorm.startsWith(t) || (t.length >= 4 && sNorm.includes(t))) {
+          matchedSupplier = s;
+          return { matchedSupplier: s, searchTerm: query, productTokens: [] };
+        }
       }
     }
   }
@@ -184,6 +202,41 @@ export function parseMultiTokenQuery(query: string, suppliers: SupplierBasic[]):
     searchTerm,
     productTokens
   };
+}
+
+export const DISCONTINUED_REGEX = /(?:uitlopende?\s+collectie|\buitlopend\b)/i;
+
+/**
+ * Berekent de deterministische relevantie-tier voor een artikel conform de Diamond-Grade Relevance Pyramid.
+ * Tier 1: Configureerbare Hoofdproducten (+100)
+ * Tier 2: Specifieke Productvarianten (Dakraam, Combi) (+50)
+ * Tier 3: Accessoires & Onderdelen (Bedieningsstang, Klemsteun, Onderdeel) (+10)
+ * Tier 4: Monsters, Stalen & Collectieboeken (-80)
+ * Tier 5: Uitlopende collecties (-200)
+ */
+export function calculateProductRelevanceTier(
+  name: string,
+  description: string = '',
+  isDiscontinued: boolean = false
+): number {
+  if (isDiscontinued || DISCONTINUED_REGEX.test(name) || DISCONTINUED_REGEX.test(description)) {
+    return -200; // Tier 5: Uitlopende collecties altijd onderaan
+  }
+  const lowerName = name.toLowerCase();
+  // Tier 4: Monsters, Stalen, Collectieboeken (-80)
+  if (/\b(?:staal|stalen|service|monster|collectieboek|prijsklasse)\b/i.test(lowerName)) {
+    return -80;
+  }
+  // Tier 3: Accessoires & Onderdelen (+10)
+  if (/\b(?:bedieningsstang|stang|stangen|klemsteun|klemsteunen|steun|steunen|onderdeel|onderdelen|reparatieset)\b/i.test(lowerName)) {
+    return 10;
+  }
+  // Tier 2: Specifieke Productvarianten (+50)
+  if (/\b(?:dakraam|combi)\b/i.test(lowerName)) {
+    return 50;
+  }
+  // Tier 1: Configureerbare Hoofdproducten (+100)
+  return 100;
 }
 
 /**
@@ -201,6 +254,11 @@ export function normalizeProduct(raw: LogicTradeProductRaw): SearchResultItem {
 
   const supplierId = raw.supplier?.supplier?.id ?? null;
 
+  const isDiscontinued = Boolean(
+    (raw.description && DISCONTINUED_REGEX.test(raw.description)) ||
+    (raw.name && DISCONTINUED_REGEX.test(raw.name))
+  );
+
   return {
     id: raw.id,
     code: raw.code || '',
@@ -211,7 +269,8 @@ export function normalizeProduct(raw: LogicTradeProductRaw): SearchResultItem {
     supplierName,
     supplierId,
     groups: groupDescriptions,
-    vatCode: raw.vat?.description || 'BTW Hoog'
+    vatCode: raw.vat?.description || 'BTW Hoog',
+    ...(isDiscontinued ? { isDiscontinued: true } : {})
   };
 }
 
@@ -244,7 +303,8 @@ async function fetchFromLogicTrade(
   const response = await fetch(url, {
     method: 'GET',
     headers,
-    cache: 'no-store'
+    cache: 'no-store',
+    signal: AbortSignal.timeout(5000)
   });
 
   if (!response.ok) {
@@ -291,6 +351,22 @@ export async function GET(request: Request): Promise<NextResponse<SearchApiRespo
     const baseUrl = (process.env.LOGICTRADE_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
     const adminGuid = process.env.LOGICTRADE_ADMIN_GUID;
 
+    // Feature & Intent herkenning via Dynamic Attribute Graph SSOT
+    const attributeRegistry = getDynamicAttributeRegistry();
+    const attributeMatch = attributeRegistry.resolveIntent(cleanQuery);
+    const featureIntent = resolveFeatureIntent(cleanQuery);
+    const modelResolution = resolveModelCode(cleanQuery);
+
+    const categoryFilter = attributeMatch.hasMatch ? attributeMatch.targetCategory : undefined;
+    let effectiveSearchQuery = cleanQuery;
+    if (featureIntent.hasIntent && featureIntent.cleanQuery) {
+      effectiveSearchQuery = featureIntent.cleanQuery;
+    } else if (modelResolution && modelResolution.cleanedUserQuery) {
+      effectiveSearchQuery = modelResolution.cleanedUserQuery;
+    } else if (attributeMatch.hasMatch) {
+      effectiveSearchQuery = attributeMatch.residualQuery || '';
+    }
+
     // 1. Probeer primair de snelle Supabase Full-Text Search index (sub-10ms)
     if (isSupabaseConfigured()) {
       try {
@@ -298,20 +374,94 @@ export async function GET(request: Request): Promise<NextResponse<SearchApiRespo
         const isCatalogInitialized = (syncState?.total_synced ?? 0) > 0;
 
         if (isCatalogInitialized) {
-          const { rows, totalCount } = await searchProductsFts(cleanQuery, 20, 0);
+          const { rows, totalCount } = await searchProductsFts(cleanQuery, 20, 0, categoryFilter);
 
-          const items: SearchResultItem[] = rows.map((r) => ({
-            id: r.id,
-            code: r.code,
-            name: r.name,
-            salesGroup: r.sales_group,
-            supplierName: r.supplier_name,
-            supplierId: r.supplier_id,
-            groups: r.groups && r.groups.length > 0 ? r.groups : (r.group_name ? [r.group_name] : []),
-            salesPrice: Number(r.sales_price) || 0,
-            vatCode: r.vat_code,
-            unit: r.unit
-          }));
+          const mappedItems: SearchResultItem[] = rows.map((r) => {
+            const isDiscontinued = Boolean(
+              (r as any).is_discontinued ||
+              (r.description && DISCONTINUED_REGEX.test(r.description)) ||
+              (r.name && DISCONTINUED_REGEX.test(r.name))
+            );
+
+            // Dynamische preconfiguratie en feature badges
+            const preconfiguration: Record<string, any> = {
+              ...(featureIntent.hasIntent ? featureIntent.preconfiguration : {})
+            };
+            if (attributeMatch.hasMatch && attributeMatch.stepId && attributeMatch.value) {
+              if (!preconfiguration[attributeMatch.stepId]) {
+                preconfiguration[attributeMatch.stepId] = attributeMatch.value;
+              }
+            }
+
+            const featureBadgesSet = new Set<string>();
+            if (featureIntent.hasIntent && featureIntent.featureBadges) {
+              for (const b of featureIntent.featureBadges) {
+                featureBadgesSet.add(b);
+              }
+            }
+            if (attributeMatch.hasMatch && attributeMatch.badgeLabel) {
+              featureBadgesSet.add(attributeMatch.badgeLabel);
+            }
+            const featureBadges = Array.from(featureBadgesSet);
+
+            return {
+              id: r.id,
+              code: r.code,
+              name: r.name,
+              salesGroup: r.sales_group,
+              supplierName: r.supplier_name,
+              supplierId: r.supplier_id,
+              groups: r.groups && r.groups.length > 0 ? r.groups : (r.group_name ? [r.group_name] : []),
+              salesPrice: Number(r.sales_price) || 0,
+              vatCode: r.vat_code,
+              unit: r.unit,
+              modelPreset: modelResolution?.preset || featureIntent.preconfiguration.modelPreset,
+              ...(featureBadges.length > 0 ? { featureBadges } : {}),
+              ...(Object.keys(preconfiguration).length > 0 ? { preconfiguration } : {}),
+              ...(isDiscontinued ? { isDiscontinued: true } : {})
+            };
+          });
+
+          // Multi-Facet Venn Diagram Post-Filter & Preselectie Merge
+          const items: SearchResultItem[] = [];
+          for (const item of mappedItems) {
+            const venn = evaluateArticleVennMatch(item, cleanQuery);
+            if (!venn.matched) {
+              continue;
+            }
+            const mergedPreconf = {
+              ...(item.preconfiguration || {}),
+              ...(venn.preconfiguration || {})
+            };
+            const mergedBadges = Array.from(
+              new Set([...(item.featureBadges || []), ...(venn.featureBadges || [])])
+            );
+            const effCat = resolveEffectiveProductCategory(item);
+            let finalSalesGroup = item.salesGroup;
+            if (determineProductCategory(item) !== effCat) {
+              if (effCat === 'vloeren') finalSalesGroup = 'Vloerbedekking';
+              else if (effCat === 'gordijnen') finalSalesGroup = 'Gordijnen';
+              else if (effCat === 'raamdecoratie') finalSalesGroup = 'Raamdecoratie';
+            }
+
+            items.push({
+              ...item,
+              salesGroup: finalSalesGroup,
+              ...(Object.keys(mergedPreconf).length > 0 ? { preconfiguration: mergedPreconf } : {}),
+              ...(mergedBadges.length > 0 ? { featureBadges: mergedBadges } : {}),
+              modelPreset: (mergedPreconf as any).modelPreset || item.modelPreset
+            });
+          }
+
+          // Stabiele prioriteitssortering conform Tiered Relevance Pyramid
+          items.sort((a, b) => {
+            const aTier = calculateProductRelevanceTier(a.name, '', Boolean(a.isDiscontinued));
+            const bTier = calculateProductRelevanceTier(b.name, '', Boolean(b.isDiscontinued));
+            if (aTier !== bTier) return bTier - aTier; // Hoogste tier eerst
+            return 0; // Behoudt FTS/RPC relevantie rangschikking binnen dezelfde tier
+          });
+
+          const adjustedTotal = items.length < mappedItems.length ? items.length : totalCount;
 
           return NextResponse.json({
             success: true,
@@ -321,9 +471,9 @@ export async function GET(request: Request): Promise<NextResponse<SearchApiRespo
             pagination: {
               page: 1,
               pageSize: 20,
-              totalResults: totalCount,
-              totalPages: Math.max(1, Math.ceil(totalCount / 20)),
-              hasMore: totalCount > 20
+              totalResults: adjustedTotal,
+              totalPages: Math.max(1, Math.ceil(adjustedTotal / 20)),
+              hasMore: adjustedTotal > 20
             }
           });
         }
@@ -335,16 +485,17 @@ export async function GET(request: Request): Promise<NextResponse<SearchApiRespo
 
     // 2. Fallback: Live LogicTrade API bevraging
     const suppliers = await getSuppliersCache();
-    const { matchedSupplier, searchTerm, productTokens } = parseMultiTokenQuery(cleanQuery, suppliers);
+    const queryForFallback = cleanQuery;
+    const { matchedSupplier, searchTerm, productTokens } = parseMultiTokenQuery(queryForFallback, suppliers);
 
     // Parallel bevragen op artikelcode, omschrijving en eventuele leveranciersterm
     const requests = [
-      fetchFromLogicTrade('code', cleanQuery, apiKey, baseUrl, adminGuid),
+      fetchFromLogicTrade('code', queryForFallback, apiKey, baseUrl, adminGuid),
       fetchFromLogicTrade('name', searchTerm, apiKey, baseUrl, adminGuid)
     ];
 
-    if (searchTerm !== cleanQuery) {
-      requests.push(fetchFromLogicTrade('name', cleanQuery, apiKey, baseUrl, adminGuid));
+    if (searchTerm !== queryForFallback) {
+      requests.push(fetchFromLogicTrade('name', queryForFallback, apiKey, baseUrl, adminGuid));
     }
 
     const results = await Promise.allSettled(requests);
@@ -380,7 +531,7 @@ export async function GET(request: Request): Promise<NextResponse<SearchApiRespo
           query: cleanQuery,
           count: 0,
           items: [],
-          error: 'Fout bij het raadplegen van LogicTrade Cloud API.'
+          error: 'Catalogus tijdelijk niet bereikbaar. Probeer het over enkele ogenblikken opnieuw.'
         },
         { status: 502 }
       );
@@ -408,7 +559,9 @@ export async function GET(request: Request): Promise<NextResponse<SearchApiRespo
 
     const normalizedCandidates = Array.from(uniqueMap.values()).map(normalizeProduct);
     const sTarget = matchedSupplier ? normalizeForComparison(matchedSupplier.companyName) : '';
-    const normProductTokens = productTokens.map(normalizeForComparison).filter(t => t.length >= 2);
+    const normProductTokens = productTokens
+      .map(normalizeForComparison)
+      .filter(t => t.length >= 2 && !KNOWN_NON_SUPPLIER_TOKENS.has(t));
 
     // Strikte Conjunctieve (AND) Filterpoort
     const conjunctiveItems = normalizedCandidates.filter((item) => {
@@ -428,17 +581,10 @@ export async function GET(request: Request): Promise<NextResponse<SearchApiRespo
         }
       }
 
-      // 2. Harde token-dekking: alle overige productTokens moeten voorkomen (inclusief supplierName!)
-      if (normProductTokens.length > 0) {
-        const itemContext = normalizeForComparison(
-          `${item.code} ${item.name} ${item.salesGroup} ${item.supplierName} ${item.groups.join(' ')}`
-        );
-
-        for (const token of normProductTokens) {
-          if (!itemContext.includes(token)) {
-            return false;
-          }
-        }
+      // 2. Universele Multi-Facet Venn Diagram Match
+      const venn = evaluateArticleVennMatch(item, cleanQuery);
+      if (!venn.matched) {
+        return false;
       }
 
       return true;
@@ -450,6 +596,11 @@ export async function GET(request: Request): Promise<NextResponse<SearchApiRespo
 
     const sortedItems = conjunctiveItems
       .sort((a, b) => {
+        // Prioriteit Tier: Hoofdproducten (+100) > Varianten (+50) > Accessoires (+10) > Stalen (-80) > Uitlopend (-200)
+        const aTier = calculateProductRelevanceTier(a.name, '', Boolean(a.isDiscontinued));
+        const bTier = calculateProductRelevanceTier(b.name, '', Boolean(b.isDiscontinued));
+        if (aTier !== bTier) return bTier - aTier;
+
         const aCodeExact = normalizeForComparison(a.code) === normTarget;
         const bCodeExact = normalizeForComparison(b.code) === normTarget;
         if (aCodeExact && !bCodeExact) return -1;
@@ -482,11 +633,62 @@ export async function GET(request: Request): Promise<NextResponse<SearchApiRespo
       }
     }
 
+    const finalItems = sortedItems.map((item) => {
+      const venn = evaluateArticleVennMatch(item, cleanQuery);
+      const preconfiguration: Record<string, any> = {
+        ...(featureIntent.hasIntent ? featureIntent.preconfiguration : {}),
+        ...(venn.preconfiguration || {})
+      };
+      if (attributeMatch.hasMatch && attributeMatch.stepId && attributeMatch.value) {
+        if (!preconfiguration[attributeMatch.stepId]) {
+          preconfiguration[attributeMatch.stepId] = attributeMatch.value;
+        }
+      }
+
+      const featureBadgesSet = new Set<string>();
+      if (featureIntent.hasIntent && featureIntent.featureBadges) {
+        for (const b of featureIntent.featureBadges) {
+          featureBadgesSet.add(b);
+        }
+      }
+      if (attributeMatch.hasMatch && attributeMatch.badgeLabel) {
+        featureBadgesSet.add(attributeMatch.badgeLabel);
+      }
+      if (venn.featureBadges) {
+        for (const b of venn.featureBadges) {
+          featureBadgesSet.add(b);
+        }
+      }
+      const featureBadges = Array.from(featureBadgesSet);
+
+      const modelPreset =
+        (preconfiguration as any)?.modelPreset ||
+        featureIntent.preconfiguration?.modelPreset ||
+        item.modelPreset ||
+        modelResolution?.preset;
+
+      const effCat = resolveEffectiveProductCategory(item);
+      let finalSalesGroup = item.salesGroup;
+      if (determineProductCategory(item) !== effCat) {
+        if (effCat === 'vloeren') finalSalesGroup = 'Vloerbedekking';
+        else if (effCat === 'gordijnen') finalSalesGroup = 'Gordijnen';
+        else if (effCat === 'raamdecoratie') finalSalesGroup = 'Raamdecoratie';
+      }
+
+      return {
+        ...item,
+        salesGroup: finalSalesGroup,
+        ...(featureBadges.length > 0 ? { featureBadges } : {}),
+        ...(Object.keys(preconfiguration).length > 0 ? { preconfiguration } : {}),
+        ...(modelPreset ? { modelPreset } : {})
+      };
+    });
+
     return NextResponse.json({
       success: true,
       query: cleanQuery,
-      count: sortedItems.length,
-      items: sortedItems,
+      count: finalItems.length,
+      items: finalItems,
       pagination: {
         page: 1,
         pageSize: 20,

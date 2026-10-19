@@ -101,6 +101,40 @@ export interface SupplierBasic {
   companyName: string;
 }
 
+export interface ModelPreset {
+  code: string;
+  name: string;
+  productFamily: string;
+  vorm: string;
+  bediening: string;
+  montage?: string;
+  surchargeEur?: number;
+}
+
+export interface ProductPreconfiguration {
+  montage?: 'STANDAARD' | 'MONTAGE_TRUFIT' | 'KLEMSTEUNEN' | string;
+  bediening?: 'STANDAARD' | 'HANDGREEP' | 'SMARTCORD' | 'KETTING' | 'POWERVIEW' | string;
+  modelPreset?: ModelPreset;
+  stofFilter?: string;
+  eigenschap?: string;
+  // ConclaafRulesEngine SSOT Step IDs (Grondwet Laag 1B)
+  VORM?: string;
+  MONTAGE?: string;
+  BEDIENINGS_TYPE?: string;
+  PROFIELKLEUR?: string;
+  VOEDINGSTYPE?: string;
+  VOEDINGSZIJDE?: string;
+  BEDIENINGSZIJDE?: string;
+  STOF_KLEUR?: string;
+  PLOOISOORT?: string;
+  LOODVETER?: string;
+  OPENING?: string;
+  SNIJVERLIES?: string;
+  LEGWYZE?: string;
+  PLINTEN?: string;
+  [key: string]: any;
+}
+
 /**
  * Gestandaardiseerd contract voor de EasyM2M UI
  */
@@ -108,6 +142,7 @@ export interface SearchResultItem {
   id: number;
   code: string;
   name: string;
+  description?: string;
   unit: string;
   salesPrice: number;
   salesGroup: string;
@@ -115,6 +150,10 @@ export interface SearchResultItem {
   supplierId: number | null;
   groups: string[];
   vatCode: string;
+  modelPreset?: ModelPreset;
+  isDiscontinued?: boolean;
+  featureBadges?: string[];
+  preconfiguration?: ProductPreconfiguration;
 }
 
 export interface SearchApiResponse {

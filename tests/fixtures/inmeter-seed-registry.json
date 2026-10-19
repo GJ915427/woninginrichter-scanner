@@ -1,0 +1,1562 @@
+[
+  {
+    "projectId": 21000075,
+    "inmeter": "123meten",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Singel",
+      "houseNumber": "13",
+      "postalCode": "1402NN",
+      "city": "Bussum"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bussum/huis-singel-13/"
+  },
+  {
+    "projectId": 185892688,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Mammoetveld",
+      "houseNumber": "15",
+      "postalCode": "8017MB",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-mammoetveld-15/"
+  },
+  {
+    "projectId": 189829912,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Akkerbergstraat",
+      "houseNumber": "31",
+      "postalCode": "8043XG",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-schermerhornstraat-31/"
+  },
+  {
+    "projectId": 180585856,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Twistvlietpad",
+      "houseNumber": "21",
+      "postalCode": "8043GC",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-twistvlietpad-21/"
+  },
+  {
+    "projectId": 181516339,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Beeldsnijderstraat",
+      "houseNumber": "19",
+      "postalCode": "8043CR",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-beeldsnijderstraat-19/"
+  },
+  {
+    "projectId": 183765289,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Boerendanserdijk",
+      "houseNumber": "75",
+      "postalCode": "8024AG",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-boerendanserdijk-75/"
+  },
+  {
+    "projectId": 184583593,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "samengesteld",
+    "address": {
+      "street": "Van Blanckvoortmarke",
+      "houseNumber": "19",
+      "postalCode": "8016EE",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-menno-van-coehoornsingel-19/"
+  },
+  {
+    "projectId": 184777585,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Slingerlaantje",
+      "houseNumber": "1",
+      "postalCode": "7722RW",
+      "city": "Dalfsen"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/dalfsen/huis-slingerlaantje-1/"
+  },
+  {
+    "projectId": 185209330,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Vechtstraat",
+      "houseNumber": "70A",
+      "postalCode": "8021AZ",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-vechtstraat-70/"
+  },
+  {
+    "projectId": 185712175,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Bitterstraat",
+      "houseNumber": "5",
+      "postalCode": "8011XK",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-bitterstraat-5/"
+  },
+  {
+    "projectId": 187555801,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Regelandisstraat",
+      "houseNumber": "9",
+      "postalCode": "8022BN",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-regelandisstraat-9/"
+  },
+  {
+    "projectId": 187560760,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Gombertstraat",
+      "houseNumber": "302",
+      "postalCode": "8031MJ",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-gombertstraat-302/"
+  },
+  {
+    "projectId": 187656274,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Assendorperdijk",
+      "houseNumber": "102",
+      "postalCode": "8012EJ",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-assendorperdijk-102/"
+  },
+  {
+    "projectId": 189131071,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Prinses Julianastraat",
+      "houseNumber": "34",
+      "postalCode": "8019AW",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-prinses-julianastraat-34/"
+  },
+  {
+    "projectId": 189158947,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Admiraalshof",
+      "houseNumber": "23",
+      "postalCode": "3843HE",
+      "city": "Harderwijk"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/harderwijk/huis-sallandstraat-23/"
+  },
+  {
+    "projectId": 189460129,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Oldeneelallee",
+      "houseNumber": "50",
+      "postalCode": "8014VA",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-oldeneelallee-50/"
+  },
+  {
+    "projectId": 189863218,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Lünenstraat",
+      "houseNumber": "11",
+      "postalCode": "8017KM",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-l-nenstraat-11/"
+  },
+  {
+    "projectId": 187589965,
+    "inmeter": "Door Martijn Makelaardij",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Milhezerweg",
+      "houseNumber": "32",
+      "postalCode": "5752BC",
+      "city": "Deurne"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/deurne/huis-milhezerweg-32/"
+  },
+  {
+    "projectId": 186521791,
+    "inmeter": "Door Martijn Makelaardij",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Vlamoven",
+      "houseNumber": "7",
+      "postalCode": "5753CB",
+      "city": "Deurne"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/deurne/huis-vlamoven-7/"
+  },
+  {
+    "projectId": 189429400,
+    "inmeter": "Door Martijn Makelaardij",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Hazelaar",
+      "houseNumber": "66",
+      "postalCode": "5757CA",
+      "city": "Liessel"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/liessel/huis-hazelaar-66/"
+  },
+  {
+    "projectId": 185713414,
+    "inmeter": "Door Martijn Makelaardij",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Utrechtstraat",
+      "houseNumber": "6",
+      "postalCode": "5751AG",
+      "city": "Deurne"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/deurne/huis-utrechtstraat-6/"
+  },
+  {
+    "projectId": 186294265,
+    "inmeter": "Door Martijn Makelaardij",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Hazelaar",
+      "houseNumber": "88",
+      "postalCode": "5757CD",
+      "city": "Liessel"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/liessel/huis-hazelaar-88/"
+  },
+  {
+    "projectId": 181982662,
+    "inmeter": "Door Martijn Makelaardij",
+    "typology": "appartement",
+    "address": {
+      "street": "Visser",
+      "houseNumber": "11b",
+      "postalCode": "5751BL",
+      "city": "Deurne"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/deurne/huis-visser-11b/"
+  },
+  {
+    "projectId": 186994456,
+    "inmeter": "Door Martijn Makelaardij",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Korhoender",
+      "houseNumber": "57",
+      "postalCode": "5754DE",
+      "city": "Deurne"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/deurne/huis-korhoender-57/"
+  },
+  {
+    "projectId": 190115422,
+    "inmeter": "Door Martijn Makelaardij",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Vecht",
+      "houseNumber": "5",
+      "postalCode": "5751WH",
+      "city": "Deurne"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/deurne/huis-vecht-5/"
+  },
+  {
+    "projectId": 190191589,
+    "inmeter": "HomeShow NVM (#183148)",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "M H Tromplaan",
+      "houseNumber": "29",
+      "postalCode": "2121XD",
+      "city": "Bennebroek"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bennebroek/huis-m-h-tromplaan-29/"
+  },
+  {
+    "projectId": 21000250,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Wim Petersstraat",
+      "houseNumber": "1",
+      "postalCode": "8019BZ",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-wim-petersstraat-1/"
+  },
+  {
+    "projectId": 21000253,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Schuilenburgstraat",
+      "houseNumber": "31",
+      "postalCode": "8043WV",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-schuilenburgstraat-31/"
+  },
+  {
+    "projectId": 21000255,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Van Leeuwenhoeklaan",
+      "houseNumber": "42",
+      "postalCode": "8024DR",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-van-leeuwenhoeklaan-42/"
+  },
+  {
+    "projectId": 21000256,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Herenweg",
+      "houseNumber": "72",
+      "postalCode": "8023DB",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-herenweg-72/"
+  },
+  {
+    "projectId": 21000258,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Weeversstraat",
+      "houseNumber": "37",
+      "postalCode": "8044RT",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-weeversstraat-37/"
+  },
+  {
+    "projectId": 21000260,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Van Leeuwenhoeklaan",
+      "houseNumber": "46",
+      "postalCode": "8024DR",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-van-leeuwenhoeklaan-46/"
+  },
+  {
+    "projectId": 21000263,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Brink",
+      "houseNumber": "6",
+      "postalCode": "8021AP",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-brink-6/"
+  },
+  {
+    "projectId": 21000265,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Bonkenhavestraat",
+      "houseNumber": "208",
+      "postalCode": "8043TD",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-bonkenhavestraat-208/"
+  },
+  {
+    "projectId": 21000266,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Vijfhoek",
+      "houseNumber": "1",
+      "postalCode": "8011NZ",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-vijfhoek-1/"
+  },
+  {
+    "projectId": 21000268,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Boomkensdiep",
+      "houseNumber": "2",
+      "postalCode": "8032XX",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-boomkensdiep-2/"
+  },
+  {
+    "projectId": 21000269,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Nilantsweg",
+      "houseNumber": "43",
+      "postalCode": "8041AP",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-nilantsweg-43/"
+  },
+  {
+    "projectId": 21000272,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Steenboerweg",
+      "houseNumber": "41",
+      "postalCode": "8042AT",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-steenboerweg-41/"
+  },
+  {
+    "projectId": 21000296,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Von Piekartzmarke",
+      "houseNumber": "33",
+      "postalCode": "8016MK",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-von-piekartzmarke-33/"
+  },
+  {
+    "projectId": 21000299,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Veldhoekweg",
+      "houseNumber": "29",
+      "postalCode": "8026PK",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-veldhoekweg-29/"
+  },
+  {
+    "projectId": 21000303,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Waanderskamp",
+      "houseNumber": "13",
+      "postalCode": "7721VC",
+      "city": "Dalfsen"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/dalfsen/huis-waanderskamp-13/"
+  },
+  {
+    "projectId": 21000304,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Lisdodde",
+      "houseNumber": "62",
+      "postalCode": "8043NT",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-lisdodde-62/"
+  },
+  {
+    "projectId": 21000305,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Sterrenkroos",
+      "houseNumber": "155",
+      "postalCode": "8043ND",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-sterrenkroos-155/"
+  },
+  {
+    "projectId": 21000310,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Botlekhof",
+      "houseNumber": "10",
+      "postalCode": "8032CZ",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-botlekhof-10/"
+  },
+  {
+    "projectId": 21000311,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Willem Barentszstraat",
+      "houseNumber": "37",
+      "postalCode": "8023WN",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-willem-barentszstraat-37/"
+  },
+  {
+    "projectId": 21000317,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Korenbloemstraat",
+      "houseNumber": "78",
+      "postalCode": "8013XL",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-korenbloemstraat-78/"
+  },
+  {
+    "projectId": 21000321,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Bosboom Toussaintstraat",
+      "houseNumber": "23",
+      "postalCode": "8023CS",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-bosboom-toussaintstraat-23/"
+  },
+  {
+    "projectId": 21000323,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Vordensebeek",
+      "houseNumber": "112",
+      "postalCode": "8033DH",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-vordensebeek-112/"
+  },
+  {
+    "projectId": 21000325,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Twistvlietpad",
+      "houseNumber": "77",
+      "postalCode": "8043HT",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-twistvlietpad-77/"
+  },
+  {
+    "projectId": 21000328,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Walstraat",
+      "houseNumber": "43",
+      "postalCode": "8011NS",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-walstraat-43/"
+  },
+  {
+    "projectId": 21000332,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Assiesstraat",
+      "houseNumber": "30",
+      "postalCode": "8011XT",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-assiesstraat-30/"
+  },
+  {
+    "projectId": 21000333,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Calsstraat",
+      "houseNumber": "34",
+      "postalCode": "8015BK",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-calsstraat-34/"
+  },
+  {
+    "projectId": 21000334,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "De Ruyterstraat",
+      "houseNumber": "34",
+      "postalCode": "8023TT",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-de-ruyterstraat-34/"
+  },
+  {
+    "projectId": 21000336,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Graspieper",
+      "houseNumber": "48",
+      "postalCode": "8271GW",
+      "city": "IJsselmuiden"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/ijsselmuiden/huis-graspieper-48/"
+  },
+  {
+    "projectId": 21000343,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Eendrachtstraat",
+      "houseNumber": "87",
+      "postalCode": "8012VW",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-eendrachtstraat-87/"
+  },
+  {
+    "projectId": 21000346,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Wolweverstraat",
+      "houseNumber": "28",
+      "postalCode": "8011NW",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-wolweverstraat-28/"
+  },
+  {
+    "projectId": 21000348,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Brunelweg",
+      "houseNumber": "13",
+      "postalCode": "8042GZ",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-brunelweg-13/"
+  },
+  {
+    "projectId": 21000349,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Lynnerkamp",
+      "houseNumber": "15",
+      "postalCode": "8014DC",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-lynnerkamp-15/"
+  },
+  {
+    "projectId": 21000351,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Beukmolen",
+      "houseNumber": "3",
+      "postalCode": "8044TA",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-beukmolen-3/"
+  },
+  {
+    "projectId": 21000356,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Abel Tasmanstraat",
+      "houseNumber": "182",
+      "postalCode": "8023XL",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-abel-tasmanstraat-182/"
+  },
+  {
+    "projectId": 21000358,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Schumannlaan",
+      "houseNumber": "105",
+      "postalCode": "8031EZ",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-schumannlaan-105/"
+  },
+  {
+    "projectId": 21000360,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Mackayware",
+      "houseNumber": "48",
+      "postalCode": "8014RW",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-mackayware-48/"
+  },
+  {
+    "projectId": 21000364,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Abel Tasmanstraat",
+      "houseNumber": "102",
+      "postalCode": "8023XJ",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-abel-tasmanstraat-102/"
+  },
+  {
+    "projectId": 21000372,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Rozenstraat",
+      "houseNumber": "15",
+      "postalCode": "8012DW",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-rozenstraat-15/"
+  },
+  {
+    "projectId": 21000378,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Thomas a Kempisstraat",
+      "houseNumber": "93",
+      "postalCode": "8021BL",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-thomas-a-kempisstraat-93/"
+  },
+  {
+    "projectId": 21000380,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Thomas a Kempisstraat",
+      "houseNumber": "114",
+      "postalCode": "8022AC",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-thomas-a-kempisstraat-114/"
+  },
+  {
+    "projectId": 21000388,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Van Miereveltstraat",
+      "houseNumber": "8",
+      "postalCode": "8021ER",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-van-miereveltstraat-8/"
+  },
+  {
+    "projectId": 21000389,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Pergolesistraat",
+      "houseNumber": "37",
+      "postalCode": "8031VV",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-pergolesistraat-37/"
+  },
+  {
+    "projectId": 21000390,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Snavelzegge",
+      "houseNumber": "3",
+      "postalCode": "8043LG",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-snavelzegge-3/"
+  },
+  {
+    "projectId": 21000396,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Porporastraat",
+      "houseNumber": "102",
+      "postalCode": "8031HS",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-porporastraat-102/"
+  },
+  {
+    "projectId": 21000398,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Hogenkampsweg",
+      "houseNumber": "24",
+      "postalCode": "8022DH",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-hogenkampsweg-24/"
+  },
+  {
+    "projectId": 21000403,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Frankhuisweg",
+      "houseNumber": "5",
+      "postalCode": "8043PA",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-frankhuisweg-5/"
+  },
+  {
+    "projectId": 21000406,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Carry van Bruggenstraat",
+      "houseNumber": "40",
+      "postalCode": "8023CM",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-carry-van-bruggenstraat-40/"
+  },
+  {
+    "projectId": 21000408,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Obrechtstraat",
+      "houseNumber": "289",
+      "postalCode": "8031AT",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-obrechtstraat-289/"
+  },
+  {
+    "projectId": 21000416,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Willemsvaart",
+      "houseNumber": "1-1103",
+      "postalCode": "8019AA",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-willemsvaart-1-1103/"
+  },
+  {
+    "projectId": 21000417,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "appartement",
+    "address": {
+      "street": "Monteverdilaan",
+      "houseNumber": "63",
+      "postalCode": "8031DJ",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-monteverdilaan-63/"
+  },
+  {
+    "projectId": 21000423,
+    "inmeter": "Margadant Makelaardij NVM",
+    "typology": "samengesteld",
+    "address": {
+      "street": "Braillestraat",
+      "houseNumber": "27",
+      "postalCode": "8021CX",
+      "city": "Zwolle"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zwolle/huis-braillestraat-27/"
+  },
+  {
+    "projectId": 21000433,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Balilaan",
+      "houseNumber": "23",
+      "postalCode": "3705XJ",
+      "city": "Zeist"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/zeist/huis-balilaan-23/"
+  },
+  {
+    "projectId": 21000434,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "samengesteld",
+    "address": {
+      "street": "William Boothlaan",
+      "houseNumber": "262",
+      "postalCode": "1185NZ",
+      "city": "Amstelveen"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/amstelveen/huis-william-boothlaan-262/"
+  },
+  {
+    "projectId": 21000440,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Beatrixlaan",
+      "houseNumber": "26",
+      "postalCode": "3721XD",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-beatrixlaan-26gb2/"
+  },
+  {
+    "projectId": 21000442,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Prof. dr. F. Zernikeweg",
+      "houseNumber": "40",
+      "postalCode": "3731KE",
+      "city": "De Bilt"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/de-bilt/huis-prof-dr-f-zernikeweg-40gb1/"
+  },
+  {
+    "projectId": 21000444,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Dr. Julius Röntgenlaan",
+      "houseNumber": "3",
+      "postalCode": "3723LA",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-dr-julius-rontgenlaan-3gb3/"
+  },
+  {
+    "projectId": 21000447,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "samengesteld",
+    "address": {
+      "street": "Geelgorslaan",
+      "houseNumber": "120",
+      "postalCode": "3722VK",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-geelgorslaan-120/"
+  },
+  {
+    "projectId": 21000456,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "samengesteld",
+    "address": {
+      "street": "Kruisbeklaan",
+      "houseNumber": "27",
+      "postalCode": "3722TE",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-kruisbeklaan-27/"
+  },
+  {
+    "projectId": 21000457,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "samengesteld",
+    "address": {
+      "street": "Boogschutterplein",
+      "houseNumber": "35",
+      "postalCode": "3721GT",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-boogschutterplein-35/"
+  },
+  {
+    "projectId": 21000472,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "samengesteld",
+    "address": {
+      "street": "Coornhertstraat",
+      "houseNumber": "24A",
+      "postalCode": "3521XJ",
+      "city": "Utrecht"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/utrecht/huis-coornhertstraat-24a/"
+  },
+  {
+    "projectId": 21000473,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "samengesteld",
+    "address": {
+      "street": "De Hooghlaan",
+      "houseNumber": "2-A01",
+      "postalCode": "3723GS",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-de-hooghlaan-2c20/"
+  },
+  {
+    "projectId": 21000475,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Akker",
+      "houseNumber": "95",
+      "postalCode": "3732XC",
+      "city": "De Bilt"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/de-bilt/huis-akker-95/"
+  },
+  {
+    "projectId": 21000483,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "samengesteld",
+    "address": {
+      "street": "Putterlaan",
+      "houseNumber": "75",
+      "postalCode": "3722WN",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-putterlaan-75/"
+  },
+  {
+    "projectId": 21000484,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "samengesteld",
+    "address": {
+      "street": "Van der Doesstraat",
+      "houseNumber": "13",
+      "postalCode": "2404XJ",
+      "city": "Alphen aan den Rijn"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/alphen-aan-den-rijn/huis-van-der-doesstraat-13/"
+  },
+  {
+    "projectId": 21000490,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Colenso",
+      "houseNumber": "1",
+      "postalCode": "3761GE",
+      "city": "Soest"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/soest/huis-colenso-1/"
+  },
+  {
+    "projectId": 21000493,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Nieuwstraat",
+      "houseNumber": "2",
+      "postalCode": "3732DL",
+      "city": "De Bilt"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/de-bilt/huis-nieuwstraat-2/"
+  },
+  {
+    "projectId": 21000497,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Oude Kerkstraat",
+      "houseNumber": "14C",
+      "postalCode": "3572TJ",
+      "city": "Utrecht"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/utrecht/huis-oude-kerkstraat-14c/"
+  },
+  {
+    "projectId": 21000499,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "tussenwoning",
+    "address": {
+      "street": "Westerkoogstraat",
+      "houseNumber": "19",
+      "postalCode": "1474MH",
+      "city": "Oosthuizen"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/oosthuizen/huis-westerkoogstraat-19/"
+  },
+  {
+    "projectId": 21000500,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Kasteel",
+      "houseNumber": "16",
+      "postalCode": "7981AN",
+      "city": "Diever"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/diever/huis-kasteel-16/"
+  },
+  {
+    "projectId": 21000501,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Abraham Kuyperweg",
+      "houseNumber": "7",
+      "postalCode": "3732BL",
+      "city": "De Bilt"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/de-bilt/huis-abraham-kuyperweg-7/"
+  },
+  {
+    "projectId": 21000508,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Goudriaanstraat",
+      "houseNumber": "22",
+      "postalCode": "1222SG",
+      "city": "Hilversum"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/hilversum/huis-goudriaanstraat-22/"
+  },
+  {
+    "projectId": 21000510,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Vasco da Gamalaan",
+      "houseNumber": "103",
+      "postalCode": "3526ES",
+      "city": "Utrecht"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/utrecht/huis-vasco-da-gamalaan-103/"
+  },
+  {
+    "projectId": 21000525,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Groenlinglaan",
+      "houseNumber": "44",
+      "postalCode": "3722VA",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-groenlinglaan-44/"
+  },
+  {
+    "projectId": 21000544,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Henri Dunantplein",
+      "houseNumber": "56",
+      "postalCode": "3731CM",
+      "city": "De Bilt"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/de-bilt/huis-henri-dunantplein-56/"
+  },
+  {
+    "projectId": 21000548,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Patrijslaan",
+      "houseNumber": "17",
+      "postalCode": "3738GC",
+      "city": "Maartensdijk"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/maartensdijk/huis-patrijslaan-17/"
+  },
+  {
+    "projectId": 21000549,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Tolsteegplantsoen",
+      "houseNumber": "10",
+      "postalCode": "3523AC",
+      "city": "Utrecht"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/utrecht/huis-tolsteegplantsoen-10iii/"
+  },
+  {
+    "projectId": 21000557,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Groenekanseweg",
+      "houseNumber": "84-1",
+      "postalCode": "3732AH",
+      "city": "De Bilt"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/de-bilt/huis-groenekanseweg-84-1/"
+  },
+  {
+    "projectId": 21000564,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Tolsteegplantsoen",
+      "houseNumber": "34-3",
+      "postalCode": "3523AK",
+      "city": "Utrecht"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/utrecht/huis-tolsteegplantsoen-34-3/"
+  },
+  {
+    "projectId": 21000588,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Mgr. Van de Weteringstraat",
+      "houseNumber": "7",
+      "postalCode": "1211GG",
+      "city": "Hilversum"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/hilversum/huis-mgr-van-de-weteringstraat-7/"
+  },
+  {
+    "projectId": 21000593,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Eurusweg",
+      "houseNumber": "3",
+      "postalCode": "3731JT",
+      "city": "De Bilt"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/de-bilt/huis-eurusweg-3/"
+  },
+  {
+    "projectId": 21000600,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Gagellaan",
+      "houseNumber": "31",
+      "postalCode": "3735KP",
+      "city": "Bosch en Duin"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bosch-en-duin/huis-gagellaan-31/"
+  },
+  {
+    "projectId": 21000606,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Patrijslaan",
+      "houseNumber": "1",
+      "postalCode": "3738GC",
+      "city": "Maartensdijk"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/maartensdijk/huis-patrijslaan-1/"
+  },
+  {
+    "projectId": 21000611,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "hoekwoning",
+    "address": {
+      "street": "Atlasvlinder",
+      "houseNumber": "20",
+      "postalCode": "3723TT",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-atlasvlinder-20/"
+  },
+  {
+    "projectId": 21000613,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Bosuillaan",
+      "houseNumber": "75",
+      "postalCode": "3722XE",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-bosuillaan-75/"
+  },
+  {
+    "projectId": 21000628,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Tolakkerweg",
+      "houseNumber": "111",
+      "postalCode": "3739JK",
+      "city": "Hollandsche Rading"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/hollandsche-rading/huis-tolakkerweg-111/"
+  },
+  {
+    "projectId": 21000629,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Mereveldlaan",
+      "houseNumber": "48",
+      "postalCode": "3454CH",
+      "city": "De Meern"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/de-meern/huis-mereveldlaan-48/"
+  },
+  {
+    "projectId": 21000633,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Valklaan",
+      "houseNumber": "8",
+      "postalCode": "3738GG",
+      "city": "Maartensdijk"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/maartensdijk/huis-valklaan-8/"
+  },
+  {
+    "projectId": 21000638,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Emmalaan",
+      "houseNumber": "99",
+      "postalCode": "2405GB",
+      "city": "Alphen aan den Rijn"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/alphen-aan-den-rijn/huis-emmalaan-99/"
+  },
+  {
+    "projectId": 21000645,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Prins Bernhardlaan",
+      "houseNumber": "65",
+      "postalCode": "3738DN",
+      "city": "Maartensdijk"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/maartensdijk/huis-prins-bernhardlaan-65/"
+  },
+  {
+    "projectId": 21000649,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Zwanenlaan",
+      "houseNumber": "9",
+      "postalCode": "3721RD",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-zwanenlaan-9/"
+  },
+  {
+    "projectId": 21000660,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Koekoeklaan",
+      "houseNumber": "12",
+      "postalCode": "3722AN",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-koekoeklaan-12/"
+  },
+  {
+    "projectId": 21000664,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Hessenweg",
+      "houseNumber": "190F",
+      "postalCode": "3731JN",
+      "city": "De Bilt"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/de-bilt/huis-hessenweg-190f/"
+  },
+  {
+    "projectId": 21000666,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Leyenseweg",
+      "houseNumber": "75",
+      "postalCode": "3721BB",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-leyenseweg-75/"
+  },
+  {
+    "projectId": 21000674,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "1e Brandenburgerweg",
+      "houseNumber": "91A",
+      "postalCode": "3721MD",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-1e-brandenburgerweg-91a/"
+  },
+  {
+    "projectId": 21000675,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Putterlaan",
+      "houseNumber": "34",
+      "postalCode": "3722WH",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-putterlaan-34/"
+  },
+  {
+    "projectId": 21000677,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Patrijslaan",
+      "houseNumber": "2",
+      "postalCode": "3738GD",
+      "city": "Maartensdijk"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/maartensdijk/huis-patrijslaan-2/"
+  },
+  {
+    "projectId": 21000682,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "twee_onder_een_kap",
+    "address": {
+      "street": "Oudwijkerveldstraat",
+      "houseNumber": "96",
+      "postalCode": "3581JN",
+      "city": "Utrecht"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/utrecht/huis-oudwijkerveldstraat-96bsa/"
+  },
+  {
+    "projectId": 21000684,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Havikskruid",
+      "houseNumber": "21",
+      "postalCode": "3738TV",
+      "city": "Maartensdijk"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/maartensdijk/huis-havikskruid-21/"
+  },
+  {
+    "projectId": 21000686,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Valklaan",
+      "houseNumber": "34",
+      "postalCode": "3738GH",
+      "city": "Maartensdijk"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/maartensdijk/huis-valklaan-34/"
+  },
+  {
+    "projectId": 21000688,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "De Mamuchetweg",
+      "houseNumber": "3",
+      "postalCode": "3732AK",
+      "city": "De Bilt"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/de-bilt/huis-de-mamuchetweg-3/"
+  },
+  {
+    "projectId": 21000692,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Bromwissel",
+      "houseNumber": "29",
+      "postalCode": "3551WC",
+      "city": "Utrecht"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/utrecht/huis-bromwissel-29/"
+  },
+  {
+    "projectId": 21000698,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Buys Ballotweg",
+      "houseNumber": "62A",
+      "postalCode": "3731VK",
+      "city": "De Bilt"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/de-bilt/huis-buys-ballotweg-62a/"
+  },
+  {
+    "projectId": 21000701,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Bollenhofsestraat",
+      "houseNumber": "96",
+      "postalCode": "3572VR",
+      "city": "Utrecht"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/utrecht/huis-bollenhofsestraat-96/"
+  },
+  {
+    "projectId": 21000707,
+    "inmeter": "Broekman & Calis Makelaars NVM",
+    "typology": "vrijstaand",
+    "address": {
+      "street": "Patrijzenlaan",
+      "houseNumber": "17",
+      "postalCode": "3721DP",
+      "city": "Bilthoven"
+    },
+    "funda_url": "https://www.funda.nl/detail/koop/bilthoven/huis-patrijzenlaan-17/"
+  }
+]

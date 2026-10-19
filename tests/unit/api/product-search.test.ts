@@ -5,7 +5,9 @@ import {
   sanitizeQuery,
   parseMultiTokenQuery,
   getSuppliersCache,
-  resetSuppliersCache
+  resetSuppliersCache,
+  calculateProductRelevanceTier,
+  DISCONTINUED_REGEX
 } from '@/app/api/products/search/route';
 import { LogicTradeProductRaw } from '@/types/product';
 
@@ -363,6 +365,451 @@ describe('BFF Product Search Route API Unit Tests', () => {
       const json = await response.json();
       expect(json.success).toBe(false);
       expect(json.error).toContain('te veel verzoeken');
+    });
+  });
+
+  describe('Uitlopende Collectie Detectie & Sortering (Punten 2.1 & 2.2)', () => {
+    describe('DISCONTINUED_REGEX', () => {
+      it('should match "Uitlopende collectie", "uitlopende collectie", and "Uitlopend"', () => {
+        expect(DISCONTINUED_REGEX.test('Uitlopende collectie')).toBe(true);
+        expect(DISCONTINUED_REGEX.test('uitlopende collectie')).toBe(true);
+        expect(DISCONTINUED_REGEX.test('Collectie is Uitlopend')).toBe(true);
+        expect(DISCONTINUED_REGEX.test('uitlopend')).toBe(true);
+        expect(DISCONTINUED_REGEX.test('Duette shade 25 mm - Uitlopend')).toBe(true);
+      });
+
+      it('should not match regular active product names or descriptions', () => {
+        expect(DISCONTINUED_REGEX.test('Duette shade 25 mm')).toBe(false);
+        expect(DISCONTINUED_REGEX.test('Nieuwe collectie 2026')).toBe(false);
+        expect(DISCONTINUED_REGEX.test('Rolgordijn verduisterend')).toBe(false);
+      });
+    });
+
+    describe('normalizeProduct isDiscontinued mapping', () => {
+      it('should set isDiscontinued: true when description contains "Uitlopende collectie"', () => {
+        const raw: LogicTradeProductRaw = {
+          id: 219610,
+          code: 'A00042592',
+          name: 'Duette shade',
+          description: 'Uitlopende collectie',
+          salesPrice: 173.0,
+          groups: [{ id: 1, parentId: null, code: 'G1', description: 'Duette' }]
+        };
+
+        const normalized = normalizeProduct(raw);
+        expect(normalized.isDiscontinued).toBe(true);
+      });
+
+      it('should set isDiscontinued: true when name contains "uitlopend"', () => {
+        const raw: LogicTradeProductRaw = {
+          id: 219612,
+          code: 'A00042593',
+          name: 'Duette shade uitlopend',
+          salesPrice: 173.0
+        };
+
+        const normalized = normalizeProduct(raw);
+        expect(normalized.isDiscontinued).toBe(true);
+      });
+
+      it('should set isDiscontinued: false for active products with null or missing description', () => {
+        const raw: LogicTradeProductRaw = {
+          id: 219609,
+          code: 'A00052469',
+          name: 'Duette shade 25 mm',
+          salesPrice: 229.0
+        };
+
+        const normalized = normalizeProduct(raw);
+        expect(normalized.isDiscontinued).toBeFalsy();
+      });
+    });
+
+    describe('GET ranking priority (Active before Discontinued)', () => {
+      it('should sort active products before discontinued products in response items', async () => {
+        const mockActive = {
+          id: 219609,
+          code: 'A00052469',
+          name: 'Duette shade 2026',
+          salesPrice: 229.0,
+          unit: 'stuks',
+          supplier: { supplier: { companyName: 'Luxaflex' } }
+        };
+
+        const mockDiscontinued = {
+          id: 219610,
+          code: 'A00042592',
+          name: 'Duette shade uitlopend',
+          description: 'Uitlopende collectie',
+          salesPrice: 173.0,
+          unit: 'stuks',
+          supplier: { supplier: { companyName: 'Luxaflex' } }
+        };
+
+        global.fetch = vi.fn().mockImplementation((url: string) => {
+          if (url.includes('/suppliers')) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({ results: [{ id: 1, companyName: 'Luxaflex' }] })
+            };
+          }
+          // Retourneer eerst het uitlopende artikel en daarna het actieve artikel
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              results: [mockDiscontinued, mockActive],
+              pagination: { totalResults: 2, pageNumber: 1, pageSize: 20, totalPages: 1 }
+            })
+          };
+        });
+
+        const request = new Request('http://localhost:3000/api/products/search?q=Duette');
+        const response = await GET(request);
+
+        expect(response.status).toBe(200);
+        const json = await response.json();
+        expect(json.success).toBe(true);
+        expect(json.items.length).toBe(2);
+
+        // Actieve artikel moet bovenaan staan (index 0) en uitlopend onderaan (index 1)
+        expect(json.items[0].code).toBe('A00052469');
+        expect(json.items[0].isDiscontinued).toBeFalsy();
+        expect(json.items[1].code).toBe('A00042592');
+        expect(json.items[1].isDiscontinued).toBe(true);
+      });
+    });
+
+    describe('Feature Intent & Pre-Configuration Search Integration Tests', () => {
+      it('should enrich search results with TruFit badge and preconfiguration when searching "tru deut"', async () => {
+        const mockProduct = {
+          id: 219609,
+          code: 'A00052469',
+          name: 'Duette shade 25 mm',
+          salesPrice: 229.0,
+          unit: 'stuks',
+          supplier: { supplier: { companyName: 'Luxaflex' } }
+        };
+
+        global.fetch = vi.fn().mockImplementation((url: string) => {
+          if (url.includes('/suppliers')) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({ results: [{ id: 1, companyName: 'Luxaflex' }] })
+            };
+          }
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              results: [mockProduct],
+              pagination: { totalResults: 1, pageNumber: 1, pageSize: 20, totalPages: 1 }
+            })
+          };
+        });
+
+        const request = new Request('http://localhost:3000/api/products/search?q=tru%20deut');
+        const response = await GET(request);
+
+        expect(response.status).toBe(200);
+        const json = await response.json();
+        expect(json.success).toBe(true);
+        expect(json.items.length).toBe(1);
+
+        const item = json.items[0];
+        expect(item.code).toBe('A00052469');
+        expect(item.featureBadges).toContain('TruFit');
+        expect(item.preconfiguration).toBeDefined();
+        expect(item.preconfiguration?.montage).toBe('MONTAGE_TRUFIT');
+        expect(item.preconfiguration?.bediening).toBe('HANDGREEP');
+      });
+
+      it('should enrich search results with SmartCord badge and preconfiguration when searching "cord"', async () => {
+        const mockProduct = {
+          id: 219609,
+          code: 'A00052469',
+          name: 'Duette shade 25 mm',
+          salesPrice: 229.0,
+          unit: 'stuks',
+          supplier: { supplier: { companyName: 'Luxaflex' } }
+        };
+
+        global.fetch = vi.fn().mockImplementation((url: string) => {
+          if (url.includes('/suppliers')) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({ results: [{ id: 1, companyName: 'Luxaflex' }] })
+            };
+          }
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              results: [mockProduct],
+              pagination: { totalResults: 1, pageNumber: 1, pageSize: 20, totalPages: 1 }
+            })
+          };
+        });
+
+        const request = new Request('http://localhost:3000/api/products/search?q=cord');
+        const response = await GET(request);
+
+        expect(response.status).toBe(200);
+        const json = await response.json();
+        expect(json.success).toBe(true);
+        expect(json.items[0].featureBadges).toContain('SmartCord');
+        expect(json.items[0].preconfiguration?.bediening).toBe('SMARTCORD');
+      });
+
+      it('should resolve transposition typo UA20 to AU20 with model preset', async () => {
+        const mockProduct = {
+          id: 219609,
+          code: 'A00052469',
+          name: 'Duette shade 25 mm',
+          salesPrice: 229.0,
+          unit: 'stuks',
+          supplier: { supplier: { companyName: 'Luxaflex' } }
+        };
+
+        global.fetch = vi.fn().mockImplementation((url: string) => {
+          if (url.includes('/suppliers')) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({ results: [{ id: 1, companyName: 'Luxaflex' }] })
+            };
+          }
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              results: [mockProduct],
+              pagination: { totalResults: 1, pageNumber: 1, pageSize: 20, totalPages: 1 }
+            })
+          };
+        });
+
+        const request = new Request('http://localhost:3000/api/products/search?q=UA20');
+        const response = await GET(request);
+
+        expect(response.status).toBe(200);
+        const json = await response.json();
+        expect(json.success).toBe(true);
+        expect(json.items[0].modelPreset?.code).toBe('AU20');
+      });
+
+      it('negative control: should not attach SmartCord badge to raamdecoratie query', async () => {
+        const mockProduct = {
+          id: 219609,
+          code: 'A00052469',
+          name: 'Duette raamdecoratie',
+          salesPrice: 229.0,
+          unit: 'stuks',
+          supplier: { supplier: { companyName: 'Luxaflex' } }
+        };
+
+        global.fetch = vi.fn().mockImplementation((url: string) => {
+          if (url.includes('/suppliers')) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({ results: [{ id: 1, companyName: 'Luxaflex' }] })
+            };
+          }
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              results: [mockProduct],
+              pagination: { totalResults: 1, pageNumber: 1, pageSize: 20, totalPages: 1 }
+            })
+          };
+        });
+
+        const request = new Request('http://localhost:3000/api/products/search?q=Luxaflex%20raamdecoratie');
+        const response = await GET(request);
+
+        expect(response.status).toBe(200);
+        const json = await response.json();
+        expect(json.success).toBe(true);
+        expect(json.items[0].featureBadges).toBeUndefined();
+      });
+
+      it('should match progressive prefix "smartcor" and attach SmartCord badge and preconfiguration', async () => {
+        const mockProduct = {
+          id: 219609,
+          code: 'A00052469',
+          name: 'Duette shade 25 mm',
+          salesPrice: 229.0,
+          unit: 'stuks',
+          supplier: { supplier: { companyName: 'Luxaflex' } }
+        };
+
+        global.fetch = vi.fn().mockImplementation((url: string) => {
+          if (url.includes('/suppliers')) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({ results: [{ id: 1, companyName: 'Luxaflex' }] })
+            };
+          }
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              results: [mockProduct],
+              pagination: { totalResults: 1, pageNumber: 1, pageSize: 20, totalPages: 1 }
+            })
+          };
+        });
+
+        const request = new Request('http://localhost:3000/api/products/search?q=smartcor');
+        const response = await GET(request);
+
+        expect(response.status).toBe(200);
+        const json = await response.json();
+        expect(json.success).toBe(true);
+        expect(json.items[0].featureBadges).toContain('SmartCord');
+        expect(json.items[0].preconfiguration?.bediening).toBe('SMARTCORD');
+      });
+
+      it('should match universal infix keyword \"fit\" and \"view\" and multi-feature \"fit deut 20 cord\"', async () => {
+        const mockProduct = {
+          id: 219609,
+          code: 'A00052469',
+          name: 'Duette shade 25 mm',
+          salesPrice: 229.0,
+          unit: 'stuks',
+          supplier: { supplier: { companyName: 'Luxaflex' } }
+        };
+
+        global.fetch = vi.fn().mockImplementation((url: string) => {
+          if (url.includes('/suppliers')) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({ results: [{ id: 1, companyName: 'Luxaflex' }] })
+            };
+          }
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              results: [mockProduct],
+              pagination: { totalResults: 1, pageNumber: 1, pageSize: 20, totalPages: 1 }
+            })
+          };
+        });
+
+        const reqFit = new Request('http://localhost:3000/api/products/search?q=fit');
+        const resFit = await GET(reqFit);
+        const jsonFit = await resFit.json();
+        expect(jsonFit.items[0].featureBadges).toContain('TruFit');
+        expect(jsonFit.items[0].preconfiguration?.montage).toBe('MONTAGE_TRUFIT');
+
+        const reqMulti = new Request('http://localhost:3000/api/products/search?q=fit%20deut%2020%20cord');
+        const resMulti = await GET(reqMulti);
+        const jsonMulti = await resMulti.json();
+        expect(jsonMulti.items[0].featureBadges).toContain('TruFit');
+        expect(jsonMulti.items[0].featureBadges).toContain('SmartCord');
+        expect(jsonMulti.items[0].preconfiguration?.montage).toBe('MONTAGE_TRUFIT');
+        expect(jsonMulti.items[0].preconfiguration?.bediening).toBe('HANDGREEP');
+        expect(jsonMulti.items[0].preconfiguration?.modelPreset?.code).toBe('AU20');
+      });
+    });
+
+    describe('Tiered Relevance Pyramid & Cross-Field Matching (Tranche 3C)', () => {
+      it('assigns correct numerical tiers via calculateProductRelevanceTier', () => {
+        // Tier 1: Configureerbare Hoofdproducten (+100)
+        expect(calculateProductRelevanceTier('Duette shade 25 mm')).toBe(100);
+        expect(calculateProductRelevanceTier('Plissé shades')).toBe(100);
+
+        // Tier 2: Specifieke Productvarianten (+50)
+        expect(calculateProductRelevanceTier('Dakraam Duette shade')).toBe(50);
+        expect(calculateProductRelevanceTier('Dakraam Duette shade combi')).toBe(50);
+
+        // Tier 3: Accessoires & Bediening (+10)
+        expect(calculateProductRelevanceTier('Bedieningsstang (plissé/Duette shade)')).toBe(10);
+        expect(calculateProductRelevanceTier('Klemsteunen Duette')).toBe(10);
+
+        // Tier 4: Monsters & Stalen (-80)
+        expect(calculateProductRelevanceTier('Duette shades staal')).toBe(-80);
+        expect(calculateProductRelevanceTier('Stalen service Duette shades (AF10)')).toBe(-80);
+        expect(calculateProductRelevanceTier('Collectieboek Duette 2025')).toBe(-80);
+
+        // Tier 5: Uitlopende collecties (-200)
+        expect(calculateProductRelevanceTier('Duette shade [Uitlopende collectie]')).toBe(-200);
+        expect(calculateProductRelevanceTier('Duette shade', '', true)).toBe(-200);
+      });
+
+      it('ranks core base products strictly above swatch sample cards and accessories', async () => {
+        const mockStaal: LogicTradeProductRaw = {
+          id: 234181,
+          code: 'A000064503',
+          name: 'Duette shades staal',
+          salesPrice: 0,
+          unit: 'stuks',
+          supplier: { supplier: { companyName: 'Sunway Benelux BV' } }
+        };
+        const mockStang: LogicTradeProductRaw = {
+          id: 147237,
+          code: 'A00042593',
+          name: 'Bedieningsstang (plissé/Duette shade)',
+          salesPrice: 15.0,
+          unit: 'stuks',
+          supplier: { supplier: { companyName: 'Luxaflex' } }
+        };
+        const mockCoreProduct: LogicTradeProductRaw = {
+          id: 219609,
+          code: 'A00052469',
+          name: 'Duette shade',
+          salesPrice: 229.0,
+          unit: 'stuks',
+          supplier: { supplier: { companyName: 'Luxaflex' } }
+        };
+
+        global.fetch = vi.fn().mockImplementation((url: string) => {
+          if (url.includes('/suppliers')) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({
+                results: [
+                  { id: 1, companyName: 'Luxaflex' },
+                  { id: 2, companyName: 'Sunway Benelux BV' }
+                ]
+              })
+            };
+          }
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              results: [mockStaal, mockStang, mockCoreProduct],
+              pagination: { totalResults: 3, pageNumber: 1, pageSize: 20, totalPages: 1 }
+            })
+          };
+        });
+
+        const req = new Request('http://localhost:3000/api/products/search?q=cor');
+        const res = await GET(req);
+        const json = await res.json();
+
+        expect(json.success).toBe(true);
+        expect(json.items.length).toBe(3);
+        // Positie #1 MOET het configureerbare hoofdproduct zijn!
+        expect(json.items[0].code).toBe('A00052469');
+        expect(json.items[0].name).toBe('Duette shade');
+
+        // Positie #2 is de accessoire (bedieningsstang)
+        expect(json.items[1].code).toBe('A00042593');
+
+        // Positie #3 (onderaan) is de stalenkaart
+        expect(json.items[2].code).toBe('A000064503');
+      });
     });
   });
 });

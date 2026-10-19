@@ -253,7 +253,8 @@ Een positie is een specifieke functionele montageplek of gevelopening die zich *
     * *Trapposities:* Rechte treden, draaitreden (halve draai / kwartslag), stootborden, wangen.
 * **Positienummering & Identificatie:**
   * *Unieke Nummering per Ruimte/Vlak:* Posities worden uniform genummerd (**Positie 1, Positie 2, Positie 3...**).
-  * *Klant-Alias (Vrij overschrijfbaar in de UI):* Elke positie krijgt automatisch een herkenbare beschrijvende suggestie (*"Raam links voorgevel"*, *"Voordeurglas"*, *"Schuifpui tuin"*); deze naam is te allen tijde door degene/de rol die is ingelogd (met de juiste rechten) direct in de UI te overschrijven naar wens van de klant.
+  * *Klant-Alias & Individuele Naamgeving (Vrij overschrijfbaar in de UI):* Elke individuele positie krijgt een uniek nummer en automatisch een herkenbare beschrijvende suggestie (*"Raam links voorgevel"*, *"Voordeurglas"*, *"Schuifpui tuin"*); deze naam is te allen tijde door degene/de rol die is ingelogd (met de juiste rechten) direct in de UI te overschrijven naar wens van de klant (bijv. Positie 2: *"kiepraampje midden boven raampartij links"*).
+  * *Combinaties van Posities / Samengestelde Raampartij (Positie-Groepering / Cluster):* Een pui of opening kan bouwkundig bestaan uit meerdere samenhangende posities (bijv. Positie 1, 2, 3 en 4: drie bovenraampjes en één groot raam beneden). In de software kan de **combinatie van posities een overkoepelende naam krijgen** (bijv. **"raampartij links"** of **"erker voorzijde"**). Binnen deze samengestelde groep kan vervolgens elke afzonderlijke positie een specifieke naam krijgen die refereert aan de combinatie (bijv. Positie 1: *"bovenraam links raampartij links"*, Positie 2: *"kiepraampje midden boven raampartij links"*, Positie 3: *"bovenraam rechts raampartij links"*, Positie 4: *"groot raam beneden raampartij links"*). Zowel de overkoepelende combinatienaam als de individuele positienamen kunnen door de ingelogde gebruiker met de juiste rechten direct in de UI worden ingevoerd en flexibel worden aangepast.
   * *Meetvolgorde & Nummeringsconventie (Z-Conventie per Opening):* Binnen een opening (bijv. een samengesteld kozijn met meerdere glasvakken, bovenlichten of draaiende delen) worden deelposities uniform gemeten en genummerd in de vorm van een **"Z"** (van **links naar rechts** en van **boven naar onder** in een zigzagpatroon: linksboven → rechtsboven → linksonder → rechtsonder). Traptreden worden uniform genummerd **van onder naar boven** (Trede 1 = onderste trede bij vertrekvloer).
 
 ### 2.7 Niveau 7: Productlagen (Sub-posities met suffix 1a, 1b...)
@@ -400,7 +401,7 @@ Voor standaard gevelopeningen volstaat de triadische 3-puntsmeting conform §3.1
 * **Bovenlichten & Tussenregels:**  
   Ramen met bovenlichten (vaste beglazing boven een tussenkader of stolpraam) kunnen naar keuze van de klant als één doorlopende positie of als twee gescheiden posities worden geconfigureerd. Indien gescheiden, wordt de hoogte van de tussenregel exact ingemeten om te waarborgen dat tussenprofielen van de raambekleding visueel samenvallen met het kozijnkader.
 * **Universele Verplichting van Montagehoogte (De Reken- en Veiligheidsspil):**  
-  De **Montagehoogte (MH)** is de zuivere verticale afstand gemeten vanaf het definitieve peil van de afgewerkte vloer tot aan het montagepunt (bovenzijde montagesteun, bovenbak of plafond). Voor ELKE montagewijze — zowel 'In de dag' (zijwand of plafond van de negge), 'Op de dag' (wandmontage) als 'In het plafond' (plafondmontage) — is de Montagehoogte een **strikt verplicht invoerveld**. Zonder deze waarde kan de software de bestelmaten, veiligheidsmarges en logistiek niet valideren. Deze waarde is mathematisch en operationeel noodzakelijk voor:
+  De **Montagehoogte (MH)** is de zuivere verticale afstand die **te allen tijde vanaf de definitieve vloer** wordt gemeten tot aan de **bovenkant van de montagebeugel (montagesteun)**, bovenbak of plafondbevestiging. Voor ELKE montagewijze — zowel 'In de dag' (zijwand of plafond van de negge), 'Op de dag' (wandmontage) als 'In het plafond' (plafondmontage) — is de Montagehoogte een **strikt verplicht invoerveld**. Dit onderscheid is cruciaal omdat een product of rail soms aanzienlijk lager hangt dan de beugel waaraan deze is bevestigd (bijv. gordijnrails aan pendels of staaldraden, zoals bij ziekenhuisbedden of hoge koven). Zonder deze waarde kan de software de bestelmaten, veiligheidsmarges en logistiek niet valideren. Deze waarde is mathematisch en operationeel noodzakelijk voor:
   1. *Wettelijke Kindveiligheid (EN 13120):* Berekent de maximaal toegestane bedieningskoord-/kettinglengte (`Kettinglengte ≤ Montagehoogte - 150 cm`). Bedieningskoorden en -kettingen moeten te allen tijde minimaal 1,50 m boven de afgewerkte vloer hangen en voorzien zijn van een goedgekeurde spanklem of breekketting.
   2. *Automatische Trekstangberekening:* Berekent de ideale confectielengte voor gordijntrekstangen (`Trekstanglengte = Montagehoogte - 140 cm`, automatisch afgerond naar 100, 125 of 150 cm). Hierdoor hangt het handvat ergonomisch op ca. 140–150 cm boven het vloerpeil.
   3. *Ergonomisch Reikhoogte-Advies:* Bij handbediende systemen (zoals Top-Down / Bottom-Up plissés en Duettes met LiteRise handgreep) op een montagehoogte > 2,10 m kan de bovenste handgreep niet meer vanaf de vloer worden bediend. De inmeettool toont verplicht een adviesmelding om een magnetische bedieningsstang aan de order toe te voegen of over te stappen op SmartCord® / accumotorisatie (bespreken met klant).
@@ -550,8 +551,9 @@ Om faalkosten uit te bannen en de inmeter op de ladder niet te overspoelen met s
 * **Montagesituaties & Bevestiging (In het plafond, Op de dag, In de dag) — Universeel Geldig voor álle Verticale Montages:**  
   Bij het bepalen van het montagevlak voor gordijnrails, roedes **én alle andere elementen die in het verticale vlak worden gemonteerd (dit protocol geldt transversaal voor álle verticale montages binnen de woninginrichting, zoals raamdecoratiebovenbakken, cassettes, screens, wandsteunen en profielen)** kiest de inmeter uit drie gestandaardiseerde situaties:  
   1. `In het plafond`: Rechtstreekse plafondmontage met plafondsteunen of verzonken railprofielen in het dragende bouwkundige plafond.  
-  2. `Op de dag`: Wandmontage met wandsteunen tegen de muur of boven het kozijn; de inmeter voert verplicht de **montagehoogte** in en kan aanvinken of de rail **tegen het plafond** moet komen te hangen (plafondaansluitend zonder open kier).  
+  2. `Op de dag`: Wandmontage met wandsteunen tegen de muur of boven het kozijn; de inmeter voert verplicht de **montagehoogte** in (altijd gemeten vanaf de definitieve vloer tot de bovenkant van de montagebeugel) en kan aanvinken of de rail **tegen het plafond** moet komen te hangen (plafondaansluitend zonder open kier).  
   3. `In de dag`: Montage tussen de dagkanten van een nis of kozijn, met eventuele subkeuze voor **"Plafond van de negge"** (bevestiging omhoog in de bovenzijde van de nis/latei).  
+  * *Montagehoogte Beugel vs. Railpositie (Afhangconstructies / Ziekenhuisbed-rails):* De montagehoogte van een gordijn wordt altijd vanaf de vloer tot aan de **bovenkant van de montagebeugel** gemeten. Er zijn echter situaties waarin de gordijnrail veel lager hangt dan de beugel waaraan deze is gemonteerd, zoals bij een ziekenhuisbed met een rail die aan draden of pendels hangt (vaak een paar meter lager). In de software worden de montagehoogte van de beugel en de fysieke hoogte van de bovenkant rail daarom als afzonderlijke parameters vastgelegd.  
   * *Ondergrondregistratie:* De inmeter registreert verplicht van welk materiaal het montagevlak is (beton, gipskarton, hout, kalkzandsteen, etc., conform §3.1.7).  
   * *Leidingcontrole muur:* Bij elke wandmontage (verticaal vlak) geldt de verplichte toetsing op leidingen en wandverwarming conform de universele meldingsplicht en het aansprakelijkheidsprotocol in §3.1.7.  
   * *Plafondmontage specificaties:* Standaard bij massief beton of breedplaat (met SDS-boorhamer en nylon pluggen 6 mm). Bij gipsplaatplafonds mag uitsluitend worden gemonteerd indien achterhout aantoonbaar is; anders geldt direct wandmontage.  
@@ -572,26 +574,43 @@ Om faalkosten uit te bannen en de inmeter op de ladder niet te overspoelen met s
       4. *Diepte overstek obstakels:* Hoever steekt de vensterbank, radiator, thermostaatknop of raamkruk naar voren uit vanaf de wand?
     * **Rekenregel:** Railbreedte = kozijnbreedte plus gewenste pakket-overlap (standaard **+150 tot +250 mm aan weerszijden**). Wandsteunlengte = overstek obstakel **+ 5 cm** vrije speling (zodat het gordijn soepel valt en niet knikt over de vensterbank).
 
-#### 3.2.4 Vloerspeling & Vrijhangende Maten
-* **Harde Vloeren (Tegels, Parket, PVC, Gietvloer):**  
-  Standaard default-aftrek van **15 mm** boven de afgewerkte vloer in het inmeetportaal.
-* **Zachte Vloeren (Hoogpolig Tapijt, Karpet):**  
-  Standaard default-aftrek van **20 mm** om slepen en wrijving te voorkomen.
-* **Verzwaard Loodveterband (Extra -5 mm Aftrek):**  
-  Bij vitrages en inbetweens afgewerkt met een verzwaard loodveterband (i.p.v. een traditionele zoom) zakt de stof door het eigen gewicht strakker uit en kan de onderkant sneller op de grond gaan slepen. De software hanteert daarom bij selectie van *Onderzijde: Loodveter* automatisch een **extra aftrek van 5 mm (-5 mm)** bovenop de standaard vloerspeling om slepen op de vloer betrouwbaar uit te sluiten.
-* **Slepend Gordijn:**  
-  Standaard toeslag van **+50 mm** (tot +100 mm voor een royale klassieke valling).
-* **Portaal-Default & Verplicht Toelichtingsveld bij Override:**  
-  De vloerspeling wordt in het inmeetportaal automatisch als default geladen op basis van het gekozen vloertype. Indien de inmeter deze waarde wil aanpassen (bijv. vergroten wegens zware vloerbolling of verkleinen op uitdrukkelijk verzoek van de klant), **is een schriftelijke toelichting in het portaal verplicht** om de wijziging te borgen en faalkosten te voorkomen.
-* **Confectiehoogte Formule per Railtype:**  
-  De confectiehoogte wordt berekend op basis van de werkelijke railhoogte van het gekozen profiel:  
-  `H_confectie = Kleinste strakke hoogte - Railhoogte (per railtype) - Vloerspeling`  
-  *Standaard railhoogtes in de software:*  
-  * Standaard railprofiel: 15–20 mm  
-  * Wave-railprofiel: 20 mm  
-  * Wave Pro Smal: 15 mm  
-  * Interstil designroedes: tot 35 mm  
-  *Blijvende maat overschrijving:* De inmeter heeft te allen tijde de bevoegdheid om de berekende blijvende confectiehoogte handmatig te overschrijven (bijv. bij een scheeflopende vloer of om het gordijn optisch strakker te laten aansluiten). Elke overschrijving vereist een verplichte toelichting in het dossier en wordt gelogd.
+#### 3.2.4 Meet- en Maatsystematiek Gordijnen: Referentievlak, Bruto Maten & Blijvende Maten (Confectiehoogte & Breedte)
+Binnen EasyM2M worden de productiematen voor gordijnen berekend via een gestructureerde transformatie van brutomaten naar definitieve blijvende confectiematen:
+
+* **Hoogte Bovenkant Rail & Keuze van het Referentievlak:**  
+  * *Meten van de Railhoogte:* Naast de universele montagehoogte van de beugel (altijd gemeten vanaf de afgewerkte vloer, §3.2.3) wordt de hoogte van de **bovenkant van de rail** gemeten.  
+  * *Keuze Referentievlak:* De bovenkant van de rail wordt gemeten ten opzichte van een specifiek **referentievlak**. Dit referentievlak kan bijvoorbeeld zijn:  
+    1. Het **afgewerkte vloeroppervlak**;  
+    2. De **vensterbank** (of een ander bouwkundig referentievlak zoals een borstwering of koof).  
+* **Onderkant van het Gordijn t.o.v. het Referentievlak:**  
+  De gewenste onderzijde (de valhoogte) van het gordijn wordt eveneens gedefinieerd ten opzichte van datzelfde referentievlak. Bijvoorbeeld:  
+  * *"20 cm onder de vensterbank"* (bij een gordijn dat over de vensterbank valt);  
+  * *"Tot op de vloer"* (bij kamerhoge gordijnen).  
+* **Brutomaat Hoogte:**  
+  De zuivere afstand gemeten vanaf de **bovenkant van de rail tot de onderkant van het gordijn** (bepaald via het referentievlak) vormt de **brutomaat hoogte**.  
+* **Van Brutomaat naar Blijvende Maat Hoogte (Confectiehoogte):**  
+  Van de brutomaat hoogte worden specifieke correcties afgetrokken of opgeteld om tot de definitieve **blijvende maat (confectiehoogte voor het atelier)** te komen:  
+  * *Railhoogte & Haakcorrectie:* Afhankelijk van de hangwijze van het gordijn (hangt het gordijn onder de rail, vallen de haken in het profiel of hangt de stof vóór de rail); standaard railhoogtes in de software:  
+    * Standaard railprofiel: 15–20 mm  
+    * Wave-railprofiel: 20 mm  
+    * Wave Pro Smal: 15 mm  
+    * Interstil designroedes: tot 35 mm  
+  * *Vloerspeling bij referentievlak Vloer (Default-aftrek):*  
+    * *Harde Vloeren (Tegels, Parket, PVC, Gietvloer):* Standaard default-aftrek van **15 mm** boven de afgewerkte vloer in het inmeetportaal.  
+    * *Zachte Vloeren (Hoogpolig Tapijt, Karpet):* Standaard default-aftrek van **20 mm** om slepen en wrijving te voorkomen.  
+    * *Verzwaard Loodveterband (Extra -5 mm Aftrek):* Bij vitrages en inbetweens afgewerkt met een verzwaard loodveterband (i.p.v. een traditionele zoom) zakt de stof door het eigen gewicht strakker uit en kan de onderkant sneller op de grond gaan slepen. De software hanteert daarom bij selectie van *Onderzijde: Loodveter* automatisch een **extra aftrek van 5 mm (-5 mm)** bovenop de standaard vloerspeling om slepen op de vloer betrouwbaar uit te sluiten.  
+    * *Slepend Gordijn:* Standaard toeslag van **+50 mm** (tot +100 mm voor een royale klassieke valling).  
+  * *Rekenformule Blijvende Maat Hoogte:*  
+    `H_confectie (Blijvende Maat Hoogte) = Brutomaat Hoogte - Rail/Haakcorrectie - Vloerspeling (+ Sleeptoeslag)`  
+  * *Portaal-Default & Verplicht Toelichtingsveld bij Override:* De vloerspeling en aftrekken worden automatisch geladen op basis van het gekozen vloertype en de hangwijze. Indien de inmeter de berekende blijvende confectiehoogte handmatig aanpast (bijv. bij een scheeflopende vloer of specifieke klantwens), **is een schriftelijke toelichting in het portaal verplicht** om de wijziging te borgen in de audittrail.  
+* **Brutomaat Breedte:**  
+  In de breedte is de brutomaat **het vlak dat één of meerdere gordijnen in het zicht (de verticale weg) moet bedekken**.  
+* **Van Brutomaat naar Blijvende Maat Breedte & Rail Zaagmaat:**  
+  Op de brutomaat breedte worden specifieke toeslagen en correcties toegepast voor de definitieve railbreedte en confectiebreedte:  
+  * *Overlap bij 2 Gordijnen (Stel):* Bij een stel gordijnen sluiten de delen centraal met een overlap (standaard **+100 mm**).  
+  * *Retourbochten aan Uiteinden:* Bij retourbochten naar de muur (+90° omhangen) wordt de diepte van de bocht (bijv. links 20 cm, rechts 30 cm) opgeteld bij de benodigde stof- en railmaat om zijwaartse lichtspleten te elimineren.  
+  * *Rondingen & Buigradii in de Rail:* Bij tussenbochten of erkers worden de gecorrigeerde zaagmaten berekend op basis van de buigradius (huismerk R=10 cm vs designrail R=20 cm conform §3.2.3).  
+  * *Plooitoeslag & Stofbreedte:* De benodigde totale stofbreedte volgt uit de brutomaat breedte vermenigvuldigd met de plooifactor (enkele plooi 1,8–2,0×, dubbele vlinderplooi 2,2–2,5×, Wave 60 mm / 80 mm runnergordelverhouding).
 
 #### 3.2.5 Gordijnpakketten & Doorgangscontrole
 * **Pakketbreedte Gordijnen & Vrije Muurruimte:**  

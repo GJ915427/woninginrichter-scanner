@@ -69,12 +69,19 @@ describe('Canonieke 130-Panden Ground Truth Referentietest (Floorplanner FML)', 
       expect(singel13!.ground_truth_floors[0].measuredGrossAreaM2).toBeCloseTo(37.16, 1);
     });
 
-    it('moet voor alle 130 panden een geverifieerde NEN 2580 oppervlakte en Funda URL bevatten (INV-REF-02)', () => {
+    it('moet voor alle 130 panden een geverifieerde NEN 2580 oppervlakte, Funda URL en echt 16-cijferig BAG pandId/vboId bevatten (INV-REF-02)', () => {
+      const fmlCacheDir = path.resolve(__dirname, '../../../.cache/fml');
       for (const r of records) {
         expect(r.meta.funda_url).toMatch(/^https:\/\/www\.funda\.nl\/detail\/koop\//);
         expect(r.meta.fml_validation_status).toBe('VALIDATED_NEN2580');
         expect(r.meta.bag_vbo_oppervlakte).toBeGreaterThan(0);
         expect(r.meta.fml_oppervlakte).toBeGreaterThan(0);
+        expect(r.telemetry_input.pandId).toMatch(/^\d{16}$/);
+        expect(r.telemetry_input.pandId.endsWith('0000000000')).toBe(false);
+        expect(r.telemetry_input.vboId).toMatch(/^\d{16}$/);
+        expect(r.telemetry_input.vboId.endsWith('0000000000')).toBe(false);
+        expect(r.project_id >= 21000076 && r.project_id <= 21000210).toBe(false);
+        expect(fs.existsSync(path.join(fmlCacheDir, `${r.project_id}.fml`))).toBe(true);
       }
     });
 

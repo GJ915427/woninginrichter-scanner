@@ -1,122 +1,256 @@
 'use client';
 
-import React, { useState } from 'react';
-import { LiveProductSearch } from '@/components/configurator/LiveProductSearch';
+import React, { useState, useTransition } from 'react';
+import { M3SearchBox } from '@/components/configurator/m3/M3SearchBox';
 import { DynamicConfiguratorForm } from '@/components/configurator/DynamicConfiguratorForm';
+import { M3PriceActionFooter } from '@/components/configurator/m3/M3PriceActionFooter';
 import { SearchResultItem } from '@/types/product';
-import { ProductConfigValues } from '@/types/configurator';
+import { ProductConfigValues, StepChangeIntent } from '@/types/configurator';
+import { ConclaafRulesEngine } from '@/domain/configurator/conclaaf-rules-engine';
+import { Configuration } from '@/domain/configurator/bron-a-contracts';
+import { CreateProposalLineResponse } from '@/app/api/proposals/[id]/lines/route';
 
 export default function ConfiguratorPage() {
   const [selectedProduct, setSelectedProduct] = useState<SearchResultItem | null>(null);
   const [configValues, setConfigValues] = useState<ProductConfigValues>({});
+  const [rulesEngine, setRulesEngine] = useState<ConclaafRulesEngine | null>(null);
+  const [snapshot, setSnapshot] = useState<Configuration | null>(null);
+  const [totalSurchargeEur, setTotalSurchargeEur] = useState<number>(0);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isPending, startTransition] = useTransition();
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const proposalId = 'O26000735';
+
+  const handleSelectProduct = (product: SearchResultItem | null) => {
+    setSelectedProduct(product);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (product) {
+      const engine = new ConclaafRulesEngine(product);
+      if (product.preconfiguration) {
+        const preconf = { ...product.preconfiguration };
+
+        // 1. Normaliseer VORM en BEDIENINGS_TYPE uit modelPreset indien aanwezig
+        if (product.modelPreset?.vorm) {
+          const rawVorm = product.modelPreset.vorm;
+          preconf.VORM = rawVorm.startsWith(':20') ? ':20' : rawVorm.startsWith(':30') ? ':30' : ':10';
+        }
+        if (product.modelPreset?.bediening) {
+          preconf.BEDIENINGS_TYPE = product.modelPreset.bediening.toUpperCase().replace(/\s+/g, '');
+        }
+
+        // 2. Pas configuratiestappen topologisch toe (Parent steps vóór conditional sub-steps)
+        const stepOrder = [
+          'VORM',
+          'BEDIENINGS_TYPE',
+          'MONTAGE',
+          'PROFIELKLEUR',
+          'VOEDINGSTYPE',
+          'VOEDINGSZIJDE',
+          'BEDIENINGSZIJDE',
+          'STOF_KLEUR',
+          'PLOOISOORT',
+          'LOODVETER',
+          'OPENING',
+          'SNIJVERLIES',
+          'LEGWYZE',
+          'PLINTEN'
+        ];
+
+        for (const step of stepOrder) {
+          if (preconf[step] && typeof preconf[step] === 'string') {
+            engine.updateStep(step, preconf[step]);
+          }
+        }
+
+        for (const [stepId, value] of Object.entries(preconf)) {
+          if (
+            !stepOrder.includes(stepId) &&
+            !['modelPreset', 'montage', 'bediening', 'stofFilter', 'eigenschap'].includes(stepId) &&
+            typeof value === 'string'
+          ) {
+            engine.updateStep(stepId, value);
+          }
+        }
+      }
+      setRulesEngine(engine);
+      const initialSnapshot = engine.getConfiguration();
+      setSnapshot(initialSnapshot);
+      const surcharge = engine.calculateTotalSurcharge();
+      setTotalSurchargeEur(surcharge.totalSurchargeEur);
+
+      const initialVals: ProductConfigValues = {};
+      for (const step of initialSnapshot.steps) {
+        if (step.selectedValue?.value) {
+          initialVals[step.id] = step.selectedValue.value;
+        } else if (step.value) {
+          initialVals[step.id] = step.value;
+        }
+      }
+      setConfigValues(initialVals);
+    } else {
+      setRulesEngine(null);
+      setSnapshot(null);
+      setTotalSurchargeEur(0);
+      setConfigValues({});
+    }
+  };
+
+  const handleStepChange = (intent: StepChangeIntent) => {
+    if (!rulesEngine) return;
+    startTransition(() => {
+      const updatedSnapshot = rulesEngine.updateStep(intent.stepId, intent.value);
+      setSnapshot(updatedSnapshot);
+      const surcharge = rulesEngine.calculateTotalSurcharge();
+      setTotalSurchargeEur(surcharge.totalSurchargeEur);
+    });
+  };
+
+  const handleConfigChange = (values: ProductConfigValues) => {
+    setConfigValues(values);
+  };
+
+  const handleAddToProposal = async () => {
+    if (!selectedProduct || !snapshot || snapshot.errors.length > 0) return;
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const res = await fetch(`/api/proposals/${proposalId}/lines`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: String(selectedProduct.id),
+          productCode: selectedProduct.code,
+          productName: selectedProduct.name,
+          configuration: snapshot,
+          totalPriceEur: Math.max(0, (selectedProduct.salesPrice || 0) + surchargeEur),
+          notes: 'Geconfigureerd via EasyM2M M3 Configurator'
+        })
+      });
+
+      const data: CreateProposalLineResponse = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMessage(data.message || `Succesvol toegevoegd aan regel ${data.lineNumber} van offerte ${proposalId}`);
+      } else {
+        setErrorMessage(data.error || 'Er is een fout opgetreden bij het toevoegen aan de offerte');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Netwerkfout bij inschieten van orderregel');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const surchargeEur = totalSurchargeEur;
 
   return (
-    <main className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-md">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col justify-between font-sans selection:bg-emerald-500/20">
+      {/* Material Design 3 Top App Bar */}
+      <header className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-6 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-xs">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-lg shadow-lg shadow-blue-500/20">
-            M2M
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center font-bold text-white shadow-md shadow-emerald-500/20">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-white">EasyM2M Configurator</h1>
-            <p className="text-xs text-slate-400">Fase 2: Productgroep-Herkenning & Dynamische Velden (Focus: Vorm)</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
+                Product Configurator
+              </h1>
+              <span className="text-[10px] font-medium tracking-wide uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                EasyM2M
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Material Design 3 Domein-gestuurde Artikelconfiguratie (Bron A SSOT)
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 text-xs text-emerald-400 bg-emerald-950/50 border border-emerald-800/60 px-3 py-1.5 rounded-full">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>LogicTrade Cloud REST API (100.719 artikelen)</span>
+        <div className="flex items-center space-x-2 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 px-3 py-1.5 rounded-full shadow-2xs">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>LogicTrade Cloud REST API</span>
         </div>
       </header>
 
-      {/* Main Container */}
-      <div className="flex-1 max-w-5xl w-full mx-auto p-6 sm:p-8 flex flex-col items-center">
-        <div className="text-center mb-8 max-w-xl">
-          <h2 className="text-2xl font-extrabold text-white sm:text-3xl tracking-tight">
-            Artikel Zoeken & Configureren
-          </h2>
-          <p className="text-sm text-slate-400 mt-2">
-            Zoek op leverancier, artikelcode of omschrijving. Het formulier past zich automatisch en 100% dynamisch aan op de productgroep uit LogicTrade (geen vaste optielijsten of hardcoded matrices).
-          </p>
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-4xl w-full mx-auto p-6 sm:p-8 flex flex-col items-center">
+        {/* Dedicated 1-Regelige M3 Zoekbox */}
+        <div className="w-full max-w-2xl mb-8">
+          <M3SearchBox
+            onSelectProduct={handleSelectProduct}
+            initialProduct={selectedProduct}
+            placeholder="Typ een artikelcode, omschrijving of merk (bijv. Luxaflex, Vadain, A00052469)..."
+          />
         </div>
 
-        {/* Live Search Component */}
-        <div className="w-full flex justify-center mb-8">
-          <LiveProductSearch onSelectProduct={setSelectedProduct} />
-        </div>
-
-        {/* Geselecteerd Artikel Inspectie Kaart & Dynamisch Formulier */}
+        {/* Dynamisch Formulier of M3 Empty State Begeleiding */}
         {selectedProduct ? (
-          <div className="w-full max-w-3xl flex flex-col gap-6">
-            {/* Artikel Header Kaart */}
-            <div className="w-full bg-slate-950/70 border border-slate-800 rounded-2xl p-6 shadow-xl">
-              <div className="flex items-start justify-between border-b border-slate-800 pb-4 mb-4">
-                <div>
-                  <span className="text-xs font-mono font-bold px-2.5 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-md">
-                    {selectedProduct.code}
-                  </span>
-                  <h3 className="text-xl font-bold text-white mt-2">{selectedProduct.name}</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Leverancier: <strong className="text-slate-200">{selectedProduct.supplierName}</strong> {selectedProduct.supplierId ? `(ID: ${selectedProduct.supplierId})` : ''}
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  <span className="inline-block text-xs font-semibold px-3 py-1 bg-slate-800 text-slate-300 rounded-full border border-slate-700">
-                    {selectedProduct.salesGroup}
-                  </span>
-                </div>
-              </div>
-
-              {/* Technische Details Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-                <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-                  <span className="text-slate-400 block mb-1">Eenheid</span>
-                  <span className="text-slate-100 font-semibold text-sm">{selectedProduct.unit || 'stuks'}</span>
-                </div>
-                <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-                  <span className="text-slate-400 block mb-1">BTW-tarief</span>
-                  <span className="text-slate-100 font-semibold text-sm">{selectedProduct.vatCode}</span>
-                </div>
-                <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-                  <span className="text-slate-400 block mb-1">Basisprijs (ERP)</span>
-                  <span className="text-slate-100 font-semibold text-sm">
-                    {selectedProduct.salesPrice > 0 ? `€ ${selectedProduct.salesPrice.toFixed(2)}` : 'Maatwerk (€ 0,00)'}
-                  </span>
-                </div>
-                <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-                  <span className="text-slate-400 block mb-1">ERP Product ID</span>
-                  <span className="text-slate-100 font-mono font-semibold text-sm">{selectedProduct.id}</span>
-                </div>
-              </div>
-
-              {selectedProduct.groups.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-slate-800 flex items-center space-x-2 text-xs text-slate-400">
-                  <span className="text-slate-400 font-medium">Artikelhiërarchie:</span>
-                  <span className="text-blue-300 font-medium">{selectedProduct.groups.join(' › ')}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Dynamisch Invoervelden Formulier (Fase 2B) */}
+          <div className="w-full max-w-2xl">
             <DynamicConfiguratorForm
               product={selectedProduct}
-              onChange={setConfigValues}
+              snapshot={snapshot ? {
+                configuration: snapshot,
+                totalSurchargeEur,
+                calculationErrors: snapshot.errors.map(e => e.message)
+              } : undefined}
+              onStepChange={handleStepChange}
+              onChange={handleConfigChange}
             />
           </div>
         ) : (
-          <div className="w-full max-w-xl text-center p-8 border-2 border-dashed border-slate-800 rounded-2xl text-slate-400">
-            <svg className="w-12 h-12 mx-auto text-slate-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <p className="text-sm font-medium">Geen artikel geselecteerd</p>
-            <p className="text-xs text-slate-400 mt-1">
-              Typ hierboven een zoekterm (bijv. <strong className="text-slate-300">luxa due</strong> of <strong className="text-slate-300">gordijn</strong>) om direct een artikel te selecteren en de specifieke velden te zien.
-            </p>
+          <div className="w-full max-w-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-3xl p-8 sm:p-10 shadow-sm dark:shadow-xl transition-all">
+            <div className="text-center max-w-md mx-auto">
+              <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-4 border border-slate-200/80 dark:border-slate-700/60 shadow-xs">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                Welkom bij de Product Configurator
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                Typ in de zoekbalk hierboven om direct een maatwerkartikel te selecteren. De configurator past zich automatisch aan op de productgroep.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 text-left">
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800/60">
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block mb-1">Stap 1</span>
+                  <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">Zoek artikel of merk</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800/60">
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block mb-1">Stap 2</span>
+                  <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">Configureer maten & opties</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800/60">
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block mb-1">Stap 3</span>
+                  <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">Toevoegen aan offerte</span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
-      </div>
-    </main>
+      </main>
+
+      {/* M3 Sticky Price & Action Footer */}
+      {selectedProduct && (
+        <M3PriceActionFooter
+          basePriceEur={selectedProduct.salesPrice || 0}
+          surchargeEur={totalSurchargeEur}
+          disabled={!snapshot || snapshot.errors.length > 0}
+          isSubmitting={isSubmitting}
+          onSubmit={handleAddToProposal}
+          proposalId={proposalId}
+          validationMessage={snapshot && snapshot.errors.length > 0 ? snapshot.errors[0].message : undefined}
+          successMessage={successMessage || undefined}
+          errorMessage={errorMessage || undefined}
+        />
+      )}
+    </div>
   );
 }

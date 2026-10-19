@@ -100,11 +100,15 @@ export function resolveConfiguratorSchema(item: SearchResultItem): ConfiguratorS
   const category = detectProductCategory(item);
 
   switch (category) {
-    case 'raamdecoratie':
+    case 'raamdecoratie': {
+      const preset = item.modelPreset;
+      const defaultVorm = preset?.vorm || ':10 Standaard';
+      const defaultBediening = preset?.bediening || 'SmartCord';
+
       return {
         category: 'raamdecoratie',
         categoryLabel: 'Raamdecoratie / Duette & Plissé',
-        description: 'Geef de maatwerk breedte en hoogte in millimeters op, samen met de gewenste montagewijze en bedieningsoptie.',
+        description: 'Geef de maatwerk breedte en hoogte in millimeters op, samen met de gewenste montagewijze, vorm en bedieningsoptie.',
         fields: [
           {
             key: 'breedte',
@@ -143,20 +147,36 @@ export function resolveConfiguratorSchema(item: SearchResultItem): ConfiguratorS
             helpText: 'Montage tussen de muren (in de dag) of op de muur/kozijn (op de dag).'
           },
           {
+            key: 'vorm',
+            label: 'Vorm & Uitvoering',
+            type: 'select',
+            required: true,
+            defaultValue: defaultVorm,
+            options: [
+              { value: ':10 Standaard', label: ':10 Standaard (Bottom Up)' },
+              { value: ':20 Top Down / Bottom Up', label: ':20 Top Down / Bottom Up' },
+              { value: ':30 Dag en Nacht', label: ':30 Dag en Nacht (Combi)' }
+            ],
+            helpText: 'Kies de gewenste raamdecoratie vorm (bijv. Top Down / Bottom Up).'
+          },
+          {
             key: 'bediening',
             label: 'Bediening',
             type: 'select',
             required: true,
-            defaultValue: 'handmatig',
+            defaultValue: defaultBediening,
             options: [
-              { value: 'handmatig', label: 'Handmatig (greep/koord)' },
-              { value: 'ketting', label: 'Kettingbediening' },
-              { value: 'elektrisch', label: 'Elektrisch / Motor (PowerView/Somfy)' }
+              { value: 'SmartCord', label: 'SmartCord® bediening' },
+              { value: 'PowerView', label: 'PowerView® Motor (elektrisch)' },
+              { value: 'LiteRise', label: 'LiteRise® handgreepbediening' },
+              { value: 'Ketting', label: 'Kettingbediening' },
+              { value: 'Handgreep', label: 'Handgreepbediening' }
             ],
-            helpText: 'Kies de gewenste aandrijving of bedieningsvorm.'
+            helpText: 'Kies het gewenste bedieningssysteem.'
           }
         ]
       };
+    }
 
     case 'gordijnen':
       return {

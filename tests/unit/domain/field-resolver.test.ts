@@ -104,6 +104,7 @@ describe('Field Resolver Domain Unit Tests (TDD RED)', () => {
       expect(fieldKeys).toContain('breedte');
       expect(fieldKeys).toContain('hoogte');
       expect(fieldKeys).toContain('montagewijze');
+      expect(fieldKeys).toContain('vorm');
       expect(fieldKeys).toContain('bediening');
 
       // Cruciaal: gordijnvelden mogen absoluut niet aanwezig zijn
@@ -118,6 +119,20 @@ describe('Field Resolver Domain Unit Tests (TDD RED)', () => {
       const mountingField = schema.fields.find(f => f.key === 'montagewijze');
       expect(mountingField?.type).toBe('select');
       expect(mountingField?.options?.map(o => o.value)).toEqual(['in_de_dag', 'op_de_dag']);
+
+      const vormField = schema.fields.find(f => f.key === 'vorm');
+      expect(vormField?.type).toBe('select');
+      expect(vormField?.defaultValue).toBe(':10 Standaard');
+      expect(vormField?.options?.map(o => o.value)).toEqual([
+        ':10 Standaard',
+        ':20 Top Down / Bottom Up',
+        ':30 Dag en Nacht'
+      ]);
+
+      const bedieningField = schema.fields.find(f => f.key === 'bediening');
+      expect(bedieningField?.type).toBe('select');
+      expect(bedieningField?.options?.map(o => o.value)).toContain('SmartCord');
+      expect(bedieningField?.options?.map(o => o.value)).toContain('PowerView');
     });
 
     it('should generate gordijnen schema with railbreedte, maakhoogte and plooitype, without Top Down/Bottom Up', () => {
@@ -147,6 +162,7 @@ describe('Field Resolver Domain Unit Tests (TDD RED)', () => {
       // Cruciaal: raamdecoratie velden mogen nooit gevraagd worden bij gordijnen
       expect(fieldKeys).not.toContain('breedte');
       expect(fieldKeys).not.toContain('montagewijze');
+      expect(fieldKeys).not.toContain('vorm');
       expect(fieldKeys).not.toContain('bediening');
 
       const pleatField = schema.fields.find(f => f.key === 'plooitype');
@@ -178,6 +194,8 @@ describe('Field Resolver Domain Unit Tests (TDD RED)', () => {
       const fieldKeys = schema.fields.map(f => f.key);
       expect(fieldKeys).toContain('oppervlakte');
       expect(fieldKeys).toContain('snijverlies');
+      expect(fieldKeys).not.toContain('vorm');
+      expect(fieldKeys).not.toContain('bediening');
 
       const areaField = schema.fields.find(f => f.key === 'oppervlakte');
       expect(areaField?.unit).toBe('m²');
@@ -208,6 +226,94 @@ describe('Field Resolver Domain Unit Tests (TDD RED)', () => {
       const fieldKeys = schema.fields.map(f => f.key);
       expect(fieldKeys).toContain('aantal');
       expect(fieldKeys).toContain('opmerking');
+    });
+
+    it('should preselect vorm and bediening from modelPreset when item has AU20 preset', () => {
+      const au20Item: SearchResultItem = {
+        id: 219609,
+        code: 'A00052469',
+        name: 'Duette® shade',
+        unit: 'stuks',
+        salesPrice: 0,
+        salesGroup: 'Raamdecoratie',
+        supplierName: 'Luxaflex',
+        supplierId: 82653,
+        groups: ['Luxaflex', 'Duette® shade'],
+        vatCode: 'BTW Hoog',
+        modelPreset: {
+          code: 'AU20',
+          name: 'Top-Down / Bottom-Up SmartCord®',
+          productFamily: 'Duette / Plissé',
+          vorm: ':20 Top Down / Bottom Up',
+          bediening: 'SmartCord',
+          surchargeEur: 37.19
+        }
+      };
+
+      const schema = resolveConfiguratorSchema(au20Item);
+
+      expect(schema.category).toBe('raamdecoratie');
+      const vormField = schema.fields.find(f => f.key === 'vorm');
+      expect(vormField?.defaultValue).toBe(':20 Top Down / Bottom Up');
+
+      const bedieningField = schema.fields.find(f => f.key === 'bediening');
+      expect(bedieningField?.defaultValue).toBe('SmartCord');
+    });
+
+    it('should preselect vorm and bediening for PowerView motor when item has AE20 preset', () => {
+      const ae20Item: SearchResultItem = {
+        id: 219609,
+        code: 'A00052469',
+        name: 'Duette® shade',
+        unit: 'stuks',
+        salesPrice: 0,
+        salesGroup: 'Raamdecoratie',
+        supplierName: 'Luxaflex',
+        supplierId: 82653,
+        groups: ['Luxaflex', 'Duette® shade'],
+        vatCode: 'BTW Hoog',
+        modelPreset: {
+          code: 'AE20',
+          name: 'Top-Down / Bottom-Up PowerView® Motor',
+          productFamily: 'Duette / Plissé',
+          vorm: ':20 Top Down / Bottom Up',
+          bediening: 'PowerView',
+          surchargeEur: 185
+        }
+      };
+
+      const schema = resolveConfiguratorSchema(ae20Item);
+
+      expect(schema.fields.find(f => f.key === 'vorm')?.defaultValue).toBe(':20 Top Down / Bottom Up');
+      expect(schema.fields.find(f => f.key === 'bediening')?.defaultValue).toBe('PowerView');
+    });
+
+    it('should preselect :30 Dag en Nacht for AU30 preset', () => {
+      const au30Item: SearchResultItem = {
+        id: 219609,
+        code: 'A00052469',
+        name: 'Duette® shade',
+        unit: 'stuks',
+        salesPrice: 0,
+        salesGroup: 'Raamdecoratie',
+        supplierName: 'Luxaflex',
+        supplierId: 82653,
+        groups: ['Luxaflex', 'Duette® shade'],
+        vatCode: 'BTW Hoog',
+        modelPreset: {
+          code: 'AU30',
+          name: 'Dag en Nacht SmartCord®',
+          productFamily: 'Duette / Plissé',
+          vorm: ':30 Dag en Nacht',
+          bediening: 'SmartCord',
+          surchargeEur: 75.0
+        }
+      };
+
+      const schema = resolveConfiguratorSchema(au30Item);
+
+      expect(schema.fields.find(f => f.key === 'vorm')?.defaultValue).toBe(':30 Dag en Nacht');
+      expect(schema.fields.find(f => f.key === 'bediening')?.defaultValue).toBe('SmartCord');
     });
   });
 });
