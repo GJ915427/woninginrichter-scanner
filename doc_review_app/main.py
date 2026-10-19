@@ -6,6 +6,7 @@ and access-controlled document/annotation route stubs.
 """
 
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
 from typing import Any, AsyncGenerator, Dict, List, Set
@@ -163,6 +164,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from doc_review_app.services.document_service import sync_local_directory_with_db
     with get_db() as db:
         sync_local_directory_with_db(db=db, sync_cloud=False)
+
+    # 6b. Bootstrap initial document access for Kelly Schreurs if not already completed
+    with get_db() as db:
+        cur = db.execute("SELECT value FROM app_settings WHERE key = 'document_access_bootstrap_completed'")
+        if not cur.fetchone():
+            kelly = user_service.get_user_by_username(db, "kelly.schreurs")
+            if kelly:
+                doc = db.execute("SELECT id FROM documents ORDER BY id ASC LIMIT 1").fetchone()
+                if doc:
+                    now_iso = datetime.now(timezone.utc).isoformat()
+                    db.execute(
+                        "INSERT OR IGNORE INTO document_access (document_id, user_id, granted_at) VALUES (?, ?, ?)",
+                        (doc["id"], kelly["id"], now_iso),
+                    )
+            now_iso = datetime.now(timezone.utc).isoformat()
+            db.execute(
+                "INSERT OR REPLACE INTO app_settings (key, value, created_at, updated_at) VALUES ('document_access_bootstrap_completed', 'true', ?, ?)",
+                (now_iso, now_iso),
+            )
+            db.commit()
 
     # 7. Auto-migrate existing annotations and comments between SQLite and JSON sidecars
     from doc_review_app.storage.migration import auto_migrate_if_needed

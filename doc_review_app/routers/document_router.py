@@ -48,7 +48,11 @@ def list_documents(
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> List[DocumentSummary]:
     """Retrieve list of all ingested documents with metadata and comment counts."""
-    docs = document_service.list_documents(db=db)
+    docs = document_service.list_documents(
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+        db=db,
+    )
     return [DocumentSummary.model_validate(doc) for doc in docs]
 
 
@@ -73,6 +77,8 @@ def sync_document(
         filename=payload.filename,
         content=payload.content,
         format=payload.format,
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
         db=db,
     )
     if res["action"] == "created":
@@ -113,45 +119,21 @@ def get_document_by_id(
             detail=f"Document with ID {doc_id} not found",
         )
 
+    if not document_service.check_document_access(
+        document_id=doc_id,
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+        db=db,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this document.",
+        )
+
     return DocumentDetail.model_validate(doc)
 
 
-@router.post(
-    "/{doc_id}/annotations",
-    status_code=status.HTTP_201_CREATED,
-    summary="Create Annotation with Optional Comment",
-    tags=["annotations"],
-)
-def create_document_annotation(
-    doc_id: int,
-    payload: Dict[str, Any],
-    current_user: User = Depends(get_current_user),
-    db: sqlite3.Connection = Depends(get_db_session),
-) -> Dict[str, Any]:
-    """Create an annotation anchored to document text offsets with initial comment."""
-    start_offset = payload.get("start_offset")
-    end_offset = payload.get("end_offset")
-    selected_text = payload.get("selected_text", "")
-    comment_content = payload.get("comment_content")
-    badge_color = payload.get("badge_color", "#FF6D00")
 
-    if start_offset is None or end_offset is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="start_offset and end_offset are required",
-        )
-
-    return document_service.create_annotation_for_document(
-        doc_id=doc_id,
-        author_id=current_user.id,
-        author_initials=current_user.initials,
-        start_offset=int(start_offset),
-        end_offset=int(end_offset),
-        selected_text=str(selected_text),
-        comment_content=comment_content,
-        badge_color=badge_color,
-        db=db,
-    )
 
 
 @router.post(

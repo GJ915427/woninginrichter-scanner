@@ -42,6 +42,7 @@
     documentHeaderTitle: document.getElementById('doc-header-title'),
     documentHeaderMeta: document.getElementById('doc-header-meta'),
     btnExportAstFeedback: document.getElementById('btn-export-ast-feedback'),
+    btnManageAccess: document.getElementById('btn-manage-access'),
     floatingCommentPill: document.getElementById('btn-floating-comment'),
 
     // Input Popover (Balloon)
@@ -198,18 +199,23 @@
       els.drawerHeaderTitle.style.display = isAdmin ? 'none' : 'inline-block';
     }
 
-    // 3. Document selecteren & lijstbeheer: admin only
-    if (els.drawerToolbar) {
-      els.drawerToolbar.style.display = isAdmin ? '' : 'none';
-    }
+    // 3. Document selecteren & toegangsbeheer: admin only
     if (els.btnPickFile) {
       els.btnPickFile.style.display = isAdmin ? '' : 'none';
     }
+    if (els.btnManageAccess) {
+      els.btnManageAccess.style.display = isAdmin ? 'flex' : 'none';
+    }
+    if (els.drawerToolbar) {
+      els.drawerToolbar.style.display = isAdmin ? '' : 'none';
+    }
+
+    // 4. Documentenlijst & header: zichtbaar voor iedereen (reviewers zien gefilterde lijst)
     if (els.drawerDocsHeader) {
-      els.drawerDocsHeader.style.display = isAdmin ? '' : 'none';
+      els.drawerDocsHeader.style.display = '';
     }
     if (els.documentList) {
-      els.documentList.style.display = isAdmin ? '' : 'none';
+      els.documentList.style.display = '';
     }
   }
 
@@ -507,7 +513,18 @@
         const targetDocId = state.currentDoc ? state.currentDoc.id : state.documents[0].id;
         await selectDocument(targetDocId);
       } else {
-        els.documentContainer.innerHTML = '<p class="m3-typography-body-medium" style="color: var(--md-sys-color-outline);">Geen documenten gevonden. Klik op "Document Selecteren" of plaats een .md bestand in de lokale map.</p>';
+        const isAdmin = Boolean(state.currentUser && state.currentUser.is_admin);
+        if (isAdmin) {
+          els.documentContainer.innerHTML = '<p class="m3-typography-body-medium" style="color: var(--md-sys-color-outline);">Geen documenten gevonden. Klik op "Document Selecteren" of plaats een .md bestand in de lokale map.</p>';
+        } else {
+          els.documentContainer.innerHTML = `
+            <div class="reviewer-empty-state">
+              <span class="material-symbols-outlined reviewer-empty-state__icon">folder_off</span>
+              <div class="reviewer-empty-state__title">Geen documenten beschikbaar</div>
+              <div class="reviewer-empty-state__desc">U heeft momenteel geen toegang tot documenten. Neem contact op met uw beheerder om toegang te verkrijgen.</div>
+            </div>
+          `;
+        }
       }
     } catch (err) {
       showToast('Failed to load document list.', 'error');
@@ -525,14 +542,26 @@
     if (state.documents.length === 0) {
       const emptyLi = document.createElement('li');
       emptyLi.className = 'document-nav-item--empty';
-      emptyLi.innerHTML = `
-        <div style="padding: 16px 8px; text-align: center; color: var(--md-sys-color-on-surface-variant);">
-          <p style="margin: 0 0 6px; font-weight: 500;">Geen documenten</p>
-          <p style="margin: 0; font-size: 12px; line-height: 1.4; color: var(--md-sys-color-outline);">
-            Klik op <strong>Document Selecteren</strong> of plaats een .md bestand in de geopende map.
-          </p>
-        </div>
-      `;
+      const isAdmin = Boolean(state.currentUser && state.currentUser.is_admin);
+      if (isAdmin) {
+        emptyLi.innerHTML = `
+          <div style="padding: 16px 8px; text-align: center; color: var(--md-sys-color-on-surface-variant);">
+            <p style="margin: 0 0 6px; font-weight: 500;">Geen documenten</p>
+            <p style="margin: 0; font-size: 12px; line-height: 1.4; color: var(--md-sys-color-outline);">
+              Klik op <strong>Document Selecteren</strong> of plaats een .md bestand in de geopende map.
+            </p>
+          </div>
+        `;
+      } else {
+        emptyLi.innerHTML = `
+          <div style="padding: 16px 8px; text-align: center; color: var(--md-sys-color-on-surface-variant);">
+            <p style="margin: 0 0 6px; font-weight: 500;">Geen documenten</p>
+            <p style="margin: 0; font-size: 12px; line-height: 1.4; color: var(--md-sys-color-outline);">
+              Vraag uw beheerder om toegang tot documenten.
+            </p>
+          </div>
+        `;
+      }
       els.documentList.appendChild(emptyLi);
       return;
     }
@@ -569,7 +598,7 @@
       `;
 
       li.addEventListener('click', function (e) {
-        if (!state.currentUser || !state.currentUser.is_admin) return;
+        if (!state.currentUser) return;
         if (e.target.closest('.document-nav-item__delete')) return;
         selectDocument(doc.id);
         if (window.innerWidth < 840) {
@@ -1556,6 +1585,187 @@
       handleSelectionForNewComment
     );
   }
+
+  // ============================================================================
+  // Document Access Control Matrix Functions (Admin Only)
+  // ============================================================================
+
+  let docAccessData = null;
+
+  async function openDocumentAccessModal() {
+    if (!state.currentUser || !state.currentUser.is_admin) {
+      showToast('Uitsluitend toegankelijk voor beheerders.', 'error');
+      return;
+    }
+    const modal = document.getElementById('document-access-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    await loadDocumentAccessMatrix();
+  }
+
+  function closeDocumentAccessModal() {
+    const modal = document.getElementById('document-access-modal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+  }
+
+  window.openDocumentAccessModal = openDocumentAccessModal;
+  window.closeDocumentAccessModal = closeDocumentAccessModal;
+
+  async function loadDocumentAccessMatrix() {
+    const container = document.getElementById('doc-access-table-container');
+    const statusEl = document.getElementById('doc-access-status');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div style="padding: 2rem; text-align: center; color: var(--md-sys-color-on-surface-variant);">
+        <span class="material-symbols-outlined spin" style="font-size: 24px; vertical-align: middle;">sync</span>
+        <span style="margin-left: 8px;">Matrix laden...</span>
+      </div>
+    `;
+    if (statusEl) statusEl.textContent = '';
+
+    try {
+      docAccessData = await api('/api/admin/document-access');
+      renderDocumentAccessMatrix(docAccessData);
+    } catch (err) {
+      container.innerHTML = `
+        <div class="doc-access-empty">
+          <p style="color: var(--md-sys-color-error);">Fout bij laden van toegangsmatrix: ${MarkdownRenderer.escapeHtml(err.message || 'Onbekende fout')}</p>
+        </div>
+      `;
+    }
+  }
+
+  function renderDocumentAccessMatrix(data) {
+    const container = document.getElementById('doc-access-table-container');
+    if (!container) return;
+
+    const users = (data && data.users) || [];
+    const documents = (data && data.documents) || [];
+
+    if (users.length === 0) {
+      container.innerHTML = `
+        <div class="doc-access-empty">
+          <p>Geen actieve reviewers gevonden in het systeem.</p>
+        </div>
+      `;
+      return;
+    }
+
+    if (documents.length === 0) {
+      container.innerHTML = `
+        <div class="doc-access-empty">
+          <p>Geen documenten beschikbaar om te beheren.</p>
+        </div>
+      `;
+      return;
+    }
+
+    let html = `
+      <table class="doc-access-table">
+        <thead>
+          <tr>
+            <th style="min-width: 220px;">Document</th>
+    `;
+
+    users.forEach(function (u) {
+      html += `
+        <th class="doc-access-user-header">
+          <span class="doc-access-user-name">${MarkdownRenderer.escapeHtml(u.name || u.username)}</span>
+          <span class="doc-access-user-uname">@${MarkdownRenderer.escapeHtml(u.username)}</span>
+        </th>
+      `;
+    });
+
+    html += `
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    documents.forEach(function (doc) {
+      html += `
+        <tr data-doc-id="${doc.id}">
+          <td class="doc-access-doc-name" title="${MarkdownRenderer.escapeHtml(doc.filename)}">
+            ${MarkdownRenderer.escapeHtml(doc.filename)}
+          </td>
+      `;
+
+      users.forEach(function (u) {
+        const isGranted = Boolean(doc.access && doc.access[String(u.id)]);
+        html += `
+          <td class="doc-access-cell">
+            <label class="doc-access-checkbox-label" title="${isGranted ? 'Toegang intrekken' : 'Toegang verlenen'} voor ${MarkdownRenderer.escapeHtml(u.name)}">
+              <input type="checkbox"
+                data-doc-id="${doc.id}"
+                data-user-id="${u.id}"
+                ${isGranted ? 'checked' : ''}
+                onchange="handleAccessToggle(this, ${doc.id}, ${u.id})"
+                aria-label="Toegang ${MarkdownRenderer.escapeHtml(doc.filename)} voor ${MarkdownRenderer.escapeHtml(u.name)}"
+              />
+            </label>
+          </td>
+        `;
+      });
+
+      html += `</tr>`;
+    });
+
+    html += `
+        </tbody>
+      </table>
+    `;
+
+    container.innerHTML = html;
+  }
+
+  async function handleAccessToggle(checkbox, docId, userId) {
+    const isGranted = checkbox.checked;
+    const statusEl = document.getElementById('doc-access-status');
+    if (statusEl) {
+      statusEl.style.color = 'var(--md-sys-color-primary)';
+      statusEl.textContent = 'Toegang bijwerken...';
+    }
+
+    try {
+      await api('/api/admin/document-access/toggle', {
+        method: 'POST',
+        body: JSON.stringify({
+          document_id: docId,
+          user_id: userId,
+          granted: isGranted,
+        }),
+      });
+
+      if (docAccessData && docAccessData.documents) {
+        const docEntry = docAccessData.documents.find(function (d) { return d.id === docId; });
+        if (docEntry) {
+          if (!docEntry.access) docEntry.access = {};
+          docEntry.access[String(userId)] = isGranted;
+        }
+      }
+
+      if (statusEl) {
+        statusEl.style.color = 'var(--md-sys-color-primary)';
+        statusEl.textContent = 'Toegang succesvol bijgewerkt.';
+        setTimeout(function () {
+          if (statusEl.textContent === 'Toegang succesvol bijgewerkt.') {
+            statusEl.textContent = '';
+          }
+        }, 2000);
+      }
+    } catch (err) {
+      checkbox.checked = !isGranted;
+      if (statusEl) {
+        statusEl.style.color = 'var(--md-sys-color-error)';
+        statusEl.textContent = 'Fout bij bijwerken toegang: ' + (err.message || 'Netwerkfout');
+      }
+    }
+  }
+
+  window.handleAccessToggle = handleAccessToggle;
 
   // Application Entry Point
   document.addEventListener('DOMContentLoaded', function () {

@@ -121,6 +121,25 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, enti
 CREATE INDEX IF NOT EXISTS idx_audit_logs_doc ON audit_logs(document_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+
+    CREATE TABLE IF NOT EXISTS document_access (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        granted_at TEXT NOT NULL DEFAULT (datetime('now')),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(document_id, user_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_doc_access_doc_id ON document_access(document_id);
+    CREATE INDEX IF NOT EXISTS idx_doc_access_user_id ON document_access(user_id);
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT
+    );
 """
 
 
@@ -203,6 +222,37 @@ def _migrate_db(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE annotations ADD COLUMN ast_path TEXT")
         if ann_cols and "node_type" not in ann_cols:
             conn.execute("ALTER TABLE annotations ADD COLUMN node_type TEXT")
+
+        # Check document_access and app_settings tables
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS document_access (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                granted_at TEXT NOT NULL DEFAULT (datetime('now')),
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(document_id, user_id)
+            );
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_doc_access_doc_id ON document_access(document_id);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_doc_access_user_id ON document_access(user_id);")
+        cur = conn.execute("PRAGMA table_info(document_access)")
+        access_cols = [row[1] for row in cur.fetchall()]
+        if access_cols and "granted_at" not in access_cols:
+            conn.execute("ALTER TABLE document_access ADD COLUMN granted_at TEXT NOT NULL DEFAULT (datetime('now'))")
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT
+            );
+        """)
+        cur = conn.execute("PRAGMA table_info(app_settings)")
+        setting_cols = [row[1] for row in cur.fetchall()]
+        if setting_cols and "updated_at" not in setting_cols:
+            conn.execute("ALTER TABLE app_settings ADD COLUMN updated_at TEXT")
     except Exception:
         pass
 
@@ -220,6 +270,8 @@ def reset_db(db_path: Optional[Union[Path, str]] = None) -> None:
     DROP TABLE IF EXISTS audit_logs;
     DROP TABLE IF EXISTS comments;
     DROP TABLE IF EXISTS annotations;
+    DROP TABLE IF EXISTS document_access;
+    DROP TABLE IF EXISTS app_settings;
     DROP TABLE IF EXISTS documents;
     DROP TABLE IF EXISTS sessions;
     DROP TABLE IF EXISTS users;

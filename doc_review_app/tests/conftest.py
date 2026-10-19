@@ -59,7 +59,7 @@ def app_instance():
 
 
 @pytest.fixture(autouse=True)
-def clean_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def clean_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
     """Reset database and seed initial admin before each test to guarantee complete test isolation."""
     from doc_review_app.config import settings
     from doc_review_app.database import get_db, init_db, get_connection
@@ -90,6 +90,11 @@ def clean_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             db.execute("DELETE FROM revoked_tokens;")
         except sqlite3.OperationalError:
             pass
+        try:
+            db.execute("DELETE FROM document_access;")
+            db.execute("DELETE FROM app_settings;")
+        except sqlite3.OperationalError:
+            pass
         db.execute("DELETE FROM users;")
         try:
             db.execute("DELETE FROM sqlite_sequence;")
@@ -110,6 +115,33 @@ def clean_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             )
         except user_service.UserAlreadyExistsError:
             pass
+
+    is_access_control_test = "test_document_access_control" in request.node.nodeid
+    if not is_access_control_test:
+        with get_connection(test_db_path) as conn:
+            conn.execute(
+                """
+                CREATE TRIGGER IF NOT EXISTS trg_legacy_test_auto_access_docs
+                AFTER INSERT ON documents
+                BEGIN
+                    INSERT OR IGNORE INTO document_access (document_id, user_id, granted_at)
+                    SELECT NEW.id, u.id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                    FROM users u;
+                END;
+                """
+            )
+            conn.execute(
+                """
+                CREATE TRIGGER IF NOT EXISTS trg_legacy_test_auto_access_users
+                AFTER INSERT ON users
+                BEGIN
+                    INSERT OR IGNORE INTO document_access (document_id, user_id, granted_at)
+                    SELECT d.id, NEW.id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                    FROM documents d;
+                END;
+                """
+            )
+            conn.commit()
 
     yield test_db_path
 

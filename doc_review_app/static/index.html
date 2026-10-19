@@ -78,6 +78,10 @@
             <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
             <span>Document Selecteren</span>
           </button>
+          <button id="btn-manage-access" class="m3-button m3-button--outlined" style="width: 100%; gap: 8px; margin-top: 8px; display: none;" onclick="openDocumentAccessModal()" title="Beheer documenttoegang voor reviewers">
+            <span class="material-symbols-outlined" style="font-size: 18px;">manage_accounts</span>
+            <span>Toegangsbeheer</span>
+          </button>
         </div>
 
         <div class="nav-drawer__section-header" id="nav-drawer-docs-header">
@@ -214,6 +218,41 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Document Access Control Matrix Modal (Admin Only) -->
+    <div id="document-access-modal" class="m3-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="doc-access-modal-title" style="display: none;">
+      <div class="m3-dialog m3-dialog--wide">
+        <div class="m3-dialog__header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span class="material-symbols-outlined" style="font-size: 28px; color: var(--md-sys-color-primary);">manage_accounts</span>
+            <h2 id="doc-access-modal-title" class="m3-dialog__title" style="margin: 0;">Documenttoegang Beheren</h2>
+          </div>
+          <button id="btn-close-access-modal" class="m3-icon-button" onclick="closeDocumentAccessModal()" aria-label="Sluit modal" title="Sluiten">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <p class="m3-dialog__supporting-text" style="margin-bottom: 1rem;">
+          Selecteer per reviewer welke documenten toegankelijk zijn. Wijzigingen worden direct opgeslagen.
+        </p>
+
+        <div id="doc-access-table-container" class="doc-access-table-container" style="max-height: 60vh; overflow: auto; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px;">
+          <!-- Rendered dynamically by app.js: table.doc-access-table -->
+          <div id="doc-access-loading" style="padding: 2rem; text-align: center; color: var(--md-sys-color-on-surface-variant);">
+            <span class="material-symbols-outlined spin" style="font-size: 24px; vertical-align: middle;">sync</span>
+            <span style="margin-left: 8px;">Matrix laden...</span>
+          </div>
+        </div>
+
+        <div id="doc-access-status" style="margin-top: 0.75rem; font-size: 0.8125rem; min-height: 1.25rem;"></div>
+
+        <div class="m3-dialog__actions" style="margin-top: 1rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+          <button type="button" class="m3-button m3-button--tonal" onclick="closeDocumentAccessModal()">
+            <span>Sluiten</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>

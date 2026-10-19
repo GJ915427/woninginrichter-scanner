@@ -1737,3 +1737,120 @@ html, body {
   }
 }
 
+/* ==========================================================================
+   Document Access Control Matrix Modal Styles
+   ========================================================================== */
+
+.m3-dialog--wide {
+  max-width: 900px;
+  width: 90vw;
+}
+
+.doc-access-table-container {
+  background: var(--md-sys-color-surface);
+  position: relative;
+}
+
+.doc-access-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.doc-access-table th,
+.doc-access-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.doc-access-table th {
+  background: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-on-surface);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.doc-access-table td.doc-access-cell {
+  text-align: center;
+  padding: 0;
+}
+
+.doc-access-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 48px;
+  cursor: pointer;
+  margin: 0;
+  user-select: none;
+}
+
+.doc-access-checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--md-sys-color-primary);
+  cursor: pointer;
+}
+
+.doc-access-doc-name {
+  font-weight: 500;
+  color: var(--md-sys-color-on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.doc-access-user-header {
+  text-align: center;
+}
+
+.doc-access-user-name {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.doc-access-user-uname {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--md-sys-color-outline);
+  font-weight: 400;
+}
+
+.doc-access-empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.reviewer-empty-state {
+  padding: 2rem 1.5rem;
+  text-align: center;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.reviewer-empty-state__icon {
+  font-size: 48px;
+  color: var(--md-sys-color-outline);
+  margin-bottom: 0.75rem;
+}
+
+.reviewer-empty-state__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface);
+  margin-bottom: 0.5rem;
+}
+
+.reviewer-empty-state__desc {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--md-sys-color-on-surface-variant);
+}
+

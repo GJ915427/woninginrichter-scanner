@@ -99,6 +99,8 @@ def upsert_document(
     filename: str,
     content: str,
     format: Optional[str] = None,
+    user_id: Optional[int] = None,
+    is_admin: bool = False,
     db: Optional[sqlite3.Connection] = None,
 ) -> Dict[str, Any]:
     """Insert or update a document record in SQLite documents table.
@@ -148,6 +150,12 @@ def upsert_document(
             doc_id = cursor.lastrowid
             action = "created"
 
+        if user_id is not None and not is_admin:
+            conn.execute(
+                "INSERT OR IGNORE INTO document_access (document_id, user_id, granted_at) VALUES (?, ?, ?)",
+                (doc_id, user_id, now_iso),
+            )
+
         return {
             "id": doc_id,
             "filename": clean_filename,
@@ -161,26 +169,50 @@ def upsert_document(
         return _execute(conn)
 
 
-def list_documents(db: Optional[sqlite3.Connection] = None) -> List[Dict[str, Any]]:
+def list_documents(
+    user_id: Optional[int] = None,
+    is_admin: bool = False,
+    db: Optional[sqlite3.Connection] = None,
+) -> List[Dict[str, Any]]:
     """Return list of all ingested documents with metadata and total comment count."""
-    query = """
-        SELECT
-            d.id,
-            d.filename,
-            d.title,
-            d.format,
-            d.file_size AS size_bytes,
-            d.updated_at,
-            COUNT(c.id) AS comment_count
-        FROM documents d
-        LEFT JOIN annotations a ON a.document_id = d.id AND a.is_deleted = 0
-        LEFT JOIN comments c ON c.annotation_id = a.id AND c.is_deleted = 0
-        GROUP BY d.id
-        ORDER BY d.id ASC
-    """
+    if not is_admin and user_id is not None:
+        query = """
+            SELECT
+                d.id,
+                d.filename,
+                d.title,
+                d.format,
+                d.file_size AS size_bytes,
+                d.updated_at,
+                COUNT(c.id) AS comment_count
+            FROM documents d
+            JOIN document_access da ON da.document_id = d.id AND da.user_id = ?
+            LEFT JOIN annotations a ON a.document_id = d.id AND a.is_deleted = 0
+            LEFT JOIN comments c ON c.annotation_id = a.id AND c.is_deleted = 0
+            GROUP BY d.id
+            ORDER BY d.id ASC
+        """
+        params: tuple = (user_id,)
+    else:
+        query = """
+            SELECT
+                d.id,
+                d.filename,
+                d.title,
+                d.format,
+                d.file_size AS size_bytes,
+                d.updated_at,
+                COUNT(c.id) AS comment_count
+            FROM documents d
+            LEFT JOIN annotations a ON a.document_id = d.id AND a.is_deleted = 0
+            LEFT JOIN comments c ON c.annotation_id = a.id AND c.is_deleted = 0
+            GROUP BY d.id
+            ORDER BY d.id ASC
+        """
+        params = ()
 
     def _execute(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
-        cursor = conn.execute(query)
+        cursor = conn.execute(query, params)
         rows = cursor.fetchall()
         from doc_review_app.storage.json_storage import get_sidecar_path, read_sidecar
         result = []
@@ -486,6 +518,259 @@ def delete_document(doc_id: int, db: Optional[sqlite3.Connection] = None, *, syn
             logger.warning("Cloud tombstone creation failed for '%s': %s", result["filename"], e)
 
     return result
+
+
+# ============================================================================
+# Document Access Control & Permissions Matrix
+# ============================================================================
+
+
+def check_document_access(
+    document_id: int,
+    user_id: int,
+    is_admin: bool,
+    db: Optional[sqlite3.Connection] = None,
+) -> bool:
+    """Verify if a user has access to a given document. Admin has full access."""
+    if is_admin:
+        return True
+
+    def _execute(conn: sqlite3.Connection) -> bool:
+        cursor = conn.execute(
+            "SELECT 1 FROM document_access WHERE document_id = ? AND user_id = ?",
+            (document_id, user_id),
+        )
+        return cursor.fetchone() is not None
+
+    if db is not None:
+        return _execute(db)
+    with get_db() as conn:
+        return _execute(conn)
+
+
+def check_document_access_by_annotation(
+    annotation_id: int,
+    user_id: int,
+    is_admin: bool,
+    db: Optional[sqlite3.Connection] = None,
+) -> Tuple[bool, bool]:
+    """Check existence of annotation and access permissions to parent document. Returns (exists, has_access)."""
+    def _execute(conn: sqlite3.Connection) -> Tuple[bool, bool]:
+        cursor = conn.execute(
+            "SELECT document_id FROM annotations WHERE id = ?",
+            (annotation_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return False, False
+        if is_admin:
+            return True, True
+        has_access = check_document_access(row["document_id"], user_id, is_admin=False, db=conn)
+        return True, has_access
+
+    if db is not None:
+        return _execute(db)
+    with get_db() as conn:
+        return _execute(conn)
+
+
+def check_document_access_by_comment(
+    comment_id: int,
+    user_id: int,
+    is_admin: bool,
+    db: Optional[sqlite3.Connection] = None,
+) -> Tuple[bool, bool]:
+    """Check existence of comment and access permissions to parent document. Returns (exists, has_access)."""
+    def _execute(conn: sqlite3.Connection) -> Tuple[bool, bool]:
+        cursor = conn.execute(
+            """
+            SELECT a.document_id
+            FROM comments c
+            JOIN annotations a ON a.id = c.annotation_id
+            WHERE c.id = ?
+            """,
+            (comment_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return False, False
+        if is_admin:
+            return True, True
+        has_access = check_document_access(row["document_id"], user_id, is_admin=False, db=conn)
+        return True, has_access
+
+    if db is not None:
+        return _execute(db)
+    with get_db() as conn:
+        return _execute(conn)
+
+
+def get_document_access_matrix(db: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
+    """Retrieve full 2D matrix of documents x active reviewer users with granted status."""
+    def _execute(conn: sqlite3.Connection) -> Dict[str, Any]:
+        users_cur = conn.execute(
+            """
+            SELECT id, username, full_name
+            FROM users
+            WHERE is_active = 1 AND is_admin = 0
+            ORDER BY full_name ASC, username ASC
+            """
+        )
+        users = users_cur.fetchall()
+
+        docs_cur = conn.execute(
+            "SELECT id, filename FROM documents ORDER BY filename ASC"
+        )
+        docs = docs_cur.fetchall()
+
+        access_cur = conn.execute(
+            "SELECT document_id, user_id FROM document_access"
+        )
+        access_set = {(r["document_id"], r["user_id"]) for r in access_cur.fetchall()}
+
+        user_list = [
+            {
+                "id": u["id"],
+                "name": u["full_name"] if u["full_name"] else u["username"],
+                "username": u["username"],
+            }
+            for u in users
+        ]
+
+        document_list = [
+            {
+                "id": d["id"],
+                "filename": d["filename"],
+                "access": {
+                    str(u["id"]): (d["id"], u["id"]) in access_set
+                    for u in users
+                },
+            }
+            for d in docs
+        ]
+
+        return {
+            "users": user_list,
+            "documents": document_list,
+        }
+
+    if db is not None:
+        return _execute(db)
+    with get_db() as conn:
+        return _execute(conn)
+
+
+def toggle_document_access(
+    document_id: int,
+    user_id: int,
+    granted: bool,
+    db: Optional[sqlite3.Connection] = None,
+) -> Dict[str, Any]:
+    """Toggle access for a single user to a document. Validates document and user existence."""
+    def _execute(conn: sqlite3.Connection) -> Dict[str, Any]:
+        doc = conn.execute("SELECT id FROM documents WHERE id = ?", (document_id,)).fetchone()
+        if not doc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document with ID {document_id} not found.",
+            )
+
+        user = conn.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with ID {user_id} not found.",
+            )
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if granted:
+            conn.execute(
+                "INSERT OR IGNORE INTO document_access (document_id, user_id, granted_at) VALUES (?, ?, ?)",
+                (document_id, user_id, now_iso),
+            )
+        else:
+            conn.execute(
+                "DELETE FROM document_access WHERE document_id = ? AND user_id = ?",
+                (document_id, user_id),
+            )
+
+        return {
+            "document_id": document_id,
+            "user_id": user_id,
+            "granted": granted,
+            "success": True,
+        }
+
+    if db is not None:
+        return _execute(db)
+    with get_db() as conn:
+        return _execute(conn)
+
+
+def batch_update_document_access(
+    access_map: Dict[Any, List[int]],
+    db: Optional[sqlite3.Connection] = None,
+) -> Dict[str, Any]:
+    """Batch update document access for multiple documents and users.
+    
+    access_map: {doc_id: [user_id_1, user_id_2, ...]}
+    Empty list clears all access for that doc_id.
+    """
+    def _execute(conn: sqlite3.Connection) -> Dict[str, Any]:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        updated_docs = 0
+        total_grants = 0
+
+        for doc_id_raw, user_ids in access_map.items():
+            try:
+                doc_id = int(doc_id_raw)
+            except (ValueError, TypeError):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid document ID: {doc_id_raw}",
+                )
+
+            doc = conn.execute("SELECT id FROM documents WHERE id = ?", (doc_id,)).fetchone()
+            if not doc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Document with ID {doc_id} not found.",
+                )
+
+            for u_id_raw in user_ids:
+                try:
+                    u_id = int(u_id_raw)
+                except (ValueError, TypeError):
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Invalid user ID: {u_id_raw}",
+                    )
+                u = conn.execute("SELECT id FROM users WHERE id = ?", (u_id,)).fetchone()
+                if not u:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"User with ID {u_id} not found.",
+                    )
+
+            conn.execute("DELETE FROM document_access WHERE document_id = ?", (doc_id,))
+            for u_id in user_ids:
+                conn.execute(
+                    "INSERT INTO document_access (document_id, user_id, granted_at) VALUES (?, ?, ?)",
+                    (doc_id, int(u_id), now_iso),
+                )
+            updated_docs += 1
+            total_grants += len(user_ids)
+
+        return {
+            "success": True,
+            "updated_documents": updated_docs,
+            "total_grants": total_grants,
+        }
+
+    if db is not None:
+        return _execute(db)
+    with get_db() as conn:
+        return _execute(conn)
 
 
 def save_uploaded_file(

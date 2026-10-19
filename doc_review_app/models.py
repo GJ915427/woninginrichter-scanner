@@ -299,6 +299,45 @@ class AuditLogResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ============================================================================
+# Document Access Control Models
+# ============================================================================
+
+
+class DocumentAccessItem(BaseModel):
+    user_id: int
+    name: str
+    username: str
+    granted: bool
+
+
+class DocumentAccessMatrixUser(BaseModel):
+    id: int
+    name: str
+    username: str
+
+
+class DocumentAccessMatrixDocument(BaseModel):
+    id: int
+    filename: str
+    access: dict[str, bool]
+
+
+class DocumentAccessMatrixResponse(BaseModel):
+    users: list[DocumentAccessMatrixUser]
+    documents: list[DocumentAccessMatrixDocument]
+
+
+class DocumentAccessToggleRequest(BaseModel):
+    document_id: int
+    user_id: int
+    granted: bool
+
+
+class DocumentAccessBatchRequest(BaseModel):
+    access_map: dict[int, list[int]]
+
+
 class DocumentDetail(BaseModel):
     """Detailed document representation with full content and annotations."""
 

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from doc_review_app.auth import get_current_token, get_current_user, require_admin
 from doc_review_app.database import get_db_session
 from doc_review_app.models import User
-from doc_review_app.services import comment_service
+from doc_review_app.services import comment_service, document_service
 
 router = APIRouter(tags=["Annotations & Comments"])
 
@@ -40,6 +40,23 @@ def create_document_annotation(
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Create an annotation anchored to document text offsets with optional initial comment."""
+    doc = document_service.get_document_by_id(doc_id=doc_id, db=db)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID {doc_id} not found",
+        )
+    if not document_service.check_document_access(
+        document_id=doc_id,
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+        db=db,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this document.",
+        )
+
     start_offset = payload.get("start_offset")
     end_offset = payload.get("end_offset")
     selected_text = payload.get("selected_text", "")
@@ -101,6 +118,23 @@ def list_document_annotations(
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> List[Dict[str, Any]]:
     """List all annotations for a document with their threaded comments."""
+    doc = document_service.get_document_by_id(doc_id=doc_id, db=db)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID {doc_id} not found",
+        )
+    if not document_service.check_document_access(
+        document_id=doc_id,
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+        db=db,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this document.",
+        )
+
     return comment_service.list_annotations(document_id=doc_id, user=current_user, db=db)
 
 
@@ -115,6 +149,23 @@ def get_annotation(
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Retrieve single annotation by ID with all comments."""
+    exists, has_access = document_service.check_document_access_by_annotation(
+        annotation_id=annotation_id,
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+        db=db,
+    )
+    if not exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Annotation not found",
+        )
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this document.",
+        )
+
     ann = comment_service.get_annotation_by_id(annotation_id=annotation_id, db=db)
     if not ann:
         raise HTTPException(
@@ -136,6 +187,23 @@ def create_comment_reply(
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Create a comment reply on an annotation."""
+    exists, has_access = document_service.check_document_access_by_annotation(
+        annotation_id=annotation_id,
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+        db=db,
+    )
+    if not exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Annotation not found",
+        )
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this document.",
+        )
+
     content = payload.get("content")
     parent_comment_id = payload.get("parent_comment_id")
 
@@ -174,6 +242,23 @@ def get_comment(
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Retrieve single comment by ID."""
+    exists, has_access = document_service.check_document_access_by_comment(
+        comment_id=comment_id,
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+        db=db,
+    )
+    if not exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Comment not found",
+        )
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this document.",
+        )
+
     comment = comment_service.get_comment_by_id(comment_id=comment_id, db=db)
     if not comment:
         raise HTTPException(
@@ -195,6 +280,23 @@ def edit_comment(
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Edit comment content with strict author ownership enforcement."""
+    exists, has_access = document_service.check_document_access_by_comment(
+        comment_id=comment_id,
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+        db=db,
+    )
+    if not exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Comment not found",
+        )
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this document.",
+        )
+
     content = payload.get("content")
     if content is None or not str(content).strip():
         raise HTTPException(
@@ -221,6 +323,23 @@ def delete_comment(
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """Logically delete a comment preserving thread structure, with audit trail."""
+    exists, has_access = document_service.check_document_access_by_comment(
+        comment_id=comment_id,
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+        db=db,
+    )
+    if not exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Comment not found",
+        )
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this document.",
+        )
+
     return comment_service.delete_comment(
         comment_id=comment_id,
         user=current_user,
@@ -239,6 +358,23 @@ def get_comment_history(
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> List[Dict[str, Any]]:
     """Retrieve full revision history and audit trail for a specific comment."""
+    exists, has_access = document_service.check_document_access_by_comment(
+        comment_id=comment_id,
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+        db=db,
+    )
+    if not exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Comment not found",
+        )
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this document.",
+        )
+
     return comment_service.get_comment_history(
         comment_id=comment_id,
         db=db,
@@ -256,6 +392,23 @@ def get_document_audit_logs(
     db: sqlite3.Connection = Depends(get_db_session),
 ) -> List[Dict[str, Any]]:
     """Retrieve all audit log events (creation, edits, deletions) for a document."""
+    doc = document_service.get_document_by_id(doc_id=doc_id, db=db)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID {doc_id} not found",
+        )
+    if not document_service.check_document_access(
+        document_id=doc_id,
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+        db=db,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this document.",
+        )
+
     return comment_service.list_document_audit_logs(
         document_id=doc_id,
         db=db,

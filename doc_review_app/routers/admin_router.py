@@ -6,14 +6,22 @@ Endpoints:
 """
 
 import sqlite3
-from typing import List
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from doc_review_app.auth import require_admin
 from doc_review_app.database import get_db_session
-from doc_review_app.models import User, UserCreate, UserResponse, compute_initials
-from doc_review_app.services import user_service
+from doc_review_app.models import (
+    DocumentAccessBatchRequest,
+    DocumentAccessMatrixResponse,
+    DocumentAccessToggleRequest,
+    User,
+    UserCreate,
+    UserResponse,
+    compute_initials,
+)
+from doc_review_app.services import document_service, user_service
 from doc_review_app.services.user_service import UserAlreadyExistsError
 
 router = APIRouter(
@@ -88,3 +96,59 @@ def list_users(
 ) -> List[UserResponse]:
     """Retrieve list of all provisioned users ordered by ID."""
     return user_service.list_users(db=db, limit=limit, offset=offset)
+
+
+# ============================================================================
+# Document Access Control Matrix Endpoints
+# ============================================================================
+
+
+@router.get(
+    "/document-access",
+    response_model=DocumentAccessMatrixResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Document Access Matrix (Admin Only)",
+)
+def get_document_access_matrix(
+    current_admin: User = Depends(require_admin),
+    db: sqlite3.Connection = Depends(get_db_session),
+) -> DocumentAccessMatrixResponse:
+    """Retrieve full 2D matrix of documents x reviewers with access status."""
+    data = document_service.get_document_access_matrix(db=db)
+    return DocumentAccessMatrixResponse.model_validate(data)
+
+
+@router.post(
+    "/document-access/toggle",
+    status_code=status.HTTP_200_OK,
+    summary="Toggle User Document Access (Admin Only)",
+)
+def toggle_document_access(
+    payload: DocumentAccessToggleRequest,
+    current_admin: User = Depends(require_admin),
+    db: sqlite3.Connection = Depends(get_db_session),
+) -> Dict[str, Any]:
+    """Toggle access for a specific reviewer to a document."""
+    return document_service.toggle_document_access(
+        document_id=payload.document_id,
+        user_id=payload.user_id,
+        granted=payload.granted,
+        db=db,
+    )
+
+
+@router.put(
+    "/document-access",
+    status_code=status.HTTP_200_OK,
+    summary="Batch Update Document Access Matrix (Admin Only)",
+)
+def batch_update_document_access(
+    payload: DocumentAccessBatchRequest,
+    current_admin: User = Depends(require_admin),
+    db: sqlite3.Connection = Depends(get_db_session),
+) -> Dict[str, Any]:
+    """Batch update document access for multiple documents and users."""
+    return document_service.batch_update_document_access(
+        access_map=payload.access_map,
+        db=db,
+    )
