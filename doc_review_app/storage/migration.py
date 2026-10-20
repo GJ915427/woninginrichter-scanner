@@ -223,7 +223,10 @@ def auto_migrate_if_needed() -> None:
         logger.warning(f"Auto-migration or hydration skipped or encountered error: {exc}")
 
 
-def hydrate_sidecars_to_sqlite(db: Optional[sqlite3.Connection] = None) -> int:
+def hydrate_sidecars_to_sqlite(
+    db: Optional[sqlite3.Connection] = None,
+    documents_dir: Optional[Path] = None,
+) -> int:
     """Hydrate annotations and comments from JSON sidecars into SQLite if missing.
 
     Ensures that ephemeral environments (such as Render or fresh clones) where SQLite
@@ -246,7 +249,7 @@ def hydrate_sidecars_to_sqlite(db: Optional[sqlite3.Connection] = None) -> int:
         for doc in doc_rows:
             doc_id = doc["id"]
             filename = doc["filename"]
-            sidecar_path = get_sidecar_path(filename)
+            sidecar_path = get_sidecar_path(filename, documents_dir)
             if not sidecar_path.exists():
                 continue
 
@@ -341,6 +344,54 @@ def hydrate_sidecars_to_sqlite(db: Optional[sqlite3.Connection] = None) -> int:
                                 c.get("updated_at") or datetime.now(timezone.utc).isoformat(),
                             ),
                         )
+
+            # Hydrate document_access from allowed_usernames if present
+            if "allowed_usernames" in sidecar_data and sidecar_data["allowed_usernames"] is not None:
+                allowed_usernames = sidecar_data["allowed_usernames"]
+                now_iso = datetime.now(timezone.utc).isoformat()
+                conn.execute("DELETE FROM document_access WHERE document_id = ?", (doc_id,))
+                for u_name in allowed_usernames:
+                    u_id = user_by_username.get(str(u_name).lower())
+                    if u_id:
+                        conn.execute(
+                            "INSERT OR IGNORE INTO document_access (document_id, user_id, granted_at) VALUES (?, ?, ?)",
+                            (doc_id, u_id, now_iso),
+                        )
+
+            # Hydrate audit_logs from sidecar if present
+            sidecar_audits = sidecar_data.get("audit_logs", [])
+            for log_entry in sidecar_audits:
+                if not isinstance(log_entry, dict):
+                    continue
+                raw_action = log_entry.get("action", "UPDATE")
+                action = raw_action if raw_action in ("CREATE", "UPDATE", "SOFT_DELETE", "RESTORE") else "UPDATE"
+                created_at = log_entry.get("created_at") or datetime.now(timezone.utc).isoformat()
+                exists = conn.execute(
+                    "SELECT 1 FROM audit_logs WHERE document_id = ? AND action = ? AND created_at = ?",
+                    (doc_id, action, created_at),
+                ).fetchone()
+                if not exists:
+                    u_id = log_entry.get("user_id") or default_user_id
+                    conn.execute(
+                        """
+                        INSERT INTO audit_logs (
+                            entity_type, entity_id, document_id, action, user_id,
+                            user_initials, old_value, new_value, metadata, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            log_entry.get("entity_type", "document"),
+                            log_entry.get("entity_id", doc_id),
+                            doc_id,
+                            action,
+                            u_id,
+                            log_entry.get("user_initials", "??"),
+                            log_entry.get("old_value"),
+                            log_entry.get("new_value"),
+                            log_entry.get("metadata"),
+                            created_at,
+                        ),
+                    )
         conn.commit()
         return hydrated_count
 

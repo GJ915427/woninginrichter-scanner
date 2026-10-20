@@ -6,6 +6,8 @@ listing with comment counts, and retrieval with embedded annotations.
 
 from datetime import datetime, timezone
 import hashlib
+import json
+import logging
 import os
 from pathlib import Path
 import sqlite3
@@ -14,6 +16,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import HTTPException, status
 
 from doc_review_app.database import get_db
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_line_endings(content: str) -> str:
@@ -665,17 +669,20 @@ def toggle_document_access(
     user_id: int,
     granted: bool,
     db: Optional[sqlite3.Connection] = None,
+    actor_user_id: Optional[int] = 1,
 ) -> Dict[str, Any]:
-    """Toggle access for a single user to a document. Validates document and user existence."""
+    """Toggle access for a single user to a document. Validates document and user existence.
+    Performs atomic dual-write to SQLite and document sidecar JSON (with non-blocking cloud push).
+    """
     def _execute(conn: sqlite3.Connection) -> Dict[str, Any]:
-        doc = conn.execute("SELECT id FROM documents WHERE id = ?", (document_id,)).fetchone()
+        doc = conn.execute("SELECT id, filename FROM documents WHERE id = ?", (document_id,)).fetchone()
         if not doc:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Document with ID {document_id} not found.",
             )
 
-        user = conn.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = conn.execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -694,6 +701,66 @@ def toggle_document_access(
                 (document_id, user_id),
             )
 
+        # Query all allowed usernames for this document
+        allowed_rows = conn.execute(
+            """
+            SELECT u.username FROM document_access da
+            JOIN users u ON da.user_id = u.id
+            WHERE da.document_id = ?
+            ORDER BY u.username ASC
+            """,
+            (document_id,),
+        ).fetchall()
+        allowed_usernames = [r["username"] for r in allowed_rows]
+
+        # Audit logging
+        import json
+        action = "UPDATE"
+        actor_row = conn.execute("SELECT initials FROM users WHERE id = ?", (actor_user_id or 1,)).fetchone()
+        actor_initials = actor_row["initials"] if actor_row else "SA"
+        target_username = user["username"]
+        metadata_str = json.dumps({"event": "ACCESS_GRANT" if granted else "ACCESS_REVOKE", "target_user_id": user_id, "target_username": target_username, "granted": granted})
+
+        audit_entry = {
+            "entity_type": "document",
+            "entity_id": document_id,
+            "action": action,
+            "user_id": actor_user_id or 1,
+            "user_initials": actor_initials,
+            "old_value": None,
+            "new_value": target_username,
+            "metadata": metadata_str,
+            "created_at": now_iso,
+        }
+
+        # Log to SQLite
+        try:
+            from doc_review_app.services.comment_service import log_audit_entry
+            log_audit_entry(
+                conn=conn,
+                entity_type="document",
+                entity_id=document_id,
+                action=action,
+                user_id=actor_user_id or 1,
+                user_initials=actor_initials,
+                document_id=document_id,
+                new_value=target_username,
+                metadata=metadata_str,
+            )
+        except Exception as exc:
+            logger.warning(f"Could not log audit entry in SQLite: {exc}")
+
+        # Update sidecar JSON (which automatically pushes to cloud non-blocking)
+        try:
+            from doc_review_app.storage.json_storage import update_sidecar_access_permissions
+            update_sidecar_access_permissions(
+                filename=doc["filename"],
+                allowed_usernames=allowed_usernames,
+                audit_entry=audit_entry,
+            )
+        except Exception as exc:
+            logger.warning(f"Could not update sidecar access permissions for {doc['filename']}: {exc}")
+
         return {
             "document_id": document_id,
             "user_id": user_id,
@@ -710,16 +777,21 @@ def toggle_document_access(
 def batch_update_document_access(
     access_map: Dict[Any, List[int]],
     db: Optional[sqlite3.Connection] = None,
+    actor_user_id: Optional[int] = 1,
 ) -> Dict[str, Any]:
     """Batch update document access for multiple documents and users.
     
     access_map: {doc_id: [user_id_1, user_id_2, ...]}
     Empty list clears all access for that doc_id.
+    Performs atomic dual-write to SQLite and sidecars.
     """
     def _execute(conn: sqlite3.Connection) -> Dict[str, Any]:
         now_iso = datetime.now(timezone.utc).isoformat()
         updated_docs = 0
         total_grants = 0
+
+        actor_row = conn.execute("SELECT initials FROM users WHERE id = ?", (actor_user_id or 1,)).fetchone()
+        actor_initials = actor_row["initials"] if actor_row else "SA"
 
         for doc_id_raw, user_ids in access_map.items():
             try:
@@ -730,7 +802,7 @@ def batch_update_document_access(
                     detail=f"Invalid document ID: {doc_id_raw}",
                 )
 
-            doc = conn.execute("SELECT id FROM documents WHERE id = ?", (doc_id,)).fetchone()
+            doc = conn.execute("SELECT id, filename FROM documents WHERE id = ?", (doc_id,)).fetchone()
             if not doc:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -760,6 +832,58 @@ def batch_update_document_access(
                 )
             updated_docs += 1
             total_grants += len(user_ids)
+
+            # Query all allowed usernames for this document
+            allowed_rows = conn.execute(
+                """
+                SELECT u.username FROM document_access da
+                JOIN users u ON da.user_id = u.id
+                WHERE da.document_id = ?
+                ORDER BY u.username ASC
+                """,
+                (doc_id,),
+            ).fetchall()
+            allowed_usernames = [r["username"] for r in allowed_rows]
+
+            import json
+            metadata_str = json.dumps({"event": "ACCESS_BATCH_UPDATE", "allowed_usernames": allowed_usernames, "total_users": len(allowed_usernames)})
+            audit_entry = {
+                "entity_type": "document",
+                "entity_id": doc_id,
+                "action": "UPDATE",
+                "user_id": actor_user_id or 1,
+                "user_initials": actor_initials,
+                "old_value": None,
+                "new_value": json.dumps(allowed_usernames),
+                "metadata": metadata_str,
+                "created_at": now_iso,
+            }
+
+            try:
+                from doc_review_app.services.comment_service import log_audit_entry
+                log_audit_entry(
+                    conn=conn,
+                    entity_type="document",
+                    entity_id=doc_id,
+                    action="UPDATE",
+                    user_id=actor_user_id or 1,
+                    user_initials=actor_initials,
+                    document_id=doc_id,
+                    new_value=json.dumps(allowed_usernames),
+                    metadata=metadata_str,
+                )
+            except Exception as exc:
+                logger.warning(f"Could not log batch audit entry in SQLite: {exc}")
+
+            try:
+                from doc_review_app.storage.json_storage import update_sidecar_access_permissions
+                update_sidecar_access_permissions(
+                    filename=doc["filename"],
+                    allowed_usernames=allowed_usernames,
+                    audit_entry=audit_entry,
+                )
+            except Exception as exc:
+                logger.warning(f"Could not update sidecar batch access permissions for {doc['filename']}: {exc}")
 
         return {
             "success": True,

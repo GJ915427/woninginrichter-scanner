@@ -165,29 +165,49 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     with get_db() as db:
         sync_local_directory_with_db(db=db, sync_cloud=False)
 
-    # 6b. Bootstrap initial document access for Kelly Schreurs if not already completed
-    with get_db() as db:
-        cur = db.execute("SELECT value FROM app_settings WHERE key = 'document_access_bootstrap_completed'")
-        if not cur.fetchone():
-            kelly = user_service.get_user_by_username(db, "kelly.schreurs")
-            if kelly:
-                doc = db.execute("SELECT id FROM documents ORDER BY id ASC LIMIT 1").fetchone()
-                if doc:
-                    now_iso = datetime.now(timezone.utc).isoformat()
-                    db.execute(
-                        "INSERT OR IGNORE INTO document_access (document_id, user_id, granted_at) VALUES (?, ?, ?)",
-                        (doc["id"], kelly["id"], now_iso),
-                    )
-            now_iso = datetime.now(timezone.utc).isoformat()
-            db.execute(
-                "INSERT OR REPLACE INTO app_settings (key, value, created_at, updated_at) VALUES ('document_access_bootstrap_completed', 'true', ?, ?)",
-                (now_iso, now_iso),
-            )
-            db.commit()
-
-    # 7. Auto-migrate existing annotations and comments between SQLite and JSON sidecars
+    # 7. Auto-migrate existing annotations, comments, permissions, and audit logs between SQLite and JSON sidecars
     from doc_review_app.storage.migration import auto_migrate_if_needed
     auto_migrate_if_needed()
+
+    # 8. Bootstrap initial document access for Kelly Schreurs ONLY on virgin cold start
+    # (i.e. if NO sidecar has an explicit 'allowed_usernames' attribute defined)
+    from doc_review_app.storage.json_storage import get_sidecar_path, read_sidecar, update_sidecar_access_permissions
+    sidecar_has_permissions = False
+    for doc_file in settings.documents_dir.glob("*.md"):
+        sc_path = get_sidecar_path(doc_file.name)
+        if sc_path.exists():
+            sc_data = read_sidecar(sc_path, filename_hint=doc_file.name)
+            if "allowed_usernames" in sc_data and sc_data["allowed_usernames"] is not None:
+                sidecar_has_permissions = True
+                break
+
+    if not sidecar_has_permissions:
+        with get_db() as db:
+            cur = db.execute("SELECT value FROM app_settings WHERE key = 'document_access_bootstrap_completed'")
+            if not cur.fetchone():
+                kelly = user_service.get_user_by_username(db, "kelly.schreurs")
+                if kelly:
+                    doc = db.execute("SELECT id, filename FROM documents ORDER BY id ASC LIMIT 1").fetchone()
+                    if doc:
+                        now_iso = datetime.now(timezone.utc).isoformat()
+                        db.execute(
+                            "INSERT OR IGNORE INTO document_access (document_id, user_id, granted_at) VALUES (?, ?, ?)",
+                            (doc["id"], kelly["id"], now_iso),
+                        )
+                        # Persist to sidecar and push to cloud so restarts stay consistent
+                        try:
+                            update_sidecar_access_permissions(
+                                filename=doc["filename"],
+                                allowed_usernames=["kelly.schreurs"],
+                            )
+                        except Exception as e:
+                            logger.warning(f"Could not persist bootstrap permissions to sidecar: {e}")
+                now_iso = datetime.now(timezone.utc).isoformat()
+                db.execute(
+                    "INSERT OR REPLACE INTO app_settings (key, value, created_at, updated_at) VALUES ('document_access_bootstrap_completed', 'true', ?, ?)",
+                    (now_iso, now_iso),
+                )
+                db.commit()
 
     yield
 

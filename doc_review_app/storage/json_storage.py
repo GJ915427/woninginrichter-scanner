@@ -257,3 +257,33 @@ def save_comment_delete_to_sidecar(
             data.setdefault("audit_logs", []).append(audit_entry)
 
     atomic_modify_sidecar(sidecar_path, _modify, filename_hint=filename)
+
+
+def update_sidecar_access_permissions(
+    filename: str,
+    allowed_usernames: List[str],
+    audit_entry: Optional[Dict[str, Any]] = None,
+    documents_dir: Optional[Path] = None,
+) -> None:
+    """Update allowed_usernames and optionally append audit log in the sidecar JSON."""
+    sidecar_path = get_sidecar_path(filename, documents_dir)
+
+    def _modify(data: Dict[str, Any]) -> None:
+        data["allowed_usernames"] = list(allowed_usernames)
+        if audit_entry:
+            data.setdefault("audit_logs", []).append(audit_entry)
+
+    atomic_modify_sidecar(sidecar_path, _modify, filename_hint=filename)
+
+
+def read_sidecar_access_permissions(
+    filename: str,
+    documents_dir: Optional[Path] = None,
+) -> Optional[List[str]]:
+    """Read allowed_usernames from sidecar JSON. Returns None if key is absent."""
+    sidecar_path = get_sidecar_path(filename, documents_dir)
+    data = read_sidecar(sidecar_path, filename_hint=filename)
+    if "allowed_usernames" in data and isinstance(data["allowed_usernames"], list):
+        return list(data["allowed_usernames"])
+    return None
+
