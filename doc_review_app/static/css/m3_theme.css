@@ -375,8 +375,15 @@ html, body {
 /* File Explorer Toolbar */
 .nav-drawer__toolbar {
   display: flex;
+  flex-direction: column;
+  width: 100%;
   gap: 0.5rem;
   margin-bottom: 0.75rem;
+}
+
+.nav-drawer__toolbar .m3-button {
+  width: 100% !important;
+  margin-top: 0 !important;
 }
 
 /* Search Field */
@@ -1800,10 +1807,65 @@ html, body {
 .doc-access-doc-name {
   font-weight: 500;
   color: var(--md-sys-color-on-surface);
-  white-space: nowrap;
+  max-width: 320px;
+  white-space: normal;
+  overflow: visible;
+}
+
+.doc-access-doc-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.doc-access-doc-title {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 280px;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  font-weight: 500;
+  color: var(--md-sys-color-on-surface);
+}
+
+.doc-access-bulk-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.m3-button.doc-access-btn-bulk {
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1.2;
+  min-height: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--md-sys-color-primary);
+  background: transparent;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.m3-button.doc-access-btn-bulk:hover:not(:disabled) {
+  background-color: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  border-color: var(--md-sys-color-primary);
+}
+
+.m3-button.doc-access-btn-bulk:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.doc-access-bulk-divider {
+  font-size: 11px;
+  color: var(--md-sys-color-outline);
 }
 
 .doc-access-user-header {
