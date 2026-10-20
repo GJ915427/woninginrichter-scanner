@@ -74,11 +74,11 @@
         <!-- Quick Actions: Select/Add Document -->
         <div class="nav-drawer__toolbar" id="nav-drawer-toolbar">
           <input type="file" id="file-picker-input" accept=".md,.txt" style="display: none;" onchange="handleFileSelected(event)">
-          <button id="btn-pick-file" class="m3-button m3-button--filled" style="width: 100%; gap: 8px;" onclick="document.getElementById('file-picker-input').click()" title="Kies een document van uw computer">
+          <button id="btn-pick-file" class="m3-button m3-button--filled" onclick="document.getElementById('file-picker-input').click()" title="Kies een document van uw computer">
             <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
             <span>Document Selecteren</span>
           </button>
-          <button id="btn-manage-access" class="m3-button m3-button--outlined" style="width: 100%; gap: 8px; margin-top: 8px; display: none;" onclick="openDocumentAccessModal()" title="Beheer documenttoegang voor reviewers">
+          <button id="btn-manage-access" class="m3-button m3-button--outlined" style="display: none;" onclick="openDocumentAccessModal()" title="Beheer documenttoegang voor reviewers">
             <span class="material-symbols-outlined" style="font-size: 18px;">manage_accounts</span>
             <span>Toegangsbeheer</span>
           </button>
