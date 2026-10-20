@@ -1689,7 +1689,14 @@
       html += `
         <tr data-doc-id="${doc.id}">
           <td class="doc-access-doc-name" title="${MarkdownRenderer.escapeHtml(doc.filename)}">
-            ${MarkdownRenderer.escapeHtml(doc.filename)}
+            <div class="doc-access-doc-header">
+              <span class="doc-access-doc-title">${MarkdownRenderer.escapeHtml(doc.filename)}</span>
+              <div class="doc-access-bulk-actions">
+                <button type="button" class="m3-button m3-button--text doc-access-btn-bulk" onclick="handleToggleAllUsersForDocument(${doc.id}, true)">Alles</button>
+                <span class="doc-access-bulk-divider">/</span>
+                <button type="button" class="m3-button m3-button--text doc-access-btn-bulk" onclick="handleToggleAllUsersForDocument(${doc.id}, false)">Geen</button>
+              </div>
+            </div>
           </td>
       `;
 
@@ -1765,7 +1772,82 @@
     }
   }
 
+  async function handleToggleAllUsersForDocument(docId, selectAll) {
+    const users = (docAccessData && docAccessData.users) || [];
+    if (!users.length) return;
+
+    const row = document.querySelector(`tr[data-doc-id="${docId}"]`);
+    const checkboxes = row ? row.querySelectorAll('input[type="checkbox"]') : [];
+    const bulkButtons = row ? row.querySelectorAll('.doc-access-btn-bulk') : [];
+
+    const snapshot = Array.from(checkboxes).map(function (cb) {
+      return { cb: cb, checked: cb.checked };
+    });
+
+    checkboxes.forEach(function (cb) {
+      cb.checked = selectAll;
+      cb.disabled = true;
+    });
+    bulkButtons.forEach(function (btn) {
+      btn.disabled = true;
+    });
+
+    const statusEl = document.getElementById('doc-access-status');
+    if (statusEl) {
+      statusEl.style.color = 'var(--md-sys-color-primary)';
+      statusEl.textContent = 'Toegang bijwerken...';
+    }
+
+    try {
+      const targetUserIds = selectAll ? users.map(function (u) { return u.id; }) : [];
+      await api('/api/admin/document-access', {
+        method: 'PUT',
+        body: JSON.stringify({
+          access_map: {
+            [String(docId)]: targetUserIds
+          }
+        })
+      });
+
+      if (docAccessData && docAccessData.documents) {
+        const docEntry = docAccessData.documents.find(function (d) { return d.id === docId; });
+        if (docEntry) {
+          if (!docEntry.access) docEntry.access = {};
+          users.forEach(function (u) {
+            docEntry.access[String(u.id)] = selectAll;
+          });
+        }
+      }
+
+      if (statusEl) {
+        statusEl.style.color = 'var(--md-sys-color-primary)';
+        statusEl.textContent = selectAll ? 'Toegang voor alle reviewers verleend.' : 'Toegang voor alle reviewers ingetrokken.';
+        setTimeout(function () {
+          if (statusEl.textContent.indexOf('Toegang voor alle reviewers') !== -1) {
+            statusEl.textContent = '';
+          }
+        }, 2000);
+      }
+    } catch (err) {
+      snapshot.forEach(function (item) {
+        item.cb.checked = item.checked;
+      });
+      if (statusEl) {
+        statusEl.style.color = 'var(--md-sys-color-error)';
+        statusEl.textContent = 'Fout bij bijwerken: ' + (err.message || 'Netwerkfout');
+      }
+    } finally {
+      checkboxes.forEach(function (cb) {
+        cb.disabled = false;
+      });
+      bulkButtons.forEach(function (btn) {
+        btn.disabled = false;
+      });
+    }
+  }
+
   window.handleAccessToggle = handleAccessToggle;
+  window.handleToggleAllUsersForDocument = handleToggleAllUsersForDocument;
 
   // Application Entry Point
   document.addEventListener('DOMContentLoaded', function () {
