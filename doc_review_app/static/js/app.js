@@ -383,7 +383,7 @@
 
       const rawItems = [];
       badges.forEach(function(badge) {
-        const badgeId = badge.getAttribute('data-badge-id');
+        const badgeId = badge.getAttribute('data-annotation-id') || badge.getAttribute('data-badge-id');
         const ann = (state.annotations || []).find(function(a) { return String(a.id) === String(badgeId); });
         if (!ann) return;
 
