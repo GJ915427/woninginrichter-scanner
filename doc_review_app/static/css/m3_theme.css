@@ -1158,7 +1158,7 @@ html, body {
 }
 
 .floating-comment-pill.visible {
-  display: inline-flex;
+  display: inline-flex !important;
 }
 
 @keyframes pillFadeIn {

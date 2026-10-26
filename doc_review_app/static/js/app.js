@@ -319,9 +319,6 @@
     if (window.SelectionManager && typeof window.SelectionManager.hidePill === 'function') {
       window.SelectionManager.hidePill();
     }
-    if (els.floatingCommentPill) {
-      els.floatingCommentPill.style.display = 'none';
-    }
     hideViewPopover();
     hideInputPopover();
     if (typeof OverviewRulerManager !== 'undefined' && typeof OverviewRulerManager.clear === 'function') {
@@ -1307,6 +1304,9 @@
   }
 
   function hideInputPopover() {
+    if (window.SelectionManager && typeof window.SelectionManager.hidePill === 'function') {
+      window.SelectionManager.hidePill();
+    }
     if (els.commentInputPopover) {
       els.commentInputPopover.classList.remove('visible');
       setTimeout(function () {

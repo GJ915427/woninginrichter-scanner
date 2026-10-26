@@ -18,6 +18,7 @@
   let floatingPill = null;
   let activeSelectionData = null;
   let onAddCommentCallback = null;
+  let lastValidSelectionRect = null;
 
   /**
    * Resolves the AST path and node type for a given DOM node inside the markdown container.
@@ -277,17 +278,35 @@
       }
     });
 
+    // Pill mousedown handler (prevents focus loss and selection collapse)
+    floatingPill.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+    });
+
     // Pill click handler
     floatingPill.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
+      clearTimeout(debounceTimer);
       if (activeSelectionData && typeof onAddCommentCallback === 'function') {
         const payload = Object.assign({}, activeSelectionData);
         let targetRect = null;
         const sel = window.getSelection();
         if (sel && sel.rangeCount > 0) {
-          targetRect = sel.getRangeAt(0).getBoundingClientRect();
+          const r = sel.getRangeAt(0).getBoundingClientRect();
+          if (r && (r.width > 0 || r.height > 0)) {
+            targetRect = r;
+          }
         }
+        if (!targetRect && lastValidSelectionRect) {
+          targetRect = lastValidSelectionRect;
+        }
+
+        // Explicitly clear DOM selection ranges so the 10ms mouseup timer does not resurrect the pill
+        if (sel && typeof sel.removeAllRanges === 'function') {
+          sel.removeAllRanges();
+        }
+
         hidePill();
         onAddCommentCallback(payload, targetRect);
       }
@@ -339,6 +358,8 @@
       }
     }
 
+    lastValidSelectionRect = lastRect;
+    floatingPill.style.display = 'inline-flex';
     floatingPill.style.top = top + 'px';
     floatingPill.style.left = left + 'px';
     floatingPill.classList.add('visible');
@@ -350,6 +371,7 @@
   function hidePill() {
     if (floatingPill) {
       floatingPill.classList.remove('visible');
+      floatingPill.style.display = 'none';
     }
   }
 
