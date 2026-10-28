@@ -1307,81 +1307,123 @@ Het **EasyM2M Portaal** is ontworpen als een geïntegreerde 'Single Source of Tr
 
 ---
 
-### 5.2 Schermindeling & Navigatiestructuur: Slanke Header & Contextueel Hoofdcanvas
+### 5.2 Schermindeling & Navigatiestructuur: Slanke Header & De 6 Hoofdschermen
 Om maximale werkruimte, visuele rust en een foutloze focus op de actieve taak te garanderen, hanteert het portaal een **slank 2-zone interactiemodel** (zonder overbodige, permanente zijbalken):
+1. **De Slanke Universele Header:** Blijvend zichtbaar bovenaan elk scherm voor actieve context, minimale kernstatussen en universele zoeknavigatie.
+2. **Het Taakgerichte Hoofdcanvas:** De volledige resterende schermbreedte en -hoogte die zich dynamisch vult met één van de 6 hoofdschermen.
 
 ```
 +---------------------------------------------------------------------------------------------------------+
-| SLANKE HEADER: Dossier #2026-8812 | [Klant: Fam. Jansen ▾] | Status: [Fase 1: Showroom ▾] | Inlog: Jan |
+| SLANKE HEADER: [🔍] | Dossier #2026-8812 | [Klant: Fam. Jansen ▾] | Status: [Fase 1: Showroom ▾] | Jan  |
 +---------------------------------------------------------------------------------------------------------+
 | TAAKGERICHT HOOFDCANVAS (Volledige schermbreedte voor de actieve taak)                                  |
 |                                                                                                         |
 | [ + Ruimte Toevoegen ]  Presets: [ Woonkamer ] [ Keuken ] [ Slaapkamer 1 ] [ Trap ]                     |
 |                                                                                                         |
-| ┌─ RUIMTE: Woonkamer ────────────────────────────────────────────────────────┐ ┌─ SLIDE-OVER DRAWER ──┐|
-| │ Product: Duette 25 mm SmartCord (Kleur: Linen)                             │ │ [X] Klant- & Adres   │|
-| │ Montagewijze: In de dag | Bediening: Rechts                                │ │                      │|
-| │                                                                            │ │ Fam. Jansen          │|
-| │ Positie 1: Voorgevel links  [ Concept: 1200 x 1800 mm ]                    │ │ Tel: 06-12345678     │|
-| │ Positie 2: Voorgevel rechts [ Concept: 1200 x 1800 mm ]                    │ │ Mail: jansen@mail.nl │|
-| │ Positie 3: Zijraam          [ Concept:  900 x 1400 mm ] (Bediening: Links) │ │                      │|
-| │                                                                            │ │ Montageadres:        │|
-| │ Contextuele Foto's (Ruimte): [ Foto Woonkamer ] [ + Foto ]                 │ │ Bouwnummer 42        │|
-| │                                                                            │ │ Woonpark De Zeelt    │|
-| │ Knoppen: [ Toepassen in meerdere ruimtes... ] [ + Extra positie hier ]    │ │ Poort 2 melden       │|
-| └────────────────────────────────────────────────────────────────────────────┘ └──────────────────────┘|
+| ┌─ DYNAMISCHE HIERARCHISCHE MATRIX ─────────────────────────────────────────────────────────────────┐   |
+| │ Ruimte / Positie     │ Duette 25 mm SmartCord │ Inbetween Gordijn │ Verlijmd PVC Visgraat        │   |
+| │ Woonkamer            │                        │                   │                              │   |
+| │  ├ Raam links voorgev│        [ 1 ]           │      [ 1 ]        │             -                │   |
+| │  ├ Raam rechts voorge│        [ 1 ]           │      [ 1 ]        │             -                │   |
+| │  └ Vloeroppervlakte  │          -             │        -          │          [ 42 m² ]           │   |
+| └───────────────────────────────────────────────────────────────────────────────────────────────────┘   |
 |                                                                                                         |
-| Actiebalk: [ Minimal Dataset Compleet: 3 Ruimtes, 5 Ramen ]  ->  [ Knop: Inmeetafspraak Plannen ]       |
+| ┌─ NOG TOE TE WIJZEN OBJECT-ARTIKELEN (BACKLOG ONDER DE MATRIX) ────────────────────────────────────┐   |
+| │ • 1x Horizontale Jaloezie 50 mm Hout (Nog toe te wijzen)   [ Sleep naar positie / Tik om toe te wijzen ] │
+| │ • 1x Stelpost Confectie Waveplooi                          [ Sleep naar positie / Tik om toe te wijzen ] │
+| └───────────────────────────────────────────────────────────────────────────────────────────────────┘   |
+|                                                                                                         |
+| Actiebalk: [ Minimal Dataset Compleet: 3 Ruimtes, 5 Posities ]  ->  [ Knop: Inmeetafspraak Plannen ]   |
 +---------------------------------------------------------------------------------------------------------+
 ```
 
-1. **De Slanke Universele Header (Context & On-Demand Details):**  
-   * Biedt een uiterst compacte permanente statusregel bovenaan het scherm met alleen de primaire sleutelgegevens: Dossiernummer, Klantnaam, Globale Ketenfase (badge met duidelijke kleurcode), Vestiging en Ingelogde Gebruiker.
-   * **Klant- & Adresgegevens On-Demand:** De klantnaam fungeert als interactieve knop (`[Klant: Fam. Jansen ▾]`). Een klik hierop opent een elegante slide-over drawer of modal met de volledige contactgegevens, factuuradres, montageadres (inclusief nieuwbouwproject, bouwnummer/kavelnummer en bouwplaatsnavigatie conform §5.7). Hierdoor zijn adresdetails altijd binnen 1 klik bereikbaar.
-   * **Processtatus On-Demand:** Een klik op de statusbadge opent de interactieve ketentijdlijn met de historische fase-overgangen en detailstatussen.
+#### 5.2.1 De Slanke Universele Header (Context & On-Demand Details)
+* **Real Estate Bescherming via Compact Zoekicoon (`[🔍]`):**  
+  In plaats van een brede, permanente zoekbalk die kostbare schermruimte inneemt, bevat de header uiterst links een strak, compact zoekicoon (`[🔍]`). Een klik of tik hierop activeert een zwevende, responsieve combi-search popover waarin direct kan worden gezocht op klantnaam, objectadres, projectnummer of ordercode.
+* **Intelligente Context-Navigatie bij Zoekresultaat:**  
+  Wanneer de gebruiker een zoekresultaat selecteert:
+  1. *Primaire regel (Context-Behoud):* Het resultaat opent direct **binnen het huidige geopende hoofdscherm** (bijvoorbeeld: bevindt de gebruiker zich in het Klantscherm, dan wisselt het Klantscherm direct naar de gekozen klant; bevindt hij zich in het Objectscherm, dan wisselt het actieve object).
+  2. *Robuuste Fallback:* Indien het geselecteerde zoekresultaat niet logisch past in het actieve scherm (of wanneer de gebruiker zich op een generieke pagina zoals Home bevindt), navigeert het systeem automatisch naar **Hoofdscherm 4: Project**.
+* **Permanente Kerncontext & On-Demand Drawers:**  
+  Naast het zoekicoon toont de header uitsluitend de vitale ankers: Dossiernummer, Klantnaam (`[Klant: Fam. Jansen ▾]`), Globale Ketenfase (statusbadge met kleurcodering) en Ingelogde Gebruiker. Een klik op de klantnaam opent direct de slide-over drawer met contactgegevens en adressen. Een klik op de statusbadge opent de interactieve ketentijdlijn.
 
-2. **Het Taakgerichte Hoofdcanvas (Fase-Afhankelijke Werkruimte):**  
-   * Benut de volledige breedte en hoogte van het scherm voor de taak die de gebruiker op dat moment uitvoert.
-   * *In Fase 1 (Verkoop / Showroom):* Het dynamische **Ruimte- & Product-Canvas** (geen starre boomstructuur, maar een vloeiende kaarten-wizard geoptimaliseerd voor snel ruimtes kiezen, producten toekennen en batchgewijs kopiëren).
-   * *In Fase 2 (Inmeting op Locatie):* De **Mobiele Inmeet-Wizard** met het 50 cm raster, directe laserkoppeling, de interactieve 5-koloms checklist en touch-invoer.
-   * *In Fase 3 & 4 (Offerte & Werkvoorbereiding):* Het **Technisch Validatiebord** (waarin de ruimtelijke boomstructuur uit Deel 2 optioneel als inklapbare navigatie kan worden geactiveerd om snel door tientallen posities te lopen).
-   * *In Fase 5 (Montage):* De **Mobiele Werkbon** waarin de monteur uitsluitend de definitieve productiematen, montagetijden, steunafstanden en opleverhandtekening ziet.
+#### 5.2.2 Hoofdscherm 1: Home (Ingelogd & Werkvoorraad)
+* **Functie:** Het centrale operationele dashboard na inloggen, afgestemd op de rol van de gebruiker (bijv. openstaande dossiers voor verkoper, meetroutes van vandaag voor inmeter, binnenkomende orders voor werkvoorbereider).
+* **Project-Gestuurde Intake (`+ Nieuw Project`):**  
+  In plaats van een losse, versnipperde knop voor *"+ Nieuwe Klant"*, worden alle nieuwe dossiers gestart via één uniforme, intuïtieve actieknop: **`+ Nieuw Project`**.  
+  Binnen de project-intake wizard doorloopt de gebruiker een logische flow:
+  1. *Klantkeuze:* Selecteer een bestaande particuliere of zakelijke relatie via de autocomplete-zoekfunctie, **óf** maak direct een nieuwe klant aan (inclusief primair factuuradres).
+  2. *Objectkeuze:* Koppel direct een bestaand bekend objectadres van deze klant, **óf** voeg direct een nieuw montageadres (inclusief nieuwbouwkenmerken zoals bouwnummer/kavel) toe.
+  3. *Projectinitialisatie:* Het verkoopdossier wordt direct geopend in Hoofdscherm 4 (Project & Matrix).
 
-3. **Contextuele Mediatheek (Gekoppeld aan Ruimte of Positie):**  
-   * Foto's, video-opnames en schetsen vormen **geen losse globale widget**, maar zijn direct contextueel verankerd op het niveau waar ze logisch en fysiek thuishoren:
-     * *Op Ruimte-niveau:* Overzichtsfoto's van het vertrek, foto's van de vloerconditie, of plattegrondschetsen die door de klant zijn meegebracht.
-     * *Op Positie-niveau:* Detailfoto's van een specifiek kozijn, voorzien van stylus-aantekeningen en markeringen van afwijkende klinken, lateien of obstakels.
+#### 5.2.3 Hoofdscherm 2: Klant (Relatiebeheer & Projectenoverzicht)
+* **Functie:** Overzicht en beheer van de centrale klantrelatie, NAW-gegevens, contactpersonen, communicatiehistorie en facturatiegegevens.
+* **Geen Redundante Zoekbalk:** Omdat de universele zoekfunctie via het icoon `[🔍]` permanent in de slanke header beschikbaar is, bevat het klantscherm géén dubbele combi-search balk.
+* **Hiërarchisch Projectenoverzicht:** Toont alle lopende en historische projecten van de actieve klant. Aan ieder project hangen de bijbehorende offertes en/of orderbevestigingen (of een expliciete lege toestand indien er nog geen documenten zijn gegenereerd).
+
+#### 5.2.4 Hoofdscherm 3: Object / Montageadres (Fysieke Locaties & Eenheden)
+* **Functie:** Beheer van de fysieke onroerendgoed-locatie waar metingen en montages plaatsvinden (bestaande bouw of nieuwbouw conform §5.7).
+* **Geen Redundante Zoekbalk:** Ook in Hoofdscherm 3 is de lokale zoekbalk geschrapt ten gunste van het universele header-zoekicoon.
+* **Multi-Object Overzicht per Klant met Actieve Selectie-Indicator:**  
+  Wanneer een geselecteerde klant over meerdere montageadressen of panden beschikt (bijv. hoofdwoning, vakantievilla, kantoorpand of meerdere nieuwbouwkavels), toont het scherm een overzichtelijke **objectenlijst**. Het actieve montageadres dat momenteel in bewerking is, wordt helder gehighlight met een **visuele selectie-indicator** (`[Actief Montageadres]`). De gebruiker kan met één klik switchen tussen de verschillende objecten van de klant.
+
+#### 5.2.5 Hoofdscherm 4: Project & De Dynamische Hiërarchische Matrix
+* **Functie:** Het absolute hart van het verkoop- en voorbereidingsproces. Brengt de ruimtelijke structuur van het object en de geconfigureerde artikelen samen in één interactieve matrix.
+* **Strikte Project-Scoping van Documenten (Offertes & Orders):**  
+  * Het projectcontext-paneel toont **uitsluitend offertes en orderbevestigingen die strikt bij dit actieve project horen**. Er treedt geen vermenging op met documenten van andere projecten van dezelfde klant.
+  * *Meest Recente Document Prominent:* Alleen het meest actuele document (bijv. *Offerte V3 - 28 okt 2026*) wordt direct zichtbaar getoond, voorzien van een subtiele teller/indicator voor oudere versies (`+2 eerdere revisies`). Een klik hierop opent de volledige revisiehistorie in een slide-over preview drawer.
+  * *Expliciete Lege Toestand:* Indien er bij het project nog geen offerte of order is uitgebracht, toont het paneel een duidelijke lege toestand (*"Nog geen offertes/orders gekoppeld aan dit project"* met een directe actieknop *[+ Start Nieuwe Offerte]*).
+  * *Multi-Project Klantoverzicht:* Indien geen specifiek project is gekozen, toont de lijst alle projecten van de klant, waarbij per project op identieke wijze de gekoppelde documenten (laatste versie prominent + revisieteller) worden weergegeven.
+* **Flexibele Ruimtelijke Hiërarchie & Beschrijvende Namen:**  
+  De rijen van de matrix representeren de ruimtelijke opbouw van het pand (Deel 2). Het systeem ondersteunt een snelle en flexibele invoer van etages, ruimtes, vlakken, posities, clusters en Verbindende Elementen:
+  * *Herkenbare Beschrijvende Namen:* Posities of vlakken kunnen worden voorzien van duidelijke vrije benamingen (bijv. *"Raam links voorgevel"*, *"Voordeurglas"*, *"Schuifpui tuin"*, *"Erker voorzijde"*).
+  * *Ruimte als Minimale Anker:* Een beschrijvende naam kan worden toegekend aan een positie, een vlak of direct aan een ruimte. Zonder een gekoppelde ruimte kan een positie echter niet zelfstandig bestaan.
+  * *Geen Starre Tussenliggende Guardrails:* Er geldt geen rigide verplichting om altijd eerst een etage, vlak én cluster aan te maken voordat een positie kan worden benoemd; een adviseur kan direct binnen een ruimte posities invoeren en benoemen.
+* **Nog Toe te Wijzen Object-Artikelen (Backlog Onder de Matrix):**  
+  De voorheen starre bovenste tabelrij ("Rij 0") is vervangen door een overzichtelijke toewijzingslijst **onder de matrix**.  
+  Artikelen die op overkoepelend objectniveau binnenkomen (zoals stelposten, globale offerteposten of nog niet ruimtelijk toegewezen raambekledingen) worden hier verzameld als backlog-items. Zij vervuilen het raster niet, maar kunnen vanuit deze onderbalk direct via tap-to-assign of slepen worden toegewezen aan specifieke rijen.
+* **Cellen, Kolomkoppen & Flexibele Groepering:**  
+  * *Kolomkop vs. Cel Allocatie:* Welke configuratieparameters in de kolomkop worden geplaatst (bijv. Producttype, Leverancier, Stofserie) en welke fijnmazige attributen in de cel zelf horen (bijv. afmetingen, bedieningszijde, montagewijze) is onderwerp van nadere validatie op basis van praktijkdata en ERP-koppelingen.
+  * *Visuele Schaalbaarheid bij Hoge Optiedichtheid:* Om te voorkomen dat cellen visueel overlopen bij tientallen keuzes, toont de matrix compacte statusbadges met een klikbare popover voor diepere detailparameters.
+  * *Dynamische Rijgroepering:* Rijen in de matrix kunnen naar wens van de adviseur flexibel worden gegroepeerd: primair per ruimtelijke hiërarchie (Verdieping $\to$ Ruimte $\to$ Positie), of functioneel per vakdiscipline/productgroep (bijv. alle Vloeroppervlaktes bij elkaar, alle Raamposities bij elkaar).
+
+#### 5.2.6 Hoofdscherm 5: Ruimte & Positiedetail (Diepe Configuratie & Universele Mediatheek)
+* **Functie:** Detailweergave voor het diepgaand configureren van een specifiek vertrek, raamvlak of kozijnpositie (invoer van millimeters, technische rekenregels, uitsluitingen en laser-inmetingen).
+* **Universele Contextuele Mediatheek (Op Álle Niveaus Beschikbaar):**  
+  Foto's, video's, plattegronden en schetsen (met stylus-annotaties) vormen geen losse globale map, maar zijn **universeel verankerbaar op álle 5 niveaus** van het dossier:
+  1. *Op Object-niveau:* Foto's van de voorgevel, oprit, parkeersituatie, bouwkeet of bouwplaatsinstructies.
+  2. *Op Verdiepings-niveau:* Overzicht van de verdiepingsvloer of overloop.
+  3. *Op Ruimte-niveau:* Overzichtsfoto's van het vertrek, bestaande vloercondities of klantplattegronden.
+  4. *Op Vlak-niveau:* Aanzicht van een complete raampartij of wandsectie met meerdere ramen.
+  5. *Op Positie-niveau:* Detailfoto's van een specifiek kozijn, klink, vensterbank, nis of latei, voorzien van ingetekende meetlijnen en waarschuwingsmarkeringen.
+
+#### 5.2.7 Hoofdscherm 6: Planning, Montage & Werkbon (Uitvoering)
+* **Functie:** De operationele uitvoeringsomgeving voor planners en monteurs (beschreven in §5.5 en §5.6). Toont planborden, routekalenders en de mobiele werkbon met *uitsluitend definitieve productiematen*, steunafstanden en de digitale oplevermodule met PIN-registratie.
 
 ---
 
-### 5.3 De Showroom-UX voor de Verkoper: Snelle Ruimte-Intake & De "Kopieer & Pas Aan" Workflow (Fase 1)
-In de adviesfase in de showroom (Fase 1) moet de verkoper snel en flexibel kunnen meebewegen met het gesprek met de klant. Een starre boomstructuur werkt in deze fase vertragend. Het portaal ondersteunt daarom de **"Kopieer & Pas Aan" (Batch Copy & Fine-tune) Workflow**:
+### 5.3 De Showroom-UX voor de Verkoper: Snelle Intake, Matrix-Toewijzing & Dynamische Checklists (Fase 1)
+In de adviesfase in de showroom (Fase 1) moet de verkoper snel en flexibel kunnen meebewegen met het gesprek met de klant. Een starre boomstructuur of omslachtige formulierencyclus werkt in deze fase vertragend. Het portaal combineert daarom snelle matrix-toewijzing met dynamische intake-checklists:
 
-* **1. Snelle Ruimte-Selectie & Aanmaak:**  
+* **1. Snelle Ruimte-Selectie & Preset-Knoppen:**  
   De verkoper voegt met één klik standaardruimtes toe via handige presets (*Woonkamer*, *Keuken*, *Slaapkamer 1*, *Slaapkamer 2*, *Zolder*, *Hal*, *Overloop*, *Trap*) of typt direct een vrije ruimtenaam in.
-* **2. Product- & Configuratiekeuze per Ruimte:**  
-  Binnen een ruimte selecteert de adviseur de beoogde productgroep (bijv. Duette 25 mm, Inbetween gordijn op rail, Horizontale jaloezie 50 mm, Verlijmd PVC) en kiest de basisparameters (stofgroep/collectie, montagewijze, bedieningstype).
-* **3. De Batch-Actie "Toepassen in Meerdere Ruimtes" (Multi-Room Re-use):**  
-  In de praktijk kiest een klant heel vaak hetzelfde product of dezelfde serie voor meerdere vertrekken (bijvoorbeeld identieke Duettes in alle 3 de slaapkamers, of hetzelfde inbetween-gordijn in de woonkamer én eetkamer):
-  * Met de knop **[ Toepassen in meerdere ruimtes... ]** opent de verkoper een eenvoudige checklist van de overige aangemaakte ruimtes.
-  * Na selectie dupliceert het portaal de geconfigureerde productlaag direct in bulk naar alle aangevinkte ruimtes.
-* **4. De Actie "Meervoudig Toepassen binnen Zelfde Ruimte" (Multi-Position Re-use):**  
-  In één kamer bevinden zich veelal meerdere ramen (bijvoorbeeld 3 identieke ramen in de voorgevel van de woonkamer):
-  * Met de knop **[ Dupliceer naar extra positie in deze ruimte ]** (of via een snelkeuze `Aantal ramen: 3`) maakt het systeem direct Positie 1, Positie 2 en Positie 3 aan met exact dezelfde productconfiguratie.
-* **5. Snelle Finetuning per Positie:**  
-  Na de batch-kopie kan de verkoper in een compact overzicht direct per individuele positie kleine nuances aanpassen:
-  * De indicatieve conceptmaten invoeren (bijv. B120 × H180 cm voor raam 1 en 2; B90 × H140 cm voor raam 3).
-  * De bedieningszijde wijzigen (bijv. raam links bediening links; raam rechts bediening rechts).
-  * Een afwijkende stof- of voeringsoptie kiezen (bijv. in de slaapkamers dezelfde Duette-stof, maar met een verduisterende *Blackout*-coating in plaats van semi-transparant).
-* **6. De Geïntegreerde Showroom Intake-Checklist (95% Conversiegarantie):**  
-  Om de kenniskloof tussen doorgewinterde verkoopadviseurs en junior verkopers te overbruggen, bevat het portaal een compacte, interactieve intake-checklist:  
-  * *Kwalificatie Inmeetbijdrage (€ 75,-):* Vastlegging van het inmeettarief (wordt bij definitieve aankoop gecrediteerd).  
-  * *Vloerensloop & Afvoer Gescheiden:* Twee expliciete vinkopties: *\"Bestaande vloer verwijderen/oppakken\"* én *\"Bestaande vloer afvoeren\"* (uitgangspunt: klant levert schoon en leeg op, tenzij aangevinkt).  
-  * *Montageprofiel Rolgordijnen:* Standaard suggestie/selectie van montageprofiel t.o.v. losse steunen (montagegemak voor monteur, afklikbaar voor de klant bij schilderwerk, structureel hogere brutomarge).  
-  * *Kozijn- & Horreninspectie:* Snelle toets bij insectenwering: draairichting (binnen/buiten), aanwezigheid van een **waterkering/lekrand** (resulteert direct in selectie van benodigde opvulprofielen) en buitendorpelafloop.  
-  * *Stalenregistratie:* Vastlegging van uitgeleende stalenboeken, staalkaarten of kleurstalen aan de klant.
-* **7. Direct Inplannen van de Inmeetafspraak:**  
-  Zodra de ruimtes, productgroepen en minimale dataset zijn ingevoerd, ontgrendelt het systeem direct de inmeetagenda. De verkoper hoeft geen offerteregels uit te rekenen om de inmeter te laten rijden.
+* **2. Product- & Configuratiekeuze in Kolommen:**  
+  In de matrix selecteert de adviseur de beoogde productgroepen (bijv. Duette 25 mm, Inbetween gordijn op rail, Horizontale jaloezie 50 mm, Verlijmd PVC) die als kolommen aan het overzicht worden toegevoegd.
+* **3. Bliksemsnelle Celinteractie (Tap / Hold):**  
+  Het toewijzen van producten aan specifieke ruimtes of posities verloopt niet via trage popup-dialogen, maar via directe interactie op de matrixcellen:
+  * **Enkele Tap / Klik:** Verhoogt het aantal direct met 1 (`count + 1`).
+  * **Hold / Long-press:** Verlaagt het aantal direct met 1 (`count - 1`), of reset/verwijdert de toewijzing bij 0.
+* **4. Visueel Werken, Drag & Drop en Toewijzing vanuit Backlog:**  
+  Artikelen die op overkoepelend niveau zijn ingevoerd of uit een globale offerteaanvraag voortkomen, bevinden zich in de backlog *onder de matrix*. De adviseur kan deze artikelen intuïtief via drag-and-drop of via tap-to-assign toewijzen aan een specifieke cel of rij in de matrix.
+* **5. Dynamische & Conditionele Intake-Checklists (Gesaneerd uit Algemene UI):**  
+  In plaats van vaste, statische invulvelden die het scherm continu belasten, hanteert het portaal een **conditioneel checklist-framework**:
+  * *Project-Brede Intake-Checklist (Kwalificatie Inmeetbijdrage € 75,- & Stalen):* Een compacte checklist op projectniveau waarin de inmeetbijdrage wordt vastgelegd (automatische verrekening/creditering bij definitieve aankoop) en uitgeleende stalenboeken of kleurkaarten worden geregistreerd.
+  * *Vloer-Specifieke Conditionele Checklist (Sloop & Afvoer):* Activeert **uitsluitend dynamisch** zodra er een vloerproduct (bijv. PVC, parket, egaline) aan het project wordt toegevoegd. Bevat de gescheiden kwalificatievragen: *"Bestaande vloer verwijderen/oppakken"* én *"Bestaande vloer afvoeren"* (uitgangspunt: oplevering schoon en leeg door klant, tenzij aangevinkt).
+  * *Product-Specifieke Conditionele Checklists (Montageprofiel & Horren):* Activeren **uitsluitend** bij de selectie van specifieke productgroepen:
+    * *Bij Rolgordijnen:* Standaard suggestie/selectie van montageprofiel t.o.v. losse steunen (montagegemak, afklikbaar bij schilderwerk, hogere brutomarge).
+    * *Bij Insectenwering / Horren:* Gerichte controle op draairichting (binnen/buiten), de aanwezigheid van een **waterkering/lekrand** (resulterend in automatische selectie van benodigde opvulprofielen) en de buitendorpelafloop.
+* **6. Direct Inplannen van de Inmeetafspraak:**  
+  Zodra de ruimtes, posities en de minimale dataset compleet zijn, ontgrendelt het systeem direct de inmeetagenda. De verkoper hoeft geen complexe calculaties uit te voeren om de inmeter op pad te sturen.
 
 ---
 
@@ -1421,8 +1463,8 @@ Binnen het taakgerichte canvas geldt het fundamentele architectuurprincipe: **"V
 
 | Rol | Fase 1: Intentie & Intake | Fase 2: Inmeting & Schouw | Fase 3: Offerte & Calculatie | Fase 4: Bestelling & Inkoop | Fase 5: Planning & Montage | Fase 6: Service & Nazorg |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Verkoper** | **Volledig Actief:** Ruimtes/producten toevoegen, \"Kopieer & Pas Aan\" workflow, intake-checklist (inmeetbijdrage € 75,-, vloerensloop/afvoer, montageprofiel), optionele conceptmaten en klantfoto's, inmeetafspraak inplannen. | **Informatief:** Volgt status; kan geen meetwaarden muteren. | **Volledig Actief:** Uitbrengen van offertes op basis van inmeetdata; beheer van revisies (V1 → V2). | **Informatief:** Ziet bestelstatus; orderafhandeling loopt via ERP. | **Informatief:** Ziet montagedatum ter informatie voor klant. | **Informatief:** Ziet servicemeldingen van eigen klanten. |
-| **Inmeter** | **Inzage:** Ziet nieuwe afspraak in persoonlijke agenda met ruimtes en wensen. | **Volledig Actief:** Mobiele inmeet-app, 50 cm raster, maten definitief maken (Geverifieerd), 5-koloms checklist, contextuele foto-annotatie. | **Bevroren:** Inmeetbon is read-only; geeft toelichting bij vragen. | **N.v.t.** | **N.v.t.** | **N.v.t.** |
+| **Verkoper** | **Volledig Actief:** Ruimtes/posities toevoegen, matrix-toewijzing (tap/hold), conditionele checklists (inmeetbijdrage € 75,-, vloerensloop/afvoer, montageprofiel), optionele conceptmaten en foto's, inmeetafspraak inplannen. | **Informatief:** Volgt status; kan geen meetwaarden muteren. | **Volledig Actief:** Uitbrengen van offertes op basis van inmeetdata; beheer van revisies (V1 → V2). | **Informatief:** Ziet bestelstatus; orderafhandeling loopt via ERP. | **Informatief:** Ziet montagedatum ter informatie voor klant. | **Informatief:** Ziet servicemeldingen van eigen klanten. |
+| **Inmeter** | **Inzage:** Ziet nieuwe afspraak in persoonlijke agenda met ruimtes en wensen. | **Volledig Actief:** Mobiele inmeet-app, 50 cm raster, maten definitief maken (Geverifieerd), 5-koloms checklist, contextuele universele foto-annotatie. | **Bevroren:** Inmeetbon is read-only; geeft toelichting bij vragen. | **N.v.t.** | **N.v.t.** | **N.v.t.** |
 | **Ordercontroleur / Backoffice** | **N.v.t.** | **Technisch Toezicht:** Signaleert binnengekomen inmetingen op dashboard. | **Actief:** Ondersteunt verkoper bij complexe maatwerk-calculaties. | **Volledig Actief:** Vier-ogenprincipe, conditional logic toets, maten 'bevriezen', verwerking orderbevestigingen toeleveranciers (Stan), bewaking leverweek, financieel escalatieprotocol (€ 200 - € 300). | **Ondersteunend:** Handelt eventuele technische naleveringen af. | **Actief:** Bestelt vervangende service-onderdelen via ERP. |
 | **Planner** | **Capaciteit:** Beheert beschikbare tijdsloten in inmeetagenda. | **Monitoring:** Bewaakt realtime voortgang van inmeetroutes. | **Voorbereiding:** Ziet goedgekeurde verkooporders aankomen. | **Logistiek:** Monitort magazijnbinnenmeldingen (status Compleet Binnen / Zwart in dashboard). | **Volledig Actief:** Grafisch planbord (Route A magazijngestuurd vs Route B vooruitplanning met 2-3 wk buffer), week-vooruit controlecyclus (Guy), busindeling, droogtijden (egalisatie), toewijzen rolsteiger ≥ 4m. | **Ondersteunend:** Plant servicebezoeken in overleg met klant. |
 | **Monteur** | **N.v.t.** | **N.v.t.** | **N.v.t.** | **N.v.t.** | **Volledig Actief:** Mobiele werkbon met **uitsluitend definitieve productiematen**, steunafstanden, foto-upload, afvinken van de 3 opleveringsvragen, registratie mobiele PIN-betaling en aftekening opleverbon. | **N.v.t.** |
@@ -1460,7 +1502,7 @@ Bij aanvang en afronding van de montagewerkzaamheden toont het mobiele monteurss
 
 #### 5.6.2 De 6 Operationele Medewerker-Rollen in Detail
 1. **Verkoper (Showroom, Advies & Offerte):**
-   * *Verantwoordelijkheid:* Klantbegeleiding in de showroom of aan huis, smaak- en stalenadvies, initiële productconfiguratie via de "Kopieer & Pas Aan" workflow, calculatie van voorlopige prijzen, uitbrengen van offertes, en het direct in overleg met de klant inplannen van de inmeetafspraak op de agenda van de inmeter.
+   * *Verantwoordelijkheid:* Klantbegeleiding in de showroom of aan huis, smaak- en stalenadvies, initiële productconfiguratie via de matrix en conditionele checklists, calculatie van voorlopige prijzen, uitbrengen van offertes, en het direct in overleg met de klant inplannen van de inmeetafspraak op de agenda van de inmeter.
    * *Scherm- & Data-Rechten:* Toegang tot productcatalogus, stalenbeheer, klantwensen, offerte- en orderinvoer, invoer van optionele conceptmaten en klantfoto's, en het direct inplannen van de inmeetafspraak in de inmeetagenda.  
    * *Strikte Beperking:* De verkoper kan **nooit maten definitief maken** (deze velden zijn vergrendeld) en heeft géén toegang tot managementrapportages (buiten scope V1).
 2. **Inmeter (Technische Opname & Haalbaarheid ter Plekke):**
@@ -1535,7 +1577,7 @@ Elke klant heeft in het portaal twee functionele adresrollen:
 ### 5.9 Architectuurprincipe: De 80/20-Regel & Gestructureerde vs. Vrije Invoer in het Portaal
 * **Snelheid voor 80% Standaardsituaties:**  
   Om de inmeetapplicatie en het portaal ter plaatse snel, intuïtief en efficiënt te houden, wordt het formulier **niet overladen met honderden complexe dropdowns en invoervelden voor zeldzame woonsituaties (de 10-20% uitzonderingen)**.
-* **Borging via Vrije Notities & Foto-Annotatie:**  
+* **Borging via Vrije Notities & Universele Foto-Annotatie:**  
   Uitzonderingen (zoals afwijkende klinkspeling, schuin plafondverloop, stucprofielen of bijzondere obstakels) worden gedocumenteerd via een **vrij opmerkingenveld per positie** gecombineerd met een **verplichte foto-upload waarin de inmeter direct met stylus markeringen en maataantekeningen schetst**.
 
 ---
