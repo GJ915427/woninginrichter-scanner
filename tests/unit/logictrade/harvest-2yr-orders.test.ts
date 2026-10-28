@@ -430,15 +430,15 @@ describe('Harvest2YrOrders Service (TDD Suite)', () => {
       expect(mockFetcher).toHaveBeenCalledTimes(1);
     });
 
-    it('falls back to sub-fetching /orderlines if embedded lines array is missing or empty', async () => {
+    it('falls back to sub-fetching /orderlines if embedded lines property is undefined', async () => {
       const mockOrders: LogicTradeOrderHeader[] = [
         {
           id: 'ORD-NO-LINES',
           orderNumber: '4001',
           status: 'Definitief',
           createdDate: '2025-05-02T08:00:00Z',
-          // lines missing or empty
-          lines: [],
+          // lines missing / undefined
+          lines: undefined,
         },
       ];
 
@@ -469,6 +469,111 @@ describe('Harvest2YrOrders Service (TDD Suite)', () => {
       expect(result.totalOrderLinesProcessed).toBe(1);
       expect(result.articles[0].articleCode).toBe('A-FALLBACK');
       expect(mockFetcher).toHaveBeenCalledTimes(2);
+    });
+
+    it('treats embedded lines: [] as empty order without redundant sub-fetching to /orderlines', async () => {
+      const mockOrders: LogicTradeOrderHeader[] = [
+        {
+          id: 'ORD-EMPTY-LINES',
+          orderNumber: '4002',
+          status: 'Definitief',
+          createdDate: '2025-05-02T09:00:00Z',
+          lines: [],
+        },
+      ];
+
+      const mockFetcher = vi.fn().mockImplementation(async (endpoint: string) => {
+        if (endpoint.includes('/orders?') || endpoint.endsWith('/orders')) {
+          return { data: mockOrders, totalPages: 1 };
+        }
+        if (endpoint.includes('/orderlines')) {
+          throw new Error('Redundant sub-fetch executed for empty embedded lines array');
+        }
+        return { data: [] };
+      });
+
+      const result = await harvest2YearOrders({
+        dryRun: true,
+        rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+      });
+
+      expect(result.totalOrdersScanned).toBe(1);
+      expect(result.totalOrderLinesProcessed).toBe(0);
+      expect(result.uniqueArticlesFound).toBe(0);
+      expect(mockFetcher).toHaveBeenCalledTimes(1);
+    });
+
+    it('filters orders by origin code when originFilter is provided', async () => {
+      const mockOrders: LogicTradeOrderHeader[] = [
+        {
+          id: 'ORD-GSW-1',
+          orderNumber: '5001',
+          status: 'Definitief',
+          createdDate: '2025-05-03T10:00:00Z',
+          origin: { code: 'Winkel GSW BV', description: 'GSW Woninginrichting' },
+          lines: [
+            {
+              id: 'L-GSW-1',
+              code: 'ART-GSW-CURTAIN',
+              description: 'GSW Gordijn',
+              quantity: 1,
+            },
+          ],
+        },
+        {
+          id: 'ORD-GIW-1',
+          orderNumber: '5002',
+          status: 'Definitief',
+          createdDate: '2025-05-03T11:00:00Z',
+          origin: { code: 'Winkel GIW BV', description: 'GIW Meubels' },
+          lines: [
+            {
+              id: 'L-GIW-1',
+              code: 'ART-GIW-SOFA',
+              description: 'GIW Hoekbank',
+              quantity: 1,
+            },
+          ],
+        },
+        {
+          id: 'ORD-GIP-1',
+          orderNumber: '5003',
+          status: 'Definitief',
+          createdDate: '2025-05-03T12:00:00Z',
+          origin: 'GIP BV',
+          lines: [
+            {
+              id: 'L-GIP-1',
+              code: 'ART-GIP-PROJECT',
+              description: 'GIP B2B Project',
+              quantity: 1,
+            },
+          ],
+        },
+      ];
+
+      const mockFetcher = vi.fn().mockResolvedValue({ data: mockOrders, totalPages: 1 });
+
+      // 1. Met originFilter ['Winkel GSW BV'] -> alleen GSW
+      const filteredResult = await harvest2YearOrders({
+        dryRun: true,
+        originFilter: ['Winkel GSW BV'],
+        rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+      });
+
+      expect(filteredResult.totalOrdersScanned).toBe(3);
+      expect(filteredResult.totalOrderLinesProcessed).toBe(1);
+      expect(filteredResult.uniqueArticlesFound).toBe(1);
+      expect(filteredResult.articles[0].articleCode).toBe('ART-GSW-CURTAIN');
+
+      // 2. Zonder originFilter (standaard) -> laat alles door (backwards compatibility)
+      const allResult = await harvest2YearOrders({
+        dryRun: true,
+        rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+      });
+
+      expect(allResult.totalOrderLinesProcessed).toBe(3);
+      expect(allResult.uniqueArticlesFound).toBe(3);
     });
 
     it('parses rich configurator options, plooien and dimensions from line.comment.extern', async () => {

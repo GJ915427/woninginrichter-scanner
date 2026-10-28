@@ -1,9 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   classifyCognitiveTypology,
+  classifyCognitiveTypologyWithOnlineSearch,
   mapDomainToCategory,
   type HarvestedRawArticle,
   type CanonicalDomain,
+  type OnlineEnrichmentOptions,
 } from '@/domain/search/v2/cognitive-typology-classifier';
 
 describe('CognitiveTypologyClassifier (TDD Suite)', () => {
@@ -265,6 +267,209 @@ describe('CognitiveTypologyClassifier (TDD Suite)', () => {
         expect(res.productType).toBe('DUETTE_SHADE');
         expect(res.reasoning).toContain('AU20');
       }
+    });
+  });
+
+  describe('Supplier & Brand Taxonomy (Knowledge Graph)', () => {
+    it('T1: classifies Vadain fabric as GORDIJNEN / OVERGORDIJN with 0.99 confidence', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'A00057936',
+        articleName: 'Sue kh 12 ecru',
+        supplierName: 'Vadain',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 5,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      expect(result.domain).toBe('GORDIJNEN');
+      expect(result.category).toBe('RAAMBEKLEDING');
+      expect(result.productType).toBe('OVERGORDIJN');
+      expect(result.classificationConfidence).toBeGreaterThanOrEqual(0.99);
+      expect(result.requiresHitlReview).toBe(false);
+      expect(result.reasoning).toContain('Vadain');
+    });
+
+    it('T2: classifies Interstil rail as GORDIJNEN / GORDIJNRAIL with 0.99 confidence', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'A00038958',
+        articleName: 'Interstil Alu binnenloop 20mm edelstaal',
+        supplierName: 'Interstil',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 8,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      expect(result.domain).toBe('GORDIJNEN');
+      expect(result.category).toBe('RAAMBEKLEDING');
+      expect(result.productType).toBe('GORDIJNRAIL');
+      expect(result.classificationConfidence).toBeGreaterThanOrEqual(0.99);
+      expect(result.requiresHitlReview).toBe(false);
+    });
+
+    it('T3: classifies Quick-Step PVC flooring as VLOEREN / PVC_VLOER with 0.99 confidence', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'A00067290',
+        articleName: 'Quick-Step Ciro AVHBU40360',
+        supplierName: 'Quick-Step',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 12,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      expect(result.domain).toBe('VLOEREN');
+      expect(result.category).toBe('VLOEREN');
+      expect(result.productType).toBe('PVC_VLOER');
+      expect(result.classificationConfidence).toBeGreaterThanOrEqual(0.99);
+    });
+
+    it('T4: recognizes supplier code prefix when supplierName is missing', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'LT_VADAINCONFECTIE_99',
+        articleName: 'Confectie enkele retourplooi',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 3,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      expect(result.domain).toBe('GORDIJNEN');
+      expect(result.classificationConfidence).toBeGreaterThanOrEqual(0.99);
+    });
+  });
+
+  describe('Anti-Furniture Guard & Field Isolation', () => {
+    it('F1: excludes dining chair with "stof" option from curtains (prevents False Positive)', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'A00036457',
+        articleName: "Bree's Eetkamerstoel Rikki",
+        supplierName: "Bree's New World",
+        orderOptions: ['In stof De Ploeg', 'Onderstel zwart'],
+        rawConfigurations: [],
+        historicalOccurrences: 2,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      // Must be UNCLASSIFIED, NEVER GORDIJNEN / OVERGORDIJN!
+      expect(result.domain).toBe('UNCLASSIFIED');
+      expect(result.productType).toBe('ONBEKEND');
+      expect(result.domain).not.toBe('GORDIJNEN');
+      expect(result.requiresHitlReview).toBe(true);
+    });
+  });
+
+  describe('classifyCognitiveTypologyWithOnlineSearch (Systematic Enrichment)', () => {
+    it('S1: corroborates high-confidence curtain with web search and elevates to >=0.995', async () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'A00057936',
+        articleName: 'Sue kh 12 ecru',
+        supplierName: 'Vadain',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 5,
+      };
+
+      const mockSearchFn = vi.fn().mockResolvedValue([
+        'Vadain gordijnstof Sue kamerhoog overgordijn inbetween',
+      ]);
+
+      const result = await classifyCognitiveTypologyWithOnlineSearch(input, {
+        searchFn: mockSearchFn,
+      });
+
+      expect(result.domain).toBe('GORDIJNEN');
+      expect(result.productType).toBe('OVERGORDIJN');
+      expect(result.classificationConfidence).toBeGreaterThanOrEqual(0.995);
+      expect(result.enrichmentSource).toBe('ONLINE_SEARCH');
+      expect(mockSearchFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('S2: web search falsifies tricky false positive and vetoes to UNCLASSIFIED / ONBEKEND', async () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'AMBIG-01',
+        articleName: 'Rikki De Ploeg',
+        supplierName: 'Bree',
+        orderOptions: ['Stof'],
+        rawConfigurations: [],
+        historicalOccurrences: 2,
+      };
+
+      const mockSearchFn = vi.fn().mockResolvedValue([
+        "Bree's New World Rikki eetkamerstoel gestoffeerd stoelen eetkamer",
+      ]);
+
+      const result = await classifyCognitiveTypologyWithOnlineSearch(input, {
+        searchFn: mockSearchFn,
+      });
+
+      // Web search detected chair -> veto curtain!
+      expect(result.domain).toBe('UNCLASSIFIED');
+      expect(result.productType).toBe('ONBEKEND');
+      expect(result.classificationConfidence).toBeGreaterThanOrEqual(0.99);
+      expect(result.enrichmentSource).toBe('ONLINE_SEARCH');
+      expect(result.reasoning).toContain('Online search veto');
+    });
+
+    it('S3: uses in-memory cache to ensure zero network lookups on duplicate items', async () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'DUP-01',
+        articleName: 'Ciro AVHBU40360',
+        supplierName: 'Quick-Step',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 1,
+      };
+
+      const cache = new Map<string, any>();
+      const mockSearchFn = vi.fn().mockResolvedValue([
+        'Quick-Step Ciro visgraat PVC vloer click stroken',
+      ]);
+
+      // Call 1: Populates cache
+      const res1 = await classifyCognitiveTypologyWithOnlineSearch(input, {
+        searchFn: mockSearchFn,
+        cache,
+      });
+      expect(mockSearchFn).toHaveBeenCalledTimes(1);
+      expect(res1.domain).toBe('VLOEREN');
+
+      // Call 2: Must read from cache in 0ms without calling searchFn again
+      const res2 = await classifyCognitiveTypologyWithOnlineSearch(input, {
+        searchFn: mockSearchFn,
+        cache,
+      });
+      expect(mockSearchFn).toHaveBeenCalledTimes(1); // Still 1!
+      expect(res2.domain).toBe('VLOEREN');
+      expect(res2.classificationConfidence).toBeGreaterThanOrEqual(0.995);
+    });
+
+    it('S4: falls back gracefully to local taxonomy on network error or timeout', async () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'A00057936',
+        articleName: 'Sue kh 12 ecru',
+        supplierName: 'Vadain',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 5,
+      };
+
+      const mockFailingSearchFn = vi.fn().mockRejectedValue(new Error('Network timeout HTTP 504'));
+
+      const result = await classifyCognitiveTypologyWithOnlineSearch(input, {
+        searchFn: mockFailingSearchFn,
+      });
+
+      // Does not throw; preserves baseline Vadain taxonomy
+      expect(result.domain).toBe('GORDIJNEN');
+      expect(result.productType).toBe('OVERGORDIJN');
+      expect(result.enrichmentSource).toBe('LOCAL_TAXONOMY_FALLBACK');
     });
   });
 });

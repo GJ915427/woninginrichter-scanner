@@ -17,6 +17,7 @@ export interface LogicTradeOrderHeader {
   status: string; // e.g. 'CONFIRMED', 'ORDER', 'DELIVERED', 'CLOSED', 'Definitief'
   createdDate: string; // ISO string
   totalAmount?: number;
+  origin?: string | { id?: number | string; code?: string; description?: string; [key: string]: unknown };
   lines?: LogicTradeOrderLine[];
   orderLines?: LogicTradeOrderLine[];
 }
@@ -51,6 +52,7 @@ export interface Harvest2YrOptions {
   pageSize?: number;
   checkpointFilePath?: string;
   statusFilter?: string[];
+  originFilter?: string | string[];
   dryRun?: boolean;
   rateLimiter?: any;
   baseUrl?: string;
@@ -251,6 +253,26 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
         continue;
       }
 
+      // Check origin / herkomst filter (indien geconfigureerd)
+      if (options.originFilter) {
+        const filters = (Array.isArray(options.originFilter) ? options.originFilter : [options.originFilter])
+          .map(f => f.trim().toUpperCase())
+          .filter(Boolean);
+
+        if (filters.length > 0) {
+          let rawOrigin = '';
+          if (typeof order.origin === 'string') {
+            rawOrigin = order.origin;
+          } else if (order.origin && typeof order.origin === 'object') {
+            rawOrigin = order.origin.code || order.origin.description || '';
+          }
+          const normOrigin = rawOrigin.trim().toUpperCase();
+          if (!normOrigin || !filters.includes(normOrigin)) {
+            continue;
+          }
+        }
+      }
+
       // Sla reeds verwerkte sub-orders over bij hervatting
       if (processedOrderSet.has(orderIdStr)) {
         continue;
@@ -259,8 +281,8 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
       // Haal orderregels op voor deze order:
       // Geef voorrang aan reeds embedded order.lines (N+1 HTTP eliminatie)
       let lines: LogicTradeOrderLine[] = [];
-      const embeddedLines = (order as any).lines || (order as any).orderLines;
-      if (Array.isArray(embeddedLines) && embeddedLines.length > 0) {
+      const embeddedLines = (order as any).lines ?? (order as any).orderLines;
+      if (Array.isArray(embeddedLines)) {
         lines = embeddedLines;
       } else {
         const linesUrl = `${baseUrl}/orders/${encodeURIComponent(orderIdStr)}/orderlines`;
