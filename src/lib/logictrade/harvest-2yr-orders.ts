@@ -8,27 +8,36 @@ export const DEFAULT_HARVEST_STATUSES = [
   'ORDER',
   'DELIVERED',
   'CLOSED',
+  'DEFINITIEF',
 ] as const;
 
 export interface LogicTradeOrderHeader {
   id: string | number;
   orderNumber: string;
-  status: string; // e.g. 'CONFIRMED', 'ORDER', 'DELIVERED', 'CLOSED'
+  status: string; // e.g. 'CONFIRMED', 'ORDER', 'DELIVERED', 'CLOSED', 'Definitief'
   createdDate: string; // ISO string
   totalAmount?: number;
+  lines?: LogicTradeOrderLine[];
+  orderLines?: LogicTradeOrderLine[];
 }
 
 export interface LogicTradeOrderLine {
   id: string | number;
-  orderId: string | number;
-  articleCode: string;
-  articleDescription: string;
-  quantity: number;
+  orderId?: string | number;
+  articleCode?: string;
+  articleDescription?: string;
+  code?: string;
+  description?: string;
+  quantity?: number;
   supplierName?: string;
   configurationJson?: string;
   options?: Array<{ key: string; value: string; description?: string; surcharge?: number }>;
   widthMm?: number;
   heightMm?: number;
+  comment?: { intern?: string; extern?: string } | string | null;
+  partPrice?: number;
+  linePrice?: number;
+  orderNumber?: string;
 }
 
 export interface HarvestCheckpoint {
@@ -56,6 +65,102 @@ export interface Harvest2YrResult {
   uniqueArticlesFound: number;
   articles: HarvestedRawArticle[];
   checkpointSaved: boolean;
+}
+
+/**
+ * Parset gestructureerde CPQ-opties en afmetingen uit orderregel-commentaren
+ * (zowel line.comment.extern als line.comment.intern of directe string).
+ */
+export function parseCommentExtern(comment?: { intern?: string; extern?: string } | string | null): {
+  options: Array<{ key: string; value: string; label?: string }>;
+  dimensions?: { widthMm?: number; heightMm?: number };
+} {
+  const result: {
+    options: Array<{ key: string; value: string; label?: string }>;
+    dimensions?: { widthMm?: number; heightMm?: number };
+  } = { options: [] };
+
+  if (!comment) return result;
+
+  const textChunks: string[] = [];
+  if (typeof comment === 'string') {
+    textChunks.push(comment);
+  } else if (typeof comment === 'object') {
+    if (typeof comment.extern === 'string' && comment.extern.trim()) {
+      textChunks.push(comment.extern);
+    }
+    if (typeof comment.intern === 'string' && comment.intern.trim()) {
+      textChunks.push(comment.intern);
+    }
+  }
+
+  for (const chunk of textChunks) {
+    const rawLines = chunk.split(/\r?\n/);
+    for (const rawLine of rawLines) {
+      const trimmed = rawLine.trim();
+      if (!trimmed) continue;
+
+      // Extract bullet points: lines starting with '- ' or '* ' or '• '
+      const isBullet = /^[-*•]\s+/.test(trimmed);
+      const cleanLine = trimmed.replace(/^[-*•]\s+/, '').trim();
+      if (!cleanLine) continue;
+
+      // 1. Dimension detection: e.g. "afmeting 400 x 400" or "400 x 400" or "1200x1800"
+      const dimMatch = cleanLine.match(/(?:(?:afmeting(?:en)?|maat|afm\.?)\s*:?\s*)?(\d{2,5})\s*(?:mm)?\s*[xX*]\s*(\d{2,5})\s*(?:mm)?/i);
+      if (dimMatch && !result.dimensions) {
+        const w = parseInt(dimMatch[1], 10);
+        const h = parseInt(dimMatch[2], 10);
+        if (w > 0 && h > 0) {
+          result.dimensions = { widthMm: w, heightMm: h };
+        }
+      }
+
+      // 2. Structured option detection:
+      // Pattern A: "Key: Value" (e.g. "- Kleur: 19", "- Bediening: SmartCord")
+      const kvMatch = cleanLine.match(/^([^:]+):\s*(.+)$/);
+      if (kvMatch) {
+        const k = kvMatch[1].trim();
+        const v = kvMatch[2].trim();
+        if (/^(?:afmeting|maat|afm)/i.test(k)) {
+          continue;
+        }
+        if (k && v) {
+          result.options.push({
+            key: k,
+            value: v,
+            label: `${k}: ${v}`,
+          });
+          continue;
+        }
+      }
+
+      // Pattern B: Bulleted CPQ choices without explicit colon
+      if (isBullet) {
+        if (/^(?:afmeting|maat)\b/i.test(cleanLine) || /^\d{2,5}\s*[xX*]\s*\d{2,5}$/.test(cleanLine)) {
+          continue;
+        }
+
+        let key = 'Optie';
+        if (/plooi|retourplooi|vlinderplooi|wave/i.test(cleanLine)) {
+          key = 'Plooi';
+        } else if (/montage|monteren|in de dag|op de dag/i.test(cleanLine)) {
+          key = 'Montage';
+        } else if (/gaas|hor/i.test(cleanLine)) {
+          key = 'Gaas';
+        } else if (/bediening|koord|ketting|motor|smartcord/i.test(cleanLine)) {
+          key = 'Bediening';
+        }
+
+        result.options.push({
+          key,
+          value: cleanLine,
+          label: cleanLine,
+        });
+      }
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -151,40 +256,72 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
         continue;
       }
 
-      // Haal orderregels op voor deze order
-      const linesUrl = `${baseUrl}/orders/${encodeURIComponent(orderIdStr)}/orderlines`;
-      const linesRes = await limiter.fetchWithAdaptiveBackoff(linesUrl, { headers, cache: 'no-store' });
-
-      let linesEnvelope: any;
-      if (linesRes && typeof linesRes.json === 'function') {
-        if (!linesRes.ok) {
-          console.warn(`[Harvest2YrOrders] Kon orderregels voor order ${orderIdStr} niet ophalen (HTTP ${linesRes.status}).`);
-          continue;
-        }
-        linesEnvelope = await linesRes.json();
+      // Haal orderregels op voor deze order:
+      // Geef voorrang aan reeds embedded order.lines (N+1 HTTP eliminatie)
+      let lines: LogicTradeOrderLine[] = [];
+      const embeddedLines = (order as any).lines || (order as any).orderLines;
+      if (Array.isArray(embeddedLines) && embeddedLines.length > 0) {
+        lines = embeddedLines;
       } else {
-        linesEnvelope = linesRes;
-      }
+        const linesUrl = `${baseUrl}/orders/${encodeURIComponent(orderIdStr)}/orderlines`;
+        const linesRes = await limiter.fetchWithAdaptiveBackoff(linesUrl, { headers, cache: 'no-store' });
 
-      const lines: LogicTradeOrderLine[] = Array.isArray(linesEnvelope)
-        ? linesEnvelope
-        : linesEnvelope?.data || linesEnvelope?.results || [];
+        let linesEnvelope: any;
+        if (linesRes && typeof linesRes.json === 'function') {
+          if (!linesRes.ok) {
+            console.warn(`[Harvest2YrOrders] Kon orderregels voor order ${orderIdStr} niet ophalen (HTTP ${linesRes.status}).`);
+            continue;
+          }
+          linesEnvelope = await linesRes.json();
+        } else {
+          linesEnvelope = linesRes;
+        }
+
+        lines = Array.isArray(linesEnvelope)
+          ? linesEnvelope
+          : linesEnvelope?.data || linesEnvelope?.results || [];
+      }
 
       totalOrderLinesProcessed += lines.length;
 
       for (const line of lines) {
-        const rawCode = (line.articleCode || '').trim();
+        // Ondersteun zowel articleCode als code alias
+        const rawCode = (line.articleCode || line.code || '').trim();
         // Skip lege regels of commentaarregels zonder code
         if (!rawCode) {
           continue;
         }
 
-        const w = typeof line.widthMm === 'number' && line.widthMm > 0 ? line.widthMm : undefined;
-        const h = typeof line.heightMm === 'number' && line.heightMm > 0 ? line.heightMm : undefined;
+        // Ondersteun articleDescription of description alias
+        const rawDescription = (line.articleDescription || line.description || rawCode).trim();
 
-        // Extraheer opties uit gestructureerde array of configurationJson
+        // Parseer opties en afmetingen uit line.comment (extern & intern)
+        const commentParsed = parseCommentExtern(line.comment);
+
+        // Dimensies: expliciete positieve waarden op de regel hebben absolute voorrang
+        let w = typeof line.widthMm === 'number' && line.widthMm > 0 ? line.widthMm : undefined;
+        let h = typeof line.heightMm === 'number' && line.heightMm > 0 ? line.heightMm : undefined;
+
+        if (w === undefined && commentParsed.dimensions?.widthMm) {
+          w = commentParsed.dimensions.widthMm;
+        }
+        if (h === undefined && commentParsed.dimensions?.heightMm) {
+          h = commentParsed.dimensions.heightMm;
+        }
+
+        // Extraheer opties uit commentaar, gestructureerde array en configurationJson
         const lineOptions: Array<{ key: string; value: string; label?: string; surcharge?: number }> = [];
 
+        // 1. Commentaar opties toevoegen
+        for (const cOpt of commentParsed.options) {
+          lineOptions.push({
+            key: cOpt.key,
+            value: cOpt.value,
+            label: cOpt.label || `${cOpt.key}: ${cOpt.value}`,
+          });
+        }
+
+        // 2. Gestructureerde opties
         if (Array.isArray(line.options)) {
           for (const opt of line.options) {
             lineOptions.push({
@@ -196,6 +333,7 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
           }
         }
 
+        // 3. ConfigurationJson
         if (line.configurationJson) {
           try {
             const parsed = JSON.parse(line.configurationJson);
@@ -219,7 +357,7 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
         if (!aggregatedArticles[rawCode]) {
           aggregatedArticles[rawCode] = {
             articleCode: rawCode,
-            articleName: (line.articleDescription || rawCode).trim(),
+            articleName: rawDescription,
             supplierName: line.supplierName,
             orderOptions: [],
             rawConfigurations: [],
