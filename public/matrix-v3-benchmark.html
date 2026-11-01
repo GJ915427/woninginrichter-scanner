@@ -1,0 +1,3278 @@
+<!DOCTYPE html>
+<html lang="nl" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EasyM2M - Hiërarchische Positiematrix Browser v3 (Hoofdstuk 5 Interactie)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --background: #f8fafc;
+      --foreground: #0f172a;
+      --card: #ffffff;
+      --card-foreground: #0f172a;
+      --primary: #2563eb;
+      --primary-foreground: #ffffff;
+      --muted: #f1f5f9;
+      --muted-foreground: #64748b;
+      --border: #e2e8f0;
+      --accent: #eff6ff;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    /* Vaste Kolombreedes (Fixed Column Widths) SSOT */
+    :root {
+      --col-0-w: 280px;
+      --col-gen-w: 160px;
+      --col-pos-w: 160px;
+      --col-room-w: 180px;
+      --col-etage-w: 220px;
+    }
+    .w-col-0 { width: var(--col-0-w); min-width: var(--col-0-w); max-width: var(--col-0-w); }
+    .w-col-gen { width: var(--col-gen-w); min-width: var(--col-gen-w); max-width: var(--col-gen-w); }
+    .w-col-pos { width: var(--col-pos-w); min-width: var(--col-pos-w); max-width: var(--col-pos-w); }
+    .w-col-room { width: var(--col-room-w); min-width: var(--col-room-w); max-width: var(--col-room-w); }
+    .w-col-etage { width: var(--col-etage-w); min-width: var(--col-etage-w); max-width: var(--col-etage-w); }
+
+    /* Sticky Freeze-Panes (Horizontaal eerste kolom + Verticaal headers t/m posities) */
+    .sticky-col-0 {
+      position: sticky;
+      left: 0;
+      z-index: 25;
+      background-color: #ffffff;
+      width: var(--col-0-w);
+      min-width: var(--col-0-w);
+      max-width: var(--col-0-w);
+    }
+    .sticky-col-0-alt {
+      position: sticky;
+      left: 0;
+      z-index: 25;
+      background-color: #f8fafc;
+      width: var(--col-0-w);
+      min-width: var(--col-0-w);
+      max-width: var(--col-0-w);
+    }
+    .sticky-corner-1 {
+      position: sticky;
+      left: 0;
+      top: 0;
+      z-index: 50;
+      background-color: #f1f5f9;
+      width: var(--col-0-w);
+      min-width: var(--col-0-w);
+      max-width: var(--col-0-w);
+    }
+    .sticky-corner-2 {
+      position: sticky;
+      left: 0;
+      top: 36px;
+      z-index: 49;
+      background-color: #f8fafc;
+      width: var(--col-0-w);
+      min-width: var(--col-0-w);
+      max-width: var(--col-0-w);
+    }
+    .sticky-corner-3 {
+      position: sticky;
+      left: 0;
+      top: 70px;
+      z-index: 48;
+      background-color: #f1f5f9;
+      width: var(--col-0-w);
+      min-width: var(--col-0-w);
+      max-width: var(--col-0-w);
+    }
+    .sticky-corner-4 {
+      position: sticky;
+      left: 0;
+      top: 98px;
+      z-index: 47;
+      background-color: #ffffff;
+      width: var(--col-0-w);
+      min-width: var(--col-0-w);
+      max-width: var(--col-0-w);
+    }
+    .sticky-th-row-1 {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background-color: #f1f5f9;
+    }
+    .sticky-th-row-2 {
+      position: sticky;
+      top: 36px;
+      z-index: 39;
+      background-color: #f8fafc;
+    }
+    .sticky-th-row-3 {
+      position: sticky;
+      top: 70px;
+      z-index: 38;
+      background-color: #f1f5f9;
+    }
+    .sticky-th-row-4 {
+      position: sticky;
+      top: 98px;
+      z-index: 37;
+      background-color: #ffffff;
+    }
+    .sticky-col-shadow {
+      box-shadow: 4px 0 8px -2px rgba(15, 23, 42, 0.10);
+    }
+
+    /* Sub-positie letter [a] (linksboven) */
+    .subpos-tag {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5px 4px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      background-color: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    /* Cel Touch Stepper Overlay (+ en - over de hele cel) */
+    .touch-stepper-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(2px);
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px;
+      border-radius: 6px;
+      border: 2px solid #2563eb;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+      animation: fadeIn 0.15s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Dragging Visual States */
+    .cell-dragging {
+      opacity: 0.4;
+      outline: 2px dashed #3b82f6;
+    }
+    .cell-dragover {
+      background-color: #eff6ff !important;
+      outline: 2px solid #2563eb !important;
+    }
+
+    /* Dynamische Horizontaal Meeglijdende Sticky Groepskoppen (Etage & Ruimte) */
+    .sticky-group-label-etage {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 3px 12px;
+      border-radius: 6px;
+      background-color: rgba(241, 245, 249, 0.98);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(203, 213, 225, 0.9);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.10);
+      white-space: nowrap;
+      max-width: fit-content;
+      z-index: 35;
+      pointer-events: none;
+      will-change: transform;
+    }
+    .sticky-group-label-room {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 2px 10px;
+      border-radius: 5px;
+      background-color: rgba(248, 250, 252, 0.98);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+      white-space: nowrap;
+      max-width: fit-content;
+      z-index: 34;
+      pointer-events: none;
+      will-change: transform;
+    }
+    /* Oranje Orderregel Badge in Cellen (heel klein in een hoekje, zonder hash) */
+    .cell-line-tag {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5px 3.5px;
+      border-radius: 3px;
+      font-size: 8.5px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      background-color: #fff7ed;
+      color: #ea580c;
+      border: 1px solid #fdba74;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      pointer-events: none;
+    }
+    /* Cell Hover */
+    .matrix-cell-hover:hover {
+      background-color: #f0fdf4 !important;
+      outline: 2px solid #22c55e;
+      outline-offset: -2px;
+    }
+    /* Arrow buttons */
+    .rollup-arrow-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      background-color: #e2e8f0;
+      color: #475569;
+      font-size: 10px;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      user-select: none;
+    }
+    .rollup-arrow-btn:hover {
+      background-color: #2563eb;
+      color: #ffffff;
+    }
+  </style>
+</head>
+<body class="h-full bg-slate-100 text-slate-900 flex overflow-hidden antialiased">
+
+  <!-- ========================================================================= -->
+  <!-- LINKER SIDEBAR: TOOLING & ORDERSELECTIE (NIET ONDERDEEL VAN PORTAALSCHERM)-->
+  <!-- ========================================================================= -->
+  <aside id="sidebar-orders" class="w-80 bg-white border-r border-slate-200 flex flex-col flex-shrink-0 transition-all duration-300 relative z-30 shadow-sm">
+    <!-- Sidebar Header -->
+    <div class="p-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+      <div class="flex items-center gap-2">
+        <span class="flex h-2 w-2 relative">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+        </span>
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Orders Explorer</h2>
+        <span class="text-[10px] bg-blue-100 text-blue-800 font-semibold px-1.5 py-0.5 rounded">7 live</span>
+      </div>
+      <button onclick="toggleSidebar()" title="Klap sidebar in" class="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg>
+      </button>
+    </div>
+
+    <!-- Stepper Controls -->
+    <div class="p-3 border-b border-slate-100 bg-white">
+      <div class="flex items-center justify-between gap-1.5 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+        <button onclick="navigateOrder(-1)" class="flex-1 py-1 px-2 text-xs font-medium text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded shadow-2xs transition flex items-center justify-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          Vorige
+        </button>
+        <span id="order-stepper-indicator" class="text-xs font-mono font-bold text-slate-600 px-2 py-0.5">3 / 7</span>
+        <button onclick="navigateOrder(1)" class="flex-1 py-1 px-2 text-xs font-medium text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded shadow-2xs transition flex items-center justify-center gap-1">
+          Volgende
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      <div class="flex items-center justify-between text-[11px] text-slate-400 mt-2 px-1">
+        <span>Sneltoetsen:</span>
+        <span class="font-mono bg-slate-100 px-1 py-0.5 rounded text-[10px] text-slate-500 border border-slate-200">←</span>
+        <span class="font-mono bg-slate-100 px-1 py-0.5 rounded text-[10px] text-slate-500 border border-slate-200">→</span>
+      </div>
+    </div>
+
+    <!-- Orders List -->
+    <div class="flex-1 overflow-y-auto p-3 space-y-2" id="order-buttons-container">
+      <!-- Wordt dynamisch opgebouwd via JS -->
+    </div>
+
+    <!-- Sidebar Footer: GSW 2026 Omzet Snapshot -->
+    <div class="p-3 border-t border-slate-200 bg-slate-50/90">
+      <div class="rounded-lg p-2.5 bg-blue-50/70 border border-blue-200/80 text-[11px]">
+        <div class="flex items-center justify-between text-blue-900 font-bold mb-1">
+          <span>Winkel GSW BV (2026)</span>
+          <span class="font-mono text-blue-700">674 orders</span>
+        </div>
+        <div class="flex items-center justify-between text-slate-600">
+          <span>Totale Jaaromzet:</span>
+          <span class="font-mono font-bold text-blue-950">€ 1.909.636,32</span>
+        </div>
+        <div class="flex items-center justify-between text-slate-500 text-[10px] mt-0.5">
+          <span>Gemiddeld per order:</span>
+          <span class="font-mono">€ 2.833,29</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Inklapbare toggle knop voor als sidebar verborgen is -->
+  <button id="sidebar-expand-btn" onclick="toggleSidebar()" class="hidden fixed left-2 top-2 z-40 bg-blue-600 text-white p-2 rounded-lg shadow-lg hover:bg-blue-700 transition" title="Open Orders Sidebar">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+  </button>
+
+  <!-- ========================================================================= -->
+  <!-- HOOFDAPPLICATIE CANVAS: START MET ECHTE RIJ 1 HEADER & RIJ 2 SUBHEADER   -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 flex flex-col h-full overflow-hidden min-w-0 bg-slate-50">
+
+    <!-- --------------------------------------------------------------------- -->
+    <!-- RIJ 1: SLANKE UNIVERSELE HEADER (CONFORM DOMEINMODEL DEEL 5 §5.2)      -->
+    <!-- --------------------------------------------------------------------- -->
+    <header class="h-12 bg-white border-b border-slate-200 px-4 flex items-center justify-between flex-shrink-0 z-20">
+      <!-- Links: Logo & Navigatietabs -->
+      <div class="flex items-center gap-6">
+        <!-- Logo EasyM2M -->
+        <div class="flex items-center gap-1.5 cursor-pointer">
+          <div class="w-6 h-6 rounded bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+            M²
+          </div>
+          <span class="font-bold text-sm tracking-tight text-slate-900">Easy<span class="text-blue-600">M2M</span></span>
+          <span class="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 ml-1">v3.0 H5 Interactive</span>
+        </div>
+
+        <!-- Hoofdnavigatie Tabs (Home, Klant, Object, Project, Ruimte, Product) -->
+        <nav class="flex items-center gap-1">
+          <a href="#" class="px-2.5 py-1 text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition">Home</a>
+          <a href="#" class="px-2.5 py-1 text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition">Klant</a>
+          <a href="#" class="px-2.5 py-1 text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition">Object</a>
+          <a href="#" class="px-2.5 py-1 text-xs font-bold text-blue-600 bg-blue-50/80 rounded-md transition flex items-center gap-1 border border-blue-200">
+            <span>Project</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block"></span>
+          </a>
+          <a href="#" class="px-2.5 py-1 text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition">Ruimte</a>
+          <a href="#" class="px-2.5 py-1 text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition">Product</a>
+        </nav>
+      </div>
+
+      <!-- Rechts: Zoekknop, Vestiging & Gebruikersprofiel -->
+      <div class="flex items-center gap-3">
+        <!-- FSM SIMULATOR SCHAKELAAR (PIJLER 1) -->
+        <div class="hidden lg:flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-[11px]">
+          <span class="text-slate-500 font-medium px-1 flex items-center gap-1">
+            <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            FSM Fase:
+          </span>
+          <select id="fsm-stage-selector" onchange="changeFsmStage(this.value)" class="bg-white border border-slate-300 rounded px-2 py-0.5 font-semibold text-slate-800 text-[11px] cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500">
+            <option value="1">1. Lead / Intake</option>
+            <option value="2">2. Offerte</option>
+            <option value="3">3. Inmeten</option>
+            <option value="4">4. Werkvoorbereiding</option>
+            <option value="5" selected>5. Bestellen (Actueel)</option>
+            <option value="6">6. Goederenontvangst</option>
+            <option value="7">7. Montage</option>
+            <option value="8">8. Facturatie / Afronding</option>
+          </select>
+        </div>
+
+        <!-- Zoek Popover Trigger -->
+        <button onclick="toggleSearch()" class="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition" title="Zoeken (Ctrl+K)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </button>
+
+        <!-- Vestiging Tag -->
+        <span class="text-[11px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200 hidden sm:inline-block">
+          Winkel GSW BV
+        </span>
+
+        <!-- Gebruikersprofiel Jan (GSW) -->
+        <div class="flex items-center gap-2 pl-2 border-l border-slate-200">
+          <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold font-mono">
+            J
+          </div>
+          <span class="text-xs font-medium text-slate-700 hidden md:inline-block">Jan (GSW)</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- --------------------------------------------------------------------- -->
+    <!-- ACTIEVE ORDER OVERVIEW CARD (IN PLAATS VAN SUBHEADER CONFORM SCREENSHOT) -->
+    <!-- --------------------------------------------------------------------- -->
+    <section id="order-meta-card" class="bg-white border-b border-slate-200 px-6 py-4 shadow-2xs flex-shrink-0 z-10">
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-xs items-start">
+        <div class="space-y-1">
+          <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Ordernummer</div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="openPdfDrawer('order')" class="text-base font-extrabold text-blue-600 hover:text-blue-800 font-mono flex items-center gap-1 group transition" title="Klik om de officiële Orderbevestiging PDF te bekijken">
+              <span id="meta-order-number">--</span>
+              <svg class="w-3.5 h-3.5 text-blue-400 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </button>
+          </div>
+          <button onclick="openPdfDrawer('quote')" class="text-[11px] text-slate-500 hover:text-blue-600 flex items-center gap-1 group cursor-pointer" title="Klik om de Offerte PDF te bekijken">
+            <span id="meta-quote-number">Offerte: --</span>
+            <span class="text-[10px] text-blue-500 opacity-0 group-hover:opacity-100 font-semibold">[bekijk]</span>
+          </button>
+        </div>
+
+        <div class="space-y-1">
+          <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Klant & Locatie</div>
+          <div id="meta-customer-name" class="font-bold text-sm truncate text-slate-900">--</div>
+          <div id="meta-customer-city" class="text-[11px] text-slate-500 truncate">--</div>
+        </div>
+
+        <div class="space-y-1">
+          <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Orderdatum & Status</div>
+          <div id="meta-date" class="font-semibold text-slate-800">--</div>
+          <div id="meta-status" class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            Definitief
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Projectscope</div>
+          <div id="meta-scope-summary" class="font-semibold truncate text-slate-800" title="">--</div>
+          <div id="meta-positions-count" class="text-[11px] text-slate-500">--</div>
+        </div>
+
+        <div class="space-y-1">
+          <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Verkoper / Filiaal</div>
+          <div id="meta-salesman" class="font-semibold truncate text-slate-800">--</div>
+          <div id="meta-branch" class="text-[11px] text-slate-500 truncate">--</div>
+        </div>
+
+        <div class="space-y-1 lg:text-right">
+          <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Totaalbedrag (incl. BTW)</div>
+          <div id="meta-total-amount" class="text-base font-extrabold text-emerald-700 font-mono">--</div>
+          <div id="meta-lines-count" onclick="scrollToRawLines()" class="text-[11px] text-slate-500 hover:text-blue-600 hover:underline cursor-pointer" title="Klik om naar de oorspronkelijke orderregels te scrollen">-- orderregels geregistreerd</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- --------------------------------------------------------------------- -->
+    <!-- RIJ 3: DE 8 CANONIEKE PROCESACTIEKNOPPEN (PIJLER 1, INV-UI-04)        -->
+    <!-- --------------------------------------------------------------------- -->
+    <section class="bg-slate-50 border-b border-slate-200 px-6 py-2 flex items-center justify-between overflow-x-auto gap-2 flex-shrink-0 z-10" id="fsm-process-bar">
+      <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 mr-2 flex-shrink-0">
+        <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+        <span class="uppercase tracking-wider text-[10px] text-slate-400">Processtappen:</span>
+      </div>
+
+      <div class="flex items-center gap-2 flex-1 min-w-max" id="process-buttons-list">
+        <!-- Wordt dynamisch opgebouwd via renderProcessButtons() met WCAG aria-disabled="true" -->
+      </div>
+    </section>
+
+    <!-- --------------------------------------------------------------------- -->
+    <!-- HOOFD INHOUD CONTAINER (SCROLLBAAR)                                     -->
+    <!-- --------------------------------------------------------------------- -->
+    <div class="flex-1 overflow-y-auto bg-slate-100 p-4 relative" id="main-scroll-container">
+      
+      <!-- SUBTIELE ACTION BAR MET QUICK JUMP & SPLIT-DRAWER TOGGLE -->
+      <div class="mb-2.5 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2 text-slate-700 font-semibold">
+          <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+          <span>Matrix Posities & Producten</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- MEDIA BEHEER KNOPPEN (PIJLER 9) -->
+          <button onclick="openMediaDrawer('foto')" class="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-lg text-xs font-medium shadow-2xs flex items-center gap-1 transition cursor-pointer" title="Bekijk en upload werffoto's">
+            <span>📷</span>
+            <span>+ Foto</span>
+          </button>
+          <button onclick="openMediaDrawer('video')" class="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-lg text-xs font-medium shadow-2xs flex items-center gap-1 transition cursor-pointer" title="Bekijk videonotities">
+            <span>🎥</span>
+            <span>+ Video</span>
+          </button>
+          <button onclick="openMediaDrawer('opmerking')" class="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-lg text-xs font-medium shadow-2xs flex items-center gap-1 transition cursor-pointer" title="Voeg werfnotitie toe">
+            <span>📝</span>
+            <span>+ Opmerking</span>
+          </button>
+
+          <span class="h-4 w-px bg-slate-300 mx-1"></span>
+
+          <!-- MULTI-SELECT TOGGLE VOOR POSITIE-CLUSTERING (PIJLER 10) -->
+          <button onclick="toggleColumnSelectMode()" id="btn-col-select-mode" class="px-2.5 py-1 bg-white hover:bg-blue-50 border border-slate-300 text-slate-700 rounded-lg text-xs font-medium shadow-2xs flex items-center gap-1.5 transition cursor-pointer" title="Activeer kolom-selectie om posities samen te voegen tot een cluster">
+            <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            <span>Posities Selecteren</span>
+          </button>
+
+          <button onclick="toggleOrderLinesDrawer()" id="btn-toggle-drawer" class="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-lg text-xs font-medium shadow-2xs flex items-center gap-1.5 transition cursor-pointer" title="Bekijk de orderregels synchroon in een split-drawer onderaan het scherm">
+            <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+            <span>Split-View Orderregels</span>
+          </button>
+          <button onclick="scrollToRawLines()" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition cursor-pointer">
+            <span>Naar Orderregels</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- MATRIX VIEWPORT MET INTERNE HORIZONTALE EN VERTICALE SCROLL + STICKY FREEZE PANES -->
+      <div id="matrix-viewport" class="overflow-auto bg-white rounded-xl shadow-xs border border-slate-200" style="max-height: calc(100vh - 270px);">
+        <table class="border-separate border-spacing-0 text-left table-fixed min-w-max" id="matrix-table">
+          <thead id="matrix-thead">
+            <!-- Dynamisch opgebouwd via renderMatrix() -->
+          </thead>
+          <tbody id="matrix-tbody">
+            <!-- Dynamisch opgebouwd via renderMatrix() -->
+          </tbody>
+          <tfoot id="matrix-tfoot" class="bg-slate-50 border-t-2 border-slate-300">
+            <!-- Dynamisch opgebouwd via renderMatrix() -->
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- ------------------------------------------------------------------- -->
+      <!-- ONDERSTE LAAG: DETAILS & ORIGINELE ORDERREGELS AUDIT-TRAIL           -->
+      <!-- ------------------------------------------------------------------- -->
+      <div id="raw-lines-section" class="mt-6 bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+        <details class="group" open>
+          <summary class="p-3.5 bg-slate-50/80 hover:bg-slate-100 cursor-pointer flex items-center justify-between border-b border-slate-200 select-none">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+              <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Oorspronkelijke LogicTrade Orderregels & Inkooporders (Audit-Trail)
+              </span>
+              <span id="raw-lines-badge" class="text-[11px] font-mono bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-semibold border border-amber-200">
+                10 regels
+              </span>
+            </div>
+            <div class="flex items-center gap-2 text-slate-400 text-xs">
+              <span class="text-[11px]">Oranje labels in cellen (bijv. <span class="font-mono text-orange-600 font-bold bg-orange-50 border border-orange-200 rounded px-1 text-[10px]">20</span>) corresponderen 1-op-1 met deze regels</span>
+              <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </summary>
+          <div class="p-0 overflow-x-auto">
+            <table class="min-w-full text-xs divide-y divide-slate-200 text-left font-mono">
+              <thead class="bg-slate-100 text-slate-600">
+                <tr>
+                  <th class="py-2 px-3 font-semibold w-16">Regel</th>
+                  <th class="py-2 px-3 font-semibold w-28">Art. Code</th>
+                  <th class="py-2 px-3 font-semibold">Omschrijving & Specificaties</th>
+                  <th class="py-2 px-3 font-semibold text-right w-20">Aantal</th>
+                  <th class="py-2 px-3 font-semibold text-right w-24">Bedrag</th>
+                  <th class="py-2 px-3 font-semibold w-28">Inkooporder</th>
+                </tr>
+              </thead>
+              <tbody id="raw-lines-tbody" class="divide-y divide-slate-100 font-sans">
+                <!-- Dynamisch gevuld via renderRawLines() -->
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+
+    </div>
+
+    <!-- SLIDE-UP SPLIT-DRAWER VOOR ORDERREGELS (SYNCHROON MET MATRIX) -->
+    <div id="order-lines-drawer" class="hidden fixed bottom-0 left-80 right-0 bg-white border-t-2 border-blue-600 shadow-2xl z-40 flex flex-col transition-all duration-300" style="max-height: 42vh; height: 350px;">
+      <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+          <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">Orderregels Split-View</span>
+          <span id="drawer-lines-badge" class="text-[11px] font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-semibold border border-blue-200">10 regels</span>
+          <span class="text-[11px] text-slate-400 hidden md:inline ml-2">• Vergelijk direct synchroon met de matrixcellen hierboven</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleOrderLinesDrawer()" class="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition" title="Sluit Split-View">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="flex-1 overflow-auto p-0">
+        <table class="min-w-full text-xs divide-y divide-slate-200 text-left font-mono">
+          <thead class="bg-slate-100 text-slate-600 sticky top-0 z-10 shadow-2xs">
+            <tr>
+              <th class="py-2 px-3 font-semibold w-16">Regel</th>
+              <th class="py-2 px-3 font-semibold w-28">Art. Code</th>
+              <th class="py-2 px-3 font-semibold">Omschrijving & Specificaties</th>
+              <th class="py-2 px-3 font-semibold text-right w-20">Aantal</th>
+              <th class="py-2 px-3 font-semibold text-right w-24">Bedrag</th>
+              <th class="py-2 px-3 font-semibold w-28">Inkooporder</th>
+            </tr>
+          </thead>
+          <tbody id="drawer-raw-lines-tbody" class="divide-y divide-slate-100 font-sans">
+            <!-- Wordt synchroon gevuld via renderRawLines() -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ZWEVENDE QUICK-JUMP KNOP: ALTIJD TOEGANG TOT ORDERREGELS ONDERAAN -->
+    <button onclick="scrollToRawLines()" id="floating-orderlines-btn" class="fixed bottom-4 right-4 z-30 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs px-3.5 py-2 rounded-full shadow-lg flex items-center gap-1.5 transition hover:scale-105 cursor-pointer">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      <span>Orderregels (<span id="floating-lines-count">10</span>) ↓</span>
+    </button>
+
+    <!-- ZWEVENDE CLUSTER ACTIEBALK BIJ KOLOM MULTI-SELECTIE (PIJLER 10) -->
+    <div id="cluster-floating-bar" class="hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-4 border border-slate-700">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+        <span class="text-sm font-semibold"><span id="selected-cols-count">0</span> posities geselecteerd</span>
+      </div>
+      <div class="h-4 w-px bg-slate-700"></div>
+      <button onclick="promptCreateCluster()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+        <span>🔗</span>
+        <span>Samenvoegen tot Cluster</span>
+      </button>
+      <button onclick="cancelColumnSelection()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition cursor-pointer">
+        Deselecteren
+      </button>
+    </div>
+
+    <!-- BACKDROP VOOR DRAWERS & MODALS (WCAG TOEGANKELIJK) -->
+    <div id="drawer-backdrop" onclick="closeAllDrawers()" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 transition-opacity"></div>
+
+    <!-- SLIDE-OVER DRAWER: PDF DOCUMENT VIEWER (PIJLER 3) -->
+    <aside id="drawer-pdf" class="hidden fixed inset-y-0 right-0 w-full max-w-xl bg-white shadow-2xl z-50 flex flex-col border-l border-slate-200 transform transition-transform" role="dialog" aria-modal="true" aria-labelledby="pdf-drawer-title">
+      <div class="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">📄</span>
+          <div>
+            <h3 id="pdf-drawer-title" class="text-sm font-bold text-slate-800">Document Weergave</h3>
+            <p id="pdf-drawer-subtitle" class="text-[11px] text-slate-500 font-mono">Offerte / Orderbevestiging</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="alert('Document wordt gegenereerd / verzonden naar printer...')" class="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded text-xs font-medium transition cursor-pointer flex items-center gap-1">
+            <span>🖨️</span> <span>Afdrukken</span>
+          </button>
+          <button onclick="closeDrawer('drawer-pdf')" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition cursor-pointer" aria-label="Sluit drawer">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="flex-1 p-6 overflow-y-auto bg-slate-100 flex flex-col items-center justify-start">
+        <div class="w-full bg-white shadow-md border border-slate-200 rounded-lg p-8 min-h-[500px] flex flex-col">
+          <div class="border-b-2 border-slate-800 pb-4 mb-6 flex justify-between items-start">
+            <div>
+              <div class="text-xs font-bold text-blue-600 tracking-wider uppercase">EasyM2M / LogicTrade</div>
+              <h1 id="pdf-preview-heading" class="text-xl font-bold text-slate-900 mt-1">OFFERTE O26001215</h1>
+              <div id="pdf-preview-customer" class="text-xs text-slate-600 mt-1">DrHaack holding b.v. — Sint Antoniusbank 42, Maastricht</div>
+            </div>
+            <div class="text-right">
+              <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2.5 py-1 rounded">DEFINITIEF</span>
+              <div class="text-[11px] text-slate-400 mt-1 font-mono">Datum: 2026-10-01</div>
+            </div>
+          </div>
+          <div class="space-y-4 text-xs text-slate-700 flex-1">
+            <p>Geachte relatie,</p>
+            <p>Hierbij bevestigen wij de onderstaande order- en projectspecificaties zoals overeengekomen voor het project in Maastricht.</p>
+            <div class="border border-slate-200 rounded-lg overflow-hidden my-4">
+              <table class="min-w-full text-xs divide-y divide-slate-200">
+                <thead class="bg-slate-50 font-semibold text-slate-700">
+                  <tr>
+                    <th class="p-2 text-left">Omschrijving</th>
+                    <th class="p-2 text-center">Aantal</th>
+                    <th class="p-2 text-right">Totaal</th>
+                  </tr>
+                </thead>
+                <tbody id="pdf-preview-table-body" class="divide-y divide-slate-100">
+                  <!-- Dynamisch gevuld -->
+                </tbody>
+              </table>
+            </div>
+            <p class="text-[11px] text-slate-500 italic mt-auto">Dit document is digitaal gegenereerd vanuit LogicTrade Cloud ERP en gekoppeld aan EasyM2M Hoofdscherm 4.</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- SLIDE-OVER DRAWER: PRODUCT DETAIL & SPECIFICATIES (PIJLER 8) -->
+    <aside id="drawer-product" class="hidden fixed inset-y-0 right-0 w-full max-w-lg bg-white shadow-2xl z-50 flex flex-col border-l border-slate-200 transform transition-transform" role="dialog" aria-modal="true" aria-labelledby="product-drawer-title">
+      <div class="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🛋️</span>
+          <div>
+            <h3 id="product-drawer-title" class="text-sm font-bold text-slate-800">Product Specificaties</h3>
+            <p id="product-drawer-code" class="text-[11px] text-slate-500 font-mono">Art. A00034988</p>
+          </div>
+        </div>
+        <button onclick="closeDrawer('drawer-product')" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition cursor-pointer" aria-label="Sluit drawer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="flex-1 p-6 overflow-y-auto space-y-6 text-xs text-slate-700" id="product-drawer-content">
+        <!-- Dynamisch gevuld -->
+      </div>
+    </aside>
+
+    <!-- SLIDE-OVER DRAWER: MEDIA, WERFFOTO'S & NOTITIES (PIJLER 9) -->
+    <aside id="drawer-media" class="hidden fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-50 flex flex-col border-l border-slate-200 transform transition-transform" role="dialog" aria-modal="true" aria-labelledby="media-drawer-title">
+      <div class="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span id="media-drawer-icon" class="text-xl">📷</span>
+          <div>
+            <h3 id="media-drawer-title" class="text-sm font-bold text-slate-800">Werffoto's & Media</h3>
+            <p id="media-drawer-scope" class="text-[11px] text-slate-500">Project / Positie Documentatie</p>
+          </div>
+        </div>
+        <button onclick="closeDrawer('drawer-media')" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition cursor-pointer" aria-label="Sluit drawer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-4 border-b border-slate-200 bg-slate-50 flex gap-2">
+        <button onclick="switchMediaTab('foto')" id="tab-btn-foto" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow-xs">📷 Foto's</button>
+        <button onclick="switchMediaTab('video')" id="tab-btn-video" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100">🎥 Video's</button>
+        <button onclick="switchMediaTab('opmerking')" id="tab-btn-opmerking" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100">📝 Notities</button>
+      </div>
+      <div class="flex-1 p-4 overflow-y-auto space-y-4" id="media-drawer-content">
+        <!-- Dynamische weergave van media items -->
+      </div>
+      <div class="p-4 bg-slate-50 border-t border-slate-200">
+        <div class="flex gap-2">
+          <input type="text" id="quick-note-input" placeholder="Voeg snelle opmerking toe..." class="flex-1 text-xs border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <button onclick="addQuickMediaNote()" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold">Plaatsen</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CONTEXT MENU VOOR DRAG-AND-DROP OP CELLEN (PIJLER 10) -->
+    <div id="drag-context-menu" class="hidden fixed z-50 bg-white border border-slate-200 rounded-xl shadow-2xl py-1.5 w-60 text-xs text-slate-700 divide-y divide-slate-100">
+      <div class="px-3 py-1.5 font-bold text-slate-800 bg-slate-50 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+        <span>⚡ Actie Kiezen</span>
+      </div>
+      <div class="py-1">
+        <button onclick="executeDragAction('move')" class="w-full text-left px-3 py-2 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 cursor-pointer transition">
+          <span class="text-blue-600">🔄</span> <span>Positie toewijzen / verplaatsen</span>
+        </button>
+        <button onclick="executeDragAction('copy')" class="w-full text-left px-3 py-2 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 cursor-pointer transition">
+          <span class="text-emerald-600">📋</span> <span>Kopiëren naar deze positie</span>
+        </button>
+        <button onclick="executeDragAction('split')" class="w-full text-left px-3 py-2 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 cursor-pointer transition">
+          <span class="text-amber-600">🔢</span> <span>Aantal splitsen / aanpassen</span>
+        </button>
+      </div>
+      <div class="py-1">
+        <button onclick="closeDragContextMenu()" class="w-full text-left px-3 py-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center gap-2 cursor-pointer transition">
+          <span>❌</span> <span>Annuleren</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- CONTEXT MENU VOOR POSITIE-KOLOMKOPPEN (LONGPRESS / RECHTERKLIK) (PIJLER 10) -->
+    <div id="position-context-menu" class="hidden fixed z-50 bg-white border border-slate-200 rounded-xl shadow-2xl py-1.5 w-64 text-xs text-slate-700 divide-y divide-slate-100">
+      <div class="px-3 py-1.5 font-bold text-slate-800 bg-slate-50 text-[11px] uppercase tracking-wider flex items-center justify-between">
+        <span id="pos-context-title">Positie Opties</span>
+      </div>
+      <div class="py-1">
+        <button onclick="promptAssignPlane()" class="w-full text-left px-3 py-2 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 cursor-pointer transition">
+          <span>🏷️</span> <span>Vlak toewijzen (Wand/Gevel/Vloer)</span>
+        </button>
+        <button onclick="triggerSelectForCluster()" class="w-full text-left px-3 py-2 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 cursor-pointer transition">
+          <span>☑️</span> <span>Selecteren voor Cluster</span>
+        </button>
+        <button onclick="openMediaDrawer('foto')" class="w-full text-left px-3 py-2 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 cursor-pointer transition">
+          <span>📷</span> <span>Werffoto koppelen aan positie</span>
+        </button>
+      </div>
+      <div class="py-1">
+        <button onclick="closePositionContextMenu()" class="w-full text-left px-3 py-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center gap-2 cursor-pointer transition">
+          <span>❌</span> <span>Sluiten</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- EXPLANATORY POPOVER VOOR VERGRENDELDE PROCESKNOPPEN (WCAG 2.1 AA CONFORM) -->
+    <div id="locked-btn-popover" class="hidden fixed z-50 bg-white border-2 border-amber-400 text-slate-800 text-xs rounded-xl shadow-2xl p-4 w-72 animate-in fade-in" role="alert" aria-invalid="true">
+      <div class="flex items-start gap-2.5">
+        <span class="text-amber-500 text-lg flex-shrink-0">⚠️</span>
+        <div class="flex-1">
+          <h4 id="locked-popover-title" class="font-bold text-slate-900 mb-1">Stap nog niet beschikbaar</h4>
+          <p id="locked-popover-message" class="text-slate-600 text-[11px] leading-relaxed">
+            Deze processtap vereist afronding van voorgaande fasen conform de LogicTrade FSM regels.
+          </p>
+          <div class="mt-2.5 pt-2 border-t border-slate-100 flex justify-end">
+            <button onclick="closeLockedPopover()" class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded font-semibold text-[10px] transition cursor-pointer">
+              Begrepen
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- SCRIPT: APPLICATION LOGIC & REAL DATA ENGINE                             -->
+  <!-- ========================================================================= -->
+  <script>
+    // =========================================================================
+    // FSM PROCESSTAPPEN (8 STAPPEN CONFORM HOOFDSTUK 5 § 5.2.5)
+    // =========================================================================
+    const PROCESS_STEPS = [
+      { id: "lead", label: "Lead / Intake", icon: "📋", minStage: 1, desc: "Aanmaken en registreren van de offerte-aanvraag" },
+      { id: "offerte", label: "Offerte", icon: "📄", minStage: 2, desc: "Offerteberekening en verzending naar klant" },
+      { id: "inmeten", label: "Inmeten", icon: "📐", minStage: 3, desc: "Afspraak inmeten en invoer fysieke maten op locatie" },
+      { id: "werkvoorbereiding", label: "Werkvoorbereiding", icon: "⚙️", minStage: 4, desc: "Technische controle en positie-validatie" },
+      { id: "bestellen", label: "Bestellen", icon: "📦", minStage: 5, desc: "Aanmaken inkooporders bij leveranciers (Luxaflex, Belakos, etc.)" },
+      { id: "ontvangst", label: "Goederenontvangst", icon: "🏭", minStage: 6, desc: "Binnenkomst goederen in magazijn en kwaliteitscontrole" },
+      { id: "montage", label: "Montage", icon: "🔨", minStage: 7, desc: "Inplannen monteurs en oplevering op locatie" },
+      { id: "facturatie", label: "Facturatie", icon: "💶", minStage: 8, desc: "Financiële afronding en eindfactuur" }
+    ];
+
+    // Interactieve Toestanden
+    let currentFsmStage = 5; // Standaard: Bestellen actief (1-5 groen/blauw, 6-8 vergrendeld)
+    let columnSelectMode = false;
+    let selectedColumnIds = new Set();
+    let dragSourceCell = null;
+    let activeMediaTab = 'foto';
+    let currentMediaPositionId = null;
+    let mediaItems = [
+      { id: 1, type: "foto", title: "Erker voorgevel situatie", timestamp: "2026-10-02 10:14", tag: "Voorzijde", url: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=400&q=80" },
+      { id: 2, type: "foto", title: "Detail aansluiting schuifpui", timestamp: "2026-10-02 10:22", tag: "Schuifpui", url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=400&q=80" },
+      { id: 3, type: "video", title: "Inspectie nis en buisdiepte", timestamp: "2026-10-02 10:30", tag: "Kamer 3", duration: "0:42 min" },
+      { id: 4, type: "opmerking", title: "Let op: stucwerk is vers", text: "Klant geeft aan dat stucwerk rondom erker pas vorige week is aangebracht. Voorzichtig boren bij montage.", timestamp: "2026-10-02 11:05", tag: "Erker Voorgevel" }
+    ];
+
+    // FSM Functies & Popover (WCAG 2.1 AA)
+    function changeFsmStage(stage) {
+      currentFsmStage = parseInt(stage, 10);
+      renderProcessButtons();
+    }
+
+    function renderProcessButtons() {
+      const selector = document.getElementById("fsm-stage-selector");
+      if (selector) selector.value = String(currentFsmStage);
+
+      const container = document.getElementById("process-buttons-list");
+      if (!container) return;
+      container.innerHTML = "";
+
+      PROCESS_STEPS.forEach((step) => {
+        const isCompleted = step.minStage < currentFsmStage;
+        const isCurrent = step.minStage === currentFsmStage;
+        const isLocked = step.minStage > currentFsmStage;
+
+        const btn = document.createElement("button");
+        btn.id = `proc-btn-${step.id}`;
+        btn.className = `px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+          isCurrent
+            ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-400 ring-offset-1 font-bold'
+            : isCompleted
+            ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
+            : 'bg-slate-100 text-slate-400 border border-slate-200 hover:bg-slate-200'
+        }`;
+
+        if (isLocked) {
+          btn.setAttribute("aria-disabled", "true");
+          btn.setAttribute("tabindex", "0");
+          btn.onclick = (e) => showLockedPopover(e, step);
+        } else {
+          btn.onclick = () => {
+            alert(`Processtap '${step.label}' (${step.desc}) geopend in interactieve workflow.`);
+          };
+        }
+
+        const iconBadge = isCompleted ? "✓" : isCurrent ? "▶" : step.icon;
+        const lockedIcon = isLocked ? '<span class="text-amber-500 font-bold ml-1" title="Vergrendeld">⚠️</span>' : '';
+
+        btn.innerHTML = `
+          <span class="${isCurrent ? 'text-white' : isCompleted ? 'text-emerald-600' : 'text-slate-400'}">${iconBadge}</span>
+          <span>${step.label}</span>
+          ${lockedIcon}
+        `;
+        container.appendChild(btn);
+      });
+    }
+
+    function showLockedPopover(event, step) {
+      event.stopPropagation();
+      const popover = document.getElementById("locked-btn-popover");
+      if (!popover) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      popover.style.top = `${rect.bottom + 8}px`;
+      popover.style.left = `${Math.min(window.innerWidth - 300, Math.max(10, rect.left - 40))}px`;
+      document.getElementById("locked-popover-title").textContent = `Stap '${step.label}' is vergrendeld`;
+      document.getElementById("locked-popover-message").textContent = `Voorwaarde: Fase '${step.label}' kan pas worden gestart nadat de voorgaande fasen (${PROCESS_STEPS.slice(0, step.minStage - 1).map(s => s.label).join(' → ')}) zijn afgerond conform het LogicTrade FSM protocol.`;
+      popover.classList.remove("hidden");
+    }
+
+    function closeLockedPopover() {
+      const popover = document.getElementById("locked-btn-popover");
+      if (popover) popover.classList.add("hidden");
+    }
+
+    // PDF Drawer Functies (Pijler 3)
+    function openPdfDrawer(type) {
+      const order = ORDERS_DATA[currentOrderIndex];
+      const drawer = document.getElementById("drawer-pdf");
+      const backdrop = document.getElementById("drawer-backdrop");
+      if (!drawer || !backdrop) return;
+
+      const title = type === 'quote' ? `Offerte ${order.quoteNumber}` : `Orderbevestiging ${order.orderNumber}`;
+      document.getElementById("pdf-drawer-title").textContent = title;
+      document.getElementById("pdf-drawer-subtitle").textContent = `${order.customerName} — ${order.customerCity}`;
+      document.getElementById("pdf-preview-heading").textContent = title.toUpperCase();
+      document.getElementById("pdf-preview-customer").textContent = `${order.customerName} — ${order.customerAddress || order.customerCity}`;
+
+      const tbody = document.getElementById("pdf-preview-table-body");
+      tbody.innerHTML = "";
+      order.rawLines.forEach(l => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="p-2 border-b border-slate-100 font-mono"><span class="font-bold text-slate-800">${l.desc}</span><br><span class="text-[10px] text-slate-400">${l.comment || ''}</span></td>
+          <td class="p-2 border-b border-slate-100 text-center font-mono">${l.qty}</td>
+          <td class="p-2 border-b border-slate-100 text-right font-mono font-bold text-slate-800">${l.price}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      backdrop.classList.remove("hidden");
+      drawer.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+    }
+
+    // Productscherm Drawer (Pijler 8)
+    function openProductDrawer(prod, cellData) {
+      const order = ORDERS_DATA[currentOrderIndex];
+      const drawer = document.getElementById("drawer-product");
+      const backdrop = document.getElementById("drawer-backdrop");
+      if (!drawer || !backdrop) return;
+
+      document.getElementById("product-drawer-title").textContent = prod.name;
+      document.getElementById("product-drawer-code").textContent = `Art. Code: ${prod.code}`;
+
+      const raw = (cellData && cellData.line) ? order.rawLines.find(r => String(r.line) === String(cellData.line)) : null;
+
+      const content = document.getElementById("product-drawer-content");
+      content.innerHTML = `
+        <div class="bg-blue-50/60 p-4 rounded-xl border border-blue-200 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-blue-950 uppercase tracking-wider">Artikel Identificatie</span>
+            <span class="bg-blue-600 text-white font-mono text-[10px] px-2 py-0.5 rounded font-bold">${prod.category}</span>
+          </div>
+          <div class="text-sm font-bold text-slate-900">${prod.name}</div>
+          <div class="text-xs text-slate-600">Leverancier / Fabrikant: <span class="font-semibold text-slate-900">${prod.supplier || 'GSW / Luxaflex'}</span></div>
+          <div class="text-xs text-slate-600">Eenheid: <span class="font-semibold text-slate-900">${prod.unit}</span></div>
+        </div>
+
+        ${raw ? `
+        <div class="bg-amber-50/60 p-4 rounded-xl border border-amber-200 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-amber-950 uppercase tracking-wider">Gekoppelde Orderregel</span>
+            <span class="bg-amber-500 text-white font-mono text-[10px] px-2 py-0.5 rounded font-bold">Regel ${raw.line}</span>
+          </div>
+          <div class="text-xs text-slate-700 font-mono font-medium">${raw.comment || raw.desc}</div>
+          <div class="flex items-center justify-between pt-1 border-t border-amber-200/60">
+            <span class="text-xs text-slate-600">Aantal & Prijs:</span>
+            <span class="text-xs font-bold text-emerald-600 font-mono">${raw.qty} × ${raw.price}</span>
+          </div>
+          ${raw.po && raw.po !== '-' ? `
+          <div class="text-[11px] text-slate-500 font-mono">Inkooporder LT: <span class="font-bold text-blue-600">${raw.po}</span></div>
+          ` : ''}
+        </div>
+        ` : ''}
+
+        <div class="border border-slate-200 rounded-xl p-4 space-y-3">
+          <h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider">Technische Specificaties</h4>
+          <div class="grid grid-cols-2 gap-3 text-[11px]">
+            <div class="p-2 bg-slate-50 rounded-lg">
+              <div class="text-slate-400">Breedte x Hoogte</div>
+              <div class="font-mono font-bold text-slate-800">${(cellData && cellData.dim) ? cellData.dim : '1250 x 2400 mm'}</div>
+            </div>
+            <div class="p-2 bg-slate-50 rounded-lg">
+              <div class="text-slate-400">Bediening</div>
+              <div class="font-bold text-slate-800">PowerView® Motor / SmartCord</div>
+            </div>
+            <div class="p-2 bg-slate-50 rounded-lg">
+              <div class="text-slate-400">Stofkwaliteit / Kleur</div>
+              <div class="font-bold text-slate-800">Duette 32mm / Summit 112</div>
+            </div>
+            <div class="p-2 bg-slate-50 rounded-lg">
+              <div class="text-slate-400">Montagewijze</div>
+              <div class="font-bold text-slate-800">In de dag / Plafondclip</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button onclick="closeDrawer('drawer-product')" class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition cursor-pointer">
+            Sluiten
+          </button>
+        </div>
+      `;
+
+      backdrop.classList.remove("hidden");
+      drawer.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+    }
+
+    // Media & Werffoto Drawer (Pijler 9)
+    function openMediaDrawer(tab = 'foto', posId = null) {
+      activeMediaTab = tab;
+      currentMediaPositionId = posId;
+      const drawer = document.getElementById("drawer-media");
+      const backdrop = document.getElementById("drawer-backdrop");
+      if (!drawer || !backdrop) return;
+
+      switchMediaTab(tab);
+      backdrop.classList.remove("hidden");
+      drawer.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+    }
+
+    function switchMediaTab(tab) {
+      activeMediaTab = tab;
+      const btnFoto = document.getElementById("tab-btn-foto");
+      const btnVideo = document.getElementById("tab-btn-video");
+      const btnOpmerking = document.getElementById("tab-btn-opmerking");
+
+      if (btnFoto && btnVideo && btnOpmerking) {
+        [btnFoto, btnVideo, btnOpmerking].forEach(b => {
+          b.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer";
+        });
+
+        const activeBtn = tab === 'foto' ? btnFoto : tab === 'video' ? btnVideo : btnOpmerking;
+        activeBtn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow-xs cursor-pointer";
+      }
+
+      renderMediaContent();
+    }
+
+    function renderMediaContent() {
+      const content = document.getElementById("media-drawer-content");
+      if (!content) return;
+
+      const filtered = mediaItems.filter(m => m.type === activeMediaTab);
+      if (filtered.length === 0) {
+        content.innerHTML = `
+          <div class="text-center py-12 text-slate-400">
+            <span class="text-3xl block mb-2">${activeMediaTab === 'foto' ? '📷' : activeMediaTab === 'video' ? '🎥' : '📝'}</span>
+            <p class="text-xs">Nog geen ${activeMediaTab === 'foto' ? "foto's" : activeMediaTab === 'video' ? "video's" : "notities"} toegevoegd.</p>
+          </div>
+        `;
+        return;
+      }
+
+      content.innerHTML = filtered.map(item => `
+        <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs hover:shadow-xs transition">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-mono">${item.tag}</span>
+            <span class="text-[10px] text-slate-400 font-mono">${item.timestamp}</span>
+          </div>
+          <div class="font-bold text-xs text-slate-800">${item.title}</div>
+          ${item.text ? `<p class="text-xs text-slate-600 mt-1">${item.text}</p>` : ''}
+          ${item.url ? `
+            <div class="mt-2 rounded-lg overflow-hidden border border-slate-200 aspect-video bg-slate-100 flex items-center justify-center">
+              <img src="${item.url}" alt="${item.title}" class="w-full h-full object-cover">
+            </div>
+          ` : ''}
+          ${item.duration ? `
+            <div class="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs">
+              <span class="font-mono text-slate-700">▶ Videobestand (${item.duration})</span>
+              <span class="text-[10px] text-blue-600 font-semibold cursor-pointer">Afspelen</span>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    function addQuickMediaNote() {
+      const input = document.getElementById("quick-note-input");
+      if (!input || !input.value.trim()) return;
+      const text = input.value.trim();
+      mediaItems.push({
+        id: Date.now(),
+        type: activeMediaTab === 'foto' || activeMediaTab === 'video' ? 'opmerking' : activeMediaTab,
+        title: "Snelle werfnotitie",
+        text: text,
+        timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
+        tag: "Algemeen"
+      });
+      input.value = "";
+      renderMediaContent();
+    }
+
+    function closeDrawer(id) {
+      const drawer = document.getElementById(id);
+      if (drawer) drawer.classList.add("hidden");
+      if (!isAnyDrawerOpen()) {
+        const backdrop = document.getElementById("drawer-backdrop");
+        if (backdrop) backdrop.classList.add("hidden");
+        document.body.style.overflow = "";
+      }
+    }
+
+    function closeAllDrawers() {
+      ['drawer-pdf', 'drawer-product', 'drawer-media'].forEach(id => {
+        const d = document.getElementById(id);
+        if (d) d.classList.add("hidden");
+      });
+      const backdrop = document.getElementById("drawer-backdrop");
+      if (backdrop) backdrop.classList.add("hidden");
+      closeLockedPopover();
+      closeDragContextMenu();
+      closePositionContextMenu();
+      document.body.style.overflow = "";
+    }
+
+    function isAnyDrawerOpen() {
+      return ['drawer-pdf', 'drawer-product', 'drawer-media'].some(id => {
+        const d = document.getElementById(id);
+        return d && !d.classList.contains("hidden");
+      });
+    }
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeAllDrawers();
+      }
+    });
+
+    // Touch Stepper (+ / −) Functies (Pijler 8)
+    function openTouchStepper(event, cellData, prod, posId) {
+      event.stopPropagation();
+      const existing = document.getElementById("active-touch-stepper");
+      if (existing) existing.remove();
+
+      const cellElement = event.currentTarget.closest("td");
+      if (!cellElement) return;
+
+      const currentQty = parseInt(cellData.qty, 10) || 1;
+
+      const overlay = document.createElement("div");
+      overlay.id = "active-touch-stepper";
+      overlay.className = "touch-stepper-overlay";
+      overlay.innerHTML = `
+        <div class="stepper-content">
+          <div class="stepper-actions">
+            <button onclick="changeStepperValue(event, -1)" class="stepper-btn stepper-btn-minus" aria-label="Aantal verlagen">−</button>
+            <div class="stepper-value" id="stepper-current-val">${currentQty}</div>
+            <button onclick="changeStepperValue(event, 1)" class="stepper-btn stepper-btn-plus" aria-label="Aantal verhogen">+</button>
+          </div>
+          <div class="stepper-unit">${prod.unit}</div>
+          <button onclick="closeTouchStepper(event)" class="stepper-confirm-btn">Gereed</button>
+        </div>
+      `;
+
+      overlay.onclick = (e) => e.stopPropagation();
+      cellElement.style.position = "relative";
+      cellElement.appendChild(overlay);
+
+      overlay._cellData = cellData;
+      overlay._currentQty = currentQty;
+      overlay._prod = prod;
+    }
+
+    function changeStepperValue(event, delta) {
+      event.stopPropagation();
+      const overlay = document.getElementById("active-touch-stepper");
+      if (!overlay) return;
+
+      const newQty = overlay._currentQty + delta;
+      if (newQty <= 0) {
+        if (confirm("Weet u zeker dat u dit product wilt de-alloceren van deze positie (aantal = 0)?")) {
+          overlay._currentQty = 0;
+          document.getElementById("stepper-current-val").textContent = "0";
+          overlay._cellData.qty = `0 ${overlay._prod.unit}`;
+          closeTouchStepper(event);
+          renderMatrix(ORDERS_DATA[currentOrderIndex]);
+        }
+        return;
+      }
+
+      overlay._currentQty = newQty;
+      document.getElementById("stepper-current-val").textContent = String(newQty);
+      overlay._cellData.qty = `${newQty} ${overlay._prod.unit}`;
+    }
+
+    function closeTouchStepper(event) {
+      if (event) event.stopPropagation();
+      const overlay = document.getElementById("active-touch-stepper");
+      if (overlay) {
+        overlay.remove();
+        renderMatrix(ORDERS_DATA[currentOrderIndex]);
+      }
+    }
+
+    document.addEventListener("click", () => {
+      closeTouchStepper();
+      closeLockedPopover();
+      closeDragContextMenu();
+      closePositionContextMenu();
+    });
+
+    // Drag and Drop & Longpress Functies (Pijler 10)
+    function onCellDragStart(event, prodId, posId) {
+      dragSourceCell = { prodId, posId };
+      event.dataTransfer.setData("text/plain", JSON.stringify({ prodId, posId }));
+      event.currentTarget.classList.add("cell-dragging");
+    }
+
+    function onCellDragEnd(event) {
+      event.currentTarget.classList.remove("cell-dragging");
+    }
+
+    function onCellDragOver(event) {
+      event.preventDefault();
+      event.currentTarget.classList.add("cell-dragover");
+    }
+
+    function onCellDragLeave(event) {
+      event.currentTarget.classList.remove("cell-dragover");
+    }
+
+    function onCellDrop(event, targetProdId, targetPosId) {
+      event.preventDefault();
+      event.currentTarget.classList.remove("cell-dragover");
+      if (!dragSourceCell) return;
+
+      const menu = document.getElementById("drag-context-menu");
+      if (menu) {
+        menu.style.top = `${event.clientY}px`;
+        menu.style.left = `${Math.min(window.innerWidth - 250, event.clientX)}px`;
+        menu.classList.remove("hidden");
+        menu._dragTarget = { prodId: targetProdId, posId: targetPosId };
+      }
+    }
+
+    function executeDragAction(action) {
+      const menu = document.getElementById("drag-context-menu");
+      if (!menu) return;
+      closeDragContextMenu();
+
+      if (action === 'move') {
+        alert("Product succesvol verplaatst naar doelpositie! (In EasyM2M UI prototype)");
+      } else if (action === 'copy') {
+        alert("Product succesvol gekopieerd / toegewezen aan nieuwe positie!");
+      } else if (action === 'split') {
+        alert("Aantal splitsen dialoogvenster geopend voor doelpositie.");
+      }
+    }
+
+    function closeDragContextMenu() {
+      const menu = document.getElementById("drag-context-menu");
+      if (menu) menu.classList.add("hidden");
+    }
+
+    // Kolom Multi-Selectie & Clustering (Pijler 10)
+    function toggleColumnSelectMode() {
+      columnSelectMode = !columnSelectMode;
+      const bar = document.getElementById("cluster-floating-bar");
+      if (!columnSelectMode) {
+        selectedColumnIds.clear();
+        if (bar) bar.classList.add("hidden");
+      }
+      renderMatrix(ORDERS_DATA[currentOrderIndex]);
+    }
+
+    function toggleColumnSelection(posId) {
+      if (selectedColumnIds.has(posId)) {
+        selectedColumnIds.delete(posId);
+      } else {
+        selectedColumnIds.add(posId);
+      }
+      updateClusterFloatingBar();
+      renderMatrix(ORDERS_DATA[currentOrderIndex]);
+    }
+
+    function updateClusterFloatingBar() {
+      const bar = document.getElementById("cluster-floating-bar");
+      const countEl = document.getElementById("selected-cols-count");
+      if (!bar || !countEl) return;
+
+      if (selectedColumnIds.size > 0) {
+        countEl.textContent = String(selectedColumnIds.size);
+        bar.classList.remove("hidden");
+      } else {
+        bar.classList.add("hidden");
+      }
+    }
+
+    function cancelColumnSelection() {
+      selectedColumnIds.clear();
+      updateClusterFloatingBar();
+      renderMatrix(ORDERS_DATA[currentOrderIndex]);
+    }
+
+    function promptCreateCluster() {
+      if (selectedColumnIds.size < 2) {
+        alert("Selecteer minimaal 2 posities om een cluster te vormen.");
+        return;
+      }
+      const clusterName = prompt(`Geef een naam voor het nieuwe Positie-Cluster voor deze ${selectedColumnIds.size} posities:`, "Erker Gevel (Geclusterd)");
+      if (clusterName) {
+        alert(`Cluster '${clusterName}' succesvol aangemaakt over ${selectedColumnIds.size} posities!`);
+        selectedColumnIds.clear();
+        columnSelectMode = false;
+        updateClusterFloatingBar();
+        renderMatrix(ORDERS_DATA[currentOrderIndex]);
+      }
+    }
+
+    function openPositionContextMenu(event, posId, posName) {
+      event.preventDefault();
+      event.stopPropagation();
+      const menu = document.getElementById("position-context-menu");
+      if (!menu) return;
+
+      document.getElementById("pos-context-title").textContent = `Positie: ${posName}`;
+      menu.style.top = `${event.clientY}px`;
+      menu.style.left = `${Math.min(window.innerWidth - 260, event.clientX)}px`;
+      menu.classList.remove("hidden");
+      menu._targetPosId = posId;
+      menu._targetPosName = posName;
+    }
+
+    function closePositionContextMenu() {
+      const menu = document.getElementById("position-context-menu");
+      if (menu) menu.classList.add("hidden");
+    }
+
+    function promptAssignPlane() {
+      const menu = document.getElementById("position-context-menu");
+      if (!menu) return;
+      const posName = menu._targetPosName || "positie";
+      const plane = prompt(`Wijs een bouwkundig vlak toe aan ${posName}:`, "Wand Voorgevel");
+      if (plane) {
+        alert(`Vlak '${plane}' toegewezen aan ${posName}.`);
+      }
+      closePositionContextMenu();
+    }
+
+    function triggerSelectForCluster() {
+      const menu = document.getElementById("position-context-menu");
+      if (!menu) return;
+      const posId = menu._targetPosId;
+      closePositionContextMenu();
+      if (!columnSelectMode) {
+        columnSelectMode = true;
+      }
+      if (posId) {
+        selectedColumnIds.add(posId);
+        updateClusterFloatingBar();
+        renderMatrix(ORDERS_DATA[currentOrderIndex]);
+      }
+    }
+
+    // 7 REËLE LOGICTRADE ORDERS (INTEGRAAL OPGEHAALD VIA REST API V1)
+    const ORDERS_DATA = [
+      {
+        orderNumber: "V26001761",
+        quoteNumber: "O26001215",
+        id: 116768,
+        customerName: "DrHaack holding b.v.",
+        customerCity: "Maastricht",
+        customerAddress: "Sint Antoniusbank 42, Maastricht",
+        date: "2026-10-01",
+        status: "Definitief",
+        totalAmount: 4970.30,
+        salesMan: "Carlo Heinemans",
+        branch: "Winkel GSW BV",
+        scopeSummary: "Marmoleum Vloerenproject over 4 Kamers + Egalisatie",
+        etages: [
+          {
+            id: "etage_bg",
+            name: "Begane Grond",
+            icon: "🏢",
+            rooms: [
+              {
+                id: "rm_k3",
+                name: "Kamer 3",
+                positions: [
+                  { id: "pos_k3_vloer", name: "Vloer", type: "Vloer" }
+                ]
+              },
+              {
+                id: "rm_k6",
+                name: "Kamer 6",
+                positions: [
+                  { id: "pos_k6_vloer", name: "Vloer", type: "Vloer" }
+                ]
+              },
+              {
+                id: "rm_k7",
+                name: "Kamer 7",
+                positions: [
+                  { id: "pos_k7_vloer", name: "Vloer", type: "Vloer" }
+                ]
+              },
+              {
+                id: "rm_k8",
+                name: "Kamer 8",
+                positions: [
+                  { id: "pos_k8_vloer", name: "Vloer", type: "Vloer" }
+                ]
+              }
+            ]
+          }
+        ],
+        products: [
+          {
+            id: "p_marmoleum",
+            code: "A00033250",
+            category: "Vloeren",
+            name: "Forbo Marmoleum 200cm (Splash 3430)",
+            supplier: "Forbo / Headlam",
+            unit: "m¹",
+            cells: {
+              "pos_k3_vloer": { qty: "2 × 4.55 m¹", dim: "18.2 m²", note: "Splash 3430 (2 banen)", line: 30 },
+              "pos_k6_vloer": { qty: "1 × 4.15 m¹", dim: "8.3 m²", note: "+ rest uit kamer 7", line: 60 },
+              "pos_k7_vloer": { qty: "2 × 4.45 m¹", dim: "17.8 m²", note: "Splash 3430 (2 banen)", line: 50 },
+              "pos_k8_vloer": { qty: "1 × 4.10 m¹", dim: "8.2 m²", note: "+ rest uit kamer 3", line: 40 }
+            }
+          },
+          {
+            id: "p_egalisatie",
+            code: "A00036786",
+            category: "Voorbereiding",
+            name: "Egaliseren 2mm cement dekvloer (primer + schuren)",
+            supplier: "Eurocol / Intern",
+            unit: "m²",
+            cells: {
+              "pos_project_algemeen": { qty: "48 m²", dim: "2mm vloervolgend", note: "Voorbereiding eindvloer (4 vertrekken)", line: 70 }
+            }
+          },
+          {
+            id: "p_legkosten",
+            code: "A00038472",
+            category: "Dienst / Arbeid",
+            name: "Legkosten marmoleum incl. lijm",
+            supplier: "Vakstoffeerder",
+            unit: "m²",
+            cells: {
+              "pos_project_algemeen": { qty: "48 m²", dim: "Verlijmd", note: "Vakkundige plaatsing over 4 kamers", line: 80 }
+            }
+          },
+          {
+            id: "p_lasdraad",
+            code: "A00038473",
+            category: "Afwerking",
+            name: "Lasdraad marmoleum incl. thermisch lassen",
+            supplier: "Forbo",
+            unit: "m¹",
+            cells: {
+              "pos_project_algemeen": { qty: "18 m¹", dim: "18 mtr naad", note: "Multicolour lasdraad", line: 90 }
+            }
+          }
+        ],
+        rawLines: [
+          { line: 10, code: "TEKST", desc: "Vloer egaliseren 10 november 2026", qty: 1, price: "€ 0,00", comment: "Planning afspraak", po: "-" },
+          { line: 20, code: "TEKST", desc: "Vloer leggen 12 november 2026", qty: 1, price: "€ 0,00", comment: "Planning afspraak", po: "-" },
+          { line: 30, code: "A00033250", desc: "Forbo Marmoleum Kamer 3", qty: 1, price: "€ 913,65", comment: "200cm breed, Kleur Splash 3430, 2 x 4.55mtr", po: "I26002420" },
+          { line: 40, code: "A00033250", desc: "Forbo Marmoleum Kamer 8", qty: 1, price: "€ 411,65", comment: "200cm breed, Kleur Splash 3430, 1 x 4.10mtr + rest kamer 3", po: "I26002420" },
+          { line: 50, code: "A00033250", desc: "Forbo Marmoleum Kamer 7", qty: 1, price: "€ 894,00", comment: "200cm breed, Kleur Splash 3430, 2 x 4.45mtr", po: "I26002420" },
+          { line: 60, code: "A00033250", desc: "Forbo Marmoleum Kamer 6", qty: 1, price: "€ 417,00", comment: "200cm breed, Kleur Splash 3430, 1 x 4.15mtr + rest kamer 7", po: "I26002420" },
+          { line: 70, code: "A00036786", desc: "2mm Egaliseren cement dekvloer", qty: 48, price: "€ 1.176,00", comment: "Uitleg egaliseren vloervolgend 48m²", po: "-" },
+          { line: 80, code: "A00038472", desc: "Legkosten marmoleum incl. lijm", qty: 48, price: "€ 888,00", comment: "48m² vakkundig leggen", po: "-" },
+          { line: 90, code: "A00038473", desc: "Lasdraad marmoleum incl. lassen", qty: 18, price: "€ 270,00", comment: "Multicolour lasdraad 18 mtr", po: "I26002420" }
+        ]
+      },
+      {
+        orderNumber: "V26001797",
+        quoteNumber: "O26001243",
+        id: 116824,
+        customerName: "DA.AN interior design & living",
+        customerCity: "Maastricht",
+        customerAddress: "Rechtstraat 54, Maastricht",
+        date: "2026-10-06",
+        status: "Definitief",
+        totalAmount: 6851.58,
+        salesMan: "Carlo Heinemans",
+        branch: "Winkel GSW BV",
+        scopeSummary: "PowerView Rolgordijnen + Belakos Maatkleed + Kendix Inbetween",
+        etages: [
+          {
+            id: "etage_bg",
+            name: "Begane Grond / Showroom",
+            icon: "🛋️",
+            rooms: [
+              {
+                id: "rm_achterpui",
+                name: "Achterpui",
+                positions: [
+                  { id: "pos_pui_links", name: "Pui Links", type: "Raam" },
+                  { id: "pos_pui_midden", name: "Pui Midden", type: "Raam" },
+                  { id: "pos_pui_rechts", name: "Pui Rechts", type: "Raam" }
+                ]
+              },
+              {
+                id: "rm_etalage",
+                name: "Etalage",
+                positions: [
+                  { id: "pos_etalage_raam", name: "Etalageruit", type: "Raampartij" },
+                  { id: "pos_etalage_plafond", name: "Plafond", type: "Plafondmontage" }
+                ]
+              },
+              {
+                id: "rm_living",
+                name: "Living / Lounge",
+                positions: [
+                  { id: "pos_living_vloer", name: "Vloer Zithoek", type: "Vloerkleed" }
+                ]
+              }
+            ]
+          }
+        ],
+        products: [
+          {
+            id: "p_rolgordijn_pv",
+            code: "A00042630",
+            category: "Raambekleding",
+            name: "Luxaflex Rolgordijn PowerView® Gen 3 (Stof 6434)",
+            supplier: "Luxaflex",
+            unit: "stuks",
+            cells: {
+              "pos_pui_links": { qty: "1 st", dim: "1250 × 2400", note: "Accumotor (Blijvende maat)", line: 10 },
+              "pos_pui_midden": { qty: "1 st", dim: "1350 × 2400", note: "Accumotor (Blijvende maat)", line: 20 },
+              "pos_pui_rechts": { qty: "1 st", dim: "1250 × 2400", note: "Accumotor (Blijvende maat)", line: 30 }
+            }
+          },
+          {
+            id: "p_pv_remote",
+            code: "A00042622",
+            category: "Bediening",
+            name: "PowerView gen 3 remote kit (Pebble Snow)",
+            supplier: "Luxaflex",
+            unit: "stuks",
+            cells: {
+              "pos_project_algemeen": { qty: "1 kit", dim: "Pebble Snow", note: "Afstandsbediening + wandhouder", line: 40 }
+            }
+          },
+          {
+            id: "p_pv_oplader",
+            code: "A00042629",
+            category: "Accessoires",
+            name: "PowerView gen 3 oplader USB-C (Oplaadkabel)",
+            supplier: "Luxaflex",
+            unit: "stuks",
+            cells: {
+              "pos_project_algemeen": { qty: "1 st", dim: "USB-C kabel", note: "Oplaadkabel voor accumotor", line: 50 }
+            }
+          },
+          {
+            id: "p_pv_actie",
+            code: "A00052155",
+            category: "Korting / Actie",
+            name: "Luxaflex PowerView actie (Accumotor gratis)",
+            supplier: "Luxaflex",
+            unit: "post",
+            cells: {
+              "pos_project_algemeen": { qty: "3 motors", dim: "Actiekorting", note: "-€330,00 korting op 3 accumotoren", line: 60 }
+            }
+          },
+          {
+            id: "p_vloerkleed_summit",
+            code: "A00052443",
+            category: "Vloerkleed",
+            name: "Belakos Summit 112 Karpet (4m rol)",
+            supplier: "Belakos",
+            unit: "stuks",
+            cells: {
+              "pos_living_vloer": { qty: "1 st", dim: "250 × 400 cm", note: "4m rol × 2.5m Summit 112", line: 80 }
+            }
+          },
+          {
+            id: "p_vloerkleed_afwerking",
+            code: "A00052443",
+            category: "Afwerking",
+            name: "Belakos afwerking karpet (Blind banderen + antislip)",
+            supplier: "Belakos",
+            unit: "post",
+            cells: {
+              "pos_living_vloer": { qty: "1 post", dim: "Bies + Antislip", note: "Blind banderen bies + 2mm antislip", line: 90 }
+            }
+          },
+          {
+            id: "p_inbetween_morph",
+            code: "0107290032",
+            category: "Gordijnen",
+            name: "Kendix Inbetween MORPH 32 (Wave 8cm)",
+            supplier: "Kendix BV",
+            unit: "delen",
+            cells: {
+              "pos_etalage_raam": { qty: "4 delen", dim: "Breedte 4600", note: "Wave 8cm + zoom (Rood raamzijde)", line: 100 }
+            }
+          },
+          {
+            id: "p_rail_sphere",
+            code: "A00038958",
+            category: "Gordijnrails",
+            name: "Interstil Sphere W1 Alu binnenloop Plat (80 Brons)",
+            supplier: "Interstil",
+            unit: "stuks",
+            cells: {
+              "pos_etalage_plafond": { qty: "1 st", dim: "4600 mm", note: "4x Plafondsteun 50cm, Wave glijders", line: 110 }
+            }
+          },
+          {
+            id: "p_montage_zonwering",
+            code: "A00033263",
+            category: "Dienst / Arbeid",
+            name: "Montagekosten 3x Luxaflex rolgordijnen",
+            supplier: "GSW Montage",
+            unit: "post",
+            cells: {
+              "pos_project_algemeen": { qty: "3 stuks", dim: "Vakkundig", note: "Plaatsing rolgordijnen pui", line: 70 }
+            }
+          },
+          {
+            id: "p_montage_rail_etalage",
+            code: "A00038387",
+            category: "Dienst / Arbeid",
+            name: "Montagekosten Interstil rail aan plafond",
+            supplier: "GSW Montage",
+            unit: "post",
+            cells: {
+              "pos_project_algemeen": { qty: "1 rail", dim: "Plafondmontage", note: "Montage rail met pendels", line: 120 }
+            }
+          }
+        ],
+        rawLines: [
+          { line: 10, code: "A00042630", desc: "Rolgordijn Luxaflex", qty: 1, price: "€ 627,00", comment: "Achter pui links: 1250 x 2400, Stof 6434, PowerView Accu", po: "I26002547" },
+          { line: 20, code: "A00042630", desc: "Rolgordijn Luxaflex", qty: 1, price: "€ 634,00", comment: "Achter pui midden: 1350 x 2400, Stof 6434, PowerView Accu", po: "I26002547" },
+          { line: 30, code: "A00042630", desc: "Rolgordijn Luxaflex", qty: 1, price: "€ 627,00", comment: "Achter pui rechts: 1250 x 2400, Stof 6434, PowerView Accu", po: "I26002547" },
+          { line: 40, code: "A00042622", desc: "PowerView gen 3 remote kit", qty: 1, price: "€ 85,00", comment: "Afstandsbediening Pebble Snow wit", po: "I26002547" },
+          { line: 50, code: "A00042629", desc: "PowerView gen 3 oplader USB-C", qty: 1, price: "€ 35,00", comment: "Oplaadkabel", po: "I26002547" },
+          { line: 60, code: "A00052155", desc: "Luxaflex Powerview actie", qty: 3, price: "-€ 330,00", comment: "Accumotor gratis actie", po: "-" },
+          { line: 70, code: "A00033263", desc: "Montagekosten zonwering", qty: 3, price: "€ 165,00", comment: "Vakkundige montage 3 rolgordijnen", po: "-" },
+          { line: 80, code: "A00052443", desc: "Belakos Tapijt voor vloerkleed", qty: 2.5, price: "€ 1.622,50", comment: "Vloerkleed Summit 112, 4m rol x 2.5m", po: "I26002549" },
+          { line: 90, code: "A00052443", desc: "Belakos afwerking vloerkleed", qty: 1, price: "€ 608,50", comment: "Blind banderen smalle bies + 2mm antislip", po: "I26002549" },
+          { line: 100, code: "0107290032", desc: "Gordijnstoffen MORPH 32", qty: 4, price: "€ 1.777,58", comment: "Etalage 4 delen: Waveplooi 8cm + zoom", po: "I26002548" },
+          { line: 110, code: "A00038958", desc: "Interstil Alu binnenloop Plat", qty: 1, price: "€ 850,00", comment: "Sphere W1 Brons 4600mm + 4 plafondsteunen", po: "I26002550" },
+          { line: 120, code: "A00038387", desc: "Montagekosten Interstil rail", qty: 1, price: "€ 150,00", comment: "Montage aan plafond met pendels", po: "-" }
+        ]
+      },
+      {
+        orderNumber: "V26001376",
+        quoteNumber: "O26000865",
+        id: 116156,
+        customerName: "Jaspers",
+        customerCity: "Maastricht",
+        customerAddress: "Sint Pieterstraat 12, Maastricht",
+        date: "2026-08-07",
+        status: "Definitief",
+        totalAmount: 19250.00,
+        salesMan: "Carlo Heinemans",
+        branch: "Winkel GSW BV",
+        scopeSummary: "Complete Villa: 18x Duette® over 6 Kamers + Gordijnen & Rolgordijnen",
+        etages: [
+          {
+            id: "etage_bg",
+            name: "Begane Grond",
+            icon: "🏡",
+            rooms: [
+              {
+                id: "rm_voordeur",
+                name: "Hal / Voordeur",
+                positions: [
+                  { id: "pos_vd_links", name: "Raam Links", type: "Raam", vlak: "Wand Voorgevel" },
+                  { id: "pos_vd_rechts", name: "Raam Rechts", type: "Raam", vlak: "Wand Voorgevel" }
+                ]
+              },
+              {
+                id: "rm_woonkamer",
+                name: "Woonkamer",
+                clusters: [
+                  { id: "cl_erker", name: "Erker Voorgevel (3 ramen)", positionIds: ["pos_wk_voor", "pos_wk_z1", "pos_wk_z2"] }
+                ],
+                positions: [
+                  { id: "pos_wk_voor", name: "Voorzijde", type: "Raam", vlak: "Erker Voorgevel" },
+                  { id: "pos_wk_z1", name: "Zijraam 1", type: "Raam", vlak: "Erker Zijwand L" },
+                  { id: "pos_wk_z2", name: "Zijraam 2", type: "Raam", vlak: "Erker Zijwand R" },
+                  { id: "pos_wk_z3", name: "Zijraam 3", type: "Raam", vlak: "Zijgevel Tuin" },
+                  { id: "pos_wk_pui", name: "Schuifpui", type: "Pui", vlak: "Achtergevel Tuin" }
+                ]
+              },
+              {
+                id: "rm_eetkamer",
+                name: "Eetkamer",
+                positions: [
+                  { id: "pos_ek_links", name: "Raam Links", type: "Raam", vlak: "Achtergevel Tuin" },
+                  { id: "pos_ek_rechts", name: "Raam Rechts", type: "Raam", vlak: "Achtergevel Tuin" }
+                ]
+              },
+              {
+                id: "rm_studeer",
+                name: "Studeerkamer",
+                positions: [
+                  { id: "pos_sk_links", name: "Raam Links", type: "Raam", vlak: "Zijgevel Oprit" },
+                  { id: "pos_sk_rechts", name: "Raam Rechts", type: "Raam", vlak: "Zijgevel Oprit" }
+                ]
+              }
+            ]
+          },
+          {
+            id: "etage_1e",
+            name: "1e Verdieping",
+            icon: "🛏️",
+            rooms: [
+              {
+                id: "rm_portaal",
+                name: "Portaal / Overloop",
+                positions: [
+                  { id: "pos_pt_links", name: "Raam Links", type: "Raam" },
+                  { id: "pos_pt_rechts", name: "Raam Rechts", type: "Raam" }
+                ]
+              },
+              {
+                id: "rm_slaap",
+                name: "Hoofdslaapkamer",
+                positions: [
+                  { id: "pos_sl_zlinks", name: "Zijkant L", type: "Raam" },
+                  { id: "pos_sl_vlinks", name: "Voorzijde L", type: "Raam" }
+                ]
+              }
+            ]
+          }
+        ],
+        products: [
+          {
+            id: "p_inmeetservice",
+            code: "A00034988",
+            category: "Dienst / Service",
+            name: "Inmeetservice",
+            supplier: "GSW Service",
+            unit: "keer",
+            cells: {
+              "pos_project_algemeen": { qty: "1 post", price: "€ 0,00", note: "Inbegrepen", line: 10 }
+            }
+          },
+          {
+            id: "p_duette_32",
+            code: "A000066057",
+            category: "Raambekleding",
+            name: "GIW Duette® 32mm SmartCord TDBU (F85807 Champagne)",
+            supplier: "Zonnelux",
+            unit: "stuks",
+            cells: {
+              "pos_vd_links": { qty: "1 st", dim: "1100 × 2240", price: "€ 895,22", note: "Top Down / Bottom Up", line: 20, subPos: "a" },
+              "pos_vd_rechts": { qty: "1 st", dim: "1100 × 2240", price: "€ 895,22", note: "Top Down / Bottom Up", line: 30, subPos: "a" },
+              "pos_wk_voor": { qty: "1 st", dim: "1100 × 1720", price: "€ 793,58", note: "Top Down / Bottom Up", line: 40, subPos: "a" },
+              "pos_wk_z1": { qty: "1 st", dim: "1100 × 1695", price: "€ 793,58", note: "Top Down / Bottom Up", line: 50, subPos: "a" },
+              "pos_wk_z2": { qty: "1 st", dim: "1100 × 1695", price: "€ 793,58", note: "Top Down / Bottom Up", line: 50, subPos: "a" },
+              "pos_wk_z3": { qty: "1 st", dim: "1100 × 1695", price: "€ 793,58", note: "Top Down / Bottom Up", line: 50, subPos: "a" }
+            }
+          },
+          {
+            id: "p_duette_transparant",
+            code: "A000066057",
+            category: "Raambekleding",
+            name: "GIW Duette® 32mm Transparant (F85607 Champagne)",
+            supplier: "Zonnelux",
+            unit: "stuks",
+            cells: {
+              "pos_ek_links": { qty: "1 st", dim: "1100 × 2660", price: "€ 920,00", note: "Transparant SmartCord", line: 70, subPos: "a" },
+              "pos_ek_rechts": { qty: "1 st", dim: "1100 × 2680", price: "€ 920,00", note: "Transparant SmartCord", line: 70, subPos: "a" }
+            }
+          },
+          {
+            id: "p_duette_25_trufit",
+            code: "A000066057",
+            category: "Raambekleding",
+            name: "GIW Duette® 25mm TruFit Plakprofiel TDBU",
+            supplier: "Zonnelux",
+            unit: "stuks",
+            cells: {
+              "pos_sk_links": { qty: "1 st", dim: "1100 × 1555", price: "€ 650,00", note: "TruFit MA", line: 90, subPos: "a" },
+              "pos_sk_rechts": { qty: "1 st", dim: "1100 × 1555", price: "€ 650,00", note: "TruFit MA", line: 90, subPos: "a" },
+              "pos_pt_links": { qty: "1 st", dim: "1100 × 1005", price: "€ 650,00", note: "TruFit MA", line: 90, subPos: "a" },
+              "pos_pt_rechts": { qty: "1 st", dim: "1100 × 1005", price: "€ 650,00", note: "TruFit MA", line: 90, subPos: "a" },
+              "pos_sl_zlinks": { qty: "1 st", dim: "1100 × 1005", price: "€ 650,00", note: "TruFit MA", line: 90, subPos: "a" }
+            }
+          },
+          {
+            id: "p_inbetween_mundo",
+            code: "0117990105",
+            category: "Gordijnen",
+            name: "Gordijnstoffen MUNDO 105 (Waveconfectie)",
+            supplier: "Artelux",
+            unit: "stuks",
+            cells: {
+              "pos_wk_pui": { qty: "1 stel", dim: "Breedte 4800", price: "€ 1.250,00", note: "Waveplooi op Interstil rail", line: 110, subPos: "a" }
+            }
+          },
+          {
+            id: "p_rail_rond25",
+            code: "A00038958",
+            category: "Gordijnrails",
+            name: "Interstil Rond 25mm Alu Binnenloop (52 glijders)",
+            supplier: "Interstil",
+            unit: "stuks",
+            cells: {
+              "pos_wk_pui": { qty: "1 st", dim: "4800 mm", price: "€ 550,00", note: "6 plafondsteunen, 52 glijders", line: 120, subPos: "b" }
+            }
+          },
+          {
+            id: "p_montage_villa",
+            code: "A00033263",
+            category: "Dienst / Arbeid",
+            name: "Montagekosten complete villa (20 eenheden)",
+            supplier: "GSW Montage",
+            unit: "post",
+            cells: {
+              "pos_project_algemeen": { qty: "20 stuks", price: "€ 1.100,00", line: 130 }
+            }
+          }
+        ],
+        rawLines: [
+          { line: 10, code: "A00034988", desc: "Inmeetservice", qty: 1, price: "€ 0,00", comment: "Inmeten villa Maastricht", po: "-" },
+          { line: 20, code: "A000066057", desc: "Duette® 32mm Voordeur L", qty: 1, price: "€ 895,22", comment: "1100 x 2240, F85807 Champagne SmartCord", po: "I26001935" },
+          { line: 30, code: "A000066057", desc: "Duette® 32mm Voordeur R", qty: 1, price: "€ 895,22", comment: "1100 x 2240, F85807 Champagne SmartCord", po: "I26001935" },
+          { line: 40, code: "A000066057", desc: "Duette® 32mm Woonkamer Voor", qty: 1, price: "€ 793,58", comment: "1100 x 1720, F85807 Champagne SmartCord", po: "I26001935" },
+          { line: 50, code: "A000066057", desc: "Duette® 32mm Woonkamer Zijkant 1-3", qty: 3, price: "€ 2.380,74", comment: "3 stuks à 1100 x 1695, F85807 SmartCord", po: "I26001935" },
+          { line: 70, code: "A000066057", desc: "Duette® 32mm Eetkamer L/R", qty: 2, price: "€ 1.840,00", comment: "1100 x 2660 & 1100 x 2680, F85607 Transparant", po: "I26001935" },
+          { line: 90, code: "A000066057", desc: "Duette® 25mm TruFit Studeer/Portaal/Slaap", qty: 5, price: "€ 3.250,00", comment: "5 stuks TruFit plakprofiel (1005mm & 1555mm hoog)", po: "I26001935" },
+          { line: 110, code: "0117990105", desc: "Gordijnstoffen MUNDO 105", qty: 1, price: "€ 1.250,00", comment: "Schuifpui wave gordijn", po: "I26001936" },
+          { line: 120, code: "A00038958", desc: "Interstil Alu Binnenloop Rond 25", qty: 1, price: "€ 550,00", comment: "Pui 4800mm, 52 glijders, 6 steunen", po: "I26001986" },
+          { line: 130, code: "A00033263", desc: "Montagekosten zonwering", qty: 20, price: "€ 1.100,00", comment: "Vakkundige plaatsing alle ramen", po: "-" }
+        ]
+      },
+      {
+        orderNumber: "V26001584",
+        quoteNumber: "O26001141",
+        id: 116484,
+        customerName: "Tripels",
+        customerCity: "Maastricht",
+        customerAddress: "Tongersestraat 89, Maastricht",
+        date: "2026-09-08",
+        status: "Definitief",
+        totalAmount: 2145.00,
+        salesMan: "Carlo Heinemans",
+        branch: "Winkel GSW BV",
+        scopeSummary: "Maatwerk Vloerkleed Interfloor Imola met Banderering & Antislip",
+        etages: [
+          {
+            id: "etage_bg",
+            name: "Begane Grond",
+            icon: "🛋️",
+            rooms: [
+              {
+                id: "rm_woonkamer",
+                name: "Woonkamer",
+                positions: [
+                  { id: "pos_wk_zithoek", name: "Vloer Zithoek", type: "Vloerkleed" }
+                ]
+              }
+            ]
+          }
+        ],
+        products: [
+          {
+            id: "p_imola",
+            code: "A00067020",
+            category: "Vloerkleed",
+            name: "Interfloor Imola 400cm Projecttapijt (386 Aqua)",
+            supplier: "Interfloor",
+            unit: "stuks",
+            cells: {
+              "pos_wk_zithoek": { qty: "1 st", dim: "280 × 225 cm", note: "1 × 2.35 mtr van 400cm rol", line: 40 }
+            }
+          },
+          {
+            id: "p_banderen",
+            code: "A00038448",
+            category: "Afwerking",
+            name: "Blind banderen smalle bies omtrek",
+            supplier: "Festo Carpets",
+            unit: "m¹",
+            cells: {
+              "pos_wk_zithoek": { qty: "10.1 m¹", dim: "10.1 mtr omtrek", note: "280 × 225 omtrek", line: 10 }
+            }
+          },
+          {
+            id: "p_antislip",
+            code: "A00038448",
+            category: "Ondervloer",
+            name: "Antislip ondertapijt 2mm",
+            supplier: "Festo Carpets",
+            unit: "m²",
+            cells: {
+              "pos_wk_zithoek": { qty: "6.3 m²", dim: "6.3 m² oppervlak", note: "Exact onder kleed", line: 20 }
+            }
+          },
+          {
+            id: "p_bezorging",
+            code: "A00064191",
+            category: "Dienst / Logistiek",
+            name: "Bezorgservice Groter in Wonen",
+            supplier: "GSW Logistiek",
+            unit: "rit",
+            cells: {
+              "pos_project_algemeen": { qty: "1 rit", dim: "Aflevering op adres", note: "Groter in Wonen bezorgservice", line: 30 }
+            }
+          }
+        ],
+        rawLines: [
+          { line: 10, code: "A00038448", desc: "Blind banderen smalle bies", qty: 10.1, price: "€ 297,95", comment: "Vloerkleed 280 x 225 omtrek", po: "I26002204" },
+          { line: 20, code: "A00038448", desc: "Antislip ondertapijt 2mm", qty: 6.3, price: "€ 141,75", comment: "2mm antislip onderkleed", po: "I26002204" },
+          { line: 30, code: "A00064191", desc: "Bezorgservice Groter in Wonen", qty: 1, price: "€ 95,00", comment: "Aflevering op adres", po: "-" },
+          { line: 40, code: "A00067020", desc: "400 ab imola project 386 aqua", qty: 2.35, price: "€ 1.610,30", comment: "Woonkamer: 1 x 2.35mtr van 400cm rol", po: "I26002203" }
+        ]
+      },
+      {
+        orderNumber: "V26001553",
+        quoteNumber: "O26000963",
+        id: 116430,
+        customerName: "Dirks",
+        customerCity: "Maastricht",
+        customerAddress: "Kapoenstraat 18, Maastricht",
+        date: "2026-09-02",
+        status: "Definitief",
+        totalAmount: 4385.00,
+        salesMan: "Carlo Heinemans",
+        branch: "Winkel GSW BV",
+        scopeSummary: "Mart Visser Pearls Wave Gordijnen + Toppoint Canto & Interstil E2 Rail",
+        etages: [
+          {
+            id: "etage_bg",
+            name: "Begane Grond",
+            icon: "🛋️",
+            rooms: [
+              {
+                id: "rm_zithoek",
+                name: "Zithoek",
+                positions: [
+                  { id: "pos_zh_achter", name: "Achterzijde", type: "Raam" },
+                  { id: "pos_zh_rechts", name: "Rechts", type: "Raam" }
+                ]
+              }
+            ]
+          },
+          {
+            id: "etage_1e",
+            name: "1e Verdieping",
+            icon: "🛏️",
+            rooms: [
+              {
+                id: "rm_slaapkamer",
+                name: "Slaapkamer",
+                positions: [
+                  { id: "pos_sl_zijkant", name: "Zijkant Raam", type: "Raam" },
+                  { id: "pos_sl_achter", name: "Achterzijde Raam", type: "Raam" },
+                  { id: "pos_sl_rail", name: "Zijkant Railmontage", type: "Plafond/Wand" }
+                ]
+              }
+            ]
+          }
+        ],
+        products: [
+          {
+            id: "p_mart_visser",
+            code: "GPC60274797",
+            category: "Gordijnen",
+            name: "Mart Visser PEARLS REMAIN (Kleur 91, Wave 6cm)",
+            supplier: "Headlam",
+            unit: "stuks",
+            cells: {
+              "pos_zh_achter": { qty: "1 stuk", dim: "Wave 6cm", note: "Op bestaande rail", line: 10 },
+              "pos_zh_rechts": { qty: "1 stuk", dim: "Wave 6cm", note: "Op bestaande rail", line: 20 }
+            }
+          },
+          {
+            id: "p_toppoint_canto",
+            code: "A00045579",
+            category: "Gordijnen",
+            name: "Toppoint Canto (Kleur 2 Naturel, Wave 6cm)",
+            supplier: "Toppoint",
+            unit: "stellen",
+            cells: {
+              "pos_sl_zijkant": { qty: "1 stel", dim: "Wave 6cm", note: "Kleur 2 Naturel", line: 30 },
+              "pos_sl_achter": { qty: "1 stel", dim: "Wave 6cm", note: "Kleur 2 Naturel", line: 40 }
+            }
+          },
+          {
+            id: "p_interstil_e2_rail",
+            code: "A00038958",
+            category: "Gordijnrails",
+            name: "Interstil E2 Alu Binnenloop Handmatig (2800mm)",
+            supplier: "Interstil",
+            unit: "stuks",
+            cells: {
+              "pos_sl_rail": { qty: "1 st", dim: "2800 mm", note: "72 Nikkel mat, Afstandssteun 15cm", line: 50 }
+            }
+          },
+          {
+            id: "p_interstil_e2_motor",
+            code: "A00038958",
+            category: "Bediening / Motor",
+            name: "Interstil E2 Somfy Accu Motor RTS (geïntegreerd)",
+            supplier: "Interstil",
+            unit: "stuks",
+            cells: {
+              "pos_sl_rail": { qty: "1 st", dim: "Accu Motor", note: "Somfy RTS motor in E2 rail", line: 60 }
+            }
+          },
+          {
+            id: "p_interstil_oplader",
+            code: "A00038958",
+            category: "Accessoires",
+            name: "Interstil Oplader voor accu",
+            supplier: "Interstil",
+            unit: "stuks",
+            cells: {
+              "pos_project_algemeen": { qty: "1 st", dim: "Acculader", note: "Oplader 230V voor RTS accu", line: 70 }
+            }
+          },
+          {
+            id: "p_interstil_handzender",
+            code: "A00038958",
+            category: "Bediening",
+            name: "Interstil 1-kanaals Handzender RTS",
+            supplier: "Interstil",
+            unit: "stuks",
+            cells: {
+              "pos_project_algemeen": { qty: "1 st", dim: "Handzender", note: "1-kanaals Somfy RTS remote", line: 80 }
+            }
+          },
+          {
+            id: "p_montage_rails",
+            code: "A00038387",
+            category: "Dienst / Arbeid",
+            name: "Montagekosten Interstil rail aan wand",
+            supplier: "GSW Montage",
+            unit: "post",
+            cells: {
+              "pos_project_algemeen": { qty: "2 rails", dim: "Wandmontage", note: "Montage rail incl. pendels", line: 90 }
+            }
+          }
+        ],
+        rawLines: [
+          { line: 10, code: "GPC60274797", desc: "Mart Visser Pearls Zithoek Achter", qty: 1, price: "€ 890,00", comment: "Kleur 91, Wave 6cm + zoom, 1 stuk", po: "I26002183" },
+          { line: 20, code: "GPC60274797", desc: "Mart Visser Pearls Zithoek Rechts", qty: 1, price: "€ 890,00", comment: "Kleur 91, Wave 6cm + zoom, 1 stuk", po: "I26002183" },
+          { line: 30, code: "A00045579", desc: "Toppoint Canto Slaapkamer Zijkant", qty: 1, price: "€ 540,00", comment: "Kleur 2 Naturel, Wave 6cm, 1 stel", po: "I26002184" },
+          { line: 40, code: "A00045579", desc: "Toppoint Canto Slaapkamer Achter", qty: 1, price: "€ 540,00", comment: "Kleur 2 Naturel, Wave 6cm, 1 stel", po: "I26002184" },
+          { line: 50, code: "A00038958", desc: "Interstil Alu binnenloop E2 Handmatig", qty: 1, price: "€ 420,00", comment: "Art. 04013 Nikkel mat, steun 15cm", po: "I26002185" },
+          { line: 60, code: "A00038958", desc: "Interstil E2 Accu motor RTS", qty: 1, price: "€ 480,00", comment: "Somfy RTS motor geïntegreerd", po: "I26002185" },
+          { line: 70, code: "A00038958", desc: "Interstil Oplader voor accu", qty: 1, price: "€ 45,00", comment: "Acculader", po: "I26002185" },
+          { line: 80, code: "A00038958", desc: "Interstil 1-kanaals handzender", qty: 1, price: "€ 80,00", comment: "Afstandsbediening", po: "I26002185" },
+          { line: 90, code: "A00038387", desc: "Montagekosten Interstil rail", qty: 2, price: "€ 100,18", comment: "Montage rail aan wand", po: "-" }
+        ]
+      },
+      {
+        orderNumber: "V26001710",
+        quoteNumber: "O26001108",
+        id: 116694,
+        customerName: "Amory",
+        customerCity: "Maastricht",
+        customerAddress: "Brusselsestraat 102, Maastricht",
+        date: "2026-09-24",
+        status: "Definitief",
+        totalAmount: 1675.00,
+        salesMan: "Carlo Heinemans",
+        branch: "Winkel GSW BV",
+        scopeSummary: "Insectenwering Project (Allure Plissé + Flex Plus Inzethorren) & Sunway Jaloezie",
+        etages: [
+          {
+            id: "etage_bg",
+            name: "Woning / Verdiepingen",
+            icon: "🪟",
+            rooms: [
+              {
+                id: "rm_voordeur",
+                name: "Voordeur",
+                positions: [
+                  { id: "pos_vd_raam", name: "Voordeurraam", type: "Raam", vlak: "Wand Voorgevel" }
+                ]
+              },
+              {
+                id: "rm_keuken",
+                name: "Keuken",
+                positions: [
+                  { id: "pos_keuken_raam", name: "Keukenraam", type: "Draaikiepraam", vlak: "Achtergevel Tuin" }
+                ]
+              },
+              {
+                id: "rm_slaap",
+                name: "Slaapkamer",
+                positions: [
+                  { id: "pos_slaap_raam", name: "Slaapkamerraam", type: "Draaikiepraam", vlak: "Achtergevel Tuin" }
+                ]
+              },
+              {
+                id: "rm_balkon",
+                name: "Balkon",
+                positions: [
+                  { id: "pos_balkon_deur", name: "Balkondeur", type: "Deur", vlak: "Zijgevel Balkon" }
+                ]
+              }
+            ]
+          }
+        ],
+        products: [
+          {
+            id: "p_plisse_hordeur",
+            code: "A00044679",
+            category: "Insectenwering",
+            name: "Luxaflex Plissé Hordeur Allure Plus",
+            supplier: "Luxaflex",
+            unit: "stuks",
+            cells: {
+              "pos_balkon_deur": { qty: "1 st", dim: "960 × 2480", note: "Wit (RAL 9010) Op de dag, Zwart gaas", line: 40 }
+            }
+          },
+          {
+            id: "p_inzethor",
+            code: "A00044683",
+            category: "Insectenwering",
+            name: "Luxaflex Inklemhor Flex Plus (ClearView™ gaas)",
+            supplier: "Luxaflex / Unilux",
+            unit: "stuks",
+            cells: {
+              "pos_keuken_raam": { qty: "1 st", dim: "560 × 1415", note: "Crème (RAL 9001) In de dag", line: 50 },
+              "pos_slaap_raam": { qty: "1 st", dim: "768 × 1415", note: "Zwart (RAL 9005) In de dag", line: 60 }
+            }
+          },
+          {
+            id: "p_jaloezie_sunway",
+            code: "A00045685",
+            category: "Raambekleding",
+            name: "Sunway Horizontale Jaloezie 25mm (BB24)",
+            supplier: "Sunway Benelux",
+            unit: "stuks",
+            cells: {
+              "pos_vd_raam": { qty: "1 st", dim: "300 × 2470", note: "Silk beige 3254, ingespannen", line: 70 }
+            }
+          },
+          {
+            id: "p_montage_plisse",
+            code: "A00038460",
+            category: "Dienst / Montage",
+            name: "Montage plissé hordeur",
+            supplier: "GSW Montage",
+            unit: "post",
+            cells: {
+              "pos_project_algemeen": { qty: "1 hordeur", dim: "Balkondeur", note: "Plaatsing Allure Plus", line: 10 }
+            }
+          },
+          {
+            id: "p_montage_inzethor",
+            code: "A00038458",
+            category: "Dienst / Montage",
+            name: "Montage inzethorren (2 stuks)",
+            supplier: "GSW Montage",
+            unit: "post",
+            cells: {
+              "pos_project_algemeen": { qty: "2 horren", dim: "Draaikiep", note: "Keuken + Slaapkamer inzethorren", line: 20 }
+            }
+          },
+          {
+            id: "p_montage_sunway",
+            code: "A00033263",
+            category: "Dienst / Montage",
+            name: "Montage zonwering voordeur",
+            supplier: "GSW Montage",
+            unit: "post",
+            cells: {
+              "pos_project_algemeen": { qty: "1 jaloezie", dim: "Voordeur", note: "Plaatsing 25mm jaloezie", line: 30 }
+            }
+          }
+        ],
+        rawLines: [
+          { line: 10, code: "A00038460", desc: "Montage plissé hordeur", qty: 1, price: "€ 61,76", comment: "Plaatsing balkondeur", po: "-" },
+          { line: 20, code: "A00038458", desc: "Montage inzethorren", qty: 2, price: "€ 61,76", comment: "Plaatsing 2 inzethorren", po: "-" },
+          { line: 30, code: "A00033263", desc: "Montage zonwering", qty: 1, price: "€ 52,25", comment: "Plaatsing voordeur jaloezie", po: "-" },
+          { line: 40, code: "A00044679", desc: "Plissé hordeur Allure Plus", qty: 1, price: "€ 638,46", comment: "Balkon: 960 x 2480 Wit RAL 9010", po: "I26002406" },
+          { line: 50, code: "A00044683", desc: "Inklemhor Flex Plus Keuken", qty: 1, price: "€ 244,17", comment: "Keuken: 560 x 1415 Crème RAL 9001 ClearView", po: "I26002406" },
+          { line: 60, code: "A00044683", desc: "Inklemhor Flex Plus Slaapkamer", qty: 1, price: "€ 247,02", comment: "Slaapkamer: 768 x 1415 Zwart RAL 9005 ClearView", po: "I26002406" },
+          { line: 70, code: "A00045685", desc: "Sunway Horizontaal 25 mm", qty: 1, price: "€ 369,58", comment: "Voordeur: 300 x 2470 Silk beige ingespannen", po: "I26002407" }
+        ]
+      },
+      {
+        orderNumber: "V26001479",
+        quoteNumber: "O26001086",
+        id: 116325,
+        customerName: "Cobben",
+        customerCity: "Maastricht",
+        customerAddress: "Kesselkade 22, Maastricht",
+        date: "2026-08-21",
+        status: "Definitief",
+        totalAmount: 8300.00,
+        salesMan: "Carlo Heinemans",
+        branch: "Winkel GSW BV",
+        scopeSummary: "Villa Combideal: HoH Maran Wave + GIW Duette® + Allure Hordeur & Rolhorren",
+        etages: [
+          {
+            id: "etage_bg",
+            name: "Begane Grond",
+            icon: "🏡",
+            rooms: [
+              {
+                id: "rm_voordeur",
+                name: "Voordeur",
+                positions: [
+                  { id: "pos_vd_raam", name: "Voordeurraam", type: "Raam" }
+                ]
+              },
+              {
+                id: "rm_woonkamer",
+                name: "Woonkamer",
+                positions: [
+                  { id: "pos_wk_voor_raam", name: "Voorzijde Raam", type: "Raam" },
+                  { id: "pos_wk_voor_gordijn", name: "Voorzijde Gordijn", type: "Gordijnrail" },
+                  { id: "pos_wk_zij", name: "Zijkant Raam", type: "Raam" },
+                  { id: "pos_wk_pui", name: "Schuifpui", type: "Pui" }
+                ]
+              }
+            ]
+          },
+          {
+            id: "etage_1e",
+            name: "1e Verdieping",
+            icon: "🛏️",
+            rooms: [
+              {
+                id: "rm_slaap1",
+                name: "Slaapkamer 1",
+                positions: [
+                  { id: "pos_s1_raam", name: "Raamkozijn", type: "Raam" }
+                ]
+              },
+              {
+                id: "rm_slaap2",
+                name: "Slaapkamer 2",
+                positions: [
+                  { id: "pos_s2_raam", name: "Raamkozijn", type: "Raam" }
+                ]
+              },
+              {
+                id: "rm_balkon",
+                name: "Balkon",
+                positions: [
+                  { id: "pos_balkon_deur", name: "Balkondeur", type: "Deur" }
+                ]
+              }
+            ]
+          }
+        ],
+        products: [
+          {
+            id: "p_duette_32_champagne",
+            code: "A000066057",
+            category: "Raambekleding",
+            name: "GIW Duette® 32mm SmartCord (Champagne A98607)",
+            supplier: "Zonnelux",
+            unit: "stuks",
+            cells: {
+              "pos_wk_voor_raam": { qty: "1 st", dim: "2200 × 2500", note: "SmartCord TDBU", line: 70 },
+              "pos_wk_zij": { qty: "1 st", dim: "1100 × 2465", note: "SmartCord TDBU", line: 60 }
+            }
+          },
+          {
+            id: "p_duette_25_handgreep",
+            code: "A000066057",
+            category: "Raambekleding",
+            name: "GIW Duette® 25mm Handgreepbediening BB24",
+            supplier: "Zonnelux",
+            unit: "stuks",
+            cells: {
+              "pos_vd_raam": { qty: "1 st", dim: "300 × 1830", note: "Handgreep Champagne", line: 80 }
+            }
+          },
+          {
+            id: "p_duette_25_verduisterend",
+            code: "A000066057",
+            category: "Raambekleding",
+            name: "GIW Duette® 25mm Verduisterend (C83807 Champagne)",
+            supplier: "Zonnelux",
+            unit: "stuks",
+            cells: {
+              "pos_s1_raam": { qty: "1 st", dim: "1100 × 2630", note: "SmartCord Verduisterend", line: 90 },
+              "pos_s2_raam": { qty: "1 st", dim: "1100 × 2630", note: "SmartCord Verduisterend", line: 100 }
+            }
+          },
+          {
+            id: "p_maran_voor_links",
+            code: "8714758232621",
+            category: "Gordijnen",
+            name: "HoH Maran Inbetween Voor L (Wave 8cm)",
+            supplier: "House of Happiness",
+            unit: "stuks",
+            cells: {
+              "pos_wk_voor_gordijn": { qty: "1 st", dim: "Wave 8cm (L)", note: "Los stuk links met loodveter", line: 10 }
+            }
+          },
+          {
+            id: "p_maran_voor_rechts",
+            code: "8714758232621",
+            category: "Gordijnen",
+            name: "HoH Maran Inbetween Voor R (Wave 8cm)",
+            supplier: "House of Happiness",
+            unit: "stuks",
+            cells: {
+              "pos_wk_voor_gordijn": { qty: "1 st", dim: "Wave 8cm (R)", note: "Los stuk rechts met loodveter", line: 20 }
+            }
+          },
+          {
+            id: "p_maran_pui",
+            code: "8714758232621",
+            category: "Gordijnen",
+            name: "HoH Maran Inbetween Schuifpui (Wave 8cm Stel)",
+            supplier: "House of Happiness",
+            unit: "stuks",
+            cells: {
+              "pos_wk_pui": { qty: "1 stel", dim: "Wave 8cm (Stel)", note: "Pui stel met loodveter", line: 40 }
+            }
+          },
+          {
+            id: "p_rail_interstil_25",
+            code: "A00038958",
+            category: "Gordijnrails",
+            name: "Interstil Alu Binnenloop Rond 25mm (Kleur 72)",
+            supplier: "Interstil",
+            unit: "stuks",
+            cells: {
+              "pos_wk_voor_gordijn": { qty: "1 st", dim: "3200 mm", note: "Flow25 art. 03391", line: 30 },
+              "pos_wk_pui": { qty: "1 st", dim: "3800 mm", note: "Flow25 art. 03391", line: 50 }
+            }
+          },
+          {
+            id: "p_rolhor_toppoint",
+            code: "A00045579",
+            category: "Insectenwering",
+            name: "Toppoint Oprolbare Hor Type RO 5/2 (RAL 9001)",
+            supplier: "Toppoint",
+            unit: "stuks",
+            cells: {
+              "pos_s1_raam": { qty: "1 st", dim: "1100 × 1500", note: "Buitenmontage + bediening buiten", line: 110 },
+              "pos_s2_raam": { qty: "1 st", dim: "1100 × 1500", note: "Buitenmontage + bediening buiten", line: 120 }
+            }
+          },
+          {
+            id: "p_plisse_allure",
+            code: "A00044679",
+            category: "Insectenwering",
+            name: "Luxaflex Plissé Hordeur Allure Plus (Wit 9010 ODD)",
+            supplier: "Luxaflex",
+            unit: "stuks",
+            cells: {
+              "pos_balkon_deur": { qty: "1 st", dim: "1040 × 2556", note: "Pakket Rechts, Op de dag", line: 130 }
+            }
+          },
+          {
+            id: "p_montage_zonwering",
+            code: "A00033263",
+            category: "Dienst / Arbeid",
+            name: "Montagekosten zonwering (5 stuks)",
+            supplier: "GSW Montage",
+            unit: "post",
+            cells: {
+              "pos_project_algemeen": { qty: "5 stuks", dim: "Woonkamer & Slaapkamers", note: "Plaatsing 5 stuks zonwering", line: 140 }
+            }
+          },
+          {
+            id: "p_montage_horren",
+            code: "A00038458",
+            category: "Dienst / Arbeid",
+            name: "Montagekosten inzethorren (2 stuks)",
+            supplier: "GSW Montage",
+            unit: "post",
+            cells: {
+              "pos_project_algemeen": { qty: "2 stuks", dim: "Slaapkamers", note: "Plaatsing rolhorren", line: 150 }
+            }
+          }
+        ],
+        rawLines: [
+          { line: 10, code: "8714758232621", desc: "Maran Inbetween Woonkamer Voor L", qty: 1, price: "€ 414,09", comment: "Waveplooi 8cm + loodveter stuk links", po: "I26002040" },
+          { line: 20, code: "8714758232621", desc: "Maran Inbetween Woonkamer Voor R", qty: 1, price: "€ 381,50", comment: "Waveplooi 8cm + loodveter stuk rechts", po: "I26002040" },
+          { line: 30, code: "A00038958", desc: "Interstil Alu Rond 25mm Voorzijde", qty: 1, price: "€ 300,74", comment: "Flow25 kleur 72 wave", po: "I26002041" },
+          { line: 40, code: "8714758232621", desc: "Maran Inbetween Woonkamer Pui", qty: 1, price: "€ 958,59", comment: "Waveplooi 8cm stel", po: "I26002040" },
+          { line: 50, code: "A00038958", desc: "Interstil Alu Rond 25mm Pui", qty: 1, price: "€ 354,40", comment: "Flow25 kleur 72 wave", po: "I26002041" },
+          { line: 60, code: "A000066057", desc: "GIW Duette® 32mm Woonkamer Zijkant", qty: 1, price: "€ 621,83", comment: "1100 x 2465 SmartCord Champagne", po: "I26002042" },
+          { line: 70, code: "A000066057", desc: "GIW Duette® 32mm Woonkamer Voor", qty: 1, price: "€ 1.053,03", comment: "2200 x 2500 SmartCord Champagne", po: "I26002042" },
+          { line: 80, code: "A000066057", desc: "GIW Duette® 25mm Voordeur", qty: 1, price: "€ 313,70", comment: "300 x 1830 Handgreep BB24", po: "I26002042" },
+          { line: 90, code: "A000066057", desc: "GIW Duette® 25mm Slaapkamer 1", qty: 1, price: "€ 970,68", comment: "1100 x 2630 C83807 Verduisterend", po: "I26002042" },
+          { line: 100, code: "A000066057", desc: "GIW Duette® 25mm Slaapkamer 2", qty: 1, price: "€ 970,68", comment: "1100 x 2630 C83807 Verduisterend", po: "I26002042" },
+          { line: 110, code: "A00045579", desc: "Toppoint Oprolbare Hor Slaap 1", qty: 1, price: "€ 415,42", comment: "Type RO 5/2 RAL 9001 buitenmontage", po: "I26002120" },
+          { line: 120, code: "A00045579", desc: "Toppoint Oprolbare Hor Slaap 2", qty: 1, price: "€ 415,42", comment: "Type RO 5/2 RAL 9001 buitenmontage", po: "I26002120" },
+          { line: 130, code: "A00044679", desc: "Plissé hordeur Allure Plus Balkon", qty: 1, price: "€ 625,58", comment: "1040 x 2556 Wit 9010 Pakket Rechts", po: "I26002043" },
+          { line: 140, code: "A00033263", desc: "Montagekosten zonwering", qty: 5, price: "€ 254,49", comment: "Montage 5 stuks zonwering", po: "-" },
+          { line: 150, code: "A00038458", desc: "Montagekosten inzethorren", qty: 2, price: "€ 60,15", comment: "Plaatsing inzethorren", po: "-" }
+        ]
+      }
+    ];
+
+    let currentOrderIndex = 2; // Default to Jaspers (V26001376)
+    let rollupLevel = 'positie'; // 'positie' | 'ruimte' | 'etage'
+    let sidebarOpen = true;
+
+    // Initialize UI on page load
+    document.addEventListener("DOMContentLoaded", () => {
+      renderOrderButtons();
+      loadOrder(currentOrderIndex);
+
+      // Keyboard navigation
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft") navigateOrder(-1);
+        if (e.key === "ArrowRight") navigateOrder(1);
+      });
+
+      // Scroll listener voor vloeiende, pixel-perfecte sticky groepskoppen (Etage & Ruimte)
+      const viewport = document.getElementById("matrix-viewport");
+      if (viewport) {
+        viewport.addEventListener("scroll", syncStickyGroupHeaders, { passive: true });
+      }
+      window.addEventListener("resize", syncStickyGroupHeaders, { passive: true });
+    });
+
+    // Synchroniseert de positie van de groepskoppen (Etage & Ruimte) zodat ze vloeiend blijven docken
+    // tegen de rechterrand van de sticky eerste kolom (geen CSS-beperkingen, geen clipping!)
+    function syncStickyGroupHeaders() {
+      const viewport = document.getElementById("matrix-viewport");
+      if (!viewport) return;
+
+      const col0Header = document.querySelector("#matrix-table thead tr th.sticky-col-0, #matrix-table thead tr th.sticky-corner-1");
+      if (!col0Header) return;
+
+      const col0Rect = col0Header.getBoundingClientRect();
+      const dockX = col0Rect.right; // Exact de scheidingslijn waar de eerste kolom eindigt!
+
+      // 1. Etage Groepskoppen
+      const etageBadges = viewport.querySelectorAll(".sticky-group-label-etage");
+      etageBadges.forEach(badge => {
+        const parentTh = badge.closest("th");
+        if (!parentTh) return;
+
+        const thRect = parentTh.getBoundingClientRect();
+        const badgeWidth = badge.offsetWidth || 140;
+        const padding = 10;
+        const maxShift = Math.max(0, thRect.width - badgeWidth - padding * 2);
+
+        if (thRect.left < dockX && thRect.right > (dockX + 30)) {
+          const needed = (dockX - thRect.left) + padding;
+          const shift = Math.min(needed, maxShift);
+          badge.style.transform = `translateX(${shift}px)`;
+        } else if (thRect.left >= dockX) {
+          badge.style.transform = "translateX(0px)";
+        } else {
+          badge.style.transform = `translateX(${maxShift}px)`;
+        }
+      });
+
+      // 2. Ruimte Groepskoppen
+      const roomBadges = viewport.querySelectorAll(".sticky-group-label-room");
+      roomBadges.forEach(badge => {
+        const parentTh = badge.closest("th");
+        if (!parentTh) return;
+
+        const thRect = parentTh.getBoundingClientRect();
+        const badgeWidth = badge.offsetWidth || 120;
+        const padding = 10;
+        const maxShift = Math.max(0, thRect.width - badgeWidth - padding * 2);
+
+        if (thRect.left < dockX && thRect.right > (dockX + 25)) {
+          const needed = (dockX - thRect.left) + padding;
+          const shift = Math.min(needed, maxShift);
+          badge.style.transform = `translateX(${shift}px)`;
+        } else if (thRect.left >= dockX) {
+          badge.style.transform = "translateX(0px)";
+        } else {
+          badge.style.transform = `translateX(${maxShift}px)`;
+        }
+      });
+    }
+
+    function parsePrice(str) {
+      if (!str) return 0;
+      if (typeof str === 'number') return str;
+      const clean = str.replace(/[€\s.]/g, '').replace(',', '.').replace('−', '-');
+      const val = parseFloat(clean);
+      return isNaN(val) ? 0 : val;
+    }
+
+    function getCellPrice(cellData, order) {
+      if (!cellData) return null;
+      if (cellData.price) return cellData.price;
+      if (cellData.line && order && order.rawLines) {
+        const raw = order.rawLines.find(r => String(r.line) === String(cellData.line));
+        if (raw && raw.price) return raw.price;
+      }
+      return null;
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById("sidebar-orders");
+      const expandBtn = document.getElementById("sidebar-expand-btn");
+      const drawer = document.getElementById("order-lines-drawer");
+      sidebarOpen = !sidebarOpen;
+      if (sidebarOpen) {
+        sidebar.classList.remove("-ml-80");
+        expandBtn.classList.add("hidden");
+        if (drawer) drawer.style.left = "320px";
+      } else {
+        sidebar.classList.add("-ml-80");
+        expandBtn.classList.remove("hidden");
+        if (drawer) drawer.style.left = "0px";
+      }
+    }
+
+    function toggleRollupLevel(target) {
+      if (target === 'ruimte') {
+        if (rollupLevel === 'ruimte') {
+          rollupLevel = 'positie'; // uitklappen naar positie
+        } else {
+          rollupLevel = 'ruimte'; // oprollen naar ruimte
+        }
+      } else if (target === 'etage') {
+        if (rollupLevel === 'etage') {
+          rollupLevel = 'positie'; // uitklappen naar positie
+        } else {
+          rollupLevel = 'etage'; // oprollen naar etage
+        }
+      }
+      renderMatrix(ORDERS_DATA[currentOrderIndex]);
+    }
+
+    function renderOrderButtons() {
+      const container = document.getElementById("order-buttons-container");
+      container.innerHTML = "";
+
+      ORDERS_DATA.forEach((order, idx) => {
+        const btn = document.createElement("button");
+        btn.id = `btn-order-${idx}`;
+        btn.onclick = () => loadOrder(idx);
+        btn.className = `w-full p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+          idx === currentOrderIndex 
+            ? "bg-blue-600 text-white border-blue-600 shadow-sm font-semibold ring-2 ring-blue-400/30" 
+            : "bg-white border-slate-200 text-slate-900 hover:border-blue-400 hover:bg-slate-50"
+        }`;
+
+        btn.innerHTML = `
+          <div class="flex items-center justify-between w-full">
+            <span class="font-mono text-xs font-bold">${order.orderNumber}</span>
+            <span class="text-[10px] opacity-75">#${idx + 1}</span>
+          </div>
+          <div class="text-[11px] truncate mt-1 font-medium ${idx === currentOrderIndex ? 'text-white' : 'text-slate-800'}">
+            ${order.customerName}
+          </div>
+          <div class="text-[10px] mt-1 opacity-80 flex items-center justify-between">
+            <span>${order.customerCity}</span>
+            <span class="font-mono font-semibold">€ ${(order.totalAmount || 0).toLocaleString('nl-NL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+          </div>
+        `;
+        container.appendChild(btn);
+      });
+    }
+
+    function navigateOrder(delta) {
+      let newIdx = currentOrderIndex + delta;
+      if (newIdx < 0) newIdx = ORDERS_DATA.length - 1;
+      if (newIdx >= ORDERS_DATA.length) newIdx = 0;
+      loadOrder(newIdx);
+    }
+
+    function loadOrder(idx) {
+      currentOrderIndex = idx;
+      rollupLevel = 'positie'; // Reset to detailed view per order
+      const order = ORDERS_DATA[idx];
+
+      // Update Stepper Indicator
+      document.getElementById("order-stepper-indicator").textContent = `${idx + 1} / ${ORDERS_DATA.length}`;
+
+      // Update button active states in sidebar
+      ORDERS_DATA.forEach((_, i) => {
+        const btn = document.getElementById(`btn-order-${i}`);
+        if (!btn) return;
+        if (i === idx) {
+          btn.className = "w-full p-2.5 rounded-xl border text-left transition flex flex-col justify-between bg-blue-600 text-white border-blue-600 shadow-sm font-semibold ring-2 ring-blue-400/30";
+          const mediumText = btn.querySelector(".font-medium");
+          if (mediumText) {
+            mediumText.classList.add("text-white");
+            mediumText.classList.remove("text-slate-800");
+          }
+        } else {
+          btn.className = "w-full p-2.5 rounded-xl border text-left transition flex flex-col justify-between bg-white border-slate-200 text-slate-900 hover:border-blue-400 hover:bg-slate-50";
+          const mediumText = btn.querySelector(".font-medium");
+          if (mediumText) {
+            mediumText.classList.remove("text-white");
+            mediumText.classList.add("text-slate-800");
+          }
+        }
+      });
+
+      // -------------------------------------------------------------
+      // UPDATE ACTIEVE ORDER OVERVIEW CARD (CONFORM SCREENSHOT)
+      // -------------------------------------------------------------
+      document.getElementById("meta-order-number").textContent = order.orderNumber;
+      document.getElementById("meta-quote-number").textContent = `Offerte: ${order.quoteNumber || '-'}`;
+      document.getElementById("meta-customer-name").textContent = order.customerName || 'Onbekend';
+      document.getElementById("meta-customer-city").textContent = order.customerCity || 'Nederland';
+      document.getElementById("meta-date").textContent = order.date ? new Date(order.date).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+      document.getElementById("meta-status").textContent = order.status || 'Definitief';
+      document.getElementById("meta-scope-summary").textContent = order.scopeSummary;
+      document.getElementById("meta-scope-summary").title = order.scopeSummary;
+      document.getElementById("meta-salesman").textContent = order.salesMan;
+      document.getElementById("meta-branch").textContent = order.branch;
+      document.getElementById("meta-total-amount").textContent = `€ ${order.totalAmount.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      document.getElementById("meta-lines-count").textContent = `${order.rawLines.length} orderregels geregistreerd`;
+
+      // Calculate total physical positions
+      let totalPos = 0;
+      order.etages.forEach(e => e.rooms.forEach(r => totalPos += r.positions.length));
+      document.getElementById("meta-positions-count").textContent = `${totalPos} ruimtelijke posities`;
+
+      // Render Process Buttons conform FSM
+      renderProcessButtons();
+
+      // Render Matrix
+      renderMatrix(order);
+
+      // Render Raw Lines
+      renderRawLines(order);
+    }
+
+    function renderMatrix(order) {
+      const thead = document.getElementById("matrix-thead");
+      const tbody = document.getElementById("matrix-tbody");
+      const tfoot = document.getElementById("matrix-tfoot");
+
+      thead.innerHTML = "";
+      tbody.innerHTML = "";
+      tfoot.innerHTML = "";
+
+      const etages = order.etages;
+
+      // Pijltjes status bepalen:
+      // Als niveau opgerold is, wijst het pijltje omlaag ▼ (om uit te klappen).
+      // Als niveau uitgeklapt is, wijst het pijltje omhoog ▲ (om op te rollen).
+      const etageArrow = (rollupLevel === 'etage') ? '▼' : '▲';
+      const ruimteArrow = (rollupLevel === 'ruimte') ? '▼' : '▲';
+
+      // -------------------------------------------------------------
+      // 1. RIJ 1 HEADER: ETAGE (met pijltje achter de naam) - STICKY TOP
+      // -------------------------------------------------------------
+      const trEtage = document.createElement("tr");
+      trEtage.className = "bg-slate-100 text-slate-800";
+
+      // Hoekcel: "etage" met pijltje omhoog/omlaag (Sticky horizontaal én verticaal)
+      const thCorner1 = document.createElement("th");
+      thCorner1.className = "p-2.5 text-xs sticky-corner-1 sticky-col-shadow w-col-0 border-r border-b border-slate-200";
+      thCorner1.innerHTML = `
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-700 text-xs">etage</span>
+          <button onclick="toggleRollupLevel('etage')" class="rollup-arrow-btn" title="${rollupLevel === 'etage' ? 'Klik om uit te klappen naar posities' : 'Klik om op te rollen naar etage'}">
+            ${etageArrow}
+          </button>
+        </div>
+      `;
+      trEtage.appendChild(thCorner1);
+
+      // Kolom 1: Algemeen (Tier 1 - Sticky verticaal)
+      const thGenEtage = document.createElement("th");
+      thGenEtage.className = "p-2.5 font-bold text-xs text-center border-r border-b border-slate-200 bg-amber-50/90 text-amber-900 w-col-gen sticky-th-row-1";
+      thGenEtage.innerHTML = "<span>Algemeen</span>";
+      thGenEtage.rowSpan = 1;
+      trEtage.appendChild(thGenEtage);
+
+      // Render Etage Kolommen afhankelijk van rollupLevel:
+      if (rollupLevel === 'etage') {
+        // Opgerold naar etage: 1 kolom per etage!
+        etages.forEach(etage => {
+          const th = document.createElement("th");
+          th.className = "p-2.5 font-bold text-xs text-center border-r border-b border-slate-200 bg-slate-100 text-slate-800 w-col-etage sticky-th-row-1 overflow-hidden";
+          th.innerHTML = `
+            <div class="flex items-center justify-center gap-1.5">
+              <span>${etage.icon}</span>
+              <span class="uppercase tracking-wide">${etage.name}</span>
+            </div>
+          `;
+          trEtage.appendChild(th);
+        });
+        thead.appendChild(trEtage);
+      } 
+      else if (rollupLevel === 'ruimte') {
+        // Opgerold naar ruimte: Etage overspant zijn aantal ruimtes (met sticky horizontale meeglijdende kop)
+        etages.forEach(etage => {
+          const th = document.createElement("th");
+          th.colSpan = etage.rooms.length;
+          th.className = "p-2 font-bold text-xs text-left border-r border-b border-slate-200 bg-slate-100 text-slate-800 sticky-th-row-1 overflow-hidden";
+          th.innerHTML = `
+            <div class="sticky-group-label-etage">
+              <span>${etage.icon}</span>
+              <span class="uppercase tracking-wide font-bold">${etage.name}</span>
+            </div>
+          `;
+          trEtage.appendChild(th);
+        });
+        thead.appendChild(trEtage);
+
+        // -------------------------------------------------------------
+        // RIJ 2 HEADER: RUIMTE (met pijltje achter de naam) - STICKY TOP
+        // -------------------------------------------------------------
+        const trRuimte = document.createElement("tr");
+        trRuimte.className = "bg-slate-50 text-slate-700";
+
+        const thCorner2 = document.createElement("th");
+        thCorner2.className = "p-2 text-xs sticky-corner-2 sticky-col-shadow w-col-0 border-r border-b border-slate-200";
+        thCorner2.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-700 text-xs">ruimte</span>
+            <button onclick="toggleRollupLevel('ruimte')" class="rollup-arrow-btn" title="Klik om uit te klappen naar posities">
+              ${ruimteArrow}
+            </button>
+          </div>
+        `;
+        trRuimte.appendChild(thCorner2);
+
+        // Kolom 1 Cel voor Ruimte rollup
+        const thGenRuimte = document.createElement("th");
+        thGenRuimte.className = "p-1.5 text-xs text-center border-r border-b border-slate-200 bg-amber-50/80 text-amber-800 w-col-gen sticky-th-row-2";
+        thGenRuimte.innerHTML = "<span class='text-[9px] text-amber-700 font-medium'>Project</span>";
+        trRuimte.appendChild(thGenRuimte);
+
+        // Ruimtes als individuele kolommen
+        etages.forEach(etage => {
+          etage.rooms.forEach(room => {
+            const th = document.createElement("th");
+            th.className = "p-2 text-xs font-semibold text-center border-r border-b border-slate-200 bg-slate-50 text-slate-800 w-col-room sticky-th-row-2 overflow-hidden";
+            th.innerHTML = `
+              <div class="font-bold">${room.name}</div>
+              <div class="text-[9px] text-slate-400 font-normal">${room.positions.length} posities</div>
+            `;
+            trRuimte.appendChild(th);
+          });
+        });
+        thead.appendChild(trRuimte);
+      }
+      else {
+        // Volledig detail: Positie-niveau (met sticky horizontaal meeglijdende groepskoppen voor Etage & Ruimte!)
+        etages.forEach(etage => {
+          let etageColSpan = 0;
+          etage.rooms.forEach(r => etageColSpan += r.positions.length);
+          if (etageColSpan === 0) return;
+
+          const th = document.createElement("th");
+          th.colSpan = etageColSpan;
+          th.className = "p-2 font-bold text-xs text-left border-r border-b border-slate-200 bg-slate-100 text-slate-800 sticky-th-row-1 overflow-hidden";
+          th.innerHTML = `
+            <div class="sticky-group-label-etage">
+              <span>${etage.icon}</span>
+              <span class="uppercase tracking-wide font-bold">${etage.name}</span>
+            </div>
+          `;
+          trEtage.appendChild(th);
+        });
+        thead.appendChild(trEtage);
+
+        // -------------------------------------------------------------
+        // RIJ 2 HEADER: RUIMTE - STICKY TOP (Horizontaal meeglijdend)
+        // -------------------------------------------------------------
+        const trRuimte = document.createElement("tr");
+        trRuimte.className = "bg-slate-50 text-slate-700";
+
+        const thCorner2 = document.createElement("th");
+        thCorner2.className = "p-2 text-xs sticky-corner-2 sticky-col-shadow w-col-0 border-r border-b border-slate-200";
+        thCorner2.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-700 text-xs">ruimte</span>
+            <button onclick="toggleRollupLevel('ruimte')" class="rollup-arrow-btn" title="Klik om op te rollen naar ruimte">
+              ${ruimteArrow}
+            </button>
+          </div>
+        `;
+        trRuimte.appendChild(thCorner2);
+
+        // Kolom 1 Cel voor Ruimte
+        const thGenRuimte = document.createElement("th");
+        thGenRuimte.className = "p-1.5 text-xs text-center border-r border-b border-slate-200 bg-amber-50/80 text-amber-800 w-col-gen sticky-th-row-2";
+        thGenRuimte.innerHTML = "<span class='text-[9px] text-amber-700 font-medium'>Project</span>";
+        trRuimte.appendChild(thGenRuimte);
+
+        etages.forEach(etage => {
+          etage.rooms.forEach(room => {
+            const th = document.createElement("th");
+            th.colSpan = room.positions.length;
+            th.className = "p-1.5 text-xs font-semibold text-left border-r border-b border-slate-200 bg-slate-50 text-slate-700 sticky-th-row-2 overflow-hidden";
+            th.innerHTML = `
+              <div class="sticky-group-label-room">
+                <span class="font-bold text-slate-800">${room.name}</span>
+                <span class="text-[9px] text-slate-400 font-normal">(${room.positions.length} pos)</span>
+              </div>
+            `;
+            trRuimte.appendChild(th);
+          });
+        });
+        thead.appendChild(trRuimte);
+
+        // -------------------------------------------------------------
+        // RIJ 3 HEADER: POSITIE-CLUSTERS - STICKY TOP (PIJLER 5 & 10)
+        // -------------------------------------------------------------
+        const trCluster = document.createElement("tr");
+        trCluster.className = "bg-slate-100 text-slate-700 text-[10px]";
+
+        const thCorner3 = document.createElement("th");
+        thCorner3.className = "p-1.5 text-xs sticky-corner-3 sticky-col-shadow w-col-0 border-r border-b border-slate-200 bg-slate-100 text-slate-500 font-semibold";
+        thCorner3.innerHTML = `
+          <div class="flex items-center justify-between text-[10px]">
+            <span>positie-cluster</span>
+            <span class="text-slate-400 font-normal">🔗</span>
+          </div>
+        `;
+        trCluster.appendChild(thCorner3);
+
+        // Kolom 1 Cel voor Cluster
+        const thGenCluster = document.createElement("th");
+        thGenCluster.className = "p-1 text-center border-r border-b border-slate-200 bg-amber-50/70 text-amber-600 w-col-gen sticky-th-row-3 text-[9px]";
+        thGenCluster.innerHTML = "<span>—</span>";
+        trCluster.appendChild(thGenCluster);
+
+        etages.forEach(etage => {
+          etage.rooms.forEach(room => {
+            const roomClusters = room.clusters || [];
+            let i = 0;
+            while (i < room.positions.length) {
+              const pos = room.positions[i];
+              const cluster = roomClusters.find(c => c.positionIds && c.positionIds.includes(pos.id));
+              if (cluster) {
+                let clusterSpan = 0;
+                while (i + clusterSpan < room.positions.length && cluster.positionIds.includes(room.positions[i + clusterSpan].id)) {
+                  clusterSpan++;
+                }
+                const thCl = document.createElement("th");
+                thCl.colSpan = clusterSpan;
+                thCl.className = "p-1 text-center font-bold border-r border-b border-blue-200 bg-blue-100/80 text-blue-900 sticky-th-row-3 overflow-hidden";
+                thCl.innerHTML = `
+                  <div class="flex items-center justify-center gap-1 truncate" title="${cluster.name}">
+                    <span>🔗</span>
+                    <span class="truncate">${cluster.name}</span>
+                  </div>
+                `;
+                trCluster.appendChild(thCl);
+                i += clusterSpan;
+              } else {
+                const thPlaceholder = document.createElement("th");
+                thPlaceholder.className = "p-1 text-center border-r border-b border-slate-200 bg-slate-50/50 text-slate-400 sticky-th-row-3 overflow-hidden font-normal text-[9px]";
+                thPlaceholder.innerHTML = `<span>—</span>`;
+                trCluster.appendChild(thPlaceholder);
+                i++;
+              }
+            }
+          });
+        });
+        thead.appendChild(trCluster);
+
+        // -------------------------------------------------------------
+        // RIJ 4 HEADER: POSITIES (RAAM L, RAAM R, VLOER, ETC.) - STICKY TOP
+        // -------------------------------------------------------------
+        const trPositie = document.createElement("tr");
+        trPositie.className = "bg-white text-slate-600 text-[11px]";
+
+        const thCorner4 = document.createElement("th");
+        thCorner4.className = "p-2 font-bold text-xs sticky-corner-4 sticky-col-shadow w-col-0 text-slate-900 border-r border-b border-slate-200";
+        thCorner4.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span>Artikelen & Diensten</span>
+            <span class="text-[10px] text-slate-400 font-normal">Posities →</span>
+          </div>
+        `;
+        trPositie.appendChild(thCorner4);
+
+        // Kolom 1 Cel voor Positie
+        const thGenPositie = document.createElement("th");
+        thGenPositie.className = "p-2 text-center font-medium border-r border-b border-slate-200 bg-amber-50/90 text-amber-900 w-col-gen sticky-th-row-4 overflow-hidden";
+        thGenPositie.innerHTML = `
+          <div class="font-bold text-slate-900 truncate">Algemeen</div>
+          <div class="text-[9px] text-slate-500 font-medium truncate">Projectscope</div>
+          <div class="text-[8px] text-slate-400 mt-0.5 truncate">Diensten</div>
+        `;
+        trPositie.appendChild(thGenPositie);
+
+        // Ruimtelijke Posities (Uniform vaste breedte van 160px)
+        etages.forEach(etage => {
+          etage.rooms.forEach(room => {
+            room.positions.forEach(pos => {
+              const th = document.createElement("th");
+              const isSelected = selectedColumnIds.has(pos.id);
+              th.className = `p-2 text-center font-medium border-r border-b border-slate-200 ${isSelected ? 'bg-blue-100/90 ring-2 ring-blue-500' : 'bg-white'} text-slate-700 w-col-pos sticky-th-row-4 overflow-hidden select-none`;
+              
+              th.oncontextmenu = (e) => openPositionContextMenu(e, pos.id, pos.name);
+
+              let selectCheckbox = '';
+              if (columnSelectMode) {
+                selectCheckbox = `
+                  <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleColumnSelection('${pos.id}')" class="absolute top-1 right-1 w-3.5 h-3.5 accent-blue-600 cursor-pointer">
+                `;
+              }
+
+              th.innerHTML = `
+                <div class="relative w-full h-full flex flex-col justify-center">
+                  ${selectCheckbox}
+                  <div class="font-bold text-slate-900 truncate" title="${pos.name}">${pos.name}</div>
+                  <div class="text-[9px] text-slate-500 font-medium truncate">${pos.vlak || pos.type}</div>
+                  <div class="text-[8px] text-slate-400 mt-0.5 truncate">${pos.type}</div>
+                </div>
+              `;
+              trPositie.appendChild(th);
+            });
+          });
+        });
+        thead.appendChild(trPositie);
+      }
+
+      // -------------------------------------------------------------
+      // 4. MATRIX BODY: PRODUCT RIJEN (EERSTE KOLOM STICKY HORIZONTAAL)
+      // -------------------------------------------------------------
+      order.products.forEach((prod, pIdx) => {
+        const tr = document.createElement("tr");
+        tr.className = `border-b border-slate-200 ${pIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-blue-50/40 transition-colors`;
+
+        // Product Kolom Cell (Sticky Left freeze)
+        const tdProd = document.createElement("td");
+        tdProd.className = `p-2.5 ${pIdx % 2 === 0 ? 'sticky-col-0' : 'sticky-col-0-alt'} sticky-col-shadow w-col-0 border-r border-b border-slate-200 overflow-hidden`;
+        tdProd.innerHTML = `
+          <div class="font-bold text-xs text-slate-900 leading-tight">${prod.name}</div>
+          <div class="text-[10px] text-slate-500 flex items-center gap-1.5 mt-1">
+            <span class="font-mono bg-slate-100 px-1 rounded text-slate-600">${prod.code}</span>
+            <span>•</span>
+            <span>${prod.category}</span>
+            <span>•</span>
+            <span class="text-slate-400">${prod.unit}</span>
+          </div>
+        `;
+        tr.appendChild(tdProd);
+
+        // Kolom 1 Cel: Algemeen (Aantal & Prijs op 1 regel, zuiver groen zonder kader!)
+        const tdGen = document.createElement("td");
+        tdGen.className = "p-2 text-center border-r border-b border-slate-200 bg-amber-50/20 matrix-cell-hover w-col-gen overflow-hidden";
+        const genCell = prod.cells["pos_project_algemeen"];
+        if (genCell) {
+          const genPrice = getCellPrice(genCell, order);
+          tdGen.innerHTML = `
+            <div class="relative bg-amber-50/90 border border-amber-300 rounded p-1.5 shadow-2xs">
+              ${genCell.line ? `<span onclick="event.stopPropagation(); highlightOrderLine('${genCell.line}')" class="cell-line-tag text-amber-700 bg-orange-100 border-amber-300 cursor-pointer hover:scale-110 pointer-events-auto" title="Klik om orderregel ${genCell.line} te bekijken">${genCell.line}</span>` : ''}
+              <div class="flex items-center justify-between text-xs font-bold text-amber-950 pr-4">
+                <span>${genCell.qty}</span>
+                ${genPrice ? `<span class="font-mono font-bold text-emerald-600 text-xs">${genPrice}</span>` : ''}
+              </div>
+              ${genCell.note && !genCell.note.includes("villa") && !genCell.note.includes("vertrekken") ? `<div class="text-[9px] text-slate-500 mt-0.5 leading-tight truncate" title="${genCell.note}">${genCell.note}</div>` : ''}
+            </div>
+          `;
+        } else {
+          tdGen.innerHTML = `<span class="text-slate-300 text-xs">—</span>`;
+        }
+        tr.appendChild(tdGen);
+
+        // DATA CELLEN AFHANKELIJK VAN ROLLUP LEVEL:
+        if (rollupLevel === 'etage') {
+          // Geaggregeerd per etage (Aantal posities & gecumuleerde prijs op 1 regel)
+          etages.forEach(etage => {
+            const td = document.createElement("td");
+            td.className = "p-2 text-center border-r border-b border-slate-200 matrix-cell-hover w-col-etage overflow-hidden";
+
+            const matching = [];
+            etage.rooms.forEach(r => {
+              r.positions.forEach(pos => {
+                if (prod.cells[pos.id]) matching.push(prod.cells[pos.id]);
+              });
+            });
+
+            if (matching.length === 0) {
+              td.innerHTML = `<span class="text-slate-300 text-xs">—</span>`;
+            } else if (matching.length === 1) {
+              const c = matching[0];
+              const cPrice = getCellPrice(c, order);
+              td.innerHTML = `
+                <div class="relative bg-blue-50/80 border border-blue-200 rounded p-1.5 shadow-2xs">
+                  ${c.line ? `<span onclick="event.stopPropagation(); highlightOrderLine('${c.line}')" class="cell-line-tag cursor-pointer hover:scale-110 pointer-events-auto" title="Klik om orderregel ${c.line} te bekijken">${c.line}</span>` : ''}
+                  <div class="font-mono font-bold text-xs text-blue-900 pr-4">${c.dim}</div>
+                  <div class="flex items-center justify-between text-[11px] font-semibold text-slate-800 mt-0.5">
+                    <span>${c.qty}</span>
+                    ${cPrice ? `<span class="font-mono font-bold text-emerald-600 text-[11px]">${cPrice}</span>` : ''}
+                  </div>
+                  ${c.note ? `<div class="text-[9px] text-slate-500 mt-0.5 leading-tight truncate" title="${c.note}">${c.note}</div>` : ''}
+                </div>
+              `;
+            } else {
+              const lines = [...new Set(matching.map(c => c.line).filter(Boolean))].join(', ');
+              const etageTotalPrice = matching.reduce((sum, c) => sum + parsePrice(getCellPrice(c, order)), 0);
+              td.innerHTML = `
+                <div class="relative bg-blue-50/90 border border-blue-300 rounded p-1.5 shadow-2xs">
+                  ${lines ? `<span onclick="event.stopPropagation(); highlightOrderLine('${lines.split(',')[0].trim()}')" class="cell-line-tag cursor-pointer hover:scale-110 pointer-events-auto" title="Klik om orderregels ${lines} te bekijken">${lines}</span>` : ''}
+                  <div class="flex items-center justify-between text-xs font-bold text-blue-950 pr-4">
+                    <span>${matching.length} pos</span>
+                    ${etageTotalPrice > 0 ? `<span class="font-mono font-bold text-emerald-600 text-[11px]">€ ${etageTotalPrice.toLocaleString('nl-NL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : ''}
+                  </div>
+                  <div class="text-[10px] text-blue-800 font-mono mt-0.5 truncate">${etage.name} totaal</div>
+                </div>
+              `;
+            }
+            tr.appendChild(td);
+          });
+        } 
+        else if (rollupLevel === 'ruimte') {
+          // Geaggregeerd per ruimte (Aantal posities & gecumuleerde prijs op 1 regel)
+          etages.forEach(etage => {
+            etage.rooms.forEach(room => {
+              const td = document.createElement("td");
+              td.className = "p-2 text-center border-r border-b border-slate-200 matrix-cell-hover w-col-room overflow-hidden";
+
+              const matching = room.positions.map(pos => prod.cells[pos.id]).filter(Boolean);
+
+              if (matching.length === 0) {
+                td.innerHTML = `<span class="text-slate-300 text-xs">—</span>`;
+              } else if (matching.length === 1) {
+                const c = matching[0];
+                const cPrice = getCellPrice(c, order);
+                td.innerHTML = `
+                  <div class="relative bg-blue-50/80 border border-blue-200 rounded p-1.5 shadow-2xs">
+                    ${c.line ? `<span onclick="event.stopPropagation(); highlightOrderLine('${c.line}')" class="cell-line-tag cursor-pointer hover:scale-110 pointer-events-auto" title="Klik om orderregel ${c.line} te bekijken">${c.line}</span>` : ''}
+                    <div class="font-mono font-bold text-xs text-blue-900 pr-4">${c.dim}</div>
+                    <div class="flex items-center justify-between text-[11px] font-semibold text-slate-800 mt-0.5">
+                      <span>${c.qty}</span>
+                      ${cPrice ? `<span class="font-mono font-bold text-emerald-600 text-[11px]">${cPrice}</span>` : ''}
+                    </div>
+                    ${c.note ? `<div class="text-[9px] text-slate-500 mt-0.5 leading-tight truncate" title="${c.note}">${c.note}</div>` : ''}
+                  </div>
+                `;
+              } else {
+                const lines = [...new Set(matching.map(c => c.line).filter(Boolean))].join(', ');
+                const roomTotalPrice = matching.reduce((sum, c) => sum + parsePrice(getCellPrice(c, order)), 0);
+                td.innerHTML = `
+                  <div class="relative bg-blue-50/90 border border-blue-300 rounded p-1.5 shadow-2xs">
+                    ${lines ? `<span onclick="event.stopPropagation(); highlightOrderLine('${lines.split(',')[0].trim()}')" class="cell-line-tag cursor-pointer hover:scale-110 pointer-events-auto" title="Klik om orderregels ${lines} te bekijken">${lines}</span>` : ''}
+                    <div class="flex items-center justify-between text-xs font-bold text-blue-950 pr-4">
+                      <span>${matching.length} pos</span>
+                      ${roomTotalPrice > 0 ? `<span class="font-mono font-bold text-emerald-600 text-[11px]">€ ${roomTotalPrice.toLocaleString('nl-NL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : ''}
+                    </div>
+                    <div class="text-[10px] text-blue-800 font-semibold mt-0.5 truncate">${room.name}</div>
+                  </div>
+                `;
+              }
+              tr.appendChild(td);
+            });
+          });
+        }
+        else {
+          // Volledig detail: cel per fysieke positie (Uniform 160px)
+          // Regel 1: Sub-positie [a] linksboven + LT orderregel [10] rechtsboven + Dimensie link naar Productscherm
+          // Regel 2: Touch Stepper Aantal (links, 44x44px conform WCAG) + Prijs (rechts, zuiver groen)
+          // Regel 3: Specificatie & Snelle info knop naar Productscherm
+          etages.forEach(etage => {
+            etage.rooms.forEach(room => {
+              room.positions.forEach(pos => {
+                const td = document.createElement("td");
+                td.className = "p-2 text-center border-r border-b border-slate-200 matrix-cell-hover w-col-pos overflow-hidden relative";
+                
+                const cellData = prod.cells[pos.id];
+                if (cellData) {
+                  const cellPrice = getCellPrice(cellData, order);
+                  const subPosLetter = cellData.subPos || 'a';
+                  
+                  // Drag and Drop functionaliteit (Pijler 10)
+                  td.draggable = true;
+                  td.ondragstart = (e) => onCellDragStart(e, prod.id, pos.id);
+                  td.ondragend = (e) => onCellDragEnd(e);
+                  td.ondragover = (e) => onCellDragOver(e);
+                  td.ondragleave = (e) => onCellDragLeave(e);
+                  td.ondrop = (e) => onCellDrop(e, prod.id, pos.id);
+
+                  td.innerHTML = `
+                    <div class="relative bg-blue-50/80 border border-blue-200 rounded p-1.5 shadow-2xs group">
+                      <!-- Sub-positie letter [a] linksboven (Pijler 6) -->
+                      <span class="subpos-tag" title="Sub-positie ${subPosLetter}">[${subPosLetter}]</span>
+
+                      <!-- LT Orderregel badge [10] rechtsboven -->
+                      ${cellData.line ? `<span onclick="event.stopPropagation(); highlightOrderLine('${cellData.line}')" class="cell-line-tag cursor-pointer hover:scale-110 pointer-events-auto" title="Klik om orderregel ${cellData.line} te bekijken">${cellData.line}</span>` : ''}
+
+                      <!-- Dimensie / Info link naar Productscherm (Pijler 8) -->
+                      <div class="font-mono font-bold text-xs text-blue-900 px-4 truncate cursor-pointer hover:underline" onclick="openProductDrawer(ORDERS_DATA[currentOrderIndex].products.find(p=>p.id==='${prod.id}'), ORDERS_DATA[currentOrderIndex].products.find(p=>p.id==='${prod.id}').cells['${pos.id}'])" title="Klik om Productscherm te openen">
+                        ${cellData.dim}
+                      </div>
+
+                      <!-- Regel 2: Touch Stepper Aantal (links, 44x44px conform WCAG) & Prijs (rechts) -->
+                      <div class="flex items-center justify-between text-[11px] font-semibold text-slate-800 mt-1">
+                        <button onclick="openTouchStepper(event, ORDERS_DATA[currentOrderIndex].products.find(p=>p.id==='${prod.id}').cells['${pos.id}'], ORDERS_DATA[currentOrderIndex].products.find(p=>p.id==='${prod.id}'), '${pos.id}')" class="min-w-[44px] min-h-[28px] px-1.5 py-0.5 bg-white hover:bg-blue-100 border border-blue-300 rounded font-bold text-blue-800 shadow-2xs transition flex items-center justify-center cursor-pointer" title="Klik om aantal aan te passen (+ / −)">
+                          <span>${cellData.qty}</span>
+                        </button>
+                        ${cellPrice ? `<span class="font-mono font-bold text-emerald-600 text-[11px]">${cellPrice}</span>` : ''}
+                      </div>
+
+                      <!-- Regel 3: Specificatie & Snelle info knop -->
+                      <div class="flex items-center justify-between text-[9px] text-slate-500 mt-1 leading-tight">
+                        <span class="truncate flex-1 text-left" title="${cellData.note || ''}">${cellData.note || ''}</span>
+                        <button onclick="openProductDrawer(ORDERS_DATA[currentOrderIndex].products.find(p=>p.id==='${prod.id}'), ORDERS_DATA[currentOrderIndex].products.find(p=>p.id==='${prod.id}').cells['${pos.id}'])" class="ml-1 text-slate-400 hover:text-blue-600 transition cursor-pointer" title="Bekijk productspecificaties">
+                          ℹ️
+                        </button>
+                      </div>
+                    </div>
+                  `;
+                } else {
+                  // Lege cel: kan ook als drop target dienen
+                  td.ondragover = (e) => onCellDragOver(e);
+                  td.ondragleave = (e) => onCellDragLeave(e);
+                  td.ondrop = (e) => onCellDrop(e, prod.id, pos.id);
+                  td.innerHTML = `<span class="text-slate-300 text-xs">—</span>`;
+                }
+                tr.appendChild(td);
+              });
+            });
+          });
+        }
+
+        tbody.appendChild(tr);
+      });
+
+      // -------------------------------------------------------------
+      // 5. MATRIX FOOTER: TOTAALSTELLING (STICKY CORNER FOOTER)
+      // -------------------------------------------------------------
+      const trFoot = document.createElement("tr");
+      trFoot.className = "text-xs font-semibold text-slate-800";
+
+      const tdFootLabel = document.createElement("td");
+      tdFootLabel.className = "p-2.5 sticky-col-0 sticky-col-shadow w-col-0 bg-slate-100 border-r border-t-2 border-slate-300";
+      tdFootLabel.innerHTML = `
+        <span class="text-xs font-bold text-slate-900">Actieve Productregels</span>
+        <span class="text-[10px] text-slate-500 font-normal ml-1">(${order.products.length} rijen)</span>
+      `;
+      trFoot.appendChild(tdFootLabel);
+
+      // Algemeen footer
+      const tdFootGen = document.createElement("td");
+      tdFootGen.className = "p-2 text-center font-mono border-r border-t-2 border-slate-300 bg-amber-50/50 text-amber-900 text-[11px] w-col-gen";
+      const genCount = order.products.filter(p => p.cells["pos_project_algemeen"]).length;
+      tdFootGen.textContent = genCount > 0 ? `${genCount} post(en)` : "—";
+      trFoot.appendChild(tdFootGen);
+
+      if (rollupLevel === 'etage') {
+        etages.forEach(etage => {
+          const td = document.createElement("td");
+          td.className = "p-2 text-center font-mono border-r border-t-2 border-slate-300 text-slate-700 text-[11px] w-col-etage";
+          const filled = order.products.filter(prod => {
+            return etage.rooms.some(r => r.positions.some(pos => prod.cells[pos.id]));
+          }).length;
+          td.textContent = filled > 0 ? `${filled} art.` : "—";
+          trFoot.appendChild(td);
+        });
+      } 
+      else if (rollupLevel === 'ruimte') {
+        etages.forEach(etage => {
+          etage.rooms.forEach(room => {
+            const td = document.createElement("td");
+            td.className = "p-2 text-center font-mono border-r border-t-2 border-slate-300 text-slate-700 text-[11px] w-col-room";
+            const filled = order.products.filter(prod => {
+              return room.positions.some(pos => prod.cells[pos.id]);
+            }).length;
+            td.textContent = filled > 0 ? `${filled} art.` : "—";
+            trFoot.appendChild(td);
+          });
+        });
+      } 
+      else {
+        etages.forEach(etage => {
+          etage.rooms.forEach(room => {
+            room.positions.forEach(pos => {
+              const td = document.createElement("td");
+              td.className = "p-2 text-center font-mono border-r border-t-2 border-slate-300 text-slate-700 text-[11px] w-col-pos";
+              const filled = order.products.filter(p => p.cells[pos.id]).length;
+              td.textContent = filled > 0 ? `${filled} art.` : "—";
+              trFoot.appendChild(td);
+            });
+          });
+        });
+      }
+      tfoot.appendChild(trFoot);
+      requestAnimationFrame(syncStickyGroupHeaders);
+    }
+
+    function renderRawLines(order) {
+      const tbody = document.getElementById("raw-lines-tbody");
+      const drawerTbody = document.getElementById("drawer-raw-lines-tbody");
+      const badge = document.getElementById("raw-lines-badge");
+      const drawerBadge = document.getElementById("drawer-lines-badge");
+      const floatingCount = document.getElementById("floating-lines-count");
+
+      tbody.innerHTML = "";
+      if (drawerTbody) drawerTbody.innerHTML = "";
+
+      const countText = `${order.rawLines.length} regels`;
+      if (badge) badge.textContent = countText;
+      if (drawerBadge) drawerBadge.textContent = countText;
+      if (floatingCount) floatingCount.textContent = order.rawLines.length;
+
+      order.rawLines.forEach((line) => {
+        const tr = document.createElement("tr");
+        tr.setAttribute("data-raw-line", String(line.line));
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100 transition-colors duration-300";
+
+        tr.innerHTML = `
+          <td class="py-2 px-3 font-mono font-bold text-orange-600">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono font-bold bg-orange-50 text-orange-600 border border-orange-200">${line.line}</span>
+          </td>
+          <td class="py-2 px-3 font-mono text-slate-500">${line.code}</td>
+          <td class="py-2 px-3">
+            <div class="font-medium text-slate-900">${line.desc}</div>
+            ${line.comment ? `<div class="text-[11px] text-slate-500">${line.comment}</div>` : ''}
+          </td>
+          <td class="py-2 px-3 text-right font-mono font-semibold text-slate-700">${line.qty}</td>
+          <td class="py-2 px-3 text-right font-mono text-slate-900 font-bold">${line.price}</td>
+          <td class="py-2 px-3 font-mono text-blue-600 font-medium">${line.po || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+
+        if (drawerTbody) {
+          const trDrawer = tr.cloneNode(true);
+          drawerTbody.appendChild(trDrawer);
+        }
+      });
+    }
+
+    function highlightOrderLine(lineNum) {
+      const section = document.getElementById("raw-lines-section");
+      if (section) {
+        const details = section.querySelector("details");
+        if (details) details.open = true;
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        const rows = document.querySelectorAll(`[data-raw-line="${lineNum}"]`);
+        rows.forEach(r => {
+          r.classList.add("bg-amber-100/90");
+          setTimeout(() => r.classList.remove("bg-amber-100/90"), 3000);
+        });
+      }
+    }
+
+    function scrollToRawLines() {
+      const el = document.getElementById("raw-lines-section");
+      if (el) {
+        const details = el.querySelector("details");
+        if (details) details.open = true;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    function toggleOrderLinesDrawer() {
+      const drawer = document.getElementById("order-lines-drawer");
+      if (!drawer) return;
+      const isHidden = drawer.classList.contains("hidden");
+      if (isHidden) {
+        const sidebar = document.getElementById("sidebar-orders");
+        drawer.style.left = (sidebar && !sidebar.classList.contains("-ml-80")) ? "320px" : "0px";
+        drawer.classList.remove("hidden");
+      } else {
+        drawer.classList.add("hidden");
+      }
+    }
+
+    function toggleSearch() {
+      const query = prompt("Zoek in deze order op artikelnaam, code of ruimte:");
+      if (!query) return;
+      alert(`Zoekresultaten voor '${query}': deze functionaliteit koppelt met de LogicTrade catalogus.`);
+    }
+  </script>
+</body>
+</html>
