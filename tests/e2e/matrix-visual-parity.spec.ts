@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+// [SPEC-CHANGE-AUTHORIZED: Migratie van TC-PAR-04 van inline-stepper naar cel-click bewerkingsflow conform Gebruikersitem 8]
+
 test.describe('Matrix Orders Visual & Dimension Parity', () => {
   test.beforeEach(async ({ page }) => {
     // Set viewport to standard 1440x900 desktop
@@ -59,41 +61,35 @@ test.describe('Matrix Orders Visual & Dimension Parity', () => {
     }
   });
 
-  // TC-PAR-04: Stepper Interaction & Fitts' Law (Touch targets >= 44px)
-  test('TC-PAR-04: Stepper overlay with Fitts Law >= 44px touch targets', async ({ page }) => {
+  // TC-PAR-04: Cel-Click Bewerking & Fitts' Law (Touch targets >= 48px conform Gebruikersitem 8)
+  test('TC-PAR-04: Cel-click bewerkingsdrawer met Fitts Law >= 48px touch targets', async ({ page }) => {
     await page.goto('/matrix-orders');
 
-    // Find the first interactive cell quantity button
-    const firstQtyButton = page.locator('#matrix-table tbody tr:first-child td button[title="Klik om aantal te wijzigen"]').first();
-    await expect(firstQtyButton).toBeVisible();
+    // Zoek de eerste interactieve cel (td)
+    const firstCell = page.locator('#matrix-table tbody tr:first-child td').first();
+    await expect(firstCell).toBeVisible();
 
-    // Click to open stepper
-    await firstQtyButton.click();
-
-    // Stepper buttons should appear
-    const minusBtn = page.locator('button[aria-label="Verminder aantal met 1"]');
-    const plusBtn = page.locator('button[aria-label="Verhoog aantal met 1"]');
-
-    await expect(minusBtn).toBeVisible();
-    await expect(plusBtn).toBeVisible();
-
-    // Fitts' Law verification: Bounding boxes >= 44px x 44px
-    const minusBox = await minusBtn.boundingBox();
-    const plusBox = await plusBtn.boundingBox();
-
-    expect(minusBox).not.toBeNull();
-    expect(plusBox).not.toBeNull();
-
-    if (minusBox && plusBox) {
-      expect(minusBox.width).toBeGreaterThanOrEqual(44);
-      expect(minusBox.height).toBeGreaterThanOrEqual(44);
-      expect(plusBox.width).toBeGreaterThanOrEqual(44);
-      expect(plusBox.height).toBeGreaterThanOrEqual(44);
+    // Fitts' Law verificatie: Cel afmetingen >= 160px breed en >= 48px hoog
+    const cellBox = await firstCell.boundingBox();
+    expect(cellBox).not.toBeNull();
+    if (cellBox) {
+      expect(cellBox.width).toBeGreaterThanOrEqual(160);
+      expect(cellBox.height).toBeGreaterThanOrEqual(48);
     }
 
-    // Dismiss on Escape
+    // Klik op de cel opent de Product Edit Drawer
+    await firstCell.click();
+
+    const drawer = page.locator('div[role=\"dialog\"][aria-labelledby=\"product-edit-title\"]');
+    await expect(drawer).toBeVisible();
+
+    // Verifieer formulierelementen (maten, aantal, CPQ realtime calculatie)
+    await expect(drawer.locator('input[type=\"number\"]').first()).toBeVisible();
+    await expect(drawer.locator('button:has-text(\"Opslaan & Toepassen\")')).toBeVisible();
+
+    // Sluiten via Escape
     await page.keyboard.press('Escape');
-    await expect(minusBtn).not.toBeVisible();
+    await expect(drawer).not.toBeVisible();
   });
 
   // TC-PAR-05: FSM Process Buttons & Warning Badges

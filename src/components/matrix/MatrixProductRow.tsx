@@ -1,23 +1,43 @@
 'use client';
 
 import React from 'react';
-import { MatrixProduct, Position } from '../../types/matrix';
+import { MatrixProduct, Position, CellPriceData } from '../../types/matrix';
 import { MatrixCell } from './MatrixCell';
+import { resolveCellData } from '../../utils/matrix-overlay-state';
 
-interface MatrixProductRowProps {
+export interface MatrixProductRowProps {
   product: MatrixProduct;
   positions: Position[];
   rowIndex: number;
-  activeStepper: { productId: string; positionId: string } | null;
-  onOpenStepper: (productId: string, positionId: string) => void;
-  onCloseStepper: () => void;
-  onUpdateQuantity: (productId: string, positionId: string, delta: number) => void;
+  onCellClick: (
+    productId: string,
+    positionId: string,
+    subPos?: string,
+    cellData?: CellPriceData
+  ) => void;
+  onCellContextMenu: (
+    productId: string,
+    positionId: string,
+    subPos: string | undefined,
+    e: React.MouseEvent
+  ) => void;
+  // Backwards compatibility props
+  activeStepper?: { productId: string; positionId: string } | null;
+  onOpenStepper?: (productId: string, positionId: string) => void;
+  onCloseStepper?: () => void;
+  onUpdateQuantity?: (productId: string, positionId: string, delta: number) => void;
 }
 
+/**
+ * Productrij in de matrixweergave conform INV-GOV-22 (<250 regels).
+ * Handelt compound key resolve en conditionele subposities af.
+ */
 export function MatrixProductRow({
   product,
   positions,
   rowIndex,
+  onCellClick,
+  onCellContextMenu,
   activeStepper,
   onOpenStepper,
   onCloseStepper,
@@ -32,7 +52,7 @@ export function MatrixProductRow({
       <th
         style={{ left: '0px' }}
         scope="row"
-        className={`sticky left-0 z-10 w-[280px] min-w-[280px] max-w-[280px] px-4 py-3 text-left border-r border-b border-slate-200 ${col0Bg} font-normal`}
+        className={`sticky left-0 z-10 w-[280px] min-w-[280px] max-w-[280px] px-4 py-3 text-left border-r border-b border-slate-200 ${col0Bg} font-normal select-none`}
       >
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center justify-between gap-1">
@@ -59,11 +79,14 @@ export function MatrixProductRow({
 
       {/* KOLOM 1: ALGEMEEN / PROJECTSOPCE */}
       <MatrixCell
-        cellData={product.posPrices['pos_project_algemeen']}
+        cellData={product.posPrices['pos_project_algemeen'] || product.posPrices['pos-gen']}
         productId={product.id}
         positionId="pos_project_algemeen"
+        onCellClick={onCellClick}
+        onCellContextMenu={onCellContextMenu}
         isStepperActive={
-          activeStepper?.productId === product.id && activeStepper?.positionId === 'pos_project_algemeen'
+          activeStepper?.productId === product.id &&
+          activeStepper?.positionId === 'pos_project_algemeen'
         }
         onOpenStepper={onOpenStepper}
         onCloseStepper={onCloseStepper}
@@ -72,7 +95,15 @@ export function MatrixProductRow({
 
       {/* KOLOMMEN 2+: RUIMTELIJKE POSITIES */}
       {positions.map((pos) => {
-        const cellData = product.posPrices[pos.id];
+        const hasMultiple = Boolean(pos.subPositions && pos.subPositions.length > 1);
+        let activeSubPos: string | undefined = undefined;
+        if (hasMultiple && pos.subPositions) {
+          activeSubPos = pos.subPositions.find(
+            (sp) => Boolean(product.posPrices[`${pos.id}__${sp}`])
+          );
+        }
+
+        const cellData = resolveCellData(product, pos.id, activeSubPos);
         const isStepperActive =
           activeStepper?.productId === product.id && activeStepper?.positionId === pos.id;
 
@@ -82,6 +113,10 @@ export function MatrixProductRow({
             cellData={cellData}
             productId={product.id}
             positionId={pos.id}
+            subPos={activeSubPos || cellData?.subPos}
+            hasMultipleSubPositions={hasMultiple}
+            onCellClick={onCellClick}
+            onCellContextMenu={onCellContextMenu}
             isStepperActive={isStepperActive}
             onOpenStepper={onOpenStepper}
             onCloseStepper={onCloseStepper}

@@ -168,6 +168,74 @@ export const MATRIX_ORDERS_MOCK_DATA: MatrixOrder[] = [
   },
   {
     id: "V26001376",
+    historisch_document_url: '/documents/order-v26001376-logictrade.pdf',
+    media: [
+      {
+        id: 'med_01',
+        entityType: 'order',
+        entityId: 'V26001376',
+        type: 'photo',
+        title: 'Voorgevel Villa Maastricht',
+        url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
+        date: '07 aug 2026',
+        author: 'Carlo Heinemans',
+        description: 'Overzichtsfoto exterieur t.b.v. montageploeg.'
+      },
+      {
+        id: 'med_02',
+        entityType: 'room',
+        entityId: 'room_woonkamer',
+        type: 'photo',
+        title: 'Woonkamer Erker & Pui',
+        url: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=800&q=80',
+        date: '08 aug 2026',
+        author: 'Inmeter Jan',
+        description: 'Overzicht van de erker met 3 ramen en de schuifpui.'
+      },
+      {
+        id: 'med_03',
+        entityType: 'position',
+        entityId: 'pos_wk_pui',
+        type: 'photo',
+        title: 'Detail Schuifpui Bovenzijde',
+        url: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80',
+        date: '08 aug 2026',
+        author: 'Inmeter Jan',
+        description: 'Montagestrook schuifpui voor wave-gordijn en Duette rails.'
+      },
+      {
+        id: 'med_04',
+        entityType: 'position',
+        entityId: 'pos_wk_pui',
+        type: 'note',
+        title: 'Montage-aandachtspunt Pui',
+        date: '08 aug 2026',
+        author: 'Inmeter Jan',
+        description: 'Let op: nisdiepte is 140mm. Binnenloop rail monteren op 40mm vanaf het glas.'
+      },
+      {
+        id: 'med_05',
+        entityType: 'position',
+        entityId: 'pos_wk_erker_v',
+        type: 'photo',
+        title: 'Erker Voorzijde Raam',
+        url: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=800&q=80',
+        date: '08 aug 2026',
+        author: 'Inmeter Jan',
+        description: 'Middendeel erker met Top Down / Bottom Up SmartCord.'
+      },
+      {
+        id: 'med_06',
+        entityType: 'order',
+        entityId: 'V26001376',
+        type: 'video',
+        title: 'Werfvideo Draaicirkel Pui',
+        url: 'https://www.w3schools.com/html/mov_bbb.mp4',
+        date: '08 aug 2026',
+        author: 'Carlo Heinemans',
+        description: 'Korte videoinspectie van de draairichting schuifpui.'
+      }
+    ],
     klant: "Jaspers",
     plaats: "Maastricht",
     offerte: "O26000865",
@@ -206,7 +274,8 @@ export const MATRIX_ORDERS_MOCK_DATA: MatrixOrder[] = [
               { id: "pos_wk_z1", name: "Zijraam 1", type: "Raam", vlak: "Erker Zijwand L" },
               { id: "pos_wk_z2", name: "Zijraam 2", type: "Raam", vlak: "Erker Zijwand R" },
               { id: "pos_wk_z3", name: "Zijraam 3", type: "Raam", vlak: "Zijgevel Tuin" },
-              { id: "pos_wk_pui", name: "Schuifpui", type: "Pui", vlak: "Achtergevel Tuin" }
+              { id: "pos_wk_pui",
+              subPositions: ['a', 'b'], name: "Schuifpui", type: "Pui", vlak: "Achtergevel Tuin" }
             ]
           },
           {

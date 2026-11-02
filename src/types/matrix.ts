@@ -18,16 +18,32 @@ export interface LogicTradeOrderLine {
   etageName?: string;
 }
 
+export type PricingMode = 'm2' | 'm1_width' | 'm1_height' | 'unit';
+
+export interface DimensionLimits {
+  minWidth?: number;
+  maxWidth?: number;
+  minHeight?: number;
+  maxHeight?: number;
+}
+
 export interface CellPriceData {
   quantity: number;
   unit?: string;               // e.g. "st", "stel", "m²", "post"
   unitPriceCents: number;       // Invariante basis-stuksprijs in integer centen
-  totalPriceCents: number;      // Berekend: quantity * unitPriceCents
-  dim?: string;                 // Dimensie / maatvoering (e.g. "1100 × 1005")
+  totalPriceCents: number;      // Berekend: quantity * unitPriceCents (of via dimensionale CPQ)
+  dim?: string;                 // Dimensie / maatvoering (e.g. "1100 × 2240")
   note?: string;                // Specificatie (e.g. "TruFit MA", "Waveplooi op rail")
   line?: number;                // Referentie naar LogicTrade orderregel
   subPos?: string;              // Sub-positie letter ("a" | "b" | "c")
   isInbegrepen?: boolean;       // True voor stelposten / inbegrepen diensten
+  baseRateCents?: number;       // Tarief per m² of m¹ in integer centen
+  pricingMode?: PricingMode;    // Modus voor dimensionale berekening
+  breedte_mm?: number;          // Breedte in mm
+  hoogte_mm?: number;           // Hoogte in mm
+  afmetingen?: string;          // Formatted string (e.g. "1100 × 2240")
+  opmerking?: string;           // Vrije montagenotitie
+  isCalculated?: boolean;       // Vlag voor dynamische calculatie
 }
 
 export interface Position {
@@ -63,15 +79,23 @@ export interface MatrixProduct {
   name: string;                 // e.g. "GIW Duette® 32mm SmartCord TDBU"
   category: string;             // e.g. "Dienst / Service", "Raambekleding", "Gordijnen"
   unit: string;                 // e.g. "keer", "stuks", "stel"
-  posPrices: Record<string, CellPriceData>;
+  baseRateCents?: number;       // Tarief per m² / m¹
+  pricingMode?: PricingMode;
+  dimensionLimits?: DimensionLimits;
+  posPrices: Record<string, CellPriceData>; // Sleutel is positionId of compound key: `${positionId}__${subPos}`
 }
 
 export interface FsmProcessStep {
   step: number;
   label: string;
-  status: 'voltooid' | 'actueel' | 'toekomstig' | 'actie_vereist';
+  name?: string;
+  status: 'voltooid' | 'actueel' | 'toekomstig' | 'actie_vereist' | 'completed' | 'in_progress' | 'pending' | 'blocked';
   badge?: string;
   actionRequired?: boolean;
+  targetDate?: string;
+  completedDate?: string;
+  assignee?: string;
+  notes?: string;
 }
 
 export const FSM_STAGES: readonly FsmProcessStep[] = [
@@ -84,6 +108,79 @@ export const FSM_STAGES: readonly FsmProcessStep[] = [
   { step: 7, label: 'Montage', status: 'toekomstig', actionRequired: true, badge: '⚠️' },
   { step: 8, label: 'Facturatie', status: 'toekomstig', actionRequired: true, badge: '⚠️' },
 ] as const;
+
+export interface MediaItem {
+  id: string;
+  entityType: 'order' | 'etage' | 'room' | 'vlak' | 'cluster' | 'position' | 'cell';
+  entityId: string;
+  type: 'photo' | 'video' | 'note';
+  title: string;
+  url?: string;
+  date: string;
+  author: string;
+  thumbnailUrl?: string;
+  description?: string;
+}
+
+export type ContextMenuType = 'etage' | 'room' | 'cluster' | 'position' | 'cell';
+
+export type ActiveOverlay =
+  | {
+      type: 'context_menu';
+      contextType?: ContextMenuType;
+      menuType?: ContextMenuType;
+      targetId?: string;
+      positionId?: string;
+      productId?: string;
+      subPos?: string;
+      cellKey?: string;
+      contextTitle?: string;
+      title?: string;
+      anchorPosition?: { x: number; y: number };
+      x?: number;
+      y?: number;
+      data?: any;
+    }
+  | {
+      type: 'cell_edit';
+      positionId: string;
+      productId: string;
+      orderLineId?: string;
+      subPos?: string;
+      cellKey?: string;
+    }
+  | {
+      type: 'media' | 'media_drawer';
+      positionId?: string;
+      level?: 'order' | 'etage' | 'room' | 'vlak' | 'cluster' | 'position' | 'cell';
+      entityId?: string;
+      title?: string;
+    }
+  | {
+      type: 'fsm_modal';
+      step?: any;
+      label?: string;
+      status?: any;
+      history?: any[];
+    }
+  | {
+      type: 'stepper';
+      productId: string;
+      positionId: string;
+    }
+  | {
+      type: 'cluster_modal';
+      roomId: string;
+      clusterId?: string;
+    }
+  | {
+      type: 'position_drawer';
+      positionId: string;
+    }
+  | {
+      type: 'product_drawer';
+      productId: string;
+    };
 
 export interface MatrixOrder {
   id: string;                   // e.g. "V26001376"
@@ -100,9 +197,11 @@ export interface MatrixOrder {
   scopeDescription?: string;    // e.g. "Complete Villa: 18x Duette® over 6 Kamers"
   positionCount?: number;       // e.g. 15
   orderlineCount?: number;      // e.g. 10
+  historisch_document_url?: string; // Optionele link naar origineel LogicTrade brondocument
   etages: Etage[];
   products: MatrixProduct[];
   rawLines?: LogicTradeOrderLine[];
+  media?: MediaItem[];
 }
 
 export type RollupLevel = 'positie' | 'ruimte' | 'etage';

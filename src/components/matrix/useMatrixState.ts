@@ -1,23 +1,37 @@
-'use client';
-
 import { useState, useCallback, useMemo } from 'react';
-import { MatrixOrder, RollupLevel, CellPriceData } from '../../types/matrix';
+import { MatrixOrder, RollupLevel, CellPriceData, ActiveOverlay } from '../../types/matrix';
 import { MATRIX_ORDERS_MOCK_DATA } from '../../fixtures/matrix-mock-data';
+import {
+  cascadeDeletePosition,
+  buildCellKey,
+  parseCellKey,
+  resolveCellData,
+} from '../../utils/matrix-overlay-state';
+import { calculateOrderTotalCents } from '../../utils/matrix-pricing';
 
 export interface ActiveStepperState {
   productId: string;
   positionId: string;
 }
 
+/**
+ * State orchestration hook voor de Matrix Orders Browser.
+ * Enforces Single-Active Overlay Coordinator conform INV-GOV-21.
+ * Biedt CRUD cascading opschoning en deterministische CPQ herberekening.
+ */
 export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK_DATA) {
   const [orders, setOrders] = useState<MatrixOrder[]>(initialOrders);
-  const [currentOrderIndex, setCurrentOrderIndex] = useState<number>(2); // Default to Jaspers (V26001376)
-  const [fsmStage, setFsmStage] = useState<number>(5); // Default to Bestellen (Actueel)
+  const [currentOrderIndex, setCurrentOrderIndex] = useState<number>(2); // Jaspers (V26001376)
+  const [fsmStage, setFsmStage] = useState<number>(5); // Bestellen (Actueel)
   const [columnSelectMode, setColumnSelectMode] = useState<boolean>(false);
   const [selectedColumnIds, setSelectedColumnIds] = useState<Set<string>>(new Set());
-  const [activeStepper, setActiveStepper] = useState<ActiveStepperState | null>(null);
-  const [activeDrawer, setActiveDrawer] = useState<'media' | 'product' | null>(null);
+
+  // Single-Active Overlay State Machine Coordinator
+  const [activeOverlay, setActiveOverlay] = useState<ActiveOverlay | null>(null);
+
+  // Filter & UI instellingen
   const [activeMediaTab, setActiveMediaTab] = useState<'foto' | 'video' | 'opmerking'>('foto');
+  const [mediaContextFilter, setMediaContextFilter] = useState<'position' | 'room' | 'project'>('project');
   const [rollupLevel, setRollupLevel] = useState<RollupLevel>('positie');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
 
@@ -25,10 +39,32 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     return orders[currentOrderIndex] ?? orders[0];
   }, [orders, currentOrderIndex]);
 
+  // Backwards-compatible afgeleide velden voor legacy componenten
+  const activeStepper: ActiveStepperState | null = useMemo(() => {
+    if (activeOverlay?.type === 'stepper' && activeOverlay.productId && activeOverlay.positionId) {
+      return { productId: activeOverlay.productId, positionId: activeOverlay.positionId };
+    }
+    return null;
+  }, [activeOverlay]);
+
+  const activeDrawer = useMemo<'media' | 'product' | null>(() => {
+    if (activeOverlay?.type === 'media' || activeOverlay?.type === 'media_drawer') return 'media';
+    if (activeOverlay?.type === 'cell_edit') return 'product';
+    return null;
+  }, [activeOverlay]);
+
+  const openOverlay = useCallback((overlay: ActiveOverlay) => {
+    setActiveOverlay(overlay);
+  }, []);
+
+  const closeOverlay = useCallback(() => {
+    setActiveOverlay(null);
+  }, []);
+
   const selectOrder = useCallback((index: number) => {
     if (index >= 0 && index < orders.length) {
       setCurrentOrderIndex(index);
-      setActiveStepper(null);
+      setActiveOverlay(null);
       setSelectedColumnIds(new Set());
     }
   }, [orders.length]);
@@ -58,50 +94,143 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     setSelectedColumnIds(new Set());
   }, []);
 
+  // Legacy stepper handlers gemapt naar Single-Active Coordinator
   const openStepper = useCallback((productId: string, positionId: string) => {
-    setActiveStepper({ productId, positionId });
+    setActiveOverlay({ type: 'stepper', productId, positionId });
   }, []);
 
   const closeStepper = useCallback(() => {
-    setActiveStepper(null);
+    setActiveOverlay(null);
   }, []);
 
-  const updateQuantity = useCallback((productId: string, positionId: string, delta: number) => {
-    setOrders((prevOrders) => {
-      return prevOrders.map((order, idx) => {
-        if (idx !== currentOrderIndex) return order;
+  const setActiveDrawer = useCallback((drawer: 'media' | 'product' | null) => {
+    if (!drawer) {
+      setActiveOverlay(null);
+    } else if (drawer === 'media') {
+      setActiveOverlay({ type: 'media' });
+    }
+  }, []);
 
-        const updatedProducts = order.products.map((product) => {
-          if (product.id !== productId) return product;
+  // CRUD: Verwijderen van een positie met 4-voudige cascade opschoning
+  const deletePosition = useCallback(
+    (posId: string) => {
+      const updatedOrder = cascadeDeletePosition(selectedOrder, posId);
 
-          const currentCell: CellPriceData | undefined = product.posPrices[positionId];
-          if (!currentCell) return product;
+      setSelectedColumnIds((prev) => {
+        const next = new Set(prev);
+        next.delete(posId);
+        return next;
+      });
 
-          const newQty = Math.max(0, currentCell.quantity + delta);
-          const newTotalPrice = newQty * currentCell.unitPriceCents;
+      setOrders((prev) =>
+        prev.map((ord, idx) => (idx === currentOrderIndex ? updatedOrder : ord))
+      );
 
-          const updatedCell: CellPriceData = {
-            ...currentCell,
-            quantity: newQty,
-            totalPriceCents: newTotalPrice,
-          };
+      if (activeOverlay && 'positionId' in activeOverlay && activeOverlay.positionId === posId) {
+        setActiveOverlay(null);
+      }
+    },
+    [selectedOrder, currentOrderIndex, activeOverlay]
+  );
+
+  // CRUD: Cel bijwerken met automatische CPQ herberekening
+  const updateCell = useCallback(
+    (cellKey: string, updates: Partial<CellPriceData>) => {
+      const { positionId, subPos } = parseCellKey(cellKey);
+
+      setOrders((prev) =>
+        prev.map((order, idx) => {
+          if (idx !== currentOrderIndex) return order;
+
+          const updatedProducts = order.products.map((product) => {
+            const currentCell = resolveCellData(product, positionId, subPos);
+            if (!currentCell) return product;
+
+            const updatedCell: CellPriceData = {
+              ...currentCell,
+              ...updates,
+            };
+
+            const key = buildCellKey(positionId, subPos);
+            return {
+              ...product,
+              posPrices: {
+                ...product.posPrices,
+                [key]: updatedCell,
+              },
+            };
+          });
+
+          const intermediateOrder = { ...order, products: updatedProducts };
+          const recalculatedTotal = calculateOrderTotalCents(intermediateOrder);
 
           return {
-            ...product,
-            posPrices: {
-              ...product.posPrices,
-              [positionId]: updatedCell,
-            },
+            ...intermediateOrder,
+            totaalbedragCents: recalculatedTotal,
           };
-        });
+        })
+      );
+    },
+    [currentOrderIndex]
+  );
 
-        return {
-          ...order,
-          products: updatedProducts,
-        };
-      });
-    });
-  }, [currentOrderIndex]);
+  // CRUD: Product toewijzen aan lege cel
+  const assignProductToCell = useCallback(
+    (productId: string, positionId: string, subPos?: string, initialData?: Partial<CellPriceData>) => {
+      const key = buildCellKey(positionId, subPos);
+      const defaultCell: CellPriceData = {
+        quantity: 1,
+        unit: 'stuks',
+        unitPriceCents: 15000,
+        totalPriceCents: 15000,
+        pricingMode: 'unit',
+        isCalculated: true,
+        ...initialData,
+      };
+
+      setOrders((prev) =>
+        prev.map((order, idx) => {
+          if (idx !== currentOrderIndex) return order;
+
+          const updatedProducts = order.products.map((p) => {
+            if (p.id !== productId) return p;
+            return {
+              ...p,
+              posPrices: {
+                ...p.posPrices,
+                [key]: defaultCell,
+              },
+            };
+          });
+
+          const intermediateOrder = { ...order, products: updatedProducts };
+          const recalculatedTotal = calculateOrderTotalCents(intermediateOrder);
+
+          return {
+            ...intermediateOrder,
+            totaalbedragCents: recalculatedTotal,
+          };
+        })
+      );
+    },
+    [currentOrderIndex]
+  );
+
+  // Legacy quantity incrementer
+  const updateQuantity = useCallback(
+    (productId: string, positionId: string, delta: number) => {
+      const key = positionId;
+      const product = selectedOrder.products.find((p) => p.id === productId);
+      const currentCell = product?.posPrices[key];
+      if (!currentCell) return;
+
+      const newQty = Math.max(0, currentCell.quantity + delta);
+      const newTotal = newQty * (currentCell.unitPriceCents || 0);
+
+      updateCell(key, { quantity: newQty, totalPriceCents: newTotal });
+    },
+    [selectedOrder, updateCell]
+  );
 
   return {
     orders,
@@ -111,21 +240,32 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     setFsmStage,
     columnSelectMode,
     selectedColumnIds,
+    activeOverlay,
+    openOverlay,
+    closeOverlay,
+    // Backwards compatibility
     activeStepper,
     activeDrawer,
+    openStepper,
+    closeStepper,
+    setActiveDrawer,
+    // Media & UI
     activeMediaTab,
+    setActiveMediaTab,
+    mediaContextFilter,
+    setMediaContextFilter,
     rollupLevel,
+    setRollupLevel,
     sidebarOpen,
     setSidebarOpen,
+    // Handlers
     selectOrder,
     toggleColumnSelection,
     toggleColumnSelectMode,
     clearColumnSelection,
-    openStepper,
-    closeStepper,
     updateQuantity,
-    setActiveDrawer,
-    setActiveMediaTab,
-    setRollupLevel,
+    deletePosition,
+    updateCell,
+    assignProductToCell,
   };
 }

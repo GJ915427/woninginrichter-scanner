@@ -3,16 +3,21 @@
 import React from 'react';
 import { FSM_STAGES, FsmProcessStep } from '../../types/matrix';
 
-interface MatrixActionBarProps {
+export interface MatrixActionBarProps {
   currentStage: number;
-  onStageChange: (step: number) => void;
+  onStageChange: (stage: number) => void;
   columnSelectMode: boolean;
   selectedColumnCount: number;
   onToggleColumnSelectMode: () => void;
   onOpenMediaDrawer: (tab: 'foto' | 'video' | 'opmerking') => void;
-  onOpenProductDrawer?: () => void;
+  onFsmStepClick?: (step: FsmProcessStep) => void;
+  historischDocumentUrl?: string;
 }
 
+/**
+ * Actiebalk voor processtappen, LogicTrade brondocument en media drawers.
+ * Voldoet aan INV-GOV-22 (<250 regels) en elimineert storende browser alerts.
+ */
 export function MatrixActionBar({
   currentStage,
   onStageChange,
@@ -20,7 +25,22 @@ export function MatrixActionBar({
   selectedColumnCount,
   onToggleColumnSelectMode,
   onOpenMediaDrawer,
+  onFsmStepClick,
+  historischDocumentUrl,
 }: MatrixActionBarProps) {
+  const handleStepClick = (step: FsmProcessStep) => {
+    if (step.step <= currentStage) {
+      // Reeds bereikte of voltooide stap toont FSM modal met details
+      if (onFsmStepClick) {
+        onFsmStepClick(step);
+      } else {
+        onStageChange(step.step);
+      }
+    } else {
+      onStageChange(step.step);
+    }
+  };
+
   return (
     <div className="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
       {/* LINKER SECTIE: FSM PROCESSTAPPEN (8 STAPPEN) */}
@@ -34,7 +54,8 @@ export function MatrixActionBar({
           const isCurrent = step.step === currentStage;
           const isLocked = step.step > currentStage;
 
-          let btnClasses = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ';
+          let btnClasses =
+            'px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ';
           if (isCurrent) {
             btnClasses += 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400 font-bold';
           } else if (isCompleted) {
@@ -48,9 +69,9 @@ export function MatrixActionBar({
               key={step.step}
               type="button"
               id={`fsm-step-${step.step}`}
-              onClick={() => onStageChange(step.step)}
+              onClick={() => handleStepClick(step)}
               className={btnClasses}
-              title={`Fase ${step.step}: ${step.label}`}
+              title={`Fase ${step.step}: ${step.label} (klik voor details)`}
             >
               <span>{isCompleted ? '✓' : isCurrent ? '▶' : step.step}</span>
               <span>{step.label}</span>
@@ -67,8 +88,23 @@ export function MatrixActionBar({
         })}
       </div>
 
-      {/* RECHTER SECTIE: MEDIA & ACTIEKNOOPEN */}
+      {/* RECHTER SECTIE: LOGICTRADE DOCUMENT, MEDIA & ACTIEKNOPPEN */}
       <div className="flex items-center gap-2">
+        {/* Historisch gegenereerd LogicTrade document link */}
+        {historischDocumentUrl && (
+          <a
+            href={historischDocumentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            id="btn-historisch-document"
+            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            title="Origineel historisch LogicTrade brondocument openen"
+          >
+            <span>📄</span>
+            <span className="hidden md:inline">LT Brondocument</span>
+          </a>
+        )}
+
         <button
           type="button"
           onClick={() => onOpenMediaDrawer('foto')}
