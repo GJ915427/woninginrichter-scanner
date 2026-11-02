@@ -22,5 +22,34 @@
       "enabled": true
     }
   },
-  "exemptions": []
+  "exemptions": [],
+  "subpath_test_matrix": {
+    "src/components/matrix": {
+      "e2e_command": [
+        "npx",
+        "playwright",
+        "test",
+        "tests/e2e/matrix-contextmenus-crud.spec.ts",
+        "tests/e2e/matrix-visual-parity.spec.ts"
+      ]
+    },
+    "src/app/matrix-orders": {
+      "e2e_command": [
+        "npx",
+        "playwright",
+        "test",
+        "tests/e2e/matrix-contextmenus-crud.spec.ts",
+        "tests/e2e/matrix-visual-parity.spec.ts"
+      ]
+    },
+    "tests/e2e/matrix": {
+      "e2e_command": [
+        "npx",
+        "playwright",
+        "test",
+        "tests/e2e/matrix-contextmenus-crud.spec.ts",
+        "tests/e2e/matrix-visual-parity.spec.ts"
+      ]
+    }
+  }
 }

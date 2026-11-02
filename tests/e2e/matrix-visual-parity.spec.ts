@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-// [SPEC-CHANGE-AUTHORIZED: Migratie van TC-PAR-04 van inline-stepper naar cel-click bewerkingsflow conform Gebruikersitem 8]
+// [SPEC-CHANGE-AUTHORIZED: Uitbreiding van visual parity tests met EasyM2M menu tabs, 12-velden meta card en GSW 2026 snapshot conform Fase 3]
 
 test.describe('Matrix Orders Visual & Dimension Parity', () => {
   test.beforeEach(async ({ page }) => {
@@ -8,7 +8,7 @@ test.describe('Matrix Orders Visual & Dimension Parity', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
   });
 
-  // TC-PAR-01: Visual & Layout Baseline Parity
+  // TC-PAR-01: Visual & Layout Baseline Parity (EasyM2M, Menutabs & Meta Card)
   test('TC-PAR-01: Baseline parity between benchmark and Next.js page', async ({ page }) => {
     // Verify static benchmark HTML is served
     await page.goto('/matrix-v3-benchmark.html');
@@ -18,6 +18,21 @@ test.describe('Matrix Orders Visual & Dimension Parity', () => {
     await page.goto('/matrix-orders');
     await expect(page.locator('#matrix-table')).toBeVisible();
     await expect(page.locator('h1')).toContainText('V26001376');
+
+    // Verify Row 1 EasyM2M Corporate Header & 6 Menu Tabs
+    await expect(page.locator('text=EasyM²M')).toBeVisible();
+    await expect(page.locator('button:has-text("Project")')).toBeVisible();
+    await expect(page.locator('text=Jan (GSW)')).toBeVisible();
+
+    // Verify Row 2 12-field Order Meta Card
+    await expect(page.locator('#meta-order-number')).toContainText('V26001376');
+    await expect(page.locator('#meta-customer-name')).toContainText('Jaspers');
+    await expect(page.locator('#meta-status')).toContainText('Definitief');
+    await expect(page.locator('#meta-lines-count')).toBeVisible();
+
+    // Verify Sidebar GSW 2026 Omzet Snapshot
+    await expect(page.locator('text=Winkel GSW BV (2026)')).toBeVisible();
+    await expect(page.locator('text=674')).toBeVisible();
   });
 
   // TC-PAR-02: Sticky Header Offsets (0px, 34px, 66px, 98px)
@@ -80,12 +95,12 @@ test.describe('Matrix Orders Visual & Dimension Parity', () => {
     // Klik op de cel opent de Product Edit Drawer
     await firstCell.click();
 
-    const drawer = page.locator('div[role=\"dialog\"][aria-labelledby=\"product-edit-title\"]');
+    const drawer = page.locator('div[role="dialog"][aria-labelledby="product-edit-title"]');
     await expect(drawer).toBeVisible();
 
     // Verifieer formulierelementen (maten, aantal, CPQ realtime calculatie)
-    await expect(drawer.locator('input[type=\"number\"]').first()).toBeVisible();
-    await expect(drawer.locator('button:has-text(\"Opslaan & Toepassen\")')).toBeVisible();
+    await expect(drawer.locator('input[type="number"]').first()).toBeVisible();
+    await expect(drawer.locator('button:has-text("Opslaan & Toepassen")')).toBeVisible();
 
     // Sluiten via Escape
     await page.keyboard.press('Escape');

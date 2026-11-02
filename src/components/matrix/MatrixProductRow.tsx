@@ -10,6 +10,7 @@ export interface MatrixProductRowProps {
   positions: Position[];
   rowIndex: number;
   highlightedCellKey?: string | null;
+  categoryHeader?: string;
   onCellClick: (
     productId: string,
     positionId: string,
@@ -31,13 +32,14 @@ export interface MatrixProductRowProps {
 
 /**
  * Productrij in de matrixweergave conform INV-GOV-22 (<250 regels).
- * Handelt compound key resolve, conditionele subposities en interactieve highlighting af.
+ * Handelt compound key resolve, conditionele subposities, dynamische categoriescheiders en highlighting af.
  */
 export function MatrixProductRow({
   product,
   positions,
   rowIndex,
   highlightedCellKey,
+  categoryHeader,
   onCellClick,
   onCellContextMenu,
   activeStepper,
@@ -60,6 +62,12 @@ export function MatrixProductRow({
         className={`sticky left-0 z-10 w-[280px] min-w-[280px] max-w-[280px] px-4 py-3 text-left border-r border-b border-slate-200 ${col0Bg} font-normal select-none`}
       >
         <div className="flex flex-col gap-0.5">
+          {categoryHeader && (
+            <div className="mb-1 -mt-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded self-start">
+              {categoryHeader}
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-1">
             <span className="font-bold text-xs text-slate-900 leading-snug line-clamp-2">
               {product.name}
