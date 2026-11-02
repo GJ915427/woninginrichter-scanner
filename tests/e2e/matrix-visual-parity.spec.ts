@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-// [SPEC-CHANGE-AUTHORIZED: Uitbreiding van visual parity tests met EasyM2M menu tabs, 12-velden meta card en GSW 2026 snapshot conform Fase 3]
+// [SPEC-CHANGE-AUTHORIZED: Geometrische herkalibratie van sticky thead top offsets (36px, 70px) ter synchronisatie met celhoogtes h-[36px] en h-[34px]]
 
 test.describe('Matrix Orders Visual & Dimension Parity', () => {
   test.beforeEach(async ({ page }) => {
@@ -35,7 +35,7 @@ test.describe('Matrix Orders Visual & Dimension Parity', () => {
     await expect(page.locator('text=674')).toBeVisible();
   });
 
-  // TC-PAR-02: Sticky Header Offsets (0px, 34px, 66px, 98px)
+  // TC-PAR-02: Sticky Header Offsets (0px, 36px, 70px, 98px)
   test('TC-PAR-02: Computed sticky top offsets of the 4 header rows', async ({ page }) => {
     await page.goto('/matrix-orders');
     await page.waitForSelector('#matrix-table thead tr');
@@ -47,8 +47,8 @@ test.describe('Matrix Orders Visual & Dimension Parity', () => {
 
     expect(topOffsets.length).toBe(4);
     expect(topOffsets[0]).toBe('0px');
-    expect(topOffsets[1]).toBe('34px');
-    expect(topOffsets[2]).toBe('66px');
+    expect(topOffsets[1]).toBe('36px');
+    expect(topOffsets[2]).toBe('70px');
     expect(topOffsets[3]).toBe('98px');
   });
 
@@ -179,5 +179,86 @@ test.describe('Matrix Orders Visual & Dimension Parity', () => {
     // Header updates to V26001761
     await expect(page.locator('h1')).toContainText('V26001761');
     await expect(page.locator('body')).toContainText('DrHaack holding b.v.');
+  });
+
+  // TC-STICKY-01: Freeze-pane Horizontal Scroll (Kolom 0 Invariance)
+  test('TC-STICKY-01: Freeze-pane Column 0 remains fixed at left during horizontal scroll', async ({ page }) => {
+    await page.goto('/matrix-orders');
+    await page.waitForSelector('#matrix-viewport');
+
+    const col0 = page.locator('#matrix-table tbody tr:first-child th:first-child');
+    await expect(col0).toBeVisible();
+    const boxBefore = await col0.boundingBox();
+    expect(boxBefore).not.toBeNull();
+
+    // Scroll horizontally by 600px inside #matrix-viewport
+    await page.evaluate(() => {
+      const vp = document.getElementById('matrix-viewport');
+      if (vp) vp.scrollLeft = 600;
+    });
+    await page.waitForTimeout(100);
+
+    const boxAfter = await col0.boundingBox();
+    expect(boxAfter).not.toBeNull();
+    if (boxBefore && boxAfter) {
+      expect(boxAfter.x).toBeCloseTo(boxBefore.x, 1);
+    }
+  });
+
+  // TC-STICKY-02: Freeze-pane Vertical Scroll (Thead Invariance)
+  test('TC-STICKY-02: Freeze-pane Header rows remain fixed at top during vertical scroll', async ({ page }) => {
+    await page.goto('/matrix-orders');
+    await page.waitForSelector('#matrix-viewport');
+
+    const row1 = page.locator('#matrix-table thead tr:first-child');
+    const boxBefore = await row1.boundingBox();
+    expect(boxBefore).not.toBeNull();
+
+    // Scroll vertically by 300px inside #matrix-viewport
+    await page.evaluate(() => {
+      const vp = document.getElementById('matrix-viewport');
+      if (vp) vp.scrollTop = 300;
+    });
+    await page.waitForTimeout(100);
+
+    const boxAfter = await row1.boundingBox();
+    expect(boxAfter).not.toBeNull();
+    if (boxBefore && boxAfter) {
+      expect(boxAfter.y).toBeCloseTo(boxBefore.y, 1);
+    }
+  });
+
+  // TC-SLIDE-01: Fluid Flexbox Sliding Header Toggle
+  test('TC-SLIDE-01: Sliding header toggle collapses order meta card and expands viewport', async ({ page }) => {
+    await page.goto('/matrix-orders');
+    await page.waitForSelector('#matrix-viewport');
+
+    const vp = page.locator('#matrix-viewport');
+    const vpBoxInitial = await vp.boundingBox();
+    expect(vpBoxInitial).not.toBeNull();
+
+    const toggleBtn = page.locator('#btn-toggle-header-collapse');
+    await expect(toggleBtn).toBeVisible();
+    await expect(toggleBtn).toHaveAttribute('aria-expanded', 'true');
+
+    // Order meta card should be visible
+    await expect(page.locator('#order-meta-card #meta-order-number')).toBeVisible();
+
+    // Click toggle to collapse
+    await toggleBtn.click();
+    await expect(toggleBtn).toHaveAttribute('aria-expanded', 'false');
+
+    // Order meta card content is now hidden
+    await expect(page.locator('#order-meta-card #meta-order-number')).not.toBeVisible();
+
+    // Wait for CSS height transition to complete
+    await page.waitForTimeout(300);
+
+    // Matrix viewport height should have expanded
+    const vpBoxCollapsed = await vp.boundingBox();
+    expect(vpBoxCollapsed).not.toBeNull();
+    if (vpBoxInitial && vpBoxCollapsed) {
+      expect(vpBoxCollapsed.height).toBeGreaterThan(vpBoxInitial.height + 40);
+    }
   });
 });

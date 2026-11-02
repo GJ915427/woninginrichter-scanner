@@ -7,7 +7,7 @@ export interface MatrixHeaderProps {
   etages: Etage[];
   columnSelectMode: boolean;
   selectedColumnIds: Set<string>;
-  onToggleColumnSelection: (posId: string) => void;
+  onToggleColumnSelection: (positionId: string) => void;
   onHeaderContextMenu?: (
     type: 'etage' | 'room' | 'cluster' | 'position',
     title: string,
@@ -16,11 +16,22 @@ export interface MatrixHeaderProps {
   ) => void;
 }
 
+interface FlattenedPosition {
+  position: Position;
+  roomId: string;
+  roomName: string;
+  etageId: string;
+  etageName: string;
+}
+
 /**
- * Sticky tabelheaders conform INV-GOV-22 (<250 regels).
- * - Dynamische clusterrij: verbergt automatisch indien geen clusters aanwezig zijn.
- * - Contextmenu triggers op alle 4 niveaus (Etage, Ruimte, Cluster, Positie) met Fitts' Law touch targets >= 44px.
- * - Dynamische sticky top offsets (top-66px vs top-98px).
+ * 4-lagige sticky header conform de SSOT Matrix Architectuur.
+ * Geometrisch gecalibreerde offsets:
+ * - Rij 1: Etage (top: 0px, h-36px, z-30, col 0 z-40)
+ * - Rij 2: Ruimte (top: 36px, h-34px, z-30, col 0 z-40)
+ * - Rij 3: Cluster (top: 70px, h-28px, z-30, col 0 z-40)
+ * - Rij 4: Posities (top: 98px / 70px, h-54px, z-30, col 0 z-40)
+ * Voldoet aan INV-GOV-22 (<250 regels, 0 hooks) en border-separate rendering.
  */
 export function MatrixHeader({
   etages,
@@ -29,20 +40,13 @@ export function MatrixHeader({
   onToggleColumnSelection,
   onHeaderContextMenu,
 }: MatrixHeaderProps) {
-  // Bepaal of er ten minste één cluster aanwezig is in het project
   const hasClusters = etages.some((e) =>
     e.rooms.some((r) => r.clusters && r.clusters.length > 0)
   );
 
-  // Flatten all positions across etages & rooms
-  const allPositions: {
-    position: Position;
-    roomId: string;
-    roomName: string;
-    etageId: string;
-    etageName: string;
-  }[] = [];
+  const row4Top = hasClusters ? '98px' : '70px';
 
+  const allPositions: FlattenedPosition[] = [];
   etages.forEach((etage) => {
     etage.rooms.forEach((room) => {
       room.positions.forEach((pos) => {
@@ -72,15 +76,18 @@ export function MatrixHeader({
 
   return (
     <thead>
-      {/* RIJ 1: ETAGE HEADER (top: 0px) */}
-      <tr style={{ top: '0px' }} className="sticky top-0 z-20 bg-slate-100 text-xs font-bold text-slate-800 border-b border-slate-200">
+      {/* RIJ 1: ETAGE HEADER (top: 0px, h: 36px) */}
+      <tr style={{ top: '0px' }} className="sticky top-0 z-30 bg-slate-100 text-xs font-bold text-slate-800 border-b border-slate-200 h-[36px]">
         <th
           style={{ top: '0px', left: '0px' }}
-          className="sticky left-0 top-0 z-30 w-[280px] min-w-[280px] max-w-[280px] bg-slate-100 px-4 py-2 text-left font-semibold text-slate-600 border-r border-slate-200"
+          className="sticky left-0 top-0 z-40 w-[280px] min-w-[280px] max-w-[280px] bg-slate-100 px-4 py-1 text-left font-semibold text-slate-600 border-r border-b border-slate-300 h-[36px]"
         >
           etage
         </th>
-        <th className="w-[160px] min-w-[160px] max-w-[160px] bg-amber-50/80 px-3 py-2 text-center text-amber-900 border-r border-amber-200 font-bold">
+        <th
+          style={{ top: '0px' }}
+          className="sticky top-0 z-30 w-[160px] min-w-[160px] max-w-[160px] bg-amber-50/80 px-3 py-1 text-center text-amber-900 border-r border-b border-amber-200 font-bold h-[36px]"
+        >
           Algemeen
         </th>
         {etages.map((etage) => {
@@ -90,10 +97,11 @@ export function MatrixHeader({
             <th
               key={etage.id}
               colSpan={Math.max(1, totalPos)}
+              style={{ top: '0px' }}
               onContextMenu={(e) => handleContextMenu('etage', etage.name, etage.id, e)}
-              className="bg-slate-100 px-3 py-2 text-center font-bold text-slate-800 border-r border-slate-300 cursor-context-menu select-none"
+              className="sticky top-0 z-30 bg-slate-100 px-3 py-1 text-center font-bold text-slate-800 border-r border-b border-slate-300 cursor-context-menu select-none h-[36px]"
             >
-              <span className="inline-flex min-h-[32px] items-center gap-1.5 px-3 py-1 rounded bg-white border border-slate-200 shadow-2xs hover:bg-slate-50 transition">
+              <span className="inline-flex min-h-[26px] h-full items-center gap-1.5 px-3 py-0.5 rounded bg-white border border-slate-200 shadow-2xs hover:bg-slate-50 transition">
                 🏢 {etage.name}
               </span>
             </th>
@@ -101,15 +109,18 @@ export function MatrixHeader({
         })}
       </tr>
 
-      {/* RIJ 2: RUIMTE HEADER (top: 34px) */}
-      <tr style={{ top: '34px' }} className="sticky top-[34px] z-20 bg-slate-50 text-xs font-semibold text-slate-700 border-b border-slate-200">
+      {/* RIJ 2: RUIMTE HEADER (top: 36px, h: 34px) */}
+      <tr style={{ top: '36px' }} className="sticky top-[36px] z-30 bg-slate-50 text-xs font-semibold text-slate-700 border-b border-slate-200 h-[34px]">
         <th
-          style={{ top: '34px', left: '0px' }}
-          className="sticky left-0 top-[34px] z-30 w-[280px] min-w-[280px] max-w-[280px] bg-slate-50 px-4 py-2 text-left text-slate-600 border-r border-slate-200"
+          style={{ top: '36px', left: '0px' }}
+          className="sticky left-0 top-[36px] z-40 w-[280px] min-w-[280px] max-w-[280px] bg-slate-50 px-4 py-1 text-left text-slate-600 border-r border-b border-slate-300 h-[34px]"
         >
           ruimte
         </th>
-        <th className="w-[160px] min-w-[160px] max-w-[160px] bg-amber-50/50 px-3 py-2 text-center text-amber-800 border-r border-amber-200 text-[11px]">
+        <th
+          style={{ top: '36px' }}
+          className="sticky top-[36px] z-30 w-[160px] min-w-[160px] max-w-[160px] bg-amber-50/50 px-3 py-1 text-center text-amber-800 border-r border-b border-amber-200 text-[11px] h-[34px]"
+        >
           Project
         </th>
         {etages.flatMap((etage) =>
@@ -117,10 +128,11 @@ export function MatrixHeader({
             <th
               key={room.id}
               colSpan={Math.max(1, room.positions.length)}
+              style={{ top: '36px' }}
               onContextMenu={(e) => handleContextMenu('room', room.name, room.id, e)}
-              className="bg-slate-50 px-3 py-2 text-center text-slate-700 border-r border-slate-200 text-xs cursor-context-menu select-none"
+              className="sticky top-[36px] z-30 bg-slate-50 px-3 py-1 text-center text-slate-700 border-r border-b border-slate-200 text-xs cursor-context-menu select-none h-[34px]"
             >
-              <span className="inline-flex min-h-[32px] items-center gap-1 px-2.5 py-1 rounded bg-white/80 border border-slate-200 hover:bg-white transition">
+              <span className="inline-flex min-h-[24px] h-full items-center gap-1 px-2.5 py-0.5 rounded bg-white/80 border border-slate-200 hover:bg-white transition">
                 <span>{room.name}</span>
                 <span className="text-[10px] text-slate-400 font-normal">({room.positions.length} pos)</span>
               </span>
@@ -129,16 +141,19 @@ export function MatrixHeader({
         )}
       </tr>
 
-      {/* RIJ 3: CLUSTER / VLAK HEADER (top: 66px) - CONDITIONEEL GERENDERD */}
+      {/* RIJ 3: CLUSTER / VLAK HEADER (top: 70px, h: 28px) - CONDITIONEEL GERENDERD */}
       {hasClusters && (
-        <tr style={{ top: '66px' }} className="sticky top-[66px] z-20 bg-white text-[11px] text-slate-500 border-b border-slate-200">
+        <tr style={{ top: '70px' }} className="sticky top-[70px] z-30 bg-white text-[11px] text-slate-500 border-b border-slate-200 h-[28px]">
           <th
-            style={{ top: '66px', left: '0px' }}
-            className="sticky left-0 top-[66px] z-30 w-[280px] min-w-[280px] max-w-[280px] bg-white px-4 py-1.5 text-left text-slate-500 border-r border-slate-200 font-normal"
+            style={{ top: '70px', left: '0px' }}
+            className="sticky left-0 top-[70px] z-40 w-[280px] min-w-[280px] max-w-[280px] bg-white px-4 py-0.5 text-left text-slate-500 border-r border-b border-slate-300 font-normal h-[28px]"
           >
             positie-cluster
           </th>
-          <th className="w-[160px] min-w-[160px] max-w-[160px] bg-amber-50/30 px-3 py-1.5 text-center text-amber-700 border-r border-amber-200">
+          <th
+            style={{ top: '70px' }}
+            className="sticky top-[70px] z-30 w-[160px] min-w-[160px] max-w-[160px] bg-amber-50/30 px-3 py-0.5 text-center text-amber-700 border-r border-b border-amber-200 h-[28px]"
+          >
             —
           </th>
           {etages.flatMap((etage) =>
@@ -151,13 +166,18 @@ export function MatrixHeader({
                   <React.Fragment key={room.id + '-clusters'}>
                     <th
                       colSpan={Math.max(1, clusteredPositions.length)}
+                      style={{ top: '70px' }}
                       onContextMenu={(e) => handleContextMenu('cluster', cluster.name, cluster.id, e)}
-                      className="bg-blue-50/50 px-3 py-1 text-center text-blue-700 border-r border-blue-200 font-medium cursor-context-menu select-none hover:bg-blue-100/50 transition"
+                      className="sticky top-[70px] z-30 bg-blue-50/50 px-3 py-0.5 text-center text-blue-700 border-r border-b border-blue-200 font-medium cursor-context-menu select-none hover:bg-blue-100/50 transition h-[28px]"
                     >
                       🔗 {cluster.name}
                     </th>
                     {remainingPositions.map((pos) => (
-                      <th key={pos.id} className="px-3 py-1 text-center text-slate-400 border-r border-slate-200">
+                      <th
+                        key={pos.id}
+                        style={{ top: '70px' }}
+                        className="sticky top-[70px] z-30 px-3 py-0.5 text-center text-slate-400 border-r border-b border-slate-200 h-[28px]"
+                      >
                         —
                       </th>
                     ))}
@@ -165,7 +185,11 @@ export function MatrixHeader({
                 );
               }
               return room.positions.map((pos) => (
-                <th key={pos.id} className="px-3 py-1 text-center text-slate-400 border-r border-slate-200">
+                <th
+                  key={pos.id}
+                  style={{ top: '70px' }}
+                  className="sticky top-[70px] z-30 px-3 py-0.5 text-center text-slate-400 border-r border-b border-slate-200 h-[28px]"
+                >
                   —
                 </th>
               ));
@@ -174,18 +198,21 @@ export function MatrixHeader({
         </tr>
       )}
 
-      {/* RIJ 4: POSITIES MET DYNAMISCHE STICKY OFFSET (top: 98px met cluster, top: 66px zonder cluster) */}
+      {/* RIJ 4: POSITIES MET DYNAMISCHE STICKY OFFSET (top: 98px met cluster, top: 70px zonder cluster, h: 54px) */}
       <tr
-        style={{ top: hasClusters ? '98px' : '66px' }}
-        className={`sticky ${hasClusters ? 'top-[98px]' : 'top-[66px]'} z-20 bg-slate-50/90 text-xs font-semibold text-slate-800 border-b-2 border-slate-300`}
+        style={{ top: row4Top }}
+        className={`sticky ${hasClusters ? 'top-[98px]' : 'top-[70px]'} z-30 bg-slate-50/90 text-xs font-semibold text-slate-800 border-b-2 border-slate-300 h-[54px]`}
       >
         <th
-          style={{ top: hasClusters ? '98px' : '66px', left: '0px' }}
-          className={`sticky left-0 ${hasClusters ? 'top-[98px]' : 'top-[66px]'} z-30 w-[280px] min-w-[280px] max-w-[280px] bg-slate-100 px-4 py-2.5 text-left font-bold text-slate-900 border-r border-slate-200`}
+          style={{ top: row4Top, left: '0px' }}
+          className={`sticky left-0 ${hasClusters ? 'top-[98px]' : 'top-[70px]'} z-40 w-[280px] min-w-[280px] max-w-[280px] bg-slate-100 px-4 py-2 text-left font-bold text-slate-900 border-r border-b border-slate-300 h-[54px]`}
         >
           Artikelen & Diensten
         </th>
-        <th className="w-[160px] min-w-[160px] max-w-[160px] bg-amber-50 px-3 py-2.5 text-center text-amber-950 border-r border-amber-200">
+        <th
+          style={{ top: row4Top }}
+          className={`sticky ${hasClusters ? 'top-[98px]' : 'top-[70px]'} z-30 w-[160px] min-w-[160px] max-w-[160px] bg-amber-50 px-3 py-2 text-center text-amber-950 border-r border-b border-amber-200 h-[54px]`}
+        >
           <div className="font-bold">Algemeen</div>
           <div className="text-[10px] text-amber-800 font-normal">Projectscope Diensten</div>
         </th>
@@ -194,9 +221,10 @@ export function MatrixHeader({
           return (
             <th
               key={position.id}
+              style={{ top: row4Top }}
               onClick={() => columnSelectMode && onToggleColumnSelection(position.id)}
               onContextMenu={(e) => handleContextMenu('position', position.name, position.id, e)}
-              className={`w-[160px] min-w-[160px] max-w-[160px] px-3 py-2 text-center border-r border-slate-200 transition-colors min-h-[44px] cursor-context-menu select-none ${
+              className={`sticky ${hasClusters ? 'top-[98px]' : 'top-[70px]'} z-30 w-[160px] min-w-[160px] max-w-[160px] px-3 py-1 text-center border-r border-b border-slate-200 transition-colors min-h-[54px] h-[54px] cursor-context-menu select-none ${
                 columnSelectMode ? 'cursor-pointer hover:bg-blue-100/60' : ''
               } ${isSelected ? 'bg-blue-100/80 ring-2 ring-blue-500' : 'bg-slate-50'}`}
             >

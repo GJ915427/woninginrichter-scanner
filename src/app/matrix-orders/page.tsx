@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useMatrixState } from '../../components/matrix/useMatrixState';
 import { MatrixHeader } from '../../components/matrix/MatrixHeader';
 import { MatrixProductRow } from '../../components/matrix/MatrixProductRow';
@@ -49,6 +49,8 @@ export default function MatrixOrdersPage() {
     mergePositionsToCluster,
     dissolveCluster,
   } = useMatrixState();
+
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
 
   const spatialPositions: Position[] = useMemo(
     () => selectedOrder.etages.flatMap((e) => e.rooms.flatMap((r) => r.positions)),
@@ -112,10 +114,14 @@ export default function MatrixOrdersPage() {
           }}
         />
 
-        <MatrixOrderMetaCard
-          selectedOrder={selectedOrder}
-          onOpenPdf={() => openOverlay({ type: 'media', positionId: 'pos_order_meta', title: `Historisch LT Document - ${selectedOrder.id}` })}
-        />
+        <div id="order-meta-card">
+          {!isHeaderCollapsed && (
+            <MatrixOrderMetaCard
+              selectedOrder={selectedOrder}
+              onOpenPdf={() => openOverlay({ type: 'media', positionId: 'pos_order_meta', title: `Historisch LT Document - ${selectedOrder.id}` })}
+            />
+          )}
+        </div>
 
         <MatrixActionBar
           currentStage={fsmStage}
@@ -135,11 +141,20 @@ export default function MatrixOrdersPage() {
             openOverlay({ type: 'fsm_modal', step });
           }}
           historischDocumentUrl={selectedOrder.historisch_document_url}
+          isHeaderCollapsed={isHeaderCollapsed}
+          onToggleHeaderCollapse={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
         />
 
-        <div className="flex-1 overflow-auto p-4 space-y-6">
-          <div className="inline-block min-w-full align-middle bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-            <table id="matrix-table" className="border-collapse table-fixed min-w-max text-xs">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div
+            id="matrix-viewport"
+            className="overflow-auto bg-white rounded-xl shadow-xs border border-slate-200 scroll-pt-[130px] transition-all duration-200"
+            style={{
+              height: isHeaderCollapsed ? 'calc(100vh - 200px)' : 'calc(100vh - 290px)',
+              minHeight: '340px',
+            }}
+          >
+            <table id="matrix-table" className="border-separate border-spacing-0 table-fixed min-w-max text-xs">
               <MatrixHeader
                 etages={selectedOrder.etages}
                 columnSelectMode={columnSelectMode}

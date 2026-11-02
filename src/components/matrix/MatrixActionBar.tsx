@@ -12,6 +12,8 @@ export interface MatrixActionBarProps {
   onOpenMediaDrawer: (tab: 'foto' | 'video' | 'opmerking') => void;
   onFsmStepClick?: (step: FsmProcessStep) => void;
   historischDocumentUrl?: string;
+  isHeaderCollapsed?: boolean;
+  onToggleHeaderCollapse?: () => void;
 }
 
 /**
@@ -27,6 +29,8 @@ export function MatrixActionBar({
   onOpenMediaDrawer,
   onFsmStepClick,
   historischDocumentUrl,
+  isHeaderCollapsed,
+  onToggleHeaderCollapse,
 }: MatrixActionBarProps) {
   const handleStepClick = (step: FsmProcessStep) => {
     if (step.step <= currentStage) {
@@ -130,6 +134,21 @@ export function MatrixActionBar({
         </button>
 
         <div className="h-5 w-px bg-slate-200 mx-1" />
+
+        {onToggleHeaderCollapse && (
+          <button
+            type="button"
+            id="btn-toggle-header-collapse"
+            onClick={onToggleHeaderCollapse}
+            aria-expanded={!isHeaderCollapsed}
+            aria-controls="order-meta-card"
+            aria-label={isHeaderCollapsed ? 'Orderinformatie tonen' : 'Orderinformatie inklappen'}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5 min-h-[36px] shadow-2xs"
+            title={isHeaderCollapsed ? 'Orderinformatie tonen' : 'Orderinformatie inklappen'}
+          >
+            <span>{isHeaderCollapsed ? 'Orderinfo tonen ▼' : 'Orderinfo inklappen ▲'}</span>
+          </button>
+        )}
 
         <button
           type="button"

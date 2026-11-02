@@ -55,11 +55,11 @@ export function MatrixProductRow({
 
   return (
     <tr className="hover:bg-blue-50/30 transition-colors">
-      {/* STICKY KOLOM 0: PRODUCT IDENTIFICATIE (280px breed, z-10) */}
+      {/* STICKY KOLOM 0: PRODUCT IDENTIFICATIE (280px breed, z-20) */}
       <th
         style={{ left: '0px' }}
         scope="row"
-        className={`sticky left-0 z-10 w-[280px] min-w-[280px] max-w-[280px] px-4 py-3 text-left border-r border-b border-slate-200 ${col0Bg} font-normal select-none`}
+        className={`sticky left-0 z-20 w-[280px] min-w-[280px] max-w-[280px] px-4 py-3 text-left border-r border-b border-slate-200 ${col0Bg} font-normal select-none`}
       >
         <div className="flex flex-col gap-0.5">
           {categoryHeader && (
