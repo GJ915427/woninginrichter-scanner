@@ -119,18 +119,18 @@ export const MatrixContextMenu: React.FC<MatrixContextMenuProps> = ({
         ];
       case 'position':
         return [
-          { label: 'Vlak toewijzen (Wand / Gevel / Vloer)', icon: '🏷️', action: () => { onAssignVlak?.(); onClose(); } },
+          { label: 'Vlak toewijzen (Wand / Gevel / Vloer)', icon: '🏷️', action: () => { onAssignVlak?.(); } },
           { label: 'Selecteren voor Cluster', icon: '☑️', action: () => { onSelectForCluster?.(); onClose(); } },
-          { label: 'Werffoto koppelen aan positie', icon: '📷', action: () => { onAttachMedia?.(); onClose(); } },
+          { label: 'Werffoto koppelen aan positie', icon: '📷', action: () => { onAttachMedia?.(); } },
           { label: 'Positie verwijderen', icon: '🗑️', destructive: true, action: () => { onDelete?.(); onClose(); } },
         ];
       case 'cell':
       default:
         return [
-          { label: 'Product & maten bewerken', icon: '📐', action: () => { onEdit?.(); onClose(); } },
-          { label: 'Positie toewijzen / verplaatsen', icon: '🔄', action: () => { onAssignVlak?.(); onClose(); } },
+          { label: 'Product & maten bewerken', icon: '📐', action: () => { onEdit?.(); } },
+          { label: 'Positie toewijzen / verplaatsen', icon: '🔄', action: () => { onAssignVlak?.(); } },
           { label: 'Kopiëren naar deze positie', icon: '📋', action: () => { onAddSubItem?.(); onClose(); } },
-          { label: 'Werffoto koppelen', icon: '📷', action: () => { onAttachMedia?.(); onClose(); } },
+          { label: 'Werffoto koppelen', icon: '📷', action: () => { onAttachMedia?.(); } },
           { label: 'Cel leegmaken', icon: '🗑️', destructive: true, action: () => { onDelete?.(); onClose(); } },
         ];
     }
@@ -182,7 +182,7 @@ export const MatrixContextMenu: React.FC<MatrixContextMenuProps> = ({
               e.stopPropagation();
               onClose();
             }}
-            className="flex w-full min-h-[40px] items-center gap-2 rounded-md px-3 py-1.5 text-left text-xs text-slate-500 hover:bg-slate-50"
+            className="flex w-full min-h-[44px] items-center gap-2 rounded-md px-3 py-2 text-left text-xs text-slate-500 hover:bg-slate-50"
           >
             <span className="text-sm">❌</span>
             <span>Sluiten</span>

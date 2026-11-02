@@ -7,10 +7,15 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  assignVlakToPositionInOrder,
   buildCellKey,
   cascadeDeletePosition,
+  dissolveClusterInOrder,
+  findCellKeyByOrderLine,
+  findOrderLineByCompoundKey,
   isGestureBeyondThreshold,
   matrixOverlayReducer,
+  mergePositionsIntoCluster,
   parseCellKey,
   resolveCellData,
   updateCellInOrder,
@@ -218,6 +223,229 @@ describe('Matrix Overlay State Coordinator & Cascading Mutators (Unit Tests)', (
       expect(updated.products[0].posPrices['pos-1__b'].totalPriceCents).toBe(45000);
       // Ordertotaal gesynchroniseerd: 100000 + 45000 = 145000 cent
       expect(updated.totaalbedragCents).toBe(145000);
+    });
+  });
+
+  describe('TC-OVR-06: mergePositionsIntoCluster & Cluster Deduplicatie', () => {
+    it('voegt geselecteerde posities samen in een cluster en ontkoppelt ze uit voorgaande clusters', () => {
+      const order: MatrixOrder = {
+        id: 'V1',
+        klant: 'Jaspers',
+        plaats: 'Maastricht',
+        offerte: 'O1',
+        orderdatum: '01 jan',
+        status: 'Def',
+        fsmPhase: '5',
+        fsmStep: 5,
+        verkoper: 'C',
+        filiaal: 'G',
+        totaalbedragCents: 100000,
+        etages: [
+          {
+            id: 'et-1',
+            name: 'BG',
+            rooms: [
+              {
+                id: 'room-1',
+                name: 'Woonkamer',
+                clusters: [
+                  { id: 'cl-old', name: 'Oud Cluster', positionIds: ['pos-1', 'pos-2'] },
+                ],
+                positions: [
+                  { id: 'pos-1', name: 'Raam L', type: 'Raam' },
+                  { id: 'pos-2', name: 'Raam M', type: 'Raam' },
+                  { id: 'pos-3', name: 'Raam R', type: 'Raam' },
+                ],
+              },
+            ],
+          },
+        ],
+        products: [],
+      };
+
+      // Voeg pos-2 en pos-3 samen tot een nieuw cluster 'Nieuwe Erker'
+      const updated = mergePositionsIntoCluster(order, 'room-1', 'Nieuwe Erker', ['pos-2', 'pos-3']);
+      const room = updated.etages[0].rooms[0];
+
+      // pos-2 moet uit 'cl-old' verwijderd zijn; alleen pos-1 blijft over in 'cl-old'
+      const oldCl = room.clusters.find((c) => c.id === 'cl-old');
+      expect(oldCl?.positionIds).toEqual(['pos-1']);
+
+      // Nieuw cluster aangemaakt met pos-2 en pos-3
+      const newCl = room.clusters.find((c) => c.name === 'Nieuwe Erker');
+      expect(newCl).toBeDefined();
+      expect(newCl?.positionIds).toEqual(['pos-2', 'pos-3']);
+    });
+
+    it('voegt posities toe aan een bestaand cluster indien dezelfde naam wordt gekozen', () => {
+      const order: MatrixOrder = {
+        id: 'V1',
+        klant: 'Jaspers',
+        plaats: 'M',
+        offerte: 'O1',
+        orderdatum: '01 jan',
+        status: 'Def',
+        fsmPhase: '5',
+        fsmStep: 5,
+        verkoper: 'C',
+        filiaal: 'G',
+        totaalbedragCents: 0,
+        etages: [
+          {
+            id: 'et-1',
+            name: 'BG',
+            rooms: [
+              {
+                id: 'room-1',
+                name: 'Woonkamer',
+                clusters: [{ id: 'cl-1', name: 'Erker', positionIds: ['pos-1'] }],
+                positions: [
+                  { id: 'pos-1', name: 'P1', type: 'R' },
+                  { id: 'pos-2', name: 'P2', type: 'R' },
+                ],
+              },
+            ],
+          },
+        ],
+        products: [],
+      };
+
+      const updated = mergePositionsIntoCluster(order, 'room-1', 'Erker', ['pos-2']);
+      const room = updated.etages[0].rooms[0];
+      expect(room.clusters.length).toBe(1);
+      expect(room.clusters[0].positionIds).toEqual(['pos-1', 'pos-2']);
+    });
+  });
+
+  describe('TC-OVR-07: assignVlakToPositionInOrder', () => {
+    it('kent een bouwkundig vlak toe aan de corresponderende positie', () => {
+      const order: MatrixOrder = {
+        id: 'V1',
+        klant: 'Jaspers',
+        plaats: 'M',
+        offerte: 'O1',
+        orderdatum: '01 jan',
+        status: 'Def',
+        fsmPhase: '5',
+        fsmStep: 5,
+        verkoper: 'C',
+        filiaal: 'G',
+        totaalbedragCents: 0,
+        etages: [
+          {
+            id: 'et-1',
+            name: 'BG',
+            rooms: [
+              {
+                id: 'room-1',
+                name: 'Woonkamer',
+                clusters: [],
+                positions: [
+                  { id: 'pos-1', name: 'P1', type: 'R', vlak: 'Oud Vlak' },
+                  { id: 'pos-2', name: 'P2', type: 'R' },
+                ],
+              },
+            ],
+          },
+        ],
+        products: [],
+      };
+
+      const updated = assignVlakToPositionInOrder(order, 'pos-1', 'Wand Voorgevel');
+      expect(updated.etages[0].rooms[0].positions[0].vlak).toBe('Wand Voorgevel');
+      expect(updated.etages[0].rooms[0].positions[1].vlak).toBeUndefined();
+    });
+  });
+
+  describe('TC-OVR-08: dissolveClusterInOrder', () => {
+    it('verwijdert het opgegeven cluster uit de ruimte zonder posities te wissen', () => {
+      const order: MatrixOrder = {
+        id: 'V1',
+        klant: 'Jaspers',
+        plaats: 'M',
+        offerte: 'O1',
+        orderdatum: '01 jan',
+        status: 'Def',
+        fsmPhase: '5',
+        fsmStep: 5,
+        verkoper: 'C',
+        filiaal: 'G',
+        totaalbedragCents: 0,
+        etages: [
+          {
+            id: 'et-1',
+            name: 'BG',
+            rooms: [
+              {
+                id: 'room-1',
+                name: 'Woonkamer',
+                clusters: [
+                  { id: 'cl-1', name: 'Erker', positionIds: ['pos-1'] },
+                  { id: 'cl-2', name: 'Schuifpui', positionIds: ['pos-2'] },
+                ],
+                positions: [
+                  { id: 'pos-1', name: 'P1', type: 'R' },
+                  { id: 'pos-2', name: 'P2', type: 'R' },
+                ],
+              },
+            ],
+          },
+        ],
+        products: [],
+      };
+
+      const updated = dissolveClusterInOrder(order, 'room-1', 'cl-1');
+      const room = updated.etages[0].rooms[0];
+      expect(room.clusters.length).toBe(1);
+      expect(room.clusters[0].id).toBe('cl-2');
+      expect(room.positions.length).toBe(2);
+    });
+  });
+
+  describe('TC-OVR-09: findCellKeyByOrderLine', () => {
+    it('vindt de cel-sleutel en productId behorende bij een ERP regelnummer', () => {
+      const order: MatrixOrder = {
+        id: 'V1',
+        klant: 'Jaspers',
+        plaats: 'M',
+        offerte: 'O1',
+        orderdatum: '01 jan',
+        status: 'Def',
+        fsmPhase: '5',
+        fsmStep: 5,
+        verkoper: 'C',
+        filiaal: 'G',
+        totaalbedragCents: 0,
+        etages: [],
+        products: [
+          {
+            id: 'prod-duette',
+            code: 'P01',
+            name: 'Duette',
+            category: 'R',
+            unit: 'st',
+            posPrices: {
+              'pos-1': { quantity: 1, unitPriceCents: 1000, totalPriceCents: 1000, line: 20 },
+              'pos-2__a': { quantity: 1, unitPriceCents: 2000, totalPriceCents: 2000, line: 30 },
+            },
+          },
+        ],
+      };
+
+      const found = findCellKeyByOrderLine(order, 30);
+      expect(found).toEqual({
+        productId: 'prod-duette',
+        cellKey: 'pos-2__a',
+      });
+
+      const notFound = findCellKeyByOrderLine(order, 999);
+      expect(notFound).toBeNull();
+
+      // Test TC-OVR-10: findOrderLineByCompoundKey
+      expect(findOrderLineByCompoundKey(order, 'prod-duette-pos-2__a')).toBe(30);
+      expect(findOrderLineByCompoundKey(order, 'prod-duette-pos-1')).toBe(20);
+      expect(findOrderLineByCompoundKey(order, 'prod-unknown-pos-1')).toBeNull();
+      expect(findOrderLineByCompoundKey(order, null)).toBeNull();
     });
   });
 });

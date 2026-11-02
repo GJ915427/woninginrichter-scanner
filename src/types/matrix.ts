@@ -172,6 +172,13 @@ export type ActiveOverlay =
       type: 'cluster_modal';
       roomId: string;
       clusterId?: string;
+      positionIds?: string[];
+    }
+  | {
+      type: 'assign_vlak';
+      positionId: string;
+      currentVlak?: string;
+      roomId?: string;
     }
   | {
       type: 'position_drawer';

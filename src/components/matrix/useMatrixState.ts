@@ -6,6 +6,9 @@ import {
   buildCellKey,
   parseCellKey,
   resolveCellData,
+  assignVlakToPositionInOrder,
+  dissolveClusterInOrder,
+  mergePositionsIntoCluster,
 } from '../../utils/matrix-overlay-state';
 import { calculateOrderTotalCents } from '../../utils/matrix-pricing';
 
@@ -28,6 +31,7 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
 
   // Single-Active Overlay State Machine Coordinator
   const [activeOverlay, setActiveOverlay] = useState<ActiveOverlay | null>(null);
+  const [highlightedCellKey, setHighlightedCellKey] = useState<string | null>(null);
 
   // Filter & UI instellingen
   const [activeMediaTab, setActiveMediaTab] = useState<'foto' | 'video' | 'opmerking'>('foto');
@@ -232,6 +236,56 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     [selectedOrder, updateCell]
   );
 
+  const assignVlakToPosition = useCallback(
+    (posId: string, vlak: string) => {
+      const updatedOrder = assignVlakToPositionInOrder(selectedOrder, posId, vlak);
+      setOrders((prev) =>
+        prev.map((ord, idx) => (idx === currentOrderIndex ? updatedOrder : ord))
+      );
+    },
+    [selectedOrder, currentOrderIndex]
+  );
+
+  const mergePositionsToCluster = useCallback(
+    (roomId: string, clusterName: string, positionIds: string[]) => {
+      const updatedOrder = mergePositionsIntoCluster(
+        selectedOrder,
+        roomId,
+        clusterName,
+        positionIds
+      );
+      setOrders((prev) =>
+        prev.map((ord, idx) => (idx === currentOrderIndex ? updatedOrder : ord))
+      );
+      setSelectedColumnIds(new Set());
+    },
+    [selectedOrder, currentOrderIndex]
+  );
+
+  const dissolveCluster = useCallback(
+    (roomId: string, clusterId: string) => {
+      const updatedOrder = dissolveClusterInOrder(selectedOrder, roomId, clusterId);
+      setOrders((prev) =>
+        prev.map((ord, idx) => (idx === currentOrderIndex ? updatedOrder : ord))
+      );
+    },
+    [selectedOrder, currentOrderIndex]
+  );
+
+  const goToNextOrder = useCallback(() => {
+    setCurrentOrderIndex((prev) => Math.min(orders.length - 1, prev + 1));
+    setActiveOverlay(null);
+    setSelectedColumnIds(new Set());
+    setHighlightedCellKey(null);
+  }, [orders.length]);
+
+  const goToPreviousOrder = useCallback(() => {
+    setCurrentOrderIndex((prev) => Math.max(0, prev - 1));
+    setActiveOverlay(null);
+    setSelectedColumnIds(new Set());
+    setHighlightedCellKey(null);
+  }, []);
+
   return {
     orders,
     currentOrderIndex,
@@ -243,6 +297,8 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     activeOverlay,
     openOverlay,
     closeOverlay,
+    highlightedCellKey,
+    setHighlightedCellKey,
     // Backwards compatibility
     activeStepper,
     activeDrawer,
@@ -260,6 +316,8 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     setSidebarOpen,
     // Handlers
     selectOrder,
+    goToNextOrder,
+    goToPreviousOrder,
     toggleColumnSelection,
     toggleColumnSelectMode,
     clearColumnSelection,
@@ -267,5 +325,8 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     deletePosition,
     updateCell,
     assignProductToCell,
+    assignVlakToPosition,
+    mergePositionsToCluster,
+    dissolveCluster,
   };
 }

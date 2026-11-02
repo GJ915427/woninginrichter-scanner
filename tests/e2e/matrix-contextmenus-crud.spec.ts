@@ -166,4 +166,126 @@ test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
     const singlePosBadge = page.locator('#matrix-table thead tr:nth-child(4) th:has-text("Raam Links")').first();
     await expect(singlePosBadge).not.toContainText('[a]');
   });
+
+  // TC-AUDIT-01: Audit Trail Row Click Cell Highlighting
+  test('TC-AUDIT-01: Clicking audit trail row highlights matrix cell and synchronizes state', async ({ page }) => {
+    await page.goto('/matrix-orders');
+    await page.waitForSelector('#matrix-table tbody tr');
+    await page.waitForSelector('section[aria-label="LogicTrade Orderregels Audit Trail"] tbody tr');
+
+    // Click orderline 20 in the audit-trail table
+    const auditRow20 = page.locator('section[aria-label="LogicTrade Orderregels Audit Trail"] tbody tr').filter({ hasText: 'Duette® 32mm Voordeur L' }).first();
+    await expect(auditRow20).toBeVisible();
+    await auditRow20.locator('td').first().click();
+
+    // The corresponding cell matrix-cell-p_duette_32-pos_vd_links should have the active highlight ring
+    const highlightedCell = page.locator('#matrix-cell-p_duette_32-pos_vd_links');
+    await expect(highlightedCell).toBeVisible();
+    await expect(highlightedCell).toHaveClass(/ring-2 ring-blue-500/);
+  });
+
+  // TC-CLUST-01: Multi-Select Columns in Same Room Merges into Cluster
+  test('TC-CLUST-01: Selecting columns in same room enables cluster floating bar and merges into cluster', async ({ page }) => {
+    await page.goto('/matrix-orders');
+    await page.waitForSelector('#matrix-table tbody tr');
+
+    // Open context menu on first position: Raam Links
+    const pos1 = page.locator('#matrix-table thead tr:last-child th:has-text("Raam Links")').first();
+    await pos1.click({ button: 'right' });
+    const menu1 = page.locator('div[role="menu"]');
+    await menu1.locator('button:has-text("Selecteren voor Cluster")').click();
+
+    // Open context menu on second position in same room: Raam Rechts
+    const pos2 = page.locator('#matrix-table thead tr:last-child th:has-text("Raam Rechts")').first();
+    await pos2.click({ button: 'right' });
+    const menu2 = page.locator('div[role="menu"]');
+    await menu2.locator('button:has-text("Selecteren voor Cluster")').click();
+
+    // Floating bar must appear with merge button enabled
+    const floatingBar = page.locator('aside[aria-label="Cluster selectie actiebalk"]');
+    await expect(floatingBar).toBeVisible();
+    await expect(floatingBar).toContainText('2 kolommen geselecteerd');
+
+    const mergeBtn = floatingBar.locator('button:has-text("Samenvoegen tot Cluster")');
+    await expect(mergeBtn).toBeEnabled();
+    await mergeBtn.click();
+
+    // Cluster modal opens
+    const clusterModal = page.locator('div[role="dialog"][aria-labelledby="cluster-modal-title"]');
+    await expect(clusterModal).toBeVisible();
+
+    const nameInput = clusterModal.locator('#cluster-name-input');
+    await nameInput.fill('Voordeur Dubbel');
+    const submitBtn = clusterModal.locator('button[type="submit"]:has-text("Samenvoegen")');
+    await submitBtn.click();
+
+    await expect(clusterModal).not.toBeVisible();
+    // New cluster appears in header
+    const clusterHeader = page.locator('#matrix-table thead');
+    await expect(clusterHeader).toContainText('Voordeur Dubbel');
+  });
+
+  // TC-CLUST-02: Cross-Room Selection Disables Merge Button
+  test('TC-CLUST-02: Cross-room selection disables merge button with warning badge', async ({ page }) => {
+    await page.goto('/matrix-orders');
+    await page.waitForSelector('#matrix-table tbody tr');
+
+    // Select position in Hal (Raam Links)
+    const posHal = page.locator('#matrix-table thead tr:last-child th:has-text("Raam Links")').first();
+    await posHal.click({ button: 'right' });
+    await page.locator('div[role="menu"] button:has-text("Selecteren voor Cluster")').click();
+
+    // Select position in Woonkamer (Voorzijde)
+    const posWk = page.locator('#matrix-table thead tr:last-child th:has-text("Voorzijde")').first();
+    await posWk.click({ button: 'right' });
+    await page.locator('div[role="menu"] button:has-text("Selecteren voor Cluster")').click();
+
+    // Floating bar appears with warning
+    const floatingBar = page.locator('aside[aria-label="Cluster selectie actiebalk"]');
+    await expect(floatingBar).toBeVisible();
+    await expect(floatingBar).toContainText('Samenvoegen vereist posities binnen één ruimte');
+
+    const mergeBtn = floatingBar.locator('button:has-text("Samenvoegen tot Cluster")');
+    await expect(mergeBtn).toBeDisabled();
+  });
+
+  // TC-VLAK-01: Assign Vlak Updates Position
+  test('TC-VLAK-01: Assigning vlak updates position header', async ({ page }) => {
+    await page.goto('/matrix-orders');
+    await page.waitForSelector('#matrix-table tbody tr');
+
+    const posHeader = page.locator('#matrix-table thead tr:last-child th:has-text("Raam Links")').first();
+    await posHeader.click({ button: 'right' });
+
+    const menu = page.locator('div[role="menu"]');
+    await menu.locator('button:has-text("Vlak toewijzen")').click();
+
+    const vlakModal = page.locator('div[role="dialog"][aria-labelledby="assign-vlak-title"]');
+    await expect(vlakModal).toBeVisible();
+
+    // Click preset 'Kozijn A'
+    await vlakModal.locator('button:has-text("Kozijn A")').click();
+    await vlakModal.locator('button[type="submit"]:has-text("Opslaan")').click();
+
+    await expect(vlakModal).not.toBeVisible();
+    // Position column header reflects updated vlak
+    await expect(posHeader).toContainText('Kozijn A');
+  });
+
+  // TC-NAV-01: Top Nav Order Switcher
+  test('TC-NAV-01: Top nav switches orders cleanly without state bleed', async ({ page }) => {
+    await page.goto('/matrix-orders');
+    await page.waitForSelector('nav[aria-label="Kruimelpad & Ordernavigatie"]');
+
+    const topNav = page.locator('nav[aria-label="Kruimelpad & Ordernavigatie"]');
+    await expect(topNav).toContainText('3 / 7');
+
+    // Click Vorige -> switches to order 2
+    await topNav.locator('button[aria-label="Vorige order"]').click();
+    await expect(topNav).toContainText('2 / 7');
+
+    // Click Volgende -> switches back to order 3
+    await topNav.locator('button[aria-label="Volgende order"]').click();
+    await expect(topNav).toContainText('3 / 7');
+  });
 });

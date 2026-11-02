@@ -11,6 +11,8 @@ export interface MatrixCellProps {
   positionId: string;
   subPos?: string;
   hasMultipleSubPositions?: boolean;
+  isHighlighted?: boolean;
+  cellKey?: string;
   onCellClick: (
     productId: string,
     positionId: string,
@@ -34,9 +36,10 @@ export interface MatrixCellProps {
  * Matrixcel conform Gebruikersitem 8 en 11.
  * - Stepper en box om aantal geëlimineerd; de gehele cel is klikbaar (min-h-[48px]).
  * - Lege cellen (—) zijn klikbaar en openen de drawer om een product toe te wijzen.
- * - Regelnummer uitgegrijst in text-slate-500 (WCAG AA 4.77:1) zonder rood omkaderend vakje.
+ * - Regelnummer uitgegrijst in text-slate-600 (WCAG AA 7.48:1) zonder rood omkaderend vakje.
  * - Subpositie badge [a] alleen zichtbaar indien er daadwerkelijk meerdere subposities zijn.
  * - Long-press (500ms) en rechtermuisklik openen het contextmenu; synthetische click-bleed onderdrukt.
+ * - Ondersteunt visuele selectie/highlighting vanuit de LogicTrade audit-trail tabel.
  */
 export function MatrixCell({
   cellData,
@@ -44,6 +47,8 @@ export function MatrixCell({
   positionId,
   subPos,
   hasMultipleSubPositions = false,
+  isHighlighted = false,
+  cellKey,
   onCellClick,
   onCellContextMenu,
 }: MatrixCellProps) {
@@ -74,6 +79,7 @@ export function MatrixCell({
     return (
       <td
         {...handlers}
+        id={cellKey ? `matrix-cell-${productId}-${cellKey}` : undefined}
         onContextMenu={handleContextMenu}
         className="w-[160px] min-w-[160px] max-w-[160px] min-h-[48px] px-3 py-3 text-center border-r border-b border-slate-100 bg-white cursor-pointer select-none hover:bg-blue-50/20 transition-colors align-middle"
         title="Klik om dit artikel toe te wijzen aan deze positie"
@@ -88,8 +94,13 @@ export function MatrixCell({
   return (
     <td
       {...handlers}
+      id={cellKey ? `matrix-cell-${productId}-${cellKey}` : undefined}
       onContextMenu={handleContextMenu}
-      className="relative w-[160px] min-w-[160px] max-w-[160px] min-h-[48px] p-2 text-center border-r border-b border-slate-200 bg-white align-top cursor-pointer select-none hover:bg-slate-50 transition-colors"
+      className={`relative w-[160px] min-w-[160px] max-w-[160px] min-h-[48px] p-2 text-center border-r border-b border-slate-200 align-top cursor-pointer select-none transition-all duration-200 ${
+        isHighlighted
+          ? 'ring-2 ring-blue-500 bg-blue-50/40 shadow-sm z-10'
+          : 'bg-white hover:bg-slate-50'
+      }`}
       title="Klik om maten en aantal te bewerken. Rechtsklik voor opties."
     >
       {/* Sub-positie badge & uitgegrijst regelnummer zonder omkadering */}
@@ -102,7 +113,7 @@ export function MatrixCell({
           <span />
         )}
         {cellData.line && (
-          <span className="text-[10px] font-mono text-slate-500 font-medium">
+          <span className="text-[10px] font-mono text-slate-600 font-medium">
             {cellData.line}
           </span>
         )}

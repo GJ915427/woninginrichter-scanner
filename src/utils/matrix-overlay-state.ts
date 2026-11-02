@@ -181,3 +181,155 @@ export function updateCellInOrder(
     totaalbedragCents: newTotalCents,
   };
 }
+
+/**
+ * Voegt posities samen in een cluster binnen een specifieke ruimte.
+ * Verwijdert de opgegeven posities eerst uit eventuele bestaande clusters in die ruimte om duplicaten te voorkomen.
+ */
+export function mergePositionsIntoCluster(
+  order: MatrixOrder,
+  roomId: string,
+  clusterName: string,
+  positionIds: string[]
+): MatrixOrder {
+  if (!positionIds || positionIds.length === 0) return order;
+
+  const posSet = new Set(positionIds);
+
+  const updatedEtages = order.etages.map((etage) => ({
+    ...etage,
+    rooms: etage.rooms.map((room) => {
+      if (room.id !== roomId) return room;
+
+      // 1. Verwijder deze posities uit bestaande clusters
+      const cleanedClusters = (room.clusters || [])
+        .map((cl) => ({
+          ...cl,
+          positionIds: cl.positionIds.filter((id) => !posSet.has(id)),
+        }))
+        .filter((cl) => cl.positionIds.length > 0);
+
+      // 2. Bestaat er al een cluster met exact deze naam?
+      const existingIdx = cleanedClusters.findIndex(
+        (cl) => cl.name.trim().toLowerCase() === clusterName.trim().toLowerCase()
+      );
+
+      const finalClusters = [...cleanedClusters];
+      if (existingIdx >= 0) {
+        const existing = finalClusters[existingIdx];
+        const mergedIds = Array.from(new Set([...existing.positionIds, ...positionIds]));
+        finalClusters[existingIdx] = {
+          ...existing,
+          positionIds: mergedIds,
+        };
+      } else {
+        finalClusters.push({
+          id: `cluster-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          name: clusterName.trim(),
+          positionIds: Array.from(posSet),
+        });
+      }
+
+      return {
+        ...room,
+        clusters: finalClusters,
+      };
+    }),
+  }));
+
+  return {
+    ...order,
+    etages: updatedEtages,
+  };
+}
+
+/**
+ * Wijst een bouwkundig vlak (bv. 'Wand Voorgevel', 'Erker') toe aan een specifieke positie.
+ */
+export function assignVlakToPositionInOrder(
+  order: MatrixOrder,
+  positionId: string,
+  vlak: string
+): MatrixOrder {
+  const updatedEtages = order.etages.map((etage) => ({
+    ...etage,
+    rooms: etage.rooms.map((room) => ({
+      ...room,
+      positions: room.positions.map((pos) => {
+        if (pos.id !== positionId) return pos;
+        return {
+          ...pos,
+          vlak: vlak.trim(),
+        };
+      }),
+    })),
+  }));
+
+  return {
+    ...order,
+    etages: updatedEtages,
+  };
+}
+
+/**
+ * Ontbindt een specifiek cluster in een ruimte zonder de onderliggende posities te verwijderen.
+ */
+export function dissolveClusterInOrder(
+  order: MatrixOrder,
+  roomId: string,
+  clusterId: string
+): MatrixOrder {
+  const updatedEtages = order.etages.map((etage) => ({
+    ...etage,
+    rooms: etage.rooms.map((room) => {
+      if (room.id !== roomId) return room;
+      return {
+        ...room,
+        clusters: (room.clusters || []).filter((cl) => cl.id !== clusterId),
+      };
+    }),
+  }));
+
+  return {
+    ...order,
+    etages: updatedEtages,
+  };
+}
+
+/**
+ * Zoekt de unieke cel-sleutel en productId behorende bij een ERP orderregelnummer.
+ * Wordt gebruikt voor de interactieve koppeling vanuit de LogicTrade Audit-Trail tabel.
+ */
+export function findCellKeyByOrderLine(
+  order: MatrixOrder,
+  line: number
+): { productId: string; cellKey: string } | null {
+  for (const product of order.products) {
+    if (!product.posPrices) continue;
+    for (const [cellKey, cellData] of Object.entries(product.posPrices)) {
+      if (cellData && cellData.line === line) {
+        return {
+          productId: product.id,
+          cellKey,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+export function findOrderLineByCompoundKey(
+  order: MatrixOrder,
+  compoundKey: string | null
+): number | null {
+  if (!compoundKey) return null;
+  for (const product of order.products) {
+    if (!product.posPrices) continue;
+    for (const [cellKey, cellData] of Object.entries(product.posPrices)) {
+      if (cellData && `${product.id}-${cellKey}` === compoundKey) {
+        return cellData.line ?? null;
+      }
+    }
+  }
+  return null;
+}

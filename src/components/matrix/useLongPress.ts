@@ -1,4 +1,4 @@
-import { useRef, useCallback, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from 'react';
+import { useRef, useCallback, useEffect, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from 'react';
 import { isGestureBeyondThreshold } from '../../utils/matrix-overlay-state';
 
 export interface UseLongPressOptions {
@@ -24,6 +24,14 @@ export function useLongPress({
   const startCoordsRef = useRef<{ x: number; y: number } | null>(null);
   const isLongPressTriggeredRef = useRef<boolean>(false);
   const savedEventRef = useRef<ReactMouseEvent | ReactTouchEvent | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
 
   const start = useCallback(
     (e: ReactMouseEvent | ReactTouchEvent) => {

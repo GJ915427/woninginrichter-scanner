@@ -3,12 +3,13 @@
 import React from 'react';
 import { MatrixProduct, Position, CellPriceData } from '../../types/matrix';
 import { MatrixCell } from './MatrixCell';
-import { resolveCellData } from '../../utils/matrix-overlay-state';
+import { resolveCellData, buildCellKey } from '../../utils/matrix-overlay-state';
 
 export interface MatrixProductRowProps {
   product: MatrixProduct;
   positions: Position[];
   rowIndex: number;
+  highlightedCellKey?: string | null;
   onCellClick: (
     productId: string,
     positionId: string,
@@ -30,12 +31,13 @@ export interface MatrixProductRowProps {
 
 /**
  * Productrij in de matrixweergave conform INV-GOV-22 (<250 regels).
- * Handelt compound key resolve en conditionele subposities af.
+ * Handelt compound key resolve, conditionele subposities en interactieve highlighting af.
  */
 export function MatrixProductRow({
   product,
   positions,
   rowIndex,
+  highlightedCellKey,
   onCellClick,
   onCellContextMenu,
   activeStepper,
@@ -45,6 +47,9 @@ export function MatrixProductRow({
 }: MatrixProductRowProps) {
   const isEven = rowIndex % 2 === 0;
   const col0Bg = isEven ? 'bg-white' : 'bg-slate-50';
+
+  const algemeenCellKey = 'pos_project_algemeen';
+  const isAlgemeenHighlighted = highlightedCellKey === `${product.id}-${algemeenCellKey}`;
 
   return (
     <tr className="hover:bg-blue-50/30 transition-colors">
@@ -82,6 +87,8 @@ export function MatrixProductRow({
         cellData={product.posPrices['pos_project_algemeen'] || product.posPrices['pos-gen']}
         productId={product.id}
         positionId="pos_project_algemeen"
+        cellKey={algemeenCellKey}
+        isHighlighted={isAlgemeenHighlighted}
         onCellClick={onCellClick}
         onCellContextMenu={onCellContextMenu}
         isStepperActive={
@@ -104,6 +111,8 @@ export function MatrixProductRow({
         }
 
         const cellData = resolveCellData(product, pos.id, activeSubPos);
+        const cellKey = buildCellKey(pos.id, activeSubPos);
+        const isHighlighted = highlightedCellKey === `${product.id}-${cellKey}`;
         const isStepperActive =
           activeStepper?.productId === product.id && activeStepper?.positionId === pos.id;
 
@@ -113,6 +122,8 @@ export function MatrixProductRow({
             cellData={cellData}
             productId={product.id}
             positionId={pos.id}
+            cellKey={cellKey}
+            isHighlighted={isHighlighted}
             subPos={activeSubPos || cellData?.subPos}
             hasMultipleSubPositions={hasMultiple}
             onCellClick={onCellClick}
