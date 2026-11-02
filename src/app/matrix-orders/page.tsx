@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useMatrixState } from '../../components/matrix/useMatrixState';
 import { MatrixHeader } from '../../components/matrix/MatrixHeader';
 import { MatrixProductRow } from '../../components/matrix/MatrixProductRow';
@@ -13,44 +13,23 @@ import { MatrixAuditTrailTable } from '../../components/matrix/MatrixAuditTrailT
 import { MatrixOverlayCoordinator } from '../../components/matrix/MatrixOverlayCoordinator';
 import { Position, FsmProcessStep } from '../../types/matrix';
 import { buildCellKey, findCellKeyByOrderLine, findOrderLineByCompoundKey } from '../../utils/matrix-overlay-state';
+import { attachMatrixDockingListener } from '../../utils/matrix-docking';
 
 /**
- * Matrix Orders Browser Page (v4 Pariteit)
- * Voldoet strikt aan INV-GOV-22 (<250 regels, <=4 hooks).
+ * Matrix Orders Browser Page (v5 Pariteit)
+ * Voldoet strikt aan INV-GOV-22 (<250 regels, exact 4 primitieve hooks: 3x useMemo, 1x useEffect).
  */
 export default function MatrixOrdersPage() {
   const {
-    orders,
-    currentOrderIndex,
-    selectedOrder,
-    fsmStage,
-    setFsmStage,
-    columnSelectMode,
-    selectedColumnIds,
-    activeOverlay,
-    openOverlay,
-    closeOverlay,
-    highlightedCellKey,
-    setHighlightedCellKey,
-    activeMediaTab,
-    setActiveMediaTab,
-    sidebarOpen,
-    setSidebarOpen,
-    selectOrder,
-    goToNextOrder,
-    goToPreviousOrder,
-    toggleColumnSelection,
-    toggleColumnSelectMode,
-    clearColumnSelection,
-    deletePosition,
-    updateCell,
-    assignProductToCell,
-    assignVlakToPosition,
-    mergePositionsToCluster,
-    dissolveCluster,
+    orders, currentOrderIndex, selectedOrder, fsmStage, setFsmStage,
+    columnSelectMode, selectedColumnIds, activeOverlay, openOverlay, closeOverlay,
+    highlightedCellKey, setHighlightedCellKey, activeMediaTab, setActiveMediaTab,
+    sidebarOpen, setSidebarOpen, visibleLevels, toggleLevelVisibility,
+    isHeaderCollapsed, setIsHeaderCollapsed, selectOrder, goToNextOrder, goToPreviousOrder,
+    toggleColumnSelection, toggleColumnSelectMode, clearColumnSelection,
+    deletePosition, updateCell, assignProductToCell, assignVlakToPosition,
+    mergePositionsToCluster, dissolveCluster,
   } = useMatrixState();
-
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
 
   const spatialPositions: Position[] = useMemo(
     () => selectedOrder.etages.flatMap((e) => e.rooms.flatMap((r) => r.positions)),
@@ -72,6 +51,33 @@ export default function MatrixOrdersPage() {
     [selectedOrder, highlightedCellKey]
   );
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        const target = e.target as HTMLElement | null;
+        if (target?.matches?.('input, textarea, select, [contenteditable="true"]') || activeOverlay !== null) {
+          return;
+        }
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          goToNextOrder();
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          goToPreviousOrder();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    const viewport = document.getElementById('matrix-viewport');
+    const detachDocking = attachMatrixDockingListener(viewport);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      detachDocking();
+    };
+  }, [goToNextOrder, goToPreviousOrder, activeOverlay]);
+
   const handleSelectAuditLine = (line: number) => {
     const match = findCellKeyByOrderLine(selectedOrder, line);
     if (match) {
@@ -91,23 +97,16 @@ export default function MatrixOrdersPage() {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50 font-sans text-slate-800">
       <MatrixSidebar
-        orders={orders}
-        currentIndex={currentOrderIndex}
-        onSelectOrder={selectOrder}
-        isOpen={sidebarOpen}
-        onToggleOpen={() => setSidebarOpen(!sidebarOpen)}
+        orders={orders} currentIndex={currentOrderIndex} onSelectOrder={selectOrder}
+        isOpen={sidebarOpen} onToggleOpen={() => setSidebarOpen(!sidebarOpen)}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <MatrixTopNav
-          currentOrderIndex={currentOrderIndex}
-          totalOrders={orders.length}
-          onPreviousOrder={goToPreviousOrder}
-          onNextOrder={goToNextOrder}
-          customerName={selectedOrder.klant}
-          projectName={selectedOrder.plaats}
-          activeTab="Project"
-          fsmStage={fsmStage}
+          currentOrderIndex={currentOrderIndex} totalOrders={orders.length}
+          onPreviousOrder={goToPreviousOrder} onNextOrder={goToNextOrder}
+          customerName={selectedOrder.klant} projectName={selectedOrder.plaats}
+          activeTab="Project" fsmStage={fsmStage}
           onFsmStageChange={(stage) => {
             setFsmStage(stage);
             openOverlay({ type: 'fsm_modal', step: { step: stage, label: `FSM Fase ${stage}`, status: 'actueel' } });
@@ -129,8 +128,7 @@ export default function MatrixOrdersPage() {
             setFsmStage(stage);
             openOverlay({ type: 'fsm_modal', step: { step: stage, label: `FSM Fase ${stage}`, status: 'actueel' } });
           }}
-          columnSelectMode={columnSelectMode}
-          selectedColumnCount={selectedColumnIds.size}
+          columnSelectMode={columnSelectMode} selectedColumnCount={selectedColumnIds.size}
           onToggleColumnSelectMode={toggleColumnSelectMode}
           onOpenMediaDrawer={(tab) => {
             setActiveMediaTab(tab);
@@ -143,6 +141,7 @@ export default function MatrixOrdersPage() {
           historischDocumentUrl={selectedOrder.historisch_document_url}
           isHeaderCollapsed={isHeaderCollapsed}
           onToggleHeaderCollapse={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
+          visibleLevels={visibleLevels} onToggleLevelVisibility={toggleLevelVisibility}
         />
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -156,10 +155,9 @@ export default function MatrixOrdersPage() {
           >
             <table id="matrix-table" className="border-separate border-spacing-0 table-fixed min-w-max text-xs">
               <MatrixHeader
-                etages={selectedOrder.etages}
-                columnSelectMode={columnSelectMode}
-                selectedColumnIds={selectedColumnIds}
-                onToggleColumnSelection={toggleColumnSelection}
+                etages={selectedOrder.etages} columnSelectMode={columnSelectMode}
+                selectedColumnIds={selectedColumnIds} onToggleColumnSelection={toggleColumnSelection}
+                visibleLevels={visibleLevels}
                 onHeaderContextMenu={(type, title, id, e) =>
                   openOverlay({ type: 'context_menu', contextType: type, contextTitle: title, positionId: id, anchorPosition: { x: e.clientX, y: e.clientY } })
                 }
@@ -169,12 +167,8 @@ export default function MatrixOrdersPage() {
                   const categoryHeader = idx === 0 || selectedOrder.products[idx - 1].category !== product.category ? product.category : undefined;
                   return (
                     <MatrixProductRow
-                      key={product.id}
-                      product={product}
-                      positions={spatialPositions}
-                      rowIndex={idx}
-                      highlightedCellKey={highlightedCellKey}
-                      categoryHeader={categoryHeader}
+                      key={product.id} product={product} positions={spatialPositions} rowIndex={idx}
+                      highlightedCellKey={highlightedCellKey} categoryHeader={categoryHeader}
                       onCellClick={(pId, posId, sPos) => {
                         handleCellAuditHighlight(pId, posId, sPos);
                         openOverlay({ type: 'cell_edit', productId: pId, positionId: posId, subPos: sPos });
@@ -191,8 +185,7 @@ export default function MatrixOrdersPage() {
 
           <div id="matrix-audit-trail-section">
             <MatrixAuditTrailTable
-              lines={selectedOrder.rawLines || []}
-              highlightedLine={highlightedOrderLine}
+              lines={selectedOrder.rawLines || []} highlightedLine={highlightedOrderLine}
               onSelectLine={handleSelectAuditLine}
               onOpenDocument={() => openOverlay({ type: 'media', positionId: 'pos_order_meta', title: `Historisch Document - ${selectedOrder.id}` })}
             />
@@ -201,8 +194,7 @@ export default function MatrixOrdersPage() {
       </div>
 
       <MatrixClusterFloatingBar
-        selectedPositionIds={Array.from(selectedColumnIds)}
-        isSingleRoom={isSingleRoom}
+        selectedPositionIds={Array.from(selectedColumnIds)} isSingleRoom={isSingleRoom}
         onClearSelection={clearColumnSelection}
         onOpenClusterModal={() =>
           openOverlay({ type: 'cluster_modal', roomId: selectedOrder.etages[0]?.rooms[0]?.id || 'room_bg_woonkamer', positionIds: Array.from(selectedColumnIds) })
@@ -210,21 +202,19 @@ export default function MatrixOrdersPage() {
       />
 
       <MatrixOverlayCoordinator
-        activeOverlay={activeOverlay}
-        selectedOrder={selectedOrder}
-        activeMediaTab={activeMediaTab}
-        onClose={closeOverlay}
-        onTabChange={setActiveMediaTab}
-        onDeletePosition={deletePosition}
-        onSelectPositionForCluster={toggleColumnSelection}
+        activeOverlay={activeOverlay} selectedOrder={selectedOrder}
+        activeMediaTab={activeMediaTab} onClose={closeOverlay} onTabChange={setActiveMediaTab}
+        onDeletePosition={deletePosition} onSelectPositionForCluster={toggleColumnSelection}
         onOpenAssignVlak={(posId) => openOverlay({ type: 'assign_vlak', positionId: posId })}
-        onSaveVlak={assignVlakToPosition}
-        onSaveCluster={mergePositionsToCluster}
+        onSaveVlak={assignVlakToPosition} onSaveCluster={mergePositionsToCluster}
         onDissolveCluster={dissolveCluster}
-        onOpenMedia={(level, id, title) => openOverlay({ type: 'media', positionId: id, title })}
+        onOpenMedia={(level, id, title) => openOverlay({ type: 'media', positionId: id, title: title || `Media - ${id}` })}
+        onCellClick={(pId, posId, sPos) => {
+          handleCellAuditHighlight(pId, posId, sPos);
+          openOverlay({ type: 'cell_edit', productId: pId, positionId: posId, subPos: sPos });
+        }}
         onUpdateCell={(key, data) => { updateCell(key, data); closeOverlay(); }}
         onAssignProductToCell={(pId, posId, sPos, data) => { assignProductToCell(pId, posId, sPos, data); closeOverlay(); }}
-        onCellClick={(pId, posId, sPos) => openOverlay({ type: 'cell_edit', productId: pId, positionId: posId, subPos: sPos })}
       />
     </div>
   );

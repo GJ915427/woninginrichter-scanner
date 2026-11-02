@@ -212,3 +212,11 @@ export interface MatrixOrder {
 }
 
 export type RollupLevel = 'positie' | 'ruimte' | 'etage';
+
+export interface HeaderLevelVisibility {
+  etage: boolean;
+  ruimte: boolean;
+  cluster: boolean;
+  positie: boolean; // Altijd true (vast niveau)
+}
+

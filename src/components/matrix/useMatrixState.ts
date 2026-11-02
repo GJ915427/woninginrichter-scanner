@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { MatrixOrder, RollupLevel, CellPriceData, ActiveOverlay } from '../../types/matrix';
+import { MatrixOrder, RollupLevel, CellPriceData, ActiveOverlay, HeaderLevelVisibility } from '../../types/matrix';
 import { MATRIX_ORDERS_MOCK_DATA } from '../../fixtures/matrix-mock-data';
 import {
   cascadeDeletePosition,
@@ -38,6 +38,24 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
   const [mediaContextFilter, setMediaContextFilter] = useState<'position' | 'room' | 'project'>('project');
   const [rollupLevel, setRollupLevel] = useState<RollupLevel>('positie');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+
+  // Niveau-Zichtbaarheid State (V5)
+  const [visibleLevels, setVisibleLevels] = useState<HeaderLevelVisibility>({
+    etage: true,
+    ruimte: true,
+    cluster: true,
+    positie: true,
+  });
+
+  const toggleLevelVisibility = useCallback((level: 'etage' | 'ruimte' | 'cluster') => {
+    setVisibleLevels((prev) => ({
+      ...prev,
+      [level]: !prev[level],
+    }));
+  }, []);
+
+  // Header Collapse State
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState<boolean>(false);
 
   const selectedOrder = useMemo(() => {
     return orders[currentOrderIndex] ?? orders[0];
@@ -314,6 +332,12 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     setRollupLevel,
     sidebarOpen,
     setSidebarOpen,
+    // Niveau-Zichtbaarheid & Header Collapse (V5)
+    visibleLevels,
+    setVisibleLevels,
+    toggleLevelVisibility,
+    isHeaderCollapsed,
+    setIsHeaderCollapsed,
     // Handlers
     selectOrder,
     goToNextOrder,
