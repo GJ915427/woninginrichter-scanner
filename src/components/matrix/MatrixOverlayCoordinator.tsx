@@ -1,13 +1,14 @@
 'use client';
 
 import React from 'react';
-import { ActiveOverlay, MatrixOrder, CellPriceData } from '../../types/matrix';
+import { ActiveOverlay, MatrixOrder, CellPriceData, HeaderLevelVisibility } from '../../types/matrix';
 import { MatrixContextMenu } from './MatrixContextMenu';
 import { MatrixMediaDrawer } from './MatrixMediaDrawer';
 import { MatrixFSMModal } from './MatrixFSMModal';
 import { MatrixProductEditDrawer } from './MatrixProductEditDrawer';
 import { MatrixAssignVlakModal } from './MatrixAssignVlakModal';
 import { MatrixClusterModal } from './MatrixClusterModal';
+import { MatrixLevelVisibilityPopover } from './MatrixLevelVisibilityPopover';
 import { resolveCellData, buildCellKey } from '../../utils/matrix-overlay-state';
 
 export interface MatrixOverlayCoordinatorProps {
@@ -40,6 +41,8 @@ export interface MatrixOverlayCoordinatorProps {
     subPos?: string,
     cellData?: CellPriceData
   ) => void;
+  visibleLevels?: HeaderLevelVisibility;
+  onToggleLevelVisibility?: (level: 'etage' | 'ruimte' | 'cluster') => void;
 }
 
 /**
@@ -63,6 +66,8 @@ export function MatrixOverlayCoordinator({
   onUpdateCell,
   onAssignProductToCell,
   onCellClick,
+  visibleLevels,
+  onToggleLevelVisibility,
 }: MatrixOverlayCoordinatorProps) {
   if (!activeOverlay) return null;
 
@@ -187,6 +192,17 @@ export function MatrixOverlayCoordinator({
           positionIds={activeOverlay.positionIds || []}
           onSave={onSaveCluster}
           onDissolve={onDissolveCluster}
+          onClose={onClose}
+        />
+      )}
+
+      {/* 7. Level Visibility Popover (V6) */}
+      {activeOverlay.type === 'level_visibility' && visibleLevels && onToggleLevelVisibility && (
+        <MatrixLevelVisibilityPopover
+          isOpen={true}
+          anchorPosition={activeOverlay.anchorPosition}
+          visibleLevels={visibleLevels}
+          onToggleLevel={onToggleLevelVisibility}
           onClose={onClose}
         />
       )}

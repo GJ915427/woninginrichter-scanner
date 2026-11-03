@@ -11,7 +11,7 @@ import { MatrixOrderMetaCard } from '../../components/matrix/MatrixOrderMetaCard
 import { MatrixClusterFloatingBar } from '../../components/matrix/MatrixClusterFloatingBar';
 import { MatrixAuditTrailTable } from '../../components/matrix/MatrixAuditTrailTable';
 import { MatrixOverlayCoordinator } from '../../components/matrix/MatrixOverlayCoordinator';
-import { Position, FsmProcessStep } from '../../types/matrix';
+import { Position, FsmProcessStep, FSM_STAGES } from '../../types/matrix';
 import { buildCellKey, findCellKeyByOrderLine, findOrderLineByCompoundKey } from '../../utils/matrix-overlay-state';
 import { attachMatrixDockingListener } from '../../utils/matrix-docking';
 
@@ -109,7 +109,11 @@ export default function MatrixOrdersPage() {
           activeTab="Project" fsmStage={fsmStage}
           onFsmStageChange={(stage) => {
             setFsmStage(stage);
-            openOverlay({ type: 'fsm_modal', step: { step: stage, label: `FSM Fase ${stage}`, status: 'actueel' } });
+            const foundStep = FSM_STAGES.find((s) => s.step === stage);
+            openOverlay({
+              type: 'fsm_modal',
+              step: foundStep ?? { step: stage, label: `FSM Fase ${stage}`, status: 'actueel' },
+            });
           }}
         />
 
@@ -123,25 +127,15 @@ export default function MatrixOrdersPage() {
         </div>
 
         <MatrixActionBar
-          currentStage={fsmStage}
-          onStageChange={(stage) => {
-            setFsmStage(stage);
-            openOverlay({ type: 'fsm_modal', step: { step: stage, label: `FSM Fase ${stage}`, status: 'actueel' } });
-          }}
           columnSelectMode={columnSelectMode} selectedColumnCount={selectedColumnIds.size}
           onToggleColumnSelectMode={toggleColumnSelectMode}
           onOpenMediaDrawer={(tab) => {
             setActiveMediaTab(tab);
             openOverlay({ type: 'media', positionId: 'pos_project_algemeen', title: `Werffoto's & Media (${selectedOrder.klant})` });
           }}
-          onFsmStepClick={(step: FsmProcessStep) => {
-            setFsmStage(step.step);
-            openOverlay({ type: 'fsm_modal', step });
-          }}
           historischDocumentUrl={selectedOrder.historisch_document_url}
           isHeaderCollapsed={isHeaderCollapsed}
           onToggleHeaderCollapse={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
-          visibleLevels={visibleLevels} onToggleLevelVisibility={toggleLevelVisibility}
         />
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -158,6 +152,10 @@ export default function MatrixOrdersPage() {
                 etages={selectedOrder.etages} columnSelectMode={columnSelectMode}
                 selectedColumnIds={selectedColumnIds} onToggleColumnSelection={toggleColumnSelection}
                 visibleLevels={visibleLevels}
+                onOpenLevelVisibility={(pos, isHover) => {
+                  if (isHover && activeOverlay && activeOverlay.type !== 'level_visibility') return;
+                  openOverlay({ type: 'level_visibility', anchorPosition: pos });
+                }}
                 onHeaderContextMenu={(type, title, id, e) =>
                   openOverlay({ type: 'context_menu', contextType: type, contextTitle: title, positionId: id, anchorPosition: { x: e.clientX, y: e.clientY } })
                 }
@@ -204,6 +202,7 @@ export default function MatrixOrdersPage() {
       <MatrixOverlayCoordinator
         activeOverlay={activeOverlay} selectedOrder={selectedOrder}
         activeMediaTab={activeMediaTab} onClose={closeOverlay} onTabChange={setActiveMediaTab}
+        visibleLevels={visibleLevels} onToggleLevelVisibility={toggleLevelVisibility}
         onDeletePosition={deletePosition} onSelectPositionForCluster={toggleColumnSelection}
         onOpenAssignVlak={(posId) => openOverlay({ type: 'assign_vlak', positionId: posId })}
         onSaveVlak={assignVlakToPosition} onSaveCluster={mergePositionsToCluster}

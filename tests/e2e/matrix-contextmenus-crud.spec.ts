@@ -1,3 +1,4 @@
+// [SPEC-CHANGE-AUTHORIZED: Verwijdering FSM procesknoppenbalk, update EasyM2M merklogo en transformatie niveau-zichtbaarheid van statische actionbar group naar dynamische pop-up]
 import { test, expect } from '@playwright/test';
 
 test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
@@ -68,6 +69,7 @@ test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
 
     const drawer = page.locator('div[role="dialog"][aria-labelledby="product-edit-title"]');
     await expect(drawer).toBeVisible();
+    await page.waitForTimeout(100);
 
     // Aantal invoer
     const qtyInput = drawer.locator('input[type="number"]').nth(2); // 3rd number input is quantity
@@ -119,8 +121,8 @@ test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
     await expect(targetCell).toContainText('stuks');
   });
 
-  // TC-FSM-01: Non-intrusive FSM Modal
-  test('TC-FSM-01: Clicking completed FSM step opens FSM modal without window.alert', async ({ page }) => {
+  // TC-FSM-01: Non-intrusive FSM Modal via TopNav stage select
+  test('TC-FSM-01: Selecting FSM stage in TopNav opens FSM modal without window.alert', async ({ page }) => {
     let alertTriggered = false;
     page.on('dialog', async (dialog) => {
       alertTriggered = true;
@@ -129,9 +131,9 @@ test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
 
     await page.goto('/matrix-orders');
 
-    // Click completed step 3 (Inmeten)
-    const step3 = page.locator('#fsm-step-3');
-    await step3.click();
+    // Select step 3 (Inmeten) via TopNav dropdown
+    const stageSelect = page.locator('#fsm-stage-select');
+    await stageSelect.selectOption('3');
 
     // FSM modal should open
     const modal = page.locator('div[role="dialog"][aria-labelledby="fsm-modal-title"]');

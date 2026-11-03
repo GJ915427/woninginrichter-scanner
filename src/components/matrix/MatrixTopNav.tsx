@@ -39,16 +39,19 @@ export function MatrixTopNav({
     >
       {/* Linkerzijde: EasyM2M Branding + Hoofdnavigatie Tabs */}
       <div className="flex items-center gap-3 overflow-x-auto flex-nowrap py-1">
-        {/* EasyM2M Brand Badge */}
+        {/* EasyM2M Brand Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 px-2.5 py-1.5 rounded bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+          className="flex items-center gap-2 min-h-[44px] px-1 hover:opacity-90 transition-opacity select-none"
           title="EasyM2M LogicTrade Portaal"
         >
-          <span className="font-extrabold tracking-tight text-blue-400">EasyM²M</span>
-          <span className="text-[10px] font-mono bg-blue-600/80 text-white px-1.5 py-0.2 rounded font-semibold">
-            v3.0 H5
-          </span>
+          <div className="w-8 h-8 rounded-lg bg-blue-600 text-white font-black text-sm flex items-center justify-center shadow-2xs">
+            <span>E=M²</span>
+          </div>
+          <div className="flex items-center text-base tracking-tight leading-none">
+            <span className="font-bold text-slate-900">Easy</span>
+            <span className="font-bold text-blue-600">M2M</span>
+          </div>
         </Link>
 
         {/* 6 Navigatietabs */}

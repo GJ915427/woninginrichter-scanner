@@ -1,3 +1,4 @@
+// [SPEC-CHANGE-AUTHORIZED: Verwijdering FSM procesknoppenbalk, update EasyM2M merklogo en transformatie niveau-zichtbaarheid van statische actionbar group naar dynamische pop-up]
 import { test, expect } from '@playwright/test';
 
 test.describe('Matrix Orders Browser v5 - Niveaus, Clusters, Docking & Shortcuts', () => {
@@ -16,41 +17,50 @@ test.describe('Matrix Orders Browser v5 - Niveaus, Clusters, Docking & Shortcuts
     expect(await placeholders.count()).toBeGreaterThan(0);
   });
 
-  test('TC-V5-02: Niveau-Zichtbaarheid toggles in MatrixActionBar verbergen en tonen rijen', async ({ page }) => {
-    // Controleer aanwezigheid van niveau segmented control
-    const levelControl = page.locator('[role="group"][aria-label="Niveau zichtbaarheid"]');
-    await expect(levelControl).toBeVisible();
+  test('TC-V6-02: Niveau-Zichtbaarheid zwevende popover verbergt en toont rijen via Kolom 0 trigger', async ({ page }) => {
+    // 1. Beweeg of klik op de permanente Kolom 0 ankerheader (Artikelen & Diensten)
+    const anchorHeader = page.locator('#matrix-table thead tr[data-level="positie"] th.sticky-col-0');
+    await expect(anchorHeader).toBeVisible();
+    await anchorHeader.click();
 
-    const etageBtn = levelControl.locator('button', { hasText: 'Etage' });
-    const ruimteBtn = levelControl.locator('button', { hasText: 'Ruimte' });
-    const clusterBtn = levelControl.locator('button', { hasText: 'Cluster' });
-    const positieBadge = levelControl.locator('span', { hasText: 'Positie' }).first();
+    // 2. Popover dialoog verschijnt
+    const popover = page.locator('div[role="dialog"][aria-label="Niveau zichtbaarheid"]');
+    await expect(popover).toBeVisible();
+
+    const etageBtn = popover.locator('button', { hasText: 'Etage' });
+    const ruimteBtn = popover.locator('button', { hasText: 'Ruimte' });
+    const clusterBtn = popover.locator('button', { hasText: 'Cluster' });
+    const positieBadge = popover.locator('div', { hasText: 'Positie' }).first();
 
     await expect(etageBtn).toHaveAttribute('aria-pressed', 'true');
     await expect(ruimteBtn).toHaveAttribute('aria-pressed', 'true');
     await expect(clusterBtn).toHaveAttribute('aria-pressed', 'true');
     await expect(positieBadge).toBeVisible();
 
-    // Toggle Etage uit
+    // 3. Toggle Etage uit
     await etageBtn.click();
     await expect(etageBtn).toHaveAttribute('aria-pressed', 'false');
 
-    // Etage rij moet niet meer zichtbaar zijn
+    // Etage rij verdwijnt uit het zicht
     const etageRow = page.locator('thead tr.tr-etage, thead tr[data-level="etage"]');
     await expect(etageRow).toHaveCount(0);
 
-    // Toggle Ruimte uit
+    // 4. Toggle Ruimte uit
     await ruimteBtn.click();
     await expect(ruimteBtn).toHaveAttribute('aria-pressed', 'false');
 
-    // Toggle Cluster uit
+    // 5. Toggle Cluster uit
     await clusterBtn.click();
     await expect(clusterBtn).toHaveAttribute('aria-pressed', 'false');
 
-    // Positie rij moet ALTIJD zichtbaar blijven en nu op top: 0px docken
+    // 6. Positie rij blijft zichtbaar en dockt op top: 0px
     const posRow = page.locator('thead tr.tr-posities, thead tr[data-level="positie"]');
     await expect(posRow).toBeVisible();
     await expect(posRow.locator('th').first()).toHaveCSS('top', '0px');
+
+    // 7. Sluiten via Escape
+    await page.keyboard.press('Escape');
+    await expect(popover).not.toBeVisible();
   });
 
   test('TC-V5-03: Toetsenbordnavigatie met Alt + ArrowRight en Alt + ArrowLeft bladert door orders', async ({ page }) => {

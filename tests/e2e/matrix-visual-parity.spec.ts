@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 
+// [SPEC-CHANGE-AUTHORIZED: Verwijdering FSM procesknoppenbalk, update EasyM2M merklogo en transformatie niveau-zichtbaarheid van statische actionbar group naar dynamische pop-up]
 // [SPEC-CHANGE-AUTHORIZED: Geometrische herkalibratie van sticky thead top offsets (36px, 70px) ter synchronisatie met celhoogtes h-[36px] en h-[34px]]
 
 test.describe('Matrix Orders Visual & Dimension Parity', () => {
@@ -19,8 +20,9 @@ test.describe('Matrix Orders Visual & Dimension Parity', () => {
     await expect(page.locator('#matrix-table')).toBeVisible();
     await expect(page.locator('h1')).toContainText('V26001376');
 
-    // Verify Row 1 EasyM2M Corporate Header & 6 Menu Tabs
-    await expect(page.locator('text=EasyM²M')).toBeVisible();
+    // Verify Row 1 EasyM2M Corporate Header with E=M² squircle & EasyM2M brand label
+    await expect(page.locator('text=E=M²')).toBeVisible();
+    await expect(page.locator('text=EasyM2M')).toBeVisible();
     await expect(page.locator('button:has-text("Project")')).toBeVisible();
     await expect(page.locator('text=Jan (GSW)')).toBeVisible();
 
@@ -107,24 +109,19 @@ test.describe('Matrix Orders Visual & Dimension Parity', () => {
     await expect(drawer).not.toBeVisible();
   });
 
-  // TC-PAR-05: FSM Process Buttons & Warning Badges
-  test('TC-PAR-05: 8 FSM process buttons render with correct stages and warnings', async ({ page }) => {
+  // TC-PAR-05: FSM Process Buttons Removed from ActionBar & Present in TopNav Select
+  test('TC-PAR-05: 8 FSM process buttons removed from actionbar with active select in TopNav', async ({ page }) => {
     await page.goto('/matrix-orders');
 
+    // Verify FSM buttons #fsm-step-1 to #fsm-step-8 are no longer rendered in actionbar
     for (let step = 1; step <= 8; step++) {
-      const btn = page.locator(`#fsm-step-${step}`);
-      await expect(btn).toBeVisible();
+      await expect(page.locator(`#fsm-step-${step}`)).toHaveCount(0);
     }
 
-    // Step 5 should be active
-    const step5 = page.locator('#fsm-step-5');
-    await expect(step5).toHaveClass(/bg-blue-600/);
-
-    // Steps 6, 7, 8 should have warning badges
-    for (let step = 6; step <= 8; step++) {
-      const warningBadge = page.locator(`#fsm-step-${step} span:has-text("⚠️")`);
-      await expect(warningBadge).toBeVisible();
-    }
+    // TopNav FSM select dropdown remains operational with stage 5 selected
+    const fsmSelect = page.locator('#fsm-stage-select');
+    await expect(fsmSelect).toBeVisible();
+    await expect(fsmSelect).toHaveValue('5');
   });
 
   // TC-PAR-06: Column Multi-Selection

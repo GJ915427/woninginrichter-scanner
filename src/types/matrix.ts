@@ -187,6 +187,10 @@ export type ActiveOverlay =
   | {
       type: 'product_drawer';
       productId: string;
+    }
+  | {
+      type: 'level_visibility';
+      anchorPosition: { x: number; y: number };
     };
 
 export interface MatrixOrder {
