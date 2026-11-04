@@ -29,8 +29,9 @@
         "npx",
         "playwright",
         "test",
+        "tests/e2e/matrix-behavioral.spec.ts",
         "tests/e2e/matrix-contextmenus-crud.spec.ts",
-        "tests/e2e/matrix-visual-parity.spec.ts"
+        "tests/e2e/matrix-niveaus-docking.spec.ts"
       ]
     },
     "src/app/matrix-orders": {
@@ -38,17 +39,19 @@
         "npx",
         "playwright",
         "test",
+        "tests/e2e/matrix-behavioral.spec.ts",
         "tests/e2e/matrix-contextmenus-crud.spec.ts",
-        "tests/e2e/matrix-visual-parity.spec.ts"
+        "tests/e2e/matrix-niveaus-docking.spec.ts"
       ]
     },
-    "tests/e2e/matrix": {
+    "tests/e2e": {
       "e2e_command": [
         "npx",
         "playwright",
         "test",
+        "tests/e2e/matrix-behavioral.spec.ts",
         "tests/e2e/matrix-contextmenus-crud.spec.ts",
-        "tests/e2e/matrix-visual-parity.spec.ts"
+        "tests/e2e/matrix-niveaus-docking.spec.ts"
       ]
     }
   }

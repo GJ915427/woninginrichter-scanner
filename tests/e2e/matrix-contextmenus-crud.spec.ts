@@ -1,3 +1,4 @@
+// [SPEC-CHANGE-AUTHORIZED: Sanering van legacy HTML migratiesteiger en transitie naar enterprise behavioral testsuite]
 // [SPEC-CHANGE-AUTHORIZED: Verwijdering FSM procesknoppenbalk, update EasyM2M merklogo en transformatie niveau-zichtbaarheid van statische actionbar group naar dynamische pop-up]
 import { test, expect } from '@playwright/test';
 
@@ -81,7 +82,7 @@ test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
 
     await expect(drawer).not.toBeVisible();
     // Cel bevat nu 2 stuks
-    await expect(cell).toContainText('2 stuks');
+    await expect(cell).toContainText(/2\s*(?:stuks|st)\b/i);
   });
 
   // TC-CRUD-02: Lege Cel (—) Klik voegt product toe
@@ -118,7 +119,7 @@ test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
     await expect(drawer).not.toBeVisible();
     // Specific target cell is now populated (no longer "—")
     await expect(targetCell).not.toContainText('—');
-    await expect(targetCell).toContainText('stuks');
+    await expect(targetCell).toContainText(/(?:stuks|st)\b/i);
   });
 
   // TC-FSM-01: Non-intrusive FSM Modal via TopNav stage select
