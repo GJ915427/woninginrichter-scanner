@@ -9,6 +9,7 @@ import { MatrixProductEditDrawer } from './MatrixProductEditDrawer';
 import { MatrixAssignVlakModal } from './MatrixAssignVlakModal';
 import { MatrixClusterModal } from './MatrixClusterModal';
 import { MatrixLevelVisibilityPopover } from './MatrixLevelVisibilityPopover';
+import { MatrixProductDetailDrawer } from './MatrixProductDetailDrawer';
 import { resolveCellData, buildCellKey } from '../../utils/matrix-overlay-state';
 
 export interface MatrixOverlayCoordinatorProps {
@@ -43,6 +44,7 @@ export interface MatrixOverlayCoordinatorProps {
   ) => void;
   visibleLevels?: HeaderLevelVisibility;
   onToggleLevelVisibility?: (level: 'etage' | 'ruimte' | 'cluster') => void;
+  onAddNote?: (note: string) => void;
 }
 
 /**
@@ -68,6 +70,7 @@ export function MatrixOverlayCoordinator({
   onCellClick,
   visibleLevels,
   onToggleLevelVisibility,
+  onAddNote,
 }: MatrixOverlayCoordinatorProps) {
   if (!activeOverlay) return null;
 
@@ -206,6 +209,17 @@ export function MatrixOverlayCoordinator({
           visibleLevels={visibleLevels}
           onToggleLevel={onToggleLevelVisibility}
           onClose={onClose}
+        />
+      )}
+
+      {/* 8. Product Detail Drawer */}
+      {activeOverlay.type === 'product_drawer' && (
+        <MatrixProductDetailDrawer
+          isOpen={true}
+          product={selectedOrder.products.find((p) => p.id === activeOverlay.productId) || null}
+          positions={selectedOrder.etages.flatMap((et) => et.rooms.flatMap((r) => r.positions))}
+          onClose={onClose}
+          onAddNote={onAddNote}
         />
       )}
     </>

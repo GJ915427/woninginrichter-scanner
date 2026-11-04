@@ -8,6 +8,7 @@ export interface MatrixOrderMetaCardProps {
   selectedOrder: MatrixOrder;
   onOpenPdf?: () => void;
   onScrollToAuditTrail?: () => void;
+  onOpenMedia?: () => void;
 }
 
 /**
@@ -19,6 +20,7 @@ export function MatrixOrderMetaCard({
   selectedOrder,
   onOpenPdf,
   onScrollToAuditTrail,
+  onOpenMedia,
 }: MatrixOrderMetaCardProps) {
   const handleAuditScroll = () => {
     if (onScrollToAuditTrail) {
@@ -48,7 +50,7 @@ export function MatrixOrderMetaCard({
             Ordernummer
           </span>
           <div className="flex items-center gap-1.5">
-            <h1 id="meta-order-number" className="font-extrabold text-sm sm:text-base text-slate-900 tracking-tight">
+            <h1 id="meta-order-number" data-testid="order-title" className="font-extrabold text-sm sm:text-base text-slate-900 tracking-tight">
               {selectedOrder.id}
             </h1>
             <button
@@ -101,14 +103,26 @@ export function MatrixOrderMetaCard({
         {/* Kolom 4: Project Scope & Posities */}
         <div className="flex flex-col gap-0.5">
           <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-            Project Scope
+            Project Scope &amp; Bijlagen
           </span>
           <span id="meta-scope-summary" className="font-semibold text-slate-800 truncate">
             {selectedOrder.scopeDescription || 'Villa: Raambekleding'}
           </span>
-          <span id="meta-positions-count" className="text-slate-500">
-            {selectedOrder.positionCount ?? 15} ruimtelijke posities
-          </span>
+          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+            <span id="meta-positions-count" className="text-slate-500">
+              {selectedOrder.positionCount ?? 15} posities
+            </span>
+            <button
+              type="button"
+              id="btn-meta-media-drawer"
+              onClick={onOpenMedia}
+              aria-label="Bijlagen en notities openen"
+              className="min-h-[44px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
+            >
+              <span>📎</span>
+              <span>Bijlagen ({selectedOrder.media?.length ?? 0})</span>
+            </button>
+          </div>
         </div>
 
         {/* Kolom 5: Verkoper & Filiaal */}

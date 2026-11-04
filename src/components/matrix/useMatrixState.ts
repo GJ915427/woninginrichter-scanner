@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { MatrixOrder, RollupLevel, CellPriceData, ActiveOverlay, HeaderLevelVisibility } from '../../types/matrix';
+import { MatrixOrder, RollupLevel, CellPriceData, ActiveOverlay, HeaderLevelVisibility, MediaItem } from '../../types/matrix';
 import { MATRIX_ORDERS_MOCK_DATA } from '../../fixtures/matrix-mock-data';
 import {
   cascadeDeletePosition,
@@ -115,6 +115,23 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
   const clearColumnSelection = useCallback(() => {
     setSelectedColumnIds(new Set());
   }, []);
+
+  // Media & Notities toevoegen met automatische synchronisatie
+  const addMediaItem = useCallback(
+    (item: MediaItem) => {
+      setOrders((prev) =>
+        prev.map((order, idx) => {
+          if (idx !== currentOrderIndex) return order;
+          const currentMedia = order.media ?? [];
+          return {
+            ...order,
+            media: [item, ...currentMedia],
+          };
+        })
+      );
+    },
+    [currentOrderIndex]
+  );
 
   // Legacy stepper handlers gemapt naar Single-Active Coordinator
   const openStepper = useCallback((productId: string, positionId: string) => {
@@ -348,6 +365,7 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     toggleColumnSelection,
     toggleColumnSelectMode,
     clearColumnSelection,
+    addMediaItem,
     updateQuantity,
     deletePosition,
     updateCell,

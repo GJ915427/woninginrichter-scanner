@@ -27,7 +27,7 @@ export default function MatrixOrdersPage() {
     sidebarOpen, setSidebarOpen, visibleLevels, toggleLevelVisibility,
     isHeaderCollapsed, setIsHeaderCollapsed, selectOrder, goToNextOrder, goToPreviousOrder,
     toggleColumnSelection, toggleColumnSelectMode, clearColumnSelection,
-    deletePosition, updateCell, assignProductToCell, assignVlakToPosition,
+    addMediaItem, deletePosition, updateCell, assignProductToCell, assignVlakToPosition,
     mergePositionsToCluster, dissolveCluster,
   } = useMatrixState();
 
@@ -122,6 +122,7 @@ export default function MatrixOrdersPage() {
             <MatrixOrderMetaCard
               selectedOrder={selectedOrder}
               onOpenPdf={() => openOverlay({ type: 'media', positionId: 'pos_order_meta', title: `Historisch LT Document - ${selectedOrder.id}` })}
+              onOpenMedia={() => openOverlay({ type: 'media_drawer', positionId: 'pos_project_algemeen', title: `Werffoto's & Media (${selectedOrder.klant})` })}
             />
           )}
         </div>
@@ -167,6 +168,7 @@ export default function MatrixOrdersPage() {
                     <MatrixProductRow
                       key={product.id} product={product} positions={spatialPositions} rowIndex={idx}
                       highlightedCellKey={highlightedCellKey} categoryHeader={categoryHeader}
+                      onProductClick={(p) => openOverlay({ type: 'product_drawer', productId: p.id })}
                       onCellClick={(pId, posId, sPos) => {
                         handleCellAuditHighlight(pId, posId, sPos);
                         openOverlay({ type: 'cell_edit', productId: pId, positionId: posId, subPos: sPos });
@@ -214,6 +216,18 @@ export default function MatrixOrdersPage() {
         }}
         onUpdateCell={(key, data, pId) => { updateCell(key, data, pId); closeOverlay(); }}
         onAssignProductToCell={(pId, posId, sPos, data) => { assignProductToCell(pId, posId, sPos, data); closeOverlay(); }}
+        onAddNote={(note) =>
+          addMediaItem({
+            id: `media-note-${Date.now()}`,
+            entityType: 'order',
+            entityId: selectedOrder.id,
+            type: 'note',
+            title: 'Werfnotitie',
+            description: note,
+            date: new Date().toLocaleDateString('nl-NL'),
+            author: 'Jan (GSW)',
+          })
+        }
       />
     </div>
   );

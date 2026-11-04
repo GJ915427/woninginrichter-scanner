@@ -262,3 +262,21 @@ export interface HeaderLevelVisibility {
   positie: boolean; // Altijd true (vast niveau)
 }
 
+export interface MatrixProductDetailDrawerProps {
+  product: MatrixProduct | null;
+  onClose: () => void;
+  onAddNote?: (note: string) => void;
+  positions?: Position[];
+  isOpen?: boolean;
+}
+
+export interface MatrixMediaCardProps {
+  item: MediaItem;
+  onPreview?: (item: MediaItem) => void;
+}
+
+export interface MatrixMediaInlineFormProps {
+  onSubmit: (title: string, description: string) => void;
+}
+
+

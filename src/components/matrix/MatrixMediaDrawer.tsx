@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { MediaItem } from '../../types/matrix';
 import { MatrixMediaFilterTabs } from './MatrixMediaFilterTabs';
+import { MatrixMediaCard } from './MatrixMediaCard';
+import { MatrixMediaInlineForm } from './MatrixMediaInlineForm';
 
 export interface MatrixMediaDrawerProps {
   isOpen: boolean;
@@ -72,7 +74,7 @@ const DEFAULT_MEDIA_ITEMS: MediaItem[] = [
 ];
 
 /**
- * Slide-over drawer voor werfmedia conform INV-GOV-22 (<250 regels).
+ * Slide-over drawer voor werfmedia & tijdlijn conform INV-GOV-22 (<250 regels, 2 hooks).
  * Ondersteunt filtering op type en context (positie, ruimte, project).
  */
 export function MatrixMediaDrawer({
@@ -80,20 +82,13 @@ export function MatrixMediaDrawer({
   activeTab,
   onClose,
   onTabChange,
-  items: initialItems,
+  items,
   currentPositionId = 'pos_wk_pui',
   currentRoomId = 'room_woonkamer',
   onAddNote,
 }: MatrixMediaDrawerProps) {
-  const [mediaList, setMediaList] = useState<MediaItem[]>(initialItems ?? DEFAULT_MEDIA_ITEMS);
   const [contextFilter, setContextFilter] = useState<'position' | 'room' | 'project'>('project');
-  const [newNote, setNewNote] = useState('');
-
-  useEffect(() => {
-    if (initialItems && initialItems.length > 0) {
-      setMediaList(initialItems);
-    }
-  }, [initialItems]);
+  const mediaList = items && items.length > 0 ? items : DEFAULT_MEDIA_ITEMS;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -108,7 +103,6 @@ export function MatrixMediaDrawer({
 
   // Multi-level context & type filtering
   const filteredItems = mediaList.filter((item) => {
-    // Type filter
     const matchesType =
       (activeTab === 'foto' && item.type === 'photo') ||
       (activeTab === 'video' && item.type === 'video') ||
@@ -116,7 +110,6 @@ export function MatrixMediaDrawer({
 
     if (!matchesType) return false;
 
-    // Context filter
     if (contextFilter === 'position') {
       return item.entityType === 'position' && item.entityId === currentPositionId;
     }
@@ -129,24 +122,8 @@ export function MatrixMediaDrawer({
     return true; // project: alles tonen
   });
 
-  const handleCreateNote = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newNote.trim()) return;
-
-    const created: MediaItem = {
-      id: `med_${Date.now()}`,
-      entityType: contextFilter === 'position' ? 'position' : 'order',
-      entityId: contextFilter === 'position' ? currentPositionId : 'V26001376',
-      type: 'note',
-      title: 'Werfnotitie',
-      date: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
-      author: 'Carlo Heinemans',
-      description: newNote.trim(),
-    };
-
-    setMediaList((prev) => [created, ...prev]);
-    onAddNote?.(newNote.trim());
-    setNewNote('');
+  const handleCreateNote = (_title: string, description: string) => {
+    onAddNote?.(description);
   };
 
   return (
@@ -166,7 +143,7 @@ export function MatrixMediaDrawer({
         <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div>
             <h3 id="media-drawer-title" className="text-sm font-bold text-slate-900">
-              Werf Media & Notities
+              Werf Media &amp; Notities
             </h3>
             <p className="text-xs text-slate-500">
               Gekoppeld op niveau van order, ruimte en positie
@@ -175,7 +152,7 @@ export function MatrixMediaDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 transition cursor-pointer text-base"
+            className="min-h-[44px] min-w-[44px] rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 transition cursor-pointer text-base"
             aria-label="Sluit drawer"
           >
             ✕
@@ -191,7 +168,7 @@ export function MatrixMediaDrawer({
           hasActivePosition={Boolean(currentPositionId)}
         />
 
-        {/* Media Item Lijst */}
+        {/* Media Item Lijst gedelegeerd naar MatrixMediaCard */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {filteredItems.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
@@ -202,48 +179,13 @@ export function MatrixMediaDrawer({
             </div>
           ) : (
             filteredItems.map((item) => (
-              <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-2xs">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-mono">
-                    {item.entityType}: {item.entityId}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    {item.date}
-                  </span>
-                </div>
-                <div className="font-bold text-xs text-slate-900 mb-1">
-                  {item.title}
-                </div>
-                {item.description && (
-                  <p className="text-xs text-slate-600 leading-relaxed">{item.description}</p>
-                )}
-                {item.url && item.type === 'photo' && (
-                  <div className="mt-2 overflow-hidden rounded-lg border border-slate-200">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={item.url} alt={item.title} className="w-full h-32 object-cover" />
-                  </div>
-                )}
-              </div>
+              <MatrixMediaCard key={item.id} item={item} />
             ))
           )}
         </div>
 
-        {/* Notitie Invoer */}
-        <form onSubmit={handleCreateNote} className="p-3 border-t border-slate-200 bg-slate-50 flex gap-2">
-          <input
-            type="text"
-            value={newNote}
-            onChange={(e) => setNewNote(e.target.value)}
-            placeholder="Voeg werfnotitie toe..."
-            className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
-          />
-          <button
-            type="submit"
-            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition cursor-pointer shadow-xs"
-          >
-            +
-          </button>
-        </form>
+        {/* Notitie Invoer gedelegeerd naar MatrixMediaInlineForm */}
+        <MatrixMediaInlineForm onSubmit={handleCreateNote} />
       </div>
     </>
   );

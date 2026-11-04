@@ -11,6 +11,7 @@ export interface MatrixProductRowProps {
   rowIndex: number;
   highlightedCellKey?: string | null;
   categoryHeader?: string;
+  onProductClick?: (product: MatrixProduct) => void;
   onCellClick: (
     productId: string,
     positionId: string,
@@ -40,6 +41,7 @@ export function MatrixProductRow({
   rowIndex,
   highlightedCellKey,
   categoryHeader,
+  onProductClick,
   onCellClick,
   onCellContextMenu,
   activeStepper,
@@ -68,25 +70,33 @@ export function MatrixProductRow({
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-1">
-            <span className="font-bold text-xs text-slate-900 leading-snug line-clamp-2">
-              {product.name}
-            </span>
-          </div>
+          <button
+            type="button"
+            onClick={() => onProductClick?.(product)}
+            aria-haspopup="dialog"
+            aria-label={`Productdetails voor ${product.name}`}
+            className="text-left w-full group/btn p-1 -m-1 rounded hover:bg-blue-100/50 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px] flex flex-col justify-center transition-colors cursor-pointer"
+          >
+            <div className="flex items-center justify-between gap-1">
+              <span className="font-bold text-xs text-slate-900 leading-snug line-clamp-2 group-hover/btn:text-blue-700 transition-colors">
+                {product.name}
+              </span>
+            </div>
 
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500 font-mono">
-            <span className="bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded text-[10px] border border-slate-200">
-              {product.code}
-            </span>
-            <span className="text-slate-400">•</span>
-            <span className="text-[10px] text-slate-600">
-              {product.category}
-            </span>
-            <span className="text-slate-400">•</span>
-            <span className="text-[10px] text-slate-400">
-              {product.unit}
-            </span>
-          </div>
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500 font-mono">
+              <span className="bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded text-[10px] border border-slate-200">
+                {product.code}
+              </span>
+              <span className="text-slate-400">•</span>
+              <span className="text-[10px] text-slate-600">
+                {product.category}
+              </span>
+              <span className="text-slate-400">•</span>
+              <span className="text-[10px] text-slate-400">
+                {product.unit}
+              </span>
+            </div>
+          </button>
         </div>
       </th>
 
