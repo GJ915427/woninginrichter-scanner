@@ -212,7 +212,7 @@ export default function MatrixOrdersPage() {
           handleCellAuditHighlight(pId, posId, sPos);
           openOverlay({ type: 'cell_edit', productId: pId, positionId: posId, subPos: sPos });
         }}
-        onUpdateCell={(key, data) => { updateCell(key, data); closeOverlay(); }}
+        onUpdateCell={(key, data, pId) => { updateCell(key, data, pId); closeOverlay(); }}
         onAssignProductToCell={(pId, posId, sPos, data) => { assignProductToCell(pId, posId, sPos, data); closeOverlay(); }}
       />
     </div>

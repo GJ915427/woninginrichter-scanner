@@ -20,6 +20,43 @@ export interface LogicTradeOrderLine {
 
 export type PricingMode = 'm2' | 'm1_width' | 'm1_height' | 'unit';
 
+export type DimensionSpec =
+  | {
+      type: 'window_2d';
+      widthMm: number;
+      heightMm: number;
+      areaM2?: number;
+    }
+  | {
+      type: 'floor_area';
+      netAreaM2: number;
+      wastePercentage: number;
+      grossAreaM2?: number;
+      packageSizeM2?: number;
+      packageCount?: number;
+    }
+  | {
+      type: 'curtain_linear';
+      widthMm: number;
+      heightMm?: number;
+      pleatFactor?: number;
+      fabricWidthMm?: number;
+    }
+  | {
+      type: 'stairs';
+      stepsCount: number;
+      stairType: 'dicht' | 'open' | 'renovatie' | 'stoffering' | 'loper';
+      hasRisers?: boolean;
+      isOpen?: boolean;
+      ledLighting?: boolean;
+      bandering?: boolean;
+      widthMm?: number;
+    }
+  | {
+      type: 'piece_service';
+      unit?: string;
+    };
+
 export interface DimensionLimits {
   minWidth?: number;
   maxWidth?: number;
@@ -44,6 +81,7 @@ export interface CellPriceData {
   afmetingen?: string;          // Formatted string (e.g. "1100 × 2240")
   opmerking?: string;           // Vrije montagenotitie
   isCalculated?: boolean;       // Vlag voor dynamische calculatie
+  dimensionSpec?: DimensionSpec; // Polymorfe domein-specificatie (Zero Data Loss)
 }
 
 export interface Position {

@@ -8,6 +8,7 @@
 import {
   CellPriceData,
   DimensionLimits,
+  DimensionSpec,
   Etage,
   LogicTradeOrderLine,
   MatrixOrder,
@@ -15,6 +16,13 @@ import {
   PricingMode,
   Room,
 } from '../types/matrix';
+
+export const STAIRS_SURCHARGES = {
+  openTrapCents: 800,           // +€ 8,00 per trede voor rondom stoffering
+  riserCents: 1500,             // +€ 15,00 per stootbord (alleen renovatie)
+  ledLightingCents: 1000,       // +€ 10,00 per trede LED profiel
+  banderingPerStepCents: 1200,  // +€ 12,00 per trede festonneren/banderen
+} as const;
 
 /**
  * Converteert een integer bedrag in centen naar een formele Nederlandse valutatekst (e.g. 125000 -> "€ 1.250,00").
@@ -258,4 +266,229 @@ export function calculateOrderTotalCents(order: MatrixOrder): number {
   }
 
   return etagesTotal;
+}
+
+/**
+ * Parseert een dimensietekst of categorie naar een polymorfe DimensionSpec contract.
+ */
+export function parseDimensionSpec(dim?: string, category?: string): DimensionSpec {
+  const normCategory = (category || '').toLowerCase();
+  const cleaned = (dim || '').trim();
+
+  // 1. Trappen detectie
+  const isStairsCategory = /trap/i.test(normCategory);
+  const stairsMatch = cleaned.match(/(\d+)\s*(?:trede|treden|stappen|tredes)/i);
+  if (isStairsCategory || stairsMatch) {
+    const stepsCount = stairsMatch ? parseInt(stairsMatch[1], 10) : 13;
+    const isRenovation = /renovatie/i.test(normCategory) || /renovatie/i.test(cleaned);
+    const isLoper = /loper/i.test(normCategory) || /loper/i.test(cleaned);
+    const isStoffering = /stoffering/i.test(normCategory) || /stoffering/i.test(cleaned);
+
+    const stairType = isRenovation ? 'renovatie' : isLoper ? 'loper' : isStoffering ? 'stoffering' : 'dicht';
+    const isOpen = /open/i.test(cleaned);
+    const hasRisers = isRenovation ? !isOpen || /stootbord|dicht/i.test(cleaned) : false;
+    const ledLighting = /led/i.test(cleaned);
+    const bandering = /bandering|gebandeerd|feston/i.test(cleaned);
+
+    return {
+      type: 'stairs',
+      stepsCount: Math.max(1, stepsCount),
+      stairType,
+      isOpen,
+      hasRisers,
+      ledLighting,
+      bandering,
+    };
+  }
+
+  // 2. Vloeren detectie
+  const isFloorCategory = /vloer|pvc|laminaat|parket|ondervloer/i.test(normCategory);
+  const floorMatch = cleaned.match(/([\d.,]+)\s*(?:m2|m²)/i);
+  if (isFloorCategory || floorMatch) {
+    const netAreaStr = floorMatch ? floorMatch[1].replace(',', '.') : '0';
+    const netAreaM2 = Math.max(0, parseFloat(netAreaStr) || 0);
+    const wasteMatch = cleaned.match(/(?:\+(\d+)%|\((\d+)%\)\s*snijverlies|\+(\d+)\s*%\s*snijverlies)/i);
+    const wastePercentage = wasteMatch ? parseInt(wasteMatch[1] || wasteMatch[2] || wasteMatch[3], 10) : 10;
+    const grossAreaM2 = Math.round(netAreaM2 * (1 + wastePercentage / 100) * 100) / 100;
+
+    return {
+      type: 'floor_area',
+      netAreaM2,
+      wastePercentage,
+      grossAreaM2,
+    };
+  }
+
+  // 3. Gordijnen & Raambekleding 2D prioritering
+  const isWindowCategory = /raam|duette|plisse|jaloezie|hor|gordijn/i.test(normCategory);
+  const window2DMatch = cleaned.replace(/×/g, 'x').match(/(\d+)\s*x\s*(\d+)/i);
+  if (window2DMatch) {
+    const widthMm = parseInt(window2DMatch[1], 10);
+    const heightMm = parseInt(window2DMatch[2], 10);
+    if (/gordijn/i.test(normCategory) || /gordijn/i.test(cleaned)) {
+      return {
+        type: 'curtain_linear',
+        widthMm,
+        heightMm,
+        pleatFactor: 2.0,
+      };
+    }
+    return {
+      type: 'window_2d',
+      widthMm,
+      heightMm,
+      areaM2: Math.round(((widthMm * heightMm) / 1_000_000) * 100) / 100,
+    };
+  }
+
+  // 4. Gordijnen lineair
+  const curtainLinearMatch = cleaned.match(/(\d+)\s*(?:mm|m1|cm)?/i);
+  if (/gordijn/i.test(normCategory) && curtainLinearMatch) {
+    const widthMm = parseInt(curtainLinearMatch[1], 10);
+    return {
+      type: 'curtain_linear',
+      widthMm,
+      pleatFactor: 2.0,
+    };
+  }
+
+  // 5. Fallback 2D window als standaard
+  if (isWindowCategory && curtainLinearMatch) {
+    const widthMm = parseInt(curtainLinearMatch[1], 10);
+    return {
+      type: 'window_2d',
+      widthMm,
+      heightMm: 2600,
+      areaM2: Math.round(((widthMm * 2600) / 1_000_000) * 100) / 100,
+    };
+  }
+
+  // 6. Standaard fallback: piece_service
+  return {
+    type: 'piece_service',
+    unit: 'stuks',
+  };
+}
+
+/**
+ * Formatteert een DimensionSpec terug naar een heldere, consistente tekstuele weergave.
+ */
+export function formatDimensionSpec(spec: DimensionSpec): string {
+  switch (spec.type) {
+    case 'stairs': {
+      const parts: string[] = [];
+      if (spec.isOpen) parts.push('open');
+      if (spec.stairType === 'renovatie' && spec.hasRisers) parts.push('dicht');
+      if (spec.ledLighting) parts.push('LED');
+      if (spec.bandering) parts.push('gebandeerd');
+
+      const optionsStr = parts.length > 0 ? ` (${parts.join(' + ')})` : '';
+      return `${spec.stepsCount} treden${optionsStr}`;
+    }
+    case 'floor_area': {
+      const wasteStr = spec.wastePercentage ? ` (+${spec.wastePercentage}% snijverlies)` : '';
+      const areaFormatted = spec.netAreaM2.toString().replace('.', ',');
+      return `${areaFormatted} m²${wasteStr}`;
+    }
+    case 'window_2d': {
+      return `${spec.widthMm} × ${spec.heightMm}`;
+    }
+    case 'curtain_linear': {
+      if (spec.heightMm) {
+        return `${spec.widthMm} × ${spec.heightMm}`;
+      }
+      return `${spec.widthMm} mm`;
+    }
+    case 'piece_service':
+    default:
+      return 'Vast tarief';
+  }
+}
+
+/**
+ * Berekent de totale prijs van een cel conform de DimensionSpec en een basistarief in centen (Zero Float Math).
+ */
+export function calculatePriceFromSpec(spec: DimensionSpec, baseRateCents: number): number {
+  switch (spec.type) {
+    case 'stairs': {
+      const steps = Math.max(1, spec.stepsCount);
+      const surcharges =
+        (spec.isOpen ? STAIRS_SURCHARGES.openTrapCents : 0) +
+        (spec.stairType === 'renovatie' && spec.hasRisers ? STAIRS_SURCHARGES.riserCents : 0) +
+        (spec.ledLighting ? STAIRS_SURCHARGES.ledLightingCents : 0) +
+        (spec.stairType === 'loper' && spec.bandering ? STAIRS_SURCHARGES.banderingPerStepCents : 0);
+      const stepRate = baseRateCents + surcharges;
+      return steps * stepRate;
+    }
+    case 'floor_area': {
+      const grossArea = spec.grossAreaM2 ?? (spec.netAreaM2 * (1 + (spec.wastePercentage ?? 0) / 100));
+      return Math.round(grossArea * baseRateCents);
+    }
+    case 'curtain_linear': {
+      const effectiveMm = spec.widthMm * (spec.pleatFactor ?? 1);
+      return Math.round((effectiveMm * baseRateCents) / 1_000);
+    }
+    case 'window_2d': {
+      return Math.round((spec.widthMm * spec.heightMm * baseRateCents) / 1_000_000);
+    }
+    case 'piece_service':
+    default:
+      return baseRateCents;
+  }
+}
+
+/**
+ * Bijectieve inversie: inverteert een totale/eenheidsprijs terug naar het zuivere basistarief (tarief per trede, m², etc.)
+ * Zonder toeslagen of opslagen, met strikte delingsbeveiligingen tegen 0-waarden.
+ */
+export function resolveCellBaseRateCents(cell: CellPriceData, spec?: DimensionSpec): number {
+  if (cell.baseRateCents !== undefined && cell.baseRateCents > 0) {
+    return cell.baseRateCents;
+  }
+  if (!spec || spec.type === 'piece_service') {
+    return cell.unitPriceCents;
+  }
+
+  switch (spec.type) {
+    case 'stairs': {
+      if (!spec.stepsCount || spec.stepsCount <= 0) {
+        return cell.baseRateCents ?? cell.unitPriceCents;
+      }
+      const steps = Math.max(1, spec.stepsCount);
+      const surchargesPerStep =
+        (spec.isOpen ? STAIRS_SURCHARGES.openTrapCents : 0) +
+        (spec.stairType === 'renovatie' && spec.hasRisers ? STAIRS_SURCHARGES.riserCents : 0) +
+        (spec.ledLighting ? STAIRS_SURCHARGES.ledLightingCents : 0) +
+        (spec.stairType === 'loper' && spec.bandering ? STAIRS_SURCHARGES.banderingPerStepCents : 0);
+      const rawRate = Math.round(cell.unitPriceCents / steps);
+      return Math.max(0, rawRate - surchargesPerStep);
+    }
+    case 'floor_area': {
+      const grossArea = spec.grossAreaM2 ?? (spec.netAreaM2 * (1 + (spec.wastePercentage ?? 0) / 100));
+      if (!grossArea || grossArea <= 0) {
+        return cell.baseRateCents ?? cell.unitPriceCents;
+      }
+      const safeAreaScaled = Math.round(grossArea * 100);
+      if (safeAreaScaled <= 0) {
+        return cell.baseRateCents ?? cell.unitPriceCents;
+      }
+      return Math.round((cell.unitPriceCents * 100) / safeAreaScaled);
+    }
+    case 'curtain_linear': {
+      const effectiveMm = Math.round(spec.widthMm * (spec.pleatFactor ?? 1));
+      if (!effectiveMm || effectiveMm <= 0) {
+        return cell.baseRateCents ?? cell.unitPriceCents;
+      }
+      return Math.round((cell.unitPriceCents * 1_000) / effectiveMm);
+    }
+    case 'window_2d': {
+      if (!spec.widthMm || !spec.heightMm || spec.widthMm <= 0 || spec.heightMm <= 0) {
+        return cell.baseRateCents ?? cell.unitPriceCents;
+      }
+      const areaMm2 = spec.widthMm * spec.heightMm;
+      return Math.round((cell.unitPriceCents * 1_000_000) / areaMm2);
+    }
+    default:
+      return cell.unitPriceCents;
+  }
 }

@@ -10,14 +10,19 @@ import {
   calculateEtageTotalCents,
   calculateLineTotal,
   calculateOrderTotalCents,
+  calculatePriceFromSpec,
   calculateRoomTotalCents,
   centsToEuroString,
   euroStringToCents,
+  formatDimensionSpec,
   parseDimensions,
+  parseDimensionSpec,
+  resolveCellBaseRateCents,
   resolveCellPriceCents,
+  STAIRS_SURCHARGES,
   validateDimensions,
 } from '../../../src/utils/matrix-pricing';
-import { Etage, MatrixOrder, MatrixProduct, Room } from '../../../src/types/matrix';
+import { DimensionSpec, Etage, MatrixOrder, MatrixProduct, Room } from '../../../src/types/matrix';
 
 describe('CPQ Pricing Engine & Zero Float Math (Unit Tests)', () => {
   describe('TC-CPQ-01: Locale-Aware Valuta Parsing (euroStringToCents)', () => {
@@ -281,6 +286,197 @@ describe('CPQ Pricing Engine & Zero Float Math (Unit Tests)', () => {
       const total = calculateOrderTotalCents(order);
       expect(total).toBe(110000);
       expect(centsToEuroString(total)).toBe('€ 1.100,00');
+    });
+  });
+
+  describe('TC-CPQ-06: Polymorphic Dimension Spec & Bijective CPQ Inversion', () => {
+    describe('parseDimensionSpec', () => {
+      it('parseert trappen: renovatie, stoffering en lopers met opties', () => {
+        // 13 treden renovatie dicht + LED
+        const spec1 = parseDimensionSpec('13 treden (dicht + LED)', 'Traprenovatie');
+        expect(spec1.type).toBe('stairs');
+        if (spec1.type === 'stairs') {
+          expect(spec1.stepsCount).toBe(13);
+          expect(spec1.stairType).toBe('renovatie');
+          expect(spec1.hasRisers).toBe(true);
+          expect(spec1.isOpen).toBe(false);
+          expect(spec1.ledLighting).toBe(true);
+        }
+
+        // 14 treden stoffering open (Order V26000925)
+        const spec2 = parseDimensionSpec('14 treden open', 'Trapstoffering');
+        expect(spec2.type).toBe('stairs');
+        if (spec2.type === 'stairs') {
+          expect(spec2.stepsCount).toBe(14);
+          expect(spec2.stairType).toBe('stoffering');
+          expect(spec2.isOpen).toBe(true);
+          expect(spec2.hasRisers).toBe(false);
+        }
+
+        // 15 treden traploper met bandering
+        const spec3 = parseDimensionSpec('15 treden loper gebandeerd', 'Trappen');
+        expect(spec3.type).toBe('stairs');
+        if (spec3.type === 'stairs') {
+          expect(spec3.stepsCount).toBe(15);
+          expect(spec3.stairType).toBe('loper');
+          expect(spec3.bandering).toBe(true);
+        }
+      });
+
+      it('parseert vloeren met netto oppervlakte en percentage snijverlies', () => {
+        const spec = parseDimensionSpec('24,5 m2 (+10% snijverlies)', 'Vloeren');
+        expect(spec.type).toBe('floor_area');
+        if (spec.type === 'floor_area') {
+          expect(spec.netAreaM2).toBe(24.5);
+          expect(spec.wastePercentage).toBe(10);
+          expect(spec.grossAreaM2).toBe(26.95);
+        }
+      });
+
+      it('parseert gordijnen en raambekleding met 2D of lineaire breedte', () => {
+        const spec2D = parseDimensionSpec('2400 x 1800', 'Gordijnen');
+        expect(spec2D.type).toBe('curtain_linear');
+        if (spec2D.type === 'curtain_linear') {
+          expect(spec2D.widthMm).toBe(2400);
+          expect(spec2D.heightMm).toBe(1800);
+        }
+
+        const specLinear = parseDimensionSpec('3200 mm', 'Gordijnen');
+        expect(specLinear.type).toBe('curtain_linear');
+        if (specLinear.type === 'curtain_linear') {
+          expect(specLinear.widthMm).toBe(3200);
+        }
+      });
+
+      it('parseert standaard 2D ramen correct', () => {
+        const spec = parseDimensionSpec('1200 x 1600', 'Raambekleding');
+        expect(spec.type).toBe('window_2d');
+        if (spec.type === 'window_2d') {
+          expect(spec.widthMm).toBe(1200);
+          expect(spec.heightMm).toBe(1600);
+          expect(spec.areaM2).toBe(1.92);
+        }
+      });
+
+      it('valt veilig terug op piece_service bij diensten of onbekend', () => {
+        const spec = parseDimensionSpec('1 post montage', 'Diensten');
+        expect(spec.type).toBe('piece_service');
+      });
+    });
+
+    describe('calculatePriceFromSpec & resolveCellBaseRateCents (Bijectiviteit)', () => {
+      it('berekent trappenprijs exact en inverteert basis tarief zuiver (renovatie dicht + LED)', () => {
+        // 13 treden renovatie dicht + LED: baseRate € 75,00/trede
+        // Surcharges per trede: risers € 15,00 + LED € 10,00 = € 25,00
+        // Totale trede-prijs: € 100,00. Totaal voor 13 treden: 13 * € 100,00 = € 1.300,00 (130000 cent)
+        const spec: DimensionSpec = {
+          type: 'stairs',
+          stepsCount: 13,
+          stairType: 'renovatie',
+          isOpen: false,
+          hasRisers: true,
+          ledLighting: true,
+        };
+        const baseRateCents = 7500;
+        const totalCents = calculatePriceFromSpec(spec, baseRateCents);
+        expect(totalCents).toBe(130000);
+
+        // Tariefomkering:
+        const invertedRate = resolveCellBaseRateCents(
+          { quantity: 1, unitPriceCents: totalCents, totalPriceCents: totalCents },
+          spec
+        );
+        expect(invertedRate).toBe(baseRateCents);
+      });
+
+      it('berekent trappenprijs exact voor open trap stoffering (Order V26000925)', () => {
+        // 14 treden open trap stoffering: baseRate € 40,50/trede, openTrap opslag € 8,00/trede
+        // Totale trede-prijs: € 48,50. Totaal voor 14 treden: 14 * € 48,50 = € 679,00 (67900 cent)
+        const spec: DimensionSpec = {
+          type: 'stairs',
+          stepsCount: 14,
+          stairType: 'stoffering',
+          isOpen: true,
+          hasRisers: false,
+        };
+        const baseRateCents = 4050;
+        const totalCents = calculatePriceFromSpec(spec, baseRateCents);
+        expect(totalCents).toBe(67900);
+
+        const invertedRate = resolveCellBaseRateCents(
+          { quantity: 1, unitPriceCents: totalCents, totalPriceCents: totalCents },
+          spec
+        );
+        expect(invertedRate).toBe(baseRateCents);
+      });
+
+      it('berekent vloerenprijs inclusief snijverlies en inverteert basistarief m2', () => {
+        // Netto 24.5 m2 + 10% snijverlies = 26.95 m2 bruto
+        // Base rate: € 45,00/m2 (4500 cent)
+        // Totaal: Math.round(26.95 * 4500) = 121275 cent (€ 1.212,75)
+        const spec: DimensionSpec = {
+          type: 'floor_area',
+          netAreaM2: 24.5,
+          wastePercentage: 10,
+          grossAreaM2: 26.95,
+        };
+        const baseRateCents = 4500;
+        const totalCents = calculatePriceFromSpec(spec, baseRateCents);
+        expect(totalCents).toBe(121275);
+
+        const invertedRate = resolveCellBaseRateCents(
+          { quantity: 1, unitPriceCents: totalCents, totalPriceCents: totalCents },
+          spec
+        );
+        expect(invertedRate).toBe(baseRateCents);
+      });
+
+      it('beschermt tegen deling door nul bij ongeldige of 0-dimensies', () => {
+        const specStairsZero: DimensionSpec = { type: 'stairs', stepsCount: 0, stairType: 'renovatie' };
+        expect(resolveCellBaseRateCents({ quantity: 1, unitPriceCents: 5000, totalPriceCents: 5000 }, specStairsZero)).toBe(5000);
+
+        const specFloorZero: DimensionSpec = { type: 'floor_area', netAreaM2: 0, wastePercentage: 0, grossAreaM2: 0 };
+        expect(resolveCellBaseRateCents({ quantity: 1, unitPriceCents: 5000, totalPriceCents: 5000 }, specFloorZero)).toBe(5000);
+
+        const specCurtainZero: DimensionSpec = { type: 'curtain_linear', widthMm: 0 };
+        expect(resolveCellBaseRateCents({ quantity: 1, unitPriceCents: 5000, totalPriceCents: 5000 }, specCurtainZero)).toBe(5000);
+
+        const specWindowZero: DimensionSpec = { type: 'window_2d', widthMm: 0, heightMm: 1000 };
+        expect(resolveCellBaseRateCents({ quantity: 1, unitPriceCents: 5000, totalPriceCents: 5000 }, specWindowZero)).toBe(5000);
+      });
+    });
+
+    describe('formatDimensionSpec', () => {
+      it('formatteert trappen spec met alle actieve opties', () => {
+        const spec: DimensionSpec = {
+          type: 'stairs',
+          stepsCount: 13,
+          stairType: 'renovatie',
+          isOpen: false,
+          hasRisers: true,
+          ledLighting: true,
+        };
+        expect(formatDimensionSpec(spec)).toBe('13 treden (dicht + LED)');
+
+        const specOpen: DimensionSpec = {
+          type: 'stairs',
+          stepsCount: 14,
+          stairType: 'stoffering',
+          isOpen: true,
+          hasRisers: false,
+        };
+        expect(formatDimensionSpec(specOpen)).toBe('14 treden (open)');
+      });
+
+      it('formatteert vloeren spec met snijverlies', () => {
+        const spec: DimensionSpec = {
+          type: 'floor_area',
+          netAreaM2: 24.5,
+          wastePercentage: 10,
+          grossAreaM2: 26.95,
+        };
+        expect(formatDimensionSpec(spec)).toBe('24,5 m² (+10% snijverlies)');
+      });
     });
   });
 });

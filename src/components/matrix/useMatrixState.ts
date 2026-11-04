@@ -157,7 +157,7 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
 
   // CRUD: Cel bijwerken met automatische CPQ herberekening
   const updateCell = useCallback(
-    (cellKey: string, updates: Partial<CellPriceData>) => {
+    (cellKey: string, updates: Partial<CellPriceData>, productId?: string) => {
       const { positionId, subPos } = parseCellKey(cellKey);
 
       setOrders((prev) =>
@@ -165,6 +165,9 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
           if (idx !== currentOrderIndex) return order;
 
           const updatedProducts = order.products.map((product) => {
+            if (productId && product.id !== productId) {
+              return product;
+            }
             const currentCell = resolveCellData(product, positionId, subPos);
             if (!currentCell) return product;
 
@@ -249,7 +252,7 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
       const newQty = Math.max(0, currentCell.quantity + delta);
       const newTotal = newQty * (currentCell.unitPriceCents || 0);
 
-      updateCell(key, { quantity: newQty, totalPriceCents: newTotal });
+      updateCell(key, { quantity: newQty, totalPriceCents: newTotal }, productId);
     },
     [selectedOrder, updateCell]
   );

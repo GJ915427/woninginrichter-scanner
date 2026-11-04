@@ -28,7 +28,7 @@ export interface MatrixOverlayCoordinatorProps {
     entityId: string,
     title?: string
   ) => void;
-  onUpdateCell: (cellKey: string, updates: Partial<CellPriceData>) => void;
+  onUpdateCell: (cellKey: string, updates: Partial<CellPriceData>, productId?: string) => void;
   onAssignProductToCell: (
     productId: string,
     positionId: string,
@@ -149,6 +149,8 @@ export function MatrixOverlayCoordinator({
           isOpen={true}
           productName={editProduct.name}
           productCode={editProduct.code}
+          category={editProduct.category}
+          productId={editProduct.id}
           positionName={activeOverlay.positionId}
           subPos={activeOverlay.subPos}
           initialData={editCellData}
@@ -156,7 +158,7 @@ export function MatrixOverlayCoordinator({
           onSave={(data) => {
             const key = activeOverlay.cellKey || buildCellKey(activeOverlay.positionId, activeOverlay.subPos);
             if (editCellData) {
-              onUpdateCell(key, data);
+              onUpdateCell(key, data, activeOverlay.productId);
             } else {
               onAssignProductToCell(activeOverlay.productId, activeOverlay.positionId, activeOverlay.subPos, data);
             }
@@ -165,7 +167,7 @@ export function MatrixOverlayCoordinator({
             editCellData
               ? () => {
                   const key = activeOverlay.cellKey || buildCellKey(activeOverlay.positionId, activeOverlay.subPos);
-                  onUpdateCell(key, { quantity: 0, totalPriceCents: 0 });
+                  onUpdateCell(key, { quantity: 0, totalPriceCents: 0 }, activeOverlay.productId);
                 }
               : undefined
           }
