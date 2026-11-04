@@ -1916,3 +1916,145 @@ html, body {
   color: var(--md-sys-color-on-surface-variant);
 }
 
+/* --- Native Mermaid Diagram Styles (Pijler 3 & 4) --- */
+.m3-mermaid-box {
+  margin: 1.5rem 0;
+  border-radius: 12px;
+  border: 1px solid var(--md-sys-color-outline-variant, #cac4d0);
+  background: var(--md-sys-color-surface-container-low, #f7f2fa);
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.m3-mermaid-box:hover {
+  border-color: var(--md-sys-color-outline, #79747e);
+}
+
+.m3-mermaid-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  background: var(--md-sys-color-surface-container, #f3edf7);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant, #cac4d0);
+  user-select: none;
+}
+
+.m3-mermaid-lang {
+  font-family: var(--md-sys-typescale-label-small-font, monospace);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--md-sys-color-outline, #79747e);
+}
+
+.m3-mermaid-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.m3-mermaid-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: var(--md-sys-color-on-surface-variant, #49454f);
+  transition: background-color 0.15s ease;
+}
+
+.m3-mermaid-toggle-btn:hover {
+  background-color: var(--md-sys-color-surface-container-high, #ece6f0);
+}
+
+.m3-mermaid-toggle-btn .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+.m3-mermaid-render-area {
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow-x: auto;
+  position: relative;
+  background: var(--md-sys-color-surface, #ffffff);
+}
+
+.m3-mermaid-render-area svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.m3-mermaid-skeleton {
+  width: 100%;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: linear-gradient(90deg, rgba(238,238,238,0.4) 25%, rgba(220,220,220,0.6) 50%, rgba(238,238,238,0.4) 75%);
+  background-size: 200% 100%;
+  animation: m3MermaidPulse 1.8s ease-in-out infinite;
+  border-radius: 8px;
+  color: var(--md-sys-color-on-surface-variant, #49454f);
+  font-size: 0.8125rem;
+}
+
+@keyframes m3MermaidPulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.m3-mermaid-skeleton .material-symbols-outlined {
+  font-size: 1.75rem;
+  color: var(--md-sys-color-primary, #6750a4);
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.m3-mermaid-source {
+  margin: 0;
+  border-radius: 0;
+  border-top: 1px solid var(--md-sys-color-outline-variant, #cac4d0);
+  background: var(--md-sys-color-surface-container, #f3edf7);
+}
+
+.m3-mermaid-error,
+.m3-mermaid-fallback,
+.m3-mermaid-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.m3-mermaid-error {
+  background-color: var(--md-sys-color-error-container, #ffdad6);
+  color: var(--md-sys-color-on-error-container, #410002);
+}
+
+.m3-mermaid-fallback,
+.m3-mermaid-empty {
+  background-color: var(--md-sys-color-surface-container-high, #ece6f0);
+  color: var(--md-sys-color-on-surface-variant, #49454f);
+}
+
+

@@ -384,7 +384,14 @@
         const ann = (state.annotations || []).find(function(a) { return String(a.id) === String(badgeId); });
         if (!ann) return;
 
-        const badgeRect = badge.getBoundingClientRect();
+        let badgeRect = badge.getBoundingClientRect();
+        // W3C CSSOM Resilientie: if badge is inside a collapsed container (display: none has rect 0,0,0,0)
+        if (badgeRect.height === 0 && badgeRect.width === 0) {
+          const parentMermaidBox = badge.closest('.m3-mermaid-box');
+          if (parentMermaidBox) {
+            badgeRect = parentMermaidBox.getBoundingClientRect();
+          }
+        }
         const relativeTop = badgeRect.top - paneRect.top + docPane.scrollTop;
         const normalizedY = (relativeTop / scrollHeight) * paneHeight;
         const clampedY = Math.max(8, Math.min(paneHeight - 14, normalizedY));
@@ -429,6 +436,15 @@
           const target = cluster.items[cluster.currentIndex % cluster.items.length];
           cluster.currentIndex++;
 
+          // Auto-expand parent mermaid source code if badge is in a collapsed source block
+          const parentMermaidBox = target.badgeEl.closest('.m3-mermaid-box');
+          if (parentMermaidBox) {
+            const sourcePre = parentMermaidBox.querySelector('.m3-mermaid-source');
+            if (sourcePre && (sourcePre.style.display === 'none' || getComputedStyle(sourcePre).display === 'none')) {
+              sourcePre.style.display = 'block';
+            }
+          }
+
           target.badgeEl.scrollIntoView({ behavior: 'auto', block: 'center' });
 
           target.badgeEl.classList.remove('m3-annotation-highlight--pulse');
@@ -449,6 +465,132 @@
     };
   })();
   window.OverviewRulerManager = OverviewRulerManager;
+
+  /**
+   * Native Mermaid Diagram Lifecycle Manager (Pijler 3 & 4)
+   * Orchestrates async SVG rendering, skeleton loader transitions, and source code toggling.
+   */
+  const MermaidManager = (function () {
+    let initialized = false;
+
+    function init() {
+      if (initialized) return;
+      if (typeof window !== 'undefined' && window.mermaid) {
+        try {
+          window.mermaid.initialize({
+            startOnLoad: false,
+            theme: 'neutral',
+            securityLevel: 'strict',
+            fontFamily: 'Roboto, sans-serif'
+          });
+          initialized = true;
+        } catch (e) {
+          console.warn('Failed to initialize Mermaid:', e);
+        }
+      }
+    }
+
+    async function renderDiagrams(container) {
+      if (!container) return;
+      init();
+      const targetBoxes = container.querySelectorAll('.m3-mermaid-box');
+      if (!targetBoxes || targetBoxes.length === 0) return;
+
+      const currentDocId = state.currentDoc ? state.currentDoc.id : null;
+      let counter = 0;
+
+      for (const box of targetBoxes) {
+        if (state.currentDoc?.id !== currentDocId) {
+          break; // Abort if user switched document during sequential render
+        }
+
+        // Bind toggle button for source code
+        const toggleBtn = box.querySelector('.m3-mermaid-toggle-btn');
+        const sourcePre = box.querySelector('.m3-mermaid-source');
+        if (toggleBtn && sourcePre && !toggleBtn.dataset.bound) {
+          toggleBtn.dataset.bound = 'true';
+          toggleBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const isHidden = sourcePre.style.display === 'none' || getComputedStyle(sourcePre).display === 'none';
+            sourcePre.style.display = isHidden ? 'block' : 'none';
+            if (typeof OverviewRulerManager !== 'undefined' && OverviewRulerManager.update) {
+              OverviewRulerManager.update();
+            }
+          });
+        }
+
+        const renderArea = box.querySelector('.m3-mermaid-render-area');
+        if (!renderArea || renderArea.getAttribute('data-mermaid-rendered') === 'true') {
+          continue;
+        }
+
+        const rawCode = box.getAttribute('data-mermaid-code') || '';
+        let code = '';
+        try {
+          code = decodeURIComponent(rawCode);
+        } catch (e) {
+          code = rawCode;
+        }
+
+        if (!code || !code.trim()) {
+          if (sourcePre) sourcePre.style.display = 'block';
+          renderArea.innerHTML = `
+            <div class="m3-mermaid-empty" data-doc-review-ignore="true" style="padding: 1.5rem; text-align: center; color: var(--md-sys-color-on-surface-variant); font-size: 0.875rem;">
+              <span class="material-symbols-outlined" style="vertical-align: middle; margin-right: 4px;">info</span>
+              <span>Geen diagramcode opgegeven.</span>
+            </div>
+          `;
+          renderArea.setAttribute('data-mermaid-rendered', 'true');
+          continue;
+        }
+
+        const diagramId = `mermaid-svg-${Date.now()}-${counter++}`;
+        try {
+          if (window.mermaid && typeof window.mermaid.render === 'function') {
+            const renderResult = await window.mermaid.render(diagramId, code);
+            const svg = typeof renderResult === 'string' ? renderResult : (renderResult && renderResult.svg) || '';
+            if (state.currentDoc?.id !== currentDocId) break;
+            renderArea.innerHTML = svg;
+            renderArea.setAttribute('data-mermaid-rendered', 'true');
+          } else {
+            // Offline fallback: show source code directly
+            if (sourcePre) sourcePre.style.display = 'block';
+            renderArea.innerHTML = `
+              <div class="m3-mermaid-fallback" data-doc-review-ignore="true">
+                <span class="material-symbols-outlined">info</span>
+                <span>Mermaid runtime niet geladen; broncode wordt direct getoond.</span>
+              </div>
+            `;
+            renderArea.setAttribute('data-mermaid-rendered', 'true');
+          }
+        } catch (renderErr) {
+          console.error('Mermaid render error for diagram', diagramId, renderErr);
+          const leftover = document.getElementById(diagramId) || document.getElementById('d' + diagramId);
+          if (leftover && leftover.parentNode) {
+            leftover.parentNode.removeChild(leftover);
+          }
+          if (sourcePre) sourcePre.style.display = 'block';
+          renderArea.innerHTML = `
+            <div class="m3-mermaid-error" data-doc-review-ignore="true">
+              <span class="material-symbols-outlined">error_outline</span>
+              <span>Kan diagram niet weergeven: ${MarkdownRenderer.escapeHtml(renderErr.message || 'Syntaxfout')}</span>
+            </div>
+          `;
+          renderArea.setAttribute('data-mermaid-rendered', 'true');
+        }
+      }
+
+      if (typeof OverviewRulerManager !== 'undefined' && OverviewRulerManager.update) {
+        OverviewRulerManager.update();
+      }
+    }
+
+    return {
+      init: init,
+      renderDiagrams: renderDiagrams
+    };
+  })();
+  window.MermaidManager = MermaidManager;
 
   /**
    * Document Navigation & Content Rendering
@@ -843,6 +985,9 @@
       // Initialize Code Block One-Click Copy Buttons
       initCodeCopyButtons(els.documentContainer);
 
+      // Render native Mermaid diagrams with skeleton lifecycle (Pijler 3 & 4)
+      MermaidManager.renderDiagrams(els.documentContainer);
+
       // Apply annotations highlights and orange badges (#FF6D00)
       SelectionManager.renderAnnotations(
         els.documentContainer,
@@ -1060,6 +1205,18 @@
     state.activeAnnotation = annotation;
     state.pendingSelection = null;
     isThreadPinned = isPinned;
+
+    // Auto-expand parent mermaid source code if badge or highlight is inside collapsed source
+    const targetEl = badgeElement || document.querySelector(`.m3-orange-badge[data-annotation-id="${annotation.id}"]`);
+    if (targetEl) {
+      const parentMermaidBox = targetEl.closest('.m3-mermaid-box');
+      if (parentMermaidBox) {
+        const sourcePre = parentMermaidBox.querySelector('.m3-mermaid-source');
+        if (sourcePre && (sourcePre.style.display === 'none' || getComputedStyle(sourcePre).display === 'none')) {
+          sourcePre.style.display = 'block';
+        }
+      }
+    }
 
     hideInputPopover();
 
@@ -1853,6 +2010,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     initListeners();
     OverviewRulerManager.init();
+    MermaidManager.init();
     applyRolePermissions(null);
     checkAuthSession();
   });
