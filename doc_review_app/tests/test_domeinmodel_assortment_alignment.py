@@ -133,5 +133,92 @@ def test_master_and_v44_parity(v44_content: str, master_content: str):
         "NEN-EN 1627",
         "NEN-EN 13561",
         "OutdoorDimensionSpec",
+        "### 3.4 Categorie 3: Vaste Vloerbekleding & Dekvloertechniek",
+        "### 3.5 Categorie 4: Trapbekleding, Traprenovatie & Trapelementen",
+        "### 3.6 Categorie 5: Buitenzonwering, Gevelsystemen & Rolluiken",
+        "### 3.7 Categorie 6: Diensten, Montage & Montagelogistiek",
+        "ServiceDimensionSpec",
+        "advies_inkorten",
+        "Vrije speling deuren",
     ]:
         assert (keyword in v44_content) == (keyword in master_content), f"Divergentie voor '{keyword}' tussen v44 en master"
+
+
+def test_zes_categorieen_domeinmodel_harmonisatie(v44_content: str):
+    """In §1.1, §1.5.1 en Deel 3 moet het model strikt 6 categorieën omvatten (geen verouderde 4- of 5-deling)."""
+    # 1. §1.1 Sanering van 'vijf kernproductgroepen' en 'Alle 5 kernproductgroepen'
+    assert "vijf kernproductgroepen" not in v44_content.lower()
+    assert "alle 5 kernproductgroepen" not in v44_content.lower()
+    assert "6 categorieën conform Profiel A" in v44_content or "6 categorieën" in v44_content
+
+    # 2. §1.1 Uitsluiting losse karpetten en meubelen conform Profiel A
+    assert "losse karpetten" in v44_content
+
+    # 3. §1.5.1 Regel 92 moet alle groepen noemen (geen 4-deling)
+    assert "Buitenzonwering & Gevelsystemen" in v44_content
+    assert "Categorie 6" in v44_content or "Diensten" in v44_content
+
+    # 4. Deel 3 Header Sanering (geen '5 Disciplines')
+    assert "De 5 Disciplines in Detail" not in v44_content
+    assert "5 disciplines" not in v44_content
+    assert "De 6 Categorieën in Detail" in v44_content
+
+    # 5. Paragraaf 3.7 Categorie 6 aanwezigheid met sub-secties
+    assert "### 3.7 Categorie 6: Diensten, Montage & Montagelogistiek" in v44_content
+    assert "#### 3.7.1 Sloop & Voorbewerking" in v44_content
+    assert "#### 3.7.2 Egalisatie & Vloertechniek" in v44_content
+    assert "#### 3.7.3 Deurinspectie & Advisering" in v44_content
+    assert "#### 3.7.4 Verticaal Transport & Hijsmiddelen" in v44_content
+    assert "#### 3.7.5 Inmeet- en Rekenmatrix Diensten & Montage" in v44_content
+
+
+def test_titels_harmonisatie_c3_c4_c5(v44_content: str):
+    """De titels van Categorie 3, 4 en 5 moeten synchroon zijn met de gepromoveerde taxonomie."""
+    assert "### 3.4 Categorie 3: Vaste Vloerbekleding & Dekvloertechniek" in v44_content
+    assert "### 3.5 Categorie 4: Trapbekleding, Traprenovatie & Trapelementen" in v44_content
+    assert "### 3.6 Categorie 5: Buitenzonwering, Gevelsystemen & Rolluiken" in v44_content
+
+
+def test_deurenbeleid_contract_pariteit(v44_content: str):
+    """Het deurenbeleid moet over de gehele causale keten consistent zijn op de adviesrol."""
+    # 1. §4.9.1 FloorDimensionSpec: advies_inkorten ipv zagen
+    floor_match = re.search(r'interface\s+FloorDimensionSpec\s*\{([^}]+)\}', v44_content)
+    assert floor_match, "FloorDimensionSpec interface niet gevonden in §4.9.1"
+    floor_body = floor_match.group(1)
+    assert "advies_inkorten" in floor_body
+    assert "inkorten_vereist" not in floor_body
+    assert "deuren_inkorten_aantal" not in floor_body
+
+    # 2. §3.4.6 Inmeetchecklist inspectiepunten 12 & 13
+    assert "Vrije speling deuren" in v44_content
+    assert "Verschijnt als vrije speling deuren = Deuren klemmen of advies inkorten" in v44_content
+
+    # 3. §3.4.7 Rekenmatrix: geen zaagadvies/timmerman verplichting
+    assert "advies timmerman" not in v44_content.lower()
+
+    # 4. Deel 5 Praktijkvoorbeeld (regel 2035 echo sanering)
+    assert "advies inkorten" in v44_content.lower()
+
+
+def test_service_dimension_spec_schema(v44_content: str):
+    """In §4.9.1 moet ServiceDimensionSpec zijn gedefinieerd en ProductToewijzing diensten ondersteunen."""
+    # 1. ProductToewijzing literal verruimingen
+    toewijzing_match = re.search(r'interface\s+ProductToewijzing\s*\{([^}]+)\}', v44_content)
+    assert toewijzing_match, "ProductToewijzing interface niet gevonden in §4.9.1"
+    toewijzing_body = toewijzing_match.group(1)
+    assert "'diensten'" in toewijzing_body
+    assert "'n.v.t.'" in toewijzing_body
+    assert "'dagdeel'" in toewijzing_body
+    assert "'forfait'" in toewijzing_body
+
+    # 2. ServiceDimensionSpec interface
+    spec_match = re.search(r'interface\s+ServiceDimensionSpec\s*\{([^}]+)\}', v44_content)
+    assert spec_match, "ServiceDimensionSpec interface niet gevonden in §4.9.1"
+    spec_body = spec_match.group(1)
+    assert "dienst_type" in spec_body
+    assert "ondergrond_sanering_m2" in spec_body
+    assert "egalisatie_laagdikte_mm" in spec_body
+    assert "advies_deuren_inkorten" in spec_body
+    assert "aantal_deuren_knelpunten" in spec_body
+    assert "verticaal_transport_ladderlift" in spec_body
+    assert "afvalcontainer_plaatsing" in spec_body

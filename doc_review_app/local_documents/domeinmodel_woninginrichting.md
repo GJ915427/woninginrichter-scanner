@@ -17,7 +17,7 @@
 ## Deel 1: Procesmodel & De 6 Ketenfasen (EasyM2M)
 
 ### 1.1 Context, Domeinafbakening & Multi-Tenant SaaS Architectuur
-* **Domein:** De context is een woninginrichter die gespecialiseerd is in vijf kernproductgroepen: Gordijnen & Rails, Raamdecoratie (Binnenzonwering & Horren), Vloerbekleding, Trapbekleding & Traprenovatie, en Buitenzonwering & Gevelsystemen (zie voor de volledige hiërarchische productspecificatie het separate document *productassortiment_decompositie.md*).
+* **Domein:** De context is een woninginrichter die gespecialiseerd is in 6 categorieën conform Profiel A: Categorie 1 Gordijnen & Rails, Categorie 2 Raamdecoratie (Binnenzonwering & Horren), Categorie 3 Vaste Vloerbekleding & Dekvloertechniek, Categorie 4 Trapbekleding, Traprenovatie & Trapelementen, Categorie 5 Buitenzonwering, Gevelsystemen & Rolluiken, en Categorie 6 Diensten, Montage & Montagelogistiek (zie voor de volledige hiërarchische productspecificatie het separate document *productassortiment_decompositie.md*). Losse meubelen (banken, kasten), slaapcomfort (bedden/boxsprings) en losse karpetten vallen buiten de kern van deze configuratiescope.
 * **Doelstelling van het Portaal:** Het realiseren van een integraal digitaal portaal dat het complete ketenproces ondersteunt — vanaf het eerste verkoopadvies en inmeten tot en met de montage en nazorg/service.
 * **Architectuur & Scope V1:** Ontwikkeld als een multi-tenant SaaS-inmeetplatform voor woninginrichters, met woninginrichter GiW (*Groter in Wonen*) als primaire V1 lanceerpartner en referentietopologie. In versie 1 (V1) wordt de oplossing initieel operationeel gemaakt voor deze primaire tenant, met configureerbare isolatie voor toekomstige tenants.
 * **MVP-Afbakening Arbeid & Montage:** In de EasyM2M MVP worden alle berekeningen met betrekking tot arbeid, montagetijden, stelposten en legloon handmatig ingevoerd en/of berekend in het ERP-systeem (zoals LogicTrade of AFAS). Geautomatiseerde arbeidsberekening binnen het platform is expliciet uitgesloten van de MVP-scope.
@@ -28,7 +28,7 @@ Om de functionele scope en architecturale afbakening eenduidig te formaliseren, 
 | Functionaliteit / Domeinketen | Versie 1 (V1 MVP — Actieve Scope) | Versie 2 (V2 — Geplande Roadmap & Backlog) |
 | :--- | :--- | :--- |
 | **Portaal & Schermarchitectuur** | 6 Hoofdschermen (`Home`, `Klant`, `Object`, `Project`, `Ruimte`, `Product`) met de Dynamische Hiërarchische Matrix; slanke universele header en context-subheader | Consumenten-Klantportaal (rechtstreekse interactieve toegang voor particuliere klant tot projectstatus en dossier) |
-| **Productgroepen & Assortiment** | Alle 5 kernproductgroepen volwaardig in V1 MVP: Gordijnen & Rails, Raamdecoratie, Vloerbekleding, Trapbekleding & Traprenovatie, en Buitenzonwering & Gevelsystemen (conform `productassortiment_decompositie.md`) | Maatwerk zonnedoeken, vlaggenmasten en industriële terrasoverkappingen |
+| **Productgroepen & Assortiment** | Alle 6 categorieën volwaardig in V1 MVP conform Profiel A: Gordijnen & Rails, Raamdecoratie, Vaste Vloerbekleding & Dekvloertechniek, Trapbekleding & Traprenovatie, Buitenzonwering & Rolluiken, en Diensten, Montage & Montagelogistiek (conform `productassortiment_decompositie.md`) | Maatwerk zonnedoeken, vlaggenmasten en industriële terrasoverkappingen |
 | **Afsprakenbeheer & Montagecondities** | Tweedeling: operationele `KalenderAfspraak` (inmetingen en montages gepland in Hoofdscherm 4 Project Tab A en Home dagagenda) en contractuele gelaagde `WerkafspraakEnMontageconditie` (contextueel vastgelegd op Positie-, Ruimte- en Projectniveau, met Project Tab B als geaggregeerde samenvattingsspiegel) | Geautomatiseerde AI-routeplanning en live GPS-verkeersprognoses voor monteursbussen |
 | **Mobiele Buitendienst & Klantnotificatie** | Mobiele Monteurs-Cockpit (`/monteur/vandaag`), 1-tik "Onderweg"-status, videonulmeting, swipeable positiekaarten, digitaal tekenen op glas | Klantnotificatie bij vertrek ("15 min van tevoren bellen / klant belt voor specifiek tijdstip") met Picnic-stijl realtime aankomst-tracking en live ETA |
 | **Verkoop, Inkoop, Logistiek & Betalingen** | PDF-generatie van Meet-, Montage- en Afterservicerapporten met handtekeningen en directe SRP e-mailverzending; orders en artikelen gekoppeld aan ERP (LogicTrade / AFAS) | Digitaal offerte versturen en ondertekenen in M2M met ERP-sync; direct bestellen vanuit M2M met ERP-sync; goederenontvangst en binnenmelden via M2M met ERP-sync; financiële betalingen (iDEAL/PIN) binnen M2M afhandelen |
@@ -89,7 +89,7 @@ Het complete maatwerktraject verloopt organisatorisch via 6 vaste ketenfasen, di
 * **Wensen & Gegevensverzameling:** De verkoper inventariseert in de showroom de wensen van de klant. Alles wat noodzakelijk is voor een succesvolle inmeting wordt gestructureerd vastgelegd:
   * *Klantgegevens:* NAW-gegevens, telefoonnummer en e-mailadres.
   * *Ruimtelijke indeling:* Etages en ruimtes binnen het pand.
-  * *Productgroepen & Posities:* Raamdecoratie, Gordijnen, Vloerbekleding en Trapbekleding, gekoppeld aan de beoogde montage-/inmeetposities.
+  * *Productgroepen & Posities:* Gordijnen & Rails, Raamdecoratie, Vaste Vloerbekleding & Dekvloertechniek, Trapbekleding & Traprenovatie, Buitenzonwering & Gevelsystemen én Diensten, Montage & Montagelogistiek (Categorie 1 t/m 6) worden gekoppeld aan de geïnventariseerde ruimtes of projectbreed via pos_project_algemeen.
   * *Productselectie met specificaties:* Producten en productspecificaties die de klant kiest om in te laten meten.
 * **Werkzaamheden & Gerelateerde Artikelen/Diensten:** In deze fase worden ook al direct de bijbehorende werkzaamheden en gerelateerde artikelen vastgelegd, zoals legkosten/legloon, plinten (bij vloeren: MDF, plakplint of hoge plint), hoekprofielen en afwerklijsten.
   * *Sloop- en Afvoerwerkzaamheden Bestaande Vloeren:* Uitdrukkelijke splitsing van **vloer verwijderen / oppakken** én **vloer afvoeren** als twee afzonderlijke, optionele calculatieposten. Standaard uitgangspunt is dat de klant zelf zorgt voor een schone, lege ondervloer; indien de woninginrichter dit verzorgt, toetst de inmeter in Fase 2 de hechtingsconditie en worden beide posten separaat gecalculeerd.
@@ -320,14 +320,15 @@ In de Dynamische Hiërarchische Matrix (Hoofdscherm 4) wordt deze systeempositie
 
 ---
 
-## Deel 3: Productcategorieën, Inmeetmethodieken & Rekenregels (De 5 Disciplines in Detail)
+## Deel 3: Productcategorieën, Inmeetmethodieken & Rekenregels (De 6 Categorieën in Detail)
 
-Commercieel, functioneel en op de werkvloer wordt er gesproken over **5 disciplines** (waarvan 4 kerncategorieën voor het interieur en 1 discipline voor gevelsystemen):
+Commercieel, functioneel en op de werkvloer wordt er gesproken over **6 categorieën** conform Profiel A van het productassortiment:
 1. **Gordijnen & Rails**
 2. **Raamdecoratie (Binnenzonwering & Horren)**
-3. **Vloerbekleding**
-4. **Trapbekleding & Traprenovatie**
-5. **Buitenzonwering & Gevelsystemen**
+3. **Vaste Vloerbekleding & Dekvloertechniek**
+4. **Trapbekleding, Traprenovatie & Trapelementen**
+5. **Buitenzonwering, Gevelsystemen & Rolluiken**
+6. **Diensten, Montage & Montagelogistiek**
 
 Omdat productspecificaties, stof- en materiaaleigenschappen, confectievormen en montagetechnieken een directe sturende impact hebben op de inmeetmethodiek, toleranties, aftrekberekeningen en opleverchecklisten, zijn de productdefinities en de inmeet- en rekenregels in dit deel integraal samengebracht.
 
@@ -948,7 +949,7 @@ De inmeetchecklist voor raamdecoratie en binnenzonwering volgt een dynamische co
 | **Inzethorren** | Binnen | N.v.t. | N.v.t. | 0 mm | 0 mm | Dagmaat kozijnsponning = Bestelmaat (0 mm speling) |
 | **Rolhorren & Plisséhorren** | Binnen | 2 mm | 0 mm | 1 mm | 1 mm | Dagmaat - 2 mm speling op geleiders |
 
-### 3.4 Categorie 3: Vloerbekleding
+### 3.4 Categorie 3: Vaste Vloerbekleding & Dekvloertechniek
 
 #### 3.4.1 Productsoorten, Rolbreedtes & Legpatronen
 * **Zachte Vloeren op Rol (Tapijt & Vinyl):**  
@@ -1062,8 +1063,8 @@ De inmeetchecklist voor vloerbekleding structureert alle bouwkundige en technisc
 | **9** | 10 dB VvE contactgeluidnorm (alleen bij etagevloeren/appartementen)? | Als type woning = Appartement / Bovenwoning | Radio [Ja (10 dB certificaat verplicht) / Nee (grondgebonden woning)], default: Grondgebonden woning | Bij Ja: filtert ondervloeren uitsluitend op TNO/TÜV 10 dB ΔLlin gecertificeerde producten en genereert VvE-certificaatbijlage bij oplevering. |
 | **10** | Legrichting & vleugoriëntatie met klant afgestemd: evenwijdig aan lichtinval? | Altijd (alle vloeren) | Dropdown [In de lengte / Lichtinval volgend / In de breedte / Afgestemd op klantontwerp], default: In de lengte / Lichtinval volgend | Legt bindende legrichting vast op werkbon; voorkomt esthetische discussies en zichtbare naden bij tegenlicht (§3.4.3). |
 | **11** | Visgraatindeling & bandsymmetrie gecontroleerd: optische hartlijn en slips > halve strook? | Als legpatroon = Visgraat / Hongaarse punt / Patroonvloer | Checkbox [Hartlijn bepaald; slips > halve strook gegarandeerd], default: Niet aangevinkt | Voegt verplichte uitzet-instructie toe voor monteur; berekent 10–15% extra snijverlies in ordercalculatie (§3.4.4). |
-| **12** | Draaispeling binnendeuren: behouden deuren na installatie min. 4–6 mm vrije speling? | Altijd (alle vloeren) | Radio [Voldoende speling (≥ 5 mm) / Deuren klemmen of inkorten vereist], default: Voldoende speling | Toetst berekende vloerdikte aan huidige onderruimte deuren; signaleert direct eventuele noodzaak tot deurbewerking (§3.4.5). |
-| **13** | Deurinkortingsadvies & afspraak: wie draagt zorg voor het inkorten van de binnendeuren? | Verschijnt als draaispeling deuren = Deuren klemmen of inkorten vereist | Numeriek [Aantal deuren te korten] + Dropdown [Klant regelt via timmerman/aannemer / Alleen speling registreren], default: Klant regelt via timmerman/aannemer | Conform het strikte deurenbeleid (§3.4.5) korten eigen monteurs geen deuren in; legt bindende afspraak vast voor de klant en legt noodzakelijke bodemspeling vast (4–6 mm na vloerplaatsing). |
+| **12** | Vrije speling deuren: behouden binnendeuren na installatie min. 4–6 mm vrije speling? | Altijd (alle vloeren) | Radio [Voldoende speling (≥ 5 mm) / Deuren klemmen of advies inkorten], default: Voldoende speling | Toetst berekende vloerdikte aan huidige onderruimte deuren; signaleert direct eventuele noodzaak tot deurbewerking via adviserend inmeetrapport (§3.4.5). |
+| **13** | Deurinkortingsadvies & afspraak: wie draagt zorg voor het inkorten van de binnendeuren? | Verschijnt als vrije speling deuren = Deuren klemmen of advies inkorten | Numeriek [Aantal deuren te korten] + Dropdown [Klant regelt via timmerman/aannemer / Alleen speling registreren], default: Klant regelt via timmerman/aannemer | Conform het strikte deurenbeleid (§3.4.5) korten eigen monteurs geen deuren in; legt bindende afspraak vast voor de klant en legt noodzakelijke bodemspeling vast (4–6 mm na vloerplaatsing). |
 | **14** | Dilatatiedekking plinten: biedt plintdikte (15–18 mm) ruim voldoende dekking over uitzetvoeg? | Als vloertype = Click-PVC of Laminaat (zwevende vloer) | Dropdown [Hoge MDF-plint (15–18 mm dekking) / Plakplint (min. 20 mm) / Muurplint te dun (< 12 mm risico)], default: Hoge MDF-plint (15–18 mm) | Blokkeert plinten < 12 mm bij zwevende vloeren met grote krimp-/uitzetwerking; voorkomt kieren na seizoenswisseling. |
 | **15** | Ruimtecomplexiteit & aansnijrisico: plattegrond met veel nissen/hoeken (extra snijverlies)? | Altijd (alle vloeren) | Radio [Rechthoekig / Eenvoudig (5% snijverlies) / Complex met nissen/hoeken (7–10% snijverlies)], default: Rechthoekig / Eenvoudig | Verhoogt de snijverliesfactor in de automatische m²-calculatie om tekorten op de montagedag uit te sluiten (§3.4.4). |
 | **16** | Acclimatisatiecondities (pakken 48u horizontaal opslaan bij 18–22 °C)? | Altijd (alle vloeren) | Checkbox [Klant geïnformeerd over acclimatisatie-eisen], default: Aangevinkt | Plaatst waarschuwing op leveringsbon en werkorder; borgt geldigheid fabrieksgarantie m.b.t. krimp en uitzetting. |
@@ -1074,12 +1075,12 @@ De inmeetchecklist voor vloerbekleding structureert alle bouwkundige en technisc
 
 | Productgroep | Primaire Dagmaat (Invoer Inmeter) | Blijvende Maat (Formule & Aftrekregel) | Verplichte Referentie & Validatie | Output naar Productie & Montage |
 | :--- | :--- | :--- | :--- | :--- |
-| **PVC & Laminaat (Dryback, Click, Visgraat)** | Netto m² laser-contourmeting lengte × breedte incl. alle nissen en deuropeningen | Bestelhoeveelheid m² = Netto m² + snijverliestoeslag (Wildverband +10%; Visgraat +12%; Hongaarse/Weense punt +15%; Bies & band +12%), afgerond naar boven op hele pakken (bijv. à 2,16 m²) | Vochtmeting (capacitieve bolmeter / strooiveldmeting), 2m rei vlakheidsmeting (egalisatieklasse), 10 dB VvE-geluidsnorm (etagevloer), algeheel boorverbod (kitten) | Aantal te bestellen pakken PVC/laminaat, zakken egaline (1,6 kg/m²/mm laagdikte), cans primer, strekkende meters plinten (+10%), aantal binnendeuren advies timmerman |
+| **PVC & Laminaat (Dryback, Click, Visgraat)** | Netto m² laser-contourmeting lengte × breedte incl. alle nissen en deuropeningen | Bestelhoeveelheid m² = Netto m² + snijverliestoeslag (Wildverband +10%; Visgraat +12%; Hongaarse/Weense punt +15%; Bies & band +12%), afgerond naar boven op hele pakken (bijv. à 2,16 m²) | Vochtmeting (capacitieve bolmeter / strooiveldmeting), 2m rei vlakheidsmeting (egalisatieklasse), 10 dB VvE-geluidsnorm (etagevloer), algeheel boorverbod (kitten) | Aantal te bestellen pakken PVC/laminaat, zakken egaline (1,6 kg/m²/mm laagdikte), cans primer, strekkende meters plinten (+10%), aantal binnendeuren met advies inkorten (signalering naar aannemer/klant; monteur kort géén deuren in) |
 | **Tapijt & Vinyl (Kamerbreed op Rol)** | Uiterste maximale lengte en uiterste breedte per ruimte (inclusief diepste nissen, convectorputten en doorgangen) | Afsnijmaat rol = Langste lengte + 10 cm snijmarge (5 cm rondom); Rolbreedte keuze 400 cm of 500 cm breed | Vleugrichting pijlvector (identiek in alle aansluitende ruimtes), coupon- en restantrol hergebruik voor overlopen/kasten, algeheel boorverbod (profielen kitten) | Rolafsnede (strekkende meters op 400/500 cm rol), m² ondertapijt / rubber vilt, strekkende meters spanlatten, overgangsprofielen |
 
 ---
 
-### 3.5 Categorie 4: Trapbekleding & Traprenovatie
+### 3.5 Categorie 4: Trapbekleding, Traprenovatie & Trapelementen
 
 #### 3.5.1 Trapvormen, Bekledingssystemen & Producten
 * **Toepassingen & Vormen:**  
@@ -1181,7 +1182,7 @@ De inmeetchecklist voor trappen borgt zowel traditionele stoffering als moderne 
 
 ---
 
-### 3.6 Categorie 5: Buitenzonwering & Gevelsystemen
+### 3.6 Categorie 5: Buitenzonwering, Gevelsystemen & Rolluiken
 
 #### 3.6.1 Productassortiment & Toepassingen (Volwaardig in V1 MVP)
 Buitenzonwering & Gevelsystemen is een **volwaardige kernproductgroep binnen de Versie 1 (V1 MVP) Scope** van EasyM2M (zie voor de complete assortimentsboom het separate artefact *productassortiment_decompositie.md*). De categorie deelt de integrale portaalarchitectuur (gevelposities, matrix-toewijzing, dynamische checklists, digitale werkbonnen en opleverhandtekening op glas) en omvat vier primaire gevelsystemen:
@@ -1214,6 +1215,51 @@ Buitenzonwering & Gevelsystemen is een **volwaardige kernproductgroep binnen de 
 | **Knikarmscherm (Terras)** | Breedte gevelzone (mm) & Gewenste uitval (mm); Montagehoogte bovenkant cassette | Blijvende breedte = Gekozen cassettebreedte; Vrije doorloophoogte bij maximale uitval ≥ 2000 mm | Geveltype (massief vs spouw), latei-inspectie, chemische ankers M12, 230V voedingszijde | Cassettebreedte (mm), uitval (mm), doekdessin, motorzijde (L/R), muursteunposities, afstandsbussen |
 | **Ritsscreen (ZIP-screen)** | Dagmaat kozijn breedte (B1..B3) & hoogte (H1..H3) | *Op de dag:* Breedte = Dagmaat + 2 × geleiderbreedte (2 × 35 mm); *In de dag:* Breedte = Strakste dagmaat - 5 mm | Haaksheid dagkant (D1/D2 ≤ 3 mm), afschot buitendorpel, kabeldoorvoerlocatie, windklasse (1..6) conform NEN-EN 13561, valbeveiliging NEN 2608 | Kastmaat (85/95/105/125 mm), geleidertype, doektype (Serge 1% of 5%), zender / schakelaar |
 | **Rolluik Aluminium (Voorzet/Opbouw)** | Dagmaat breedte (B1..B3) & hoogte (H1..H3) | *Op de dag:* Breedte = Dagmaat + 2 × kastgeleider (2 × 53 mm); *In de dag:* Breedte = Strakste dagmaat - 5 mm | Klink- en waterslagvrijheid, rolluikkastafmeting (137, 150, 165, 180, 205 mm) t.o.v. bovendorpel, RC2/RC3 NEN-EN 1627 met optilbeveiliging | Blijvende breedte en hoogte, lameltype, kastafschuining (45° / 45_graden of rond), bediening (Somfy io / Solar LiFePO4) |
+
+---
+
+### 3.7 Categorie 6: Diensten, Montage & Montagelogistiek
+
+> **MVP-Afbakening & Arbeidscalculatie:**  
+> Conform het architectuurbesluit in §1.1 en §2.8 worden loontarieven, urennormen en montagetijdscalculaties in de EasyM2M MVP handmatig ingevoerd of verwerkt in het externe ERP (LogicTrade / AFAS). Paragraaf 3.7 definieert de **technische inmeet- en schouwparameters** die door de inmeter op locatie worden vastgesteld voor een veilige, haalbare montage en logistieke voorbereiding.
+
+#### 3.7.1 Sloop & Voorbewerking (Ondergrondsanering)
+* **Verwijderen Bestaande Vloerbekleding:**  
+  De inmeter inventariseert het type te verwijderen vloer (volvlakkig verlijmd tapijt, zwevend laminaat, verlijmd PVC, parket op spaanplaat) en toetst de hechtingssterkte aan de dekvloer.
+* **Afvoeren & Containerlogistiek:**  
+  Het portaal registreert de netto oppervlakte ondergrondsanering (in m²) en stelt vast of afvoer via de reguliere monteurswagen mogelijk is of dat plaatsing van een afvalcontainer op de oprit/straat noodzakelijk is.
+* **Schuren & Lijmresten:**  
+  Vastleggen van de benodigde voorbewerking (diamantschuren van watervaste lijmresten, affrezen van egalisatieresten, verwijderen van tapijtspanlatten).
+
+#### 3.7.2 Egalisatie & Vloertechniek (Minerale Voorbereiding)
+* **Primeren:**  
+  Verplichte selectie van het type primer op basis van de ondergrond: hechtprimer voor dichte/calciumsulfaat (anhydriet) ondergronden versus dispersieprimer voor zuigende cementdekvloeren (§3.4.2).
+* **Projectegalisatie (Laagdikte in mm):**  
+  De inmeter stelt aan de hand van de reitest (2m rei) de benodigde laagdikte vast: standaard egalisatie (2–3 mm), verzwaarde egalisatie (> 3 mm) of dichtsmeren van vloerverwarmingssleuven.
+* **Zakkenverbruik:**  
+  Het portaal berekent automatisch de benodigde hoeveelheid egaline (`1,6 kg/m²/mm laagdikte`) ter verificatie van de materiaalbehoefte en het laadgewicht van de montagebus.
+
+#### 3.7.3 Deurinspectie & Advisering (GSW Deurenbeleid)
+* **Vrije Deurspeling & Nulmeting:**  
+  De inmeter meet bij elke binnendeur de vrije tussenruimte tussen de onderzijde van het deurblad en het peil van de nieuwe vloeropbouw (inclusief egalisatie, ondervloer en toplaag).
+* **Adviesrol t.o.v. Zaagverbod:**  
+  Indien de resterende speling minder dan 4–6 mm bedraagt, registreert de inmeter `advies_inkorten` inclusief het exacte aantal deuren. Conform de veiligheidsnorm van §3.4.5 zagen monteurs van de woninginrichter definitief géén deuren in; de inmeter levert een schriftelijk adviesrapport op ter attentie van de klant, aannemer of timmerman.
+
+#### 3.7.4 Verticaal Transport & Hijsmiddelen (Logistiek & Bereikbaarheid)
+* **Schouw Trappenhuis & Doorgang:**  
+  Bij levering op etages toetst de inmeter de bereikbaarheid: aanwezigheid van een geschikte personen-/goederenlift, breedte van het trappenhuis en de draaicirkel van bordessen (met name bij zware tapijtrollen van 400/500 cm of lange gordijnrails).
+* **Inzet Ladderlift / Verhuislift:**  
+  Indien intern transport onmogelijk is of arbo-risico's oplevert, markeert de inmeter de noodzaak voor een verhuislift / ladderlift per dagdeel, inclusief inspectie van de opstelplaats aan de gevel en eventuele gemeentelijke vergunningsplicht.
+
+#### 3.7.5 Inmeet- en Rekenmatrix Diensten & Montage
+
+| Dienstgroep / Bewerking | Primaire Eenheid | Registratie Inmeter & Schouwcondities | MVP Portaalactie | Output naar Werkbon & ERP |
+| :--- | :--- | :--- | :--- | :--- |
+| **Sloop & Verwijderen Vloer** | $m^2$ | Type vloer (verlijmd vs zwevend), hechtlaag, trapbekleding | Registreert oppervlakte en slooptijdindicatie | Post `sloop_vloer_m2` naar ERP-offerte |
+| **Afvalcontainer / Afvoer** | forfait | Bereikbaarheid oprit, afvalvolume, vergunning | Selecteert container-type (3 $m^3$, 6 $m^3$) | Post `afvalcontainer` in `pos_project_algemeen` |
+| **Egalisatie & Primeren** | $m^2$ / laagdikte mm | Type dekvloer, reitest (> 2 mm), vloerverwarmingssleuven | Berekent zakkenverbruik ($1,6\,\text{kg/m}^2/\text{mm}$) | Materiaalbehoefte en egalisatiepost |
+| **Deurspeling Advisering** | stuks_knelpunten | Speling onder deurblad gemeten t.o.v. nieuwe vloerhoogte | Signaleert `advies_inkorten` bij speling < 4 mm | Adviesrapport voor aannemer/klant; monteur zaagt niet |
+| **Ladderlift / Hijsmiddel** | dagdeel | Etagehoogte, raamdoorgang, gevelopstelplaats | Registreert materieelnoodzaak en dagdelen | Reservering materieel en post in `pos_project_algemeen` |
 
 ---
 ## Deel 4: Plannings- en Uitvoeringsstructuur (Gefaseerde Montage & Afhankelijkheden)
@@ -1548,9 +1594,9 @@ export interface ProductToewijzing {
   laag_suffix?: string; // 'a', 'b', 'c' bij ≥ 2 lagen
   artikel_code_erp: string;
   artikel_omschrijving: string;
-  productgroep: 'gordijnen' | 'raamdecoratie' | 'vloeren' | 'trappen' | 'buitenzonwering';
-  montagewijze: 'in_de_dag' | 'op_de_dag' | 'op_raamvleugel' | 'plafond' | 'wand' | 'volvlakkig_verlijmd' | 'zwevend_geklikt' | 'gespannen_spanlatten' | 'overzettreden_mammoetlijm' | 'traploper_roedes' | 'gevel_chemisch';
-  eenheid: 'm2' | 'm1' | 'stuks' | 'pak' | 'set';
+  productgroep: 'gordijnen' | 'raamdecoratie' | 'vloeren' | 'trappen' | 'buitenzonwering' | 'diensten';
+  montagewijze: 'in_de_dag' | 'op_de_dag' | 'op_raamvleugel' | 'plafond' | 'wand' | 'volvlakkig_verlijmd' | 'zwevend_geklikt' | 'gespannen_spanlatten' | 'overzettreden_mammoetlijm' | 'traploper_roedes' | 'gevel_chemisch' | 'n.v.t.';
+  eenheid: 'm2' | 'm1' | 'stuks' | 'pak' | 'set' | 'dagdeel' | 'forfait' | 'stuks_knelpunten';
   aantal_besteld: number;
   status: 'concept' | 'offerte' | 'besteld' | 'geleverd' | 'gemonteerd';
   rekenformule?: string;
@@ -1565,7 +1611,8 @@ export type DimensionSpec =
   | BlindDimensionSpec
   | FloorDimensionSpec
   | StairDimensionSpec
-  | OutdoorDimensionSpec;
+  | OutdoorDimensionSpec
+  | ServiceDimensionSpec;
 
 export interface CurtainDimensionSpec {
   type: 'gordijnen';
@@ -1608,8 +1655,8 @@ export interface FloorDimensionSpec {
   strekkende_meters_m1?: number;
   vleugrichting_graden: number;
   plintlengte_m1: number;
-  deurspeling_status: 'akkoord' | 'inkorten_vereist';
-  deuren_inkorten_aantal: number;
+  deurspeling_status: 'akkoord' | 'advies_inkorten';
+  advies_inkorten_aantal?: number;
 }
 
 export interface StairDimensionSpec {
@@ -1645,6 +1692,18 @@ export interface OutdoorDimensionSpec {
   bediening: 'somfy_io_230v' | 'solar_accu' | 'handmatig_oogwindwerk';
   motorzijde: 'links' | 'rechts';
   sensor_type?: 'geen' | 'zon_wind_automaat' | 'trillingssensor_eolis';
+}
+
+export interface ServiceDimensionSpec {
+  type: 'diensten';
+  dienst_type: 'sloop_ondergrond' | 'egalisatie' | 'deuradvies' | 'verticaal_transport' | 'montage_algemeen';
+  ondergrond_sanering_m2?: number;
+  egalisatie_laagdikte_mm?: number;
+  advies_deuren_inkorten?: boolean;
+  aantal_deuren_knelpunten?: number;
+  verticaal_transport_ladderlift?: boolean;
+  afvalcontainer_plaatsing?: boolean;
+  opmerkingen_montagelogistiek?: string;
 }
 
 // 3. Documentair, Inspectie & Kwaliteit
@@ -2032,7 +2091,7 @@ Het portaal faciliteert directe visuele interactie en toewijzing over de volledi
   * **Vloeren (PVC / Laminaat / Parket / Gietvloeren):**
     * *Vloerensloop & Afvoer Gescheiden:* Twee expliciete vinkopties: *"Bestaande vloer verwijderen/oppakken"* én *"Bestaande vloer afvoeren"*.
     * *Ondergrond & Conditie:* Type ondervloer (zandcement, anhydriet, hout, bestaande tegelvloer), restvochtmeting (CM-meting verplicht bij anhydriet vóór egalisatie), aanwezigheid van vloerverwarming/vloerkoeling inclusief opstookprotocol.
-    * *Deur- en Aansluitinspectie:* Speling onder binnendeuren (inkorten vereist ja/nee), plintkeuze (plakplint vs hoge MDF-plint), dilatatievoegen en overgangsprofielen.
+    * *Deur- en Aansluitinspectie:* Speling onder binnendeuren (advies inkorten ja/nee), plintkeuze (plakplint vs hoge MDF-plint), dilatatievoegen en overgangsprofielen.
   * **Raamdecoratie (Rolgordijnen, Horizontale/Verticale Jaloezieën, Plissés/Duette®):**
     * *Montagewijze & Profielen:* Keuze voor montageprofiel ten opzichte van losse steunen (montagegemak, strakke aansluiting, eenvoudig afklikbaar bij later schilderwerk).
     * *Kozijn- & Raaminspectie:* Draairichting (naar binnen/buiten), aanwezigheid van ventilatieroosters, hendels of raamuitzetters, aanwezigheid van een **waterkering of lekrand** (bepaalt de noodzaak van opvulprofielen) en afloop van de vensterbank/buitendorpel.
