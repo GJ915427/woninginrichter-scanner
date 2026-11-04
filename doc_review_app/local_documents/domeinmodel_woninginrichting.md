@@ -20,6 +20,7 @@
 * **Domein:** De context is een woninginrichter die gespecialiseerd is in vijf kernproductgroepen: Gordijnen & Rails, Raamdecoratie (Binnenzonwering & Horren), Vloerbekleding, Trapbekleding & Traprenovatie, en Buitenzonwering & Gevelsystemen (zie voor de volledige hiërarchische productspecificatie het separate document *productassortiment_decompositie.md*).
 * **Doelstelling van het Portaal:** Het realiseren van een integraal digitaal portaal dat het complete ketenproces ondersteunt — vanaf het eerste verkoopadvies en inmeten tot en met de montage en nazorg/service.
 * **Architectuur & Scope V1:** Ontwikkeld als een multi-tenant SaaS-inmeetplatform voor woninginrichters, met woninginrichter GiW (*Groter in Wonen*) als primaire V1 lanceerpartner en referentietopologie. In versie 1 (V1) wordt de oplossing initieel operationeel gemaakt voor deze primaire tenant, met configureerbare isolatie voor toekomstige tenants.
+* **MVP-Afbakening Arbeid & Montage:** In de EasyM2M MVP worden alle berekeningen met betrekking tot arbeid, montagetijden, stelposten en legloon handmatig ingevoerd en/of berekend in het ERP-systeem (zoals LogicTrade of AFAS). Geautomatiseerde arbeidsberekening binnen het platform is expliciet uitgesloten van de MVP-scope.
 
 #### Scope-Consolidatietabel (Versie 1 MVP vs. Versie 2 Backlog)
 Om de functionele scope en architecturale afbakening eenduidig te formaliseren, classificeert het platform alle procesonderdelen in twee fasen:
@@ -30,7 +31,8 @@ Om de functionele scope en architecturale afbakening eenduidig te formaliseren, 
 | **Productgroepen & Assortiment** | Alle 5 kernproductgroepen volwaardig in V1 MVP: Gordijnen & Rails, Raamdecoratie, Vloerbekleding, Trapbekleding & Traprenovatie, en Buitenzonwering & Gevelsystemen (conform `productassortiment_decompositie.md`) | Maatwerk zonnedoeken, vlaggenmasten en industriële terrasoverkappingen |
 | **Afsprakenbeheer & Montagecondities** | Tweedeling: operationele `KalenderAfspraak` (inmetingen en montages gepland in Hoofdscherm 4 Project Tab A en Home dagagenda) en contractuele gelaagde `WerkafspraakEnMontageconditie` (contextueel vastgelegd op Positie-, Ruimte- en Projectniveau, met Project Tab B als geaggregeerde samenvattingsspiegel) | Geautomatiseerde AI-routeplanning en live GPS-verkeersprognoses voor monteursbussen |
 | **Mobiele Buitendienst & Klantnotificatie** | Mobiele Monteurs-Cockpit (`/monteur/vandaag`), 1-tik "Onderweg"-status, videonulmeting, swipeable positiekaarten, digitaal tekenen op glas | Klantnotificatie bij vertrek ("15 min van tevoren bellen / klant belt voor specifiek tijdstip") met Picnic-stijl realtime aankomst-tracking en live ETA |
-| **Verkoop, Inkoop, Logistiek & Betalingen** | PDF-generatie van Meet-, Montage- en Afterservicerapporten met handtekeningen en directe SRP e-mailverzending; orders en artikelen gekoppeld aan ERP | Digitaal offerte versturen en ondertekenen in M2M met ERP-sync; direct bestellen vanuit M2M met ERP-sync; goederenontvangst en binnenmelden via M2M met ERP-sync; financiële betalingen (iDEAL/PIN) binnen M2M afhandelen |
+| **Verkoop, Inkoop, Logistiek & Betalingen** | PDF-generatie van Meet-, Montage- en Afterservicerapporten met handtekeningen en directe SRP e-mailverzending; orders en artikelen gekoppeld aan ERP (LogicTrade / AFAS) | Digitaal offerte versturen en ondertekenen in M2M met ERP-sync; direct bestellen vanuit M2M met ERP-sync; goederenontvangst en binnenmelden via M2M met ERP-sync; financiële betalingen (iDEAL/PIN) binnen M2M afhandelen |
+| **Arbeid, Montage & Calculatie** | Handmatige invoer van arbeid en montagetarieven en/of calculatie in ERP (LogicTrade / AFAS); geautomatiseerde arbeidsberekening valt buiten V1 MVP | Geautomatiseerde calculatiemodules voor arbeid, montagetijdnormen en legloonregels binnen het platform |
 | **Meetinvoer & Rekenregels** | UI Drie-eenheid (dagmaat invoer, automatische aftrek- en productiemaat), conceptmaten `[CONCEPT]` en `⚠️ Bevat conceptmaten` gating; wiskundige rekenregels voor pakgrootte-afronding (vloeren) en stuklijsten voor trappen | LiDAR 3D-ruimtescanning en automatische vector-contourherkenning uit point-clouds |
 | **Documentendossier & Export** | PDF-generatie van Meet-, Montage- en Afterservicerapporten met handtekeningen en directe SRP e-mailverzending | Realtime tweewegs order-mutatiesynchronisatie met externe ERP-systemen (V1: éénrichting links/exports) |
 
@@ -309,6 +311,7 @@ Niet alle artikelen, bewerkingen of kosten in een woninginrichtingsproject zijn 
 * **Steigerhuur & Valbeveiliging:** Huur van een rolsteiger voor hoge vides of trapopgangen over meerdere verdiepingen.
 * **Algemene Afvalcontainer & Stortkosten:** Containerplaatsing voor grootschalige sloop- en afvoerwerkzaamheden.
 * **Projectkortingen & Commerciële Totaalcorrecties:** Een algemene projectkorting of coulancepost over het gehele orderbedrag.
+* **Arbeid, Uurloon & Montagetarieven (MVP-Afbakening):** In de EasyM2M MVP worden alle calculaties rondom arbeid, montagetijden, stelposten en uurtarieven handmatig ingevoerd of direct afgehandeld in het ERP-systeem (LogicTrade / AFAS). Geautomatiseerde arbeidsberekening binnen de mobiele inmeetapp valt expliciet buiten de MVP-scope.
 
 **Architecturale Verankering in het Systeem:**
 Om te voorkomen dat deze algemene regels als 'spookposities' tussen de fysieke ruimtes en ramen belanden, worden zij in het datamodel en de matrix verankerd aan een speciale systeempositie:
@@ -681,7 +684,7 @@ De inmeetchecklist voor gordijnen en rails is geoptimaliseerd voor directe verwe
 
 ---
 
-### 3.3 Categorie 2: Raamdecoratie (Binnenzonwering, Horren & Buitenscreens)
+### 3.3 Categorie 2: Raamdecoratie (Binnenzonwering & Horren)
 
 #### 3.3.1 Productgroepen, Merken & Configuratoren
 * **Binnenzonwering & Merken:**  
@@ -721,11 +724,10 @@ De inmeetchecklist voor gordijnen en rails is geoptimaliseerd voor directe verwe
     * `BB70 / BB71`: Driehoekige ramen (BB71 gelijkbenige driehoek met 2 maten: basisbreedte en nokhoogte).  
     * `BB80`: Vijfhoekige ramen.  
     * `PB70 / PB71`: Plafond- en serresystemen in schuine of getrapte constructies.
-* **Verticale Lamellen, Paneelgordijnen & Buitenscreens:**  
+* **Verticale Lamellen & Paneelgordijnen:**  
   * *Verticale Lamellen:* Leverbaar in textiel (inclusief luxe transparante segmenten zoals Versos), hoogwaardig PVC (vochtbestendig voor keukens/badkamers) en aluminium.  
   * *Paneelgordijnen:* Zelfstandige productgroep voor schuifpuien en grote glaswanden (meersporige rails met brede schuivende stofpanelen).  
-  * *Facette definitief geschrapt:* Facette wordt niet meer besteld en is uit het actieve assortiment verwijderd.  
-  * *Buitenscreens & Buitenzonwering:* Wordt als zelfstandige buitengroep gepositioneerd (windvaste ZIP-screens, solar/accu en 230V bedraad).
+  * *Facette definitief geschrapt:* Facette wordt niet meer besteld en is uit het actieve assortiment verwijderd.
 * **Configurator-uniformiteit:** Bestelsystemen (zoals Hunter Douglas configurator, Woontotaal, Logic Trade) hanteren in de kern exact dezelfde technische parameters; uitsluitend de vraagvolgorde verschilt per leverancier.
 * **Productievoorschriften & Identificatie:**  
 * **De Fabrieks-Productiesticker:**  
@@ -791,7 +793,7 @@ De inmeetchecklist voor gordijnen en rails is geoptimaliseerd voor directe verwe
   * Indien werkhoogte > 4 m is een rolsteiger of gecertificeerd bordesplatform verplicht.
   * **Directe Input voor Planning & Montage (Deel 4):** Bovenstaande Arbo- en veiligheidsaspecten gelden niet alleen voor de inmeter, maar vormen verplichte sturende data voor de montageplanning (Fase 5 / Deel 4). *(Noot V1-scope: In versie 1 genereert het portaal geen volautomatische inkoop- of materieellijst; in plaats daarvan vinkt de inmeter in de Arbo-checklist aan welk extra klimmaterieel benodigd is [lange ladder, hoge trap, rolsteiger, anders...], waarna dit direct als concrete attentiewaarde op de digitale werkbon verschijnt zodat de bus voor vertrek juist beladen wordt).* 
 
-#### 3.3.4 Insectenwering (Horren) & Buitenscreens
+#### 3.3.4 Insectenwering (Horren)
 * **Insectenwering (Horren) als Functionele Productgroep:**  
   Insectenwering/horren vallen binnen het domeinmodel volwaardig onder **Categorie 2 (Raamdecoratie / Zonwering)**. In tegenstelling tot decoratieve raambekleding is een hor een zuiver effectief en functioneel werend product: insecten buiten houden met een maximale transparantie van het gaas en minimale visuele verstoring van het kozijnaanzicht.
   * **Toonaangevende Merken in het Portaal:** **Luxaflex** en **Toppoint** (volledig geïntegreerd met typecodes, stalen en profielkleuren).
@@ -806,9 +808,6 @@ De inmeetchecklist voor gordijnen en rails is geoptimaliseerd voor directe verwe
     * **Kozijn met Waterkering (Lekrand):** Veel houten en kunststof buitenkozijnen zijn voorzien van een uitstekende lekrand of schuine waterkering aan de onderzijde of bovenzijde. De inmeter registreert dit direct in de checklist; het portaal selecteert automatisch de benodigde **opvulprofielen** om de hor zuiver verticaal en vlak op het kozijn te laten aansluiten.
     * **Montagewijzen & Plaatsing:** Onderscheid tussen 'In de dag' (tussen de neggen of in het kozijn), 'Op de dag' (op het buitenkozijn) en **stootmontage (naar stoots)** waarbij het profiel strak tegen de aanslag of het metselwerk wordt gemonteerd.
     * **Draairichting & Beslagspeling:** Bij naar buitendraaiende ramen monteert de monteur de hor aan de binnenzijde; bij naar binnendraaiende ramen (draaikiep) aan de buitenzijde. De inmeter controleert altijd de speling t.o.v. uitzetijzers, raamboompjes, ventilatieroosters en klinken.
-* **Buitenscreens & Zipscreens:**
-  * Windvaste ZIP-screens (ritsscreens) met ritsgeleiding in zijprofielen.
-  * *Aandrijving:* Solar / Accu-aandrijving met geïntegreerd zonnepaneel op de cassette (geen geveldoorvoer of 230V bekabeling benodigd); 230V bedraad blijft leverbaar.
 
 ---
 
@@ -863,11 +862,11 @@ Hieronder volgen de specifieke meetinstructies en productspecifieke spelingen pe
 #### 3.3.8 Draaikiepramen & Glaslatmontage
 * **Klinkvrijheid Minimaal 2,5 cm (25 mm):**  
   Bij naar binnendraaiende delen en draaikiepramen moet tussen de rand van het product/zijprofiel en de hartlijn van de raamkruk minimaal **25 mm vrije ruimte** overblijven. Bij minder dan 25 mm botst de hand van de gebruiker tegen de raambekleding bij het bedienen van de kruk.
-* **TruFit / FrameFix Kleefmontage:**  
-  Montage zonder boren direct op het glas of de glaslat met hoogwaardige 3M kleefstrips. Vereist grondige voorbehandeling (ontvetten met isopropanol en aanbrengen van hechtprimer). Toepasbaar tot een maximale breedte van 1300 mm.
+* **TruFit / FrameFix / EasyClick Montage (Borenloos):**  
+  Montage zonder boren direct op het raamkozijn of glas: TruFit en FrameFix via hoogwaardige 3M kleefstrips op het glas of de glaslat (vooraf grondig ontvetten met isopropanol en hechtprimer, max. breedte 1300 mm), en EasyClick met een aluminium magneetframe dat met klemmen direct op de glaslat of het kozijnprofiel wordt vastgeklikt.
 * **Standaard Monteursinstructie bij Draaikiepramen & Kiepstandbegrenzing (Filtertrechter):**  
   De vaste default-instructie op de werkbon luidt: *"Rekening houden met kiepstand (steunen zover mogelijk naar achteren plaatsen)"*. De monteur lijnt dit ter plekke uit met de laser (bijv. 32 mm). Alleen wanneer de klant expliciet eist dat het doek bij geopende kiepstand neerwaarts blijft hangen, voert de adviseur een harde afwijkende afstand (bijv. 3 cm) en montageafspraak in.  
-  * *Protocol Kiepstandbegrenzing (Beslag-Nok vs. Montagewijze):* Bij montage 'In de dag' boven of voor een draaikiepraam toetst de inmeetworkflow via een dynamische vraagboom of de kiepuitslag van de raamvleugel kan worden begrensd. Veel modern draaikiepbeslag bevat een verstelbaar schuifje of begrenzingsnok in de bovensponning waarmee de kiepstand kan worden verkleind. Kan het beslag worden begrensd, dan kan de cassette veilig in de dag blijven hangen zonder dat het raam er bij openen tegenaan slaat. Is het beslag niet instelbaar of kantelt het raam te ver naar voren, dan switcht de filtertrechter direct naar montage **'Op de dag'** of montage direct op de raamvleugel (**TruFit / FrameFix / Glaslatmontage**).
+  * *Protocol Kiepstandbegrenzing (Beslag-Nok vs. Montagewijze):* Bij montage 'In de dag' boven of voor een draaikiepraam toetst de inmeetworkflow via een dynamische vraagboom of de kiepuitslag van de raamvleugel kan worden begrensd. Veel modern draaikiepbeslag bevat een verstelbaar schuifje of begrenzingsnok in de bovensponning waarmee de kiepstand kan worden verkleind. Kan het beslag worden begrensd, dan kan de cassette veilig in de dag blijven hangen zonder dat het raam er bij openen tegenaan slaat. Is het beslag niet instelbaar of kantelt het raam te ver naar voren, dan switcht de filtertrechter direct naar montage **'Op de dag'** of montage direct op de raamvleugel (**TruFit / FrameFix / EasyClick / Glaslatmontage**).
 
 #### 3.3.9 Mechanische Spelingen & Doekafslagen bij Plaatsing 'In de Dag'
 Bij montage 'In de dag' berekent de software automatisch de blijvende productiemaat via de gecentraliseerde aftrekmatrix in §3.3.12. De bouwkundige en mechanische noodzaak van deze spelingen is als volgt:
@@ -940,7 +939,14 @@ De inmeetchecklist voor raamdecoratie en binnenzonwering volgt een dynamische co
 | **Houten Jaloezieën (50 / 65 mm)** | Strakste dagmaat breedte (B1, B2, B3) & hoogte (H1, H2, H3); Diagonaal D1/D2 | *In de dag:* Blijvende breedte = strakste dagmaat - 10 mm, Hoogte = dagmaat - 0 mm; *Op de dag:* Dagmaat + gewenste overlap | Zwaar gewicht hout; zware bovenbakdiepte (min. 65 mm); pakkethoogtecontrole bij draaiende delen | Productiemaat (mm), houtsoort/kleur, ladderband breedte (25/38 mm), tuimel- en optrekzijde |
 | **Rolgordijnen & Duo-Rolgordijnen (met Montageprofiel)** | Strakste dagmaat breedte (B1, B2, B3) & hoogte (H1, H2, H3) | *In de dag:* Systeembreedte = strakste dagmaat - 5 mm (doek ca. 35 mm smaller dan systeem); *Op de dag:* Dagmaat + overlap | Montageprofiel standaard; absorbeert motorkantasymmetrie; doorloop zijgeleiders vloer/plint bij pui | Systeembreedte (mm), doekbreedte (mm), buisdiameter (28/38/50 mm), montageprofiel-type, kettinglengte |
 | **Verticale Lamellen (Textiel/Versos, PVC, Aluminium) & Paneelgordijnen** | Strakste dagmaat breedte op 3 punten & hoogte op 3 punten; niscontrole | *In de dag:* Railbreedte = dagmaat - 10 mm; Hoogte = dagmaat minus 15–20 mm vloer-/vensterbankspeling; *Op de dag:* + overlap | Pakketbreedte lamellen/panelen (vrije raamopening); railspoor (2-, 3-, 4- of 5-sporig); lamelbreedte (89/127 mm) | Railmaat (mm), lamelhoogte (mm), pakketzijde (links/rechts/stel), materiaalsoort (textiel/pvc/alu), aantal panelen |
-| **Buitenscreens & Horren (ZIP-screens, Solar & Inzethorren)** | Strakste dagmaat breedte en hoogte; buitengevelinspectie | *In de dag:* Kast- en geleidermaat = dagmaat - 2 mm; *Op de dag (buiten):* Dagmaat + breedte zijgeleiders + kasthoogte | Vlakheid buitengevel; obstakels (waterdorpels, ventilatieroosters); zonnepaneeloriëntatie bij solar | Buitenwerkse maat (mm), kasttype (afgeschuind/rond), ZIP-ritsgeleiders, motortype (Solar/230V), doekcode |
+| **Insectenwering (Horren: Inzethorren, Rolhorren & Plisséhorren)** | Dagwerk breedte & hoogte (op de millimeter) | Inzethor: dagmaat sponning (0 mm aftrek). Rolhor & Plisséhor: dagmaat -2 mm voor soepele geleiding | Vlakheid buitendorpel; obstakels (waterkering/lekrand, ventilatieroosters); gaastype | Maatwerk breedte en hoogte (mm), profielkleur, klemveer-type of geleiderprofiel |
+
+##### Aftrekmatrix Insectenwering (Horren) Detail
+
+| Productgroep | Montagepositie | Aftrek Boven | Aftrek Onder | Aftrek Links | Aftrek Rechts | Blijvende Formule |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Inzethorren** | Binnen | N.v.t. | N.v.t. | 0 mm | 0 mm | Dagmaat kozijnsponning = Bestelmaat (0 mm speling) |
+| **Rolhorren & Plisséhorren** | Binnen | 2 mm | 0 mm | 1 mm | 1 mm | Dagmaat - 2 mm speling op geleiders |
 
 ### 3.4 Categorie 3: Vloerbekleding
 
@@ -968,7 +974,7 @@ De inmeetchecklist voor raamdecoratie en binnenzonwering volgt een dynamische co
   2. *Vlakheidsmeting (2-meter rei):* Controleer met een 2-meter aluminium rei en meetspie de vlakheid. Oneffenheden en glooiingen van > 2 mm onder de 2-meter rei vereisen mechanisch schuren en projectegalisatie conform NEN-EN 13813 (klasse NEN-vlakheid voor verlijmd PVC).
   3. *Vochtmeting (Hybride Veldmeting: Capacitieve Screening & CM-Validatie):*  
      * *Niet-destructieve Oppervlaktescreening (Standaard Intake):* De inmeter voert standaard een snelle, niet-destructieve capacitieve strooiveldmeting uit over meerdere representatieve meetpunten van de dekvloer (met name hoeken, gevelzones en koudere plekken): < 40 digit (veilig), 40–70 digit (twijfelzone), > 70 digit (nat/blokkade).
-     * *Bindende CM-Meting (Carbid-Methode) bij Direct Verlijmd PVC & Anhydriet:* Voor direct verlijmde vloeren (Dryback PVC) en voor calciumsulfaatgebonden gietvloeren (anhydriet) is de chemische CM-meting juridisch en garantietechnisch doorslaggevend: zandcementdekvloer max. 2,0 CM-% (zonder vloerverwarming) / max. 1,5 CM-% (met vloerverwarming); anhydrietdekvloer max. 0,5 CM-% (zonder vloerverwarming) / max. 0,3 CM-% (met vloerverwarming). Bij overschrijding blokkeert het portaal de montageplanning en wordt automatisch een hermetingsafspraak voorgesteld.
+     * *Bindende CM-Meting conform NEN 2741 (Carbid-Methode) bij Direct Verlijmd PVC & Anhydriet:* Voor direct verlijmde vloeren (Dryback PVC) en voor calciumsulfaatgebonden gietvloeren (anhydriet) is de chemische CM-meting conform NEN 2741 juridisch en garantietechnisch doorslaggevend: zandcementdekvloer max. 2,0 CM-% (zonder vloerverwarming) / max. 1,5 CM-% (met vloerverwarming); anhydrietdekvloer max. 0,5 CM-% (zonder vloerverwarming) / max. 0,3 CM-% (met vloerverwarming). Bij overschrijding blokkeert het portaal de montageplanning en wordt automatisch een hermetingsafspraak voorgesteld.
   4. *Algeheel Boorverbod in álle Vloeren:*  
      Op **álle vloeren geldt conform §3.1.7 een absoluut en algeheel boor- en schroefverbod** (ter voorkoming van schade aan vloerverwarming, leidingwerk, nieuwbouwgaranties en betonconstructies). Plinten, overgangsprofielen en deurstoppers worden te allen tijde verlijmd/gekit met montagelijm of MS-polymeerkit. Uitzondering betreft het traditioneel spannen van tapijt met spanlatten, waarbij de controle op leidingvrijheid en vloerverwarming verplicht is conform het SSOT-protocol in §3.1.7.
   5. *Geluidsnormering Harde Vloeren (10 dB VvE-Norm bij Appartementen):*  
@@ -1181,11 +1187,16 @@ De inmeetchecklist voor trappen borgt zowel traditionele stoffering als moderne 
 Buitenzonwering & Gevelsystemen is een **volwaardige kernproductgroep binnen de Versie 1 (V1 MVP) Scope** van EasyM2M (zie voor de complete assortimentsboom het separate artefact *productassortiment_decompositie.md*). De categorie deelt de integrale portaalarchitectuur (gevelposities, matrix-toewijzing, dynamische checklists, digitale werkbonnen en opleverhandtekening op glas) en omvat vier primaire gevelsystemen:
 1. **Knikarmschermen (Terrasschermen):** Twee- of meerarmige doekschermen met een uitval van 2,50 tot 4,00 meter en breedtes tot 7,00 meter per deel.
 2. **Ritsscreens (ZIP-screens):** Windvaste vlakschermen voorzien van een ritsgeleidingssysteem in aluminium zijgeleiders; fungeren tevens als insectenwering.
-3. **Rolluiken:** Beveiligende, isolerende en verduisterende aluminium lamellenpantsers.
+3. **Rolluiken (Voorzet-, Opbouw- & Inbouwsystemen):** Beveiligende, isolerende en verduisterende aluminium lamellenpantsers (dubbelwandig gerold aluminium met CFK-vrij PU-schuim).
+   * *Kastmaten & Vormen:* Gestandaardiseerde kastmaten 137 mm, 150 mm, 165 mm, 180 mm en 205 mm; leverbaar in 45° afgeschuind (`45_graden`), rond of half-rond.
+   * *Aandrijving:* Somfy io 230V bedraad of 100% autonoom Solar met LiFePO4-accu en monokristallijn zonnepaneel op de cassette (geen geveldoorboring benodigd).
+   * *Inbraakwerendheid:* Gecertificeerd conform **RC2** en **RC3** (**NEN-EN 1627**), voorzien van automatische optilbeveiliging (veerconsoles / starre verbinders).
 4. **Markiezen:** Traditionele houten of aluminium kapconstructies voor klassieke gevels en horeca.
 
-#### 3.6.2 Constructieve Inmeetparameters & Veiligheidsnormen (NEN-EN 13561)
-* **Gevelbelasting & Windklasse:** Conform de Europese norm **NEN-EN 13561** moeten knikarmschermen en ZIP-screens bestand zijn tegen specifieke windbelastingen (Windklasse 1 t/m 3, tot windkracht 6 Beaufort).
+#### 3.6.2 Constructieve Inmeetparameters & Veiligheidsnormen (NEN-EN 13561, NEN 2608 & NEN-EN 1627)
+* **Gevelbelasting & Windklasse (NEN-EN 13561):** Conform de Europese norm **NEN-EN 13561** moeten knikarmschermen en ritsscreens bestand zijn tegen specifieke windbelastingen: Windklasse 1 t/m 6 (ritsscreens klasse 6 bestand tot windkracht 10 Beaufort / zware storm).
+* **Inbraakwerendheid & Beveiliging (NEN-EN 1627):** Rolluiken worden optioneel uitgerust met weerstandsklasse **RC2** of **RC3** conform **NEN-EN 1627**, voorzien van versterkte geleiders en optilbeveiliging.
+* **Valbeveiliging bij Verdiepingshoge Puien (NEN 2608 / NEN-EN 1991-1-1):** Bij verdiepingshoge ramen fungeert de ritsscreenconstructie conform **NEN 2608** als fysieke doorvalbeveiliging.
 * **Metselwerk- & Latei-inspectie:**
   * *Metselwerk:* De inmeter inspecteert de staat van de gevelstenen en voegwerk. Bij kalkzandsteen, holle snelbouwsteen of gevelisolatie is verankering uitsluitend toegestaan met **chemische ankers (zeefhulzen + injectiemortel)** en draadeinden M10/M12.
   * *Latei / Rollagen:* Direct boren in dragende betonnen lateien boven ramen is alleen toegestaan na verificatie van de wapeningsdiepte; boren in losse rollagen is ten strengste verboden.
@@ -1193,7 +1204,7 @@ Buitenzonwering & Gevelsystemen is een **volwaardige kernproductgroep binnen de 
 
 #### 3.6.3 Elektrische Aansluiting & Automatisering
 * **230V Doorvoer & Voedingspunt:** De inmeter registreert de exacte positie van het 230V voedingspunt (binnen of buiten) en bepaalt het veilige boorgat voor de kabeldoorvoer (onder afschot naar buiten boren ter voorkoming van inwaterend regenwater).
-* **Solar-Motoren (Zonne-energie op Accu):** Optioneel leverbaar met geïntegreerd zonnepaneel op de cassette en interne lithium-ion accu; hierbij is géén kabeldoorvoer naar binnen of 230V netaansluiting vereist (100% draadloze montage).
+* **Solar-Motoren (Zonne-energie op Accu):** Optioneel leverbaar met geïntegreerd zonnepaneel op de cassette en interne LiFePO4 lithium-accu; hierbij is géén kabeldoorvoer naar binnen of 230V netaansluiting vereist (100% draadloze montage).
 * **Motoren & Sensoren:** Standaard uitgerust met Somfy io-homecontrol of vergelijkbare radiogestuurde motoren, gecombineerd met draadloze zonsensoren en een automatische **windbeveiliging (trillingssensor / Eolis 3D WireFree)** die het scherm bij plotselinge windvlagen automatisch intrekt.
 
 #### 3.6.4 Inmeet- en Rekenmatrix: Buitenzonwering & Gevelsystemen
@@ -1201,8 +1212,8 @@ Buitenzonwering & Gevelsystemen is een **volwaardige kernproductgroep binnen de 
 | Productgroep | Primaire Dagmaat (Invoer Inmeter) | Blijvende Maat (Formule & Aftrekregel) | Verplichte Referentie & Validatie | Output naar Productie & Montage |
 | :--- | :--- | :--- | :--- | :--- |
 | **Knikarmscherm (Terras)** | Breedte gevelzone (mm) & Gewenste uitval (mm); Montagehoogte bovenkant cassette | Blijvende breedte = Gekozen cassettebreedte; Vrije doorloophoogte bij maximale uitval ≥ 2000 mm | Geveltype (massief vs spouw), latei-inspectie, chemische ankers M12, 230V voedingszijde | Cassettebreedte (mm), uitval (mm), doekdessin, motorzijde (L/R), muursteunposities, afstandsbussen |
-| **Ritsscreen (ZIP-screen)** | Dagmaat kozijn breedte (B1..B3) & hoogte (H1..H3) | *Op de dag:* Breedte = Dagmaat + 2 × geleiderbreedte (2 × 35 mm); *In de dag:* Breedte = Strakste dagmaat - 5 mm | Haaksheid dagkant (D1/D2 ≤ 3 mm), afschot buitendorpel, kabeldoorvoerlocatie | Kastmaat (85/95/105/125 mm), geleidertype, doektype (Serge 1% of 5%), zender / schakelaar |
-| **Rolluik Aluminium** | Dagmaat breedte (B1..B3) & hoogte (H1..H3) | *Op de dag:* Breedte = Dagmaat + 2 × kastgeleider (2 × 53 mm); *In de dag:* Breedte = Strakste dagmaat - 5 mm | Klink- en waterslagvrijheid, rolluikkastafmeting (137–205 mm) t.o.v. bovendorpel | Blijvende breedte en hoogte, lameltype, kastafschuining (45° of rond), bediening |
+| **Ritsscreen (ZIP-screen)** | Dagmaat kozijn breedte (B1..B3) & hoogte (H1..H3) | *Op de dag:* Breedte = Dagmaat + 2 × geleiderbreedte (2 × 35 mm); *In de dag:* Breedte = Strakste dagmaat - 5 mm | Haaksheid dagkant (D1/D2 ≤ 3 mm), afschot buitendorpel, kabeldoorvoerlocatie, windklasse (1..6) conform NEN-EN 13561, valbeveiliging NEN 2608 | Kastmaat (85/95/105/125 mm), geleidertype, doektype (Serge 1% of 5%), zender / schakelaar |
+| **Rolluik Aluminium (Voorzet/Opbouw)** | Dagmaat breedte (B1..B3) & hoogte (H1..H3) | *Op de dag:* Breedte = Dagmaat + 2 × kastgeleider (2 × 53 mm); *In de dag:* Breedte = Strakste dagmaat - 5 mm | Klink- en waterslagvrijheid, rolluikkastafmeting (137, 150, 165, 180, 205 mm) t.o.v. bovendorpel, RC2/RC3 NEN-EN 1627 met optilbeveiliging | Blijvende breedte en hoogte, lameltype, kastafschuining (45° / 45_graden of rond), bediening (Somfy io / Solar LiFePO4) |
 
 ---
 ## Deel 4: Plannings- en Uitvoeringsstructuur (Gefaseerde Montage & Afhankelijkheden)
@@ -1624,7 +1635,11 @@ export interface OutdoorDimensionSpec {
   montagewijze: 'gevel_op_de_dag' | 'in_de_dag' | 'plafond_uitval';
   breedte_mm: number;
   uitval_of_hoogte_mm: number;
-  windklasse: 'klasse_1' | 'klasse_2' | 'klasse_3'; // NEN-EN 13561
+  windklasse: 'klasse_1' | 'klasse_2' | 'klasse_3' | 'klasse_4' | 'klasse_5' | 'klasse_6'; // NEN-EN 13561 windklassen 1..6
+  kastmaat_mm?: 137 | 150 | 165 | 180 | 205; // Gestandaardiseerde kastmaten rolluiken
+  kastvorm?: '45_graden' | 'rond' | 'half_rond'; // Kastvormprofiel
+  inbraakwerendheid_rc?: 'geen' | 'RC2' | 'RC3'; // NEN-EN 1627 met optilbeveiliging
+  valbeveiliging_nen2608?: boolean; // NEN 2608 / NEN-EN 1991-1-1 doorvalbeveiliging
   gevelconstructie: 'spouwmuur_baksteen' | 'beton' | 'kalkzandsteen' | 'gevelisolatie_etics';
   verankeringstype: 'keilbout' | 'chemisch_anker_m10' | 'chemisch_anker_m12' | 'afstandsbussen_staal';
   bediening: 'somfy_io_230v' | 'solar_accu' | 'handmatig_oogwindwerk';
