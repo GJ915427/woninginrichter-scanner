@@ -38,6 +38,7 @@ class TestServer(unittest.TestCase):
 
         # Start ThreadingHTTPServer on an ephemeral port (port 0)
         cls.httpd = server.ThreadingHTTPServer(('127.0.0.1', 0), UploadHandler)
+        cls.httpd.upload_dir = cls.test_dir
         cls.port = cls.httpd.server_address[1]
         cls.server_thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
         cls.server_thread.start()
@@ -515,6 +516,34 @@ class TestServer(unittest.TestCase):
         self.assertEqual(res.status, 415)
         body_json = json.loads(data.decode('utf-8'))
         self.assertEqual(body_json.get('status'), 'error')
+
+    def test_multi_server_upload_dir_isolation(self):
+        """Two servers running simultaneously must have isolated upload_dir paths."""
+        dir_b = tempfile.mkdtemp(prefix="test_iso_b_")
+        try:
+            httpd_b = server.ThreadingHTTPServer(('127.0.0.1', 0), UploadHandler)
+            httpd_b.upload_dir = dir_b
+            port_b = httpd_b.server_address[1]
+            t_b = threading.Thread(target=httpd_b.serve_forever, daemon=True)
+            t_b.start()
+            try:
+                res_a, data_a = self._request('GET', '/health')
+                json_a = json.loads(data_a.decode('utf-8'))
+
+                conn_b = HTTPConnection('127.0.0.1', port_b, timeout=5)
+                conn_b.request('GET', '/health')
+                res_b = conn_b.getresponse()
+                data_b = res_b.read()
+                conn_b.close()
+                json_b = json.loads(data_b.decode('utf-8'))
+
+                self.assertEqual(json_a['storage'], self.test_dir)
+                self.assertEqual(json_b['storage'], dir_b)
+            finally:
+                httpd_b.shutdown()
+                httpd_b.server_close()
+        finally:
+            shutil.rmtree(dir_b, ignore_errors=True)
 
 
 if __name__ == '__main__':

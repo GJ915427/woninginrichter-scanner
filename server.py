@@ -303,16 +303,60 @@ class StreamingMultipartParser:
         return self.saved_files, self.form_fields
 
 
-class UploadHandler(BaseHTTPRequestHandler):
+class UploadHandlerMeta(type):
+    """Metaclass allowing class-level property access/mutation for backward compatibility."""
+    _class_upload_dir = UPLOAD_DIR
+    _class_max_content_length = MAX_CONTENT_LENGTH
+
+    @property
+    def upload_dir(cls) -> str:
+        return getattr(cls, '_class_upload_dir', UPLOAD_DIR)
+
+    @upload_dir.setter
+    def upload_dir(cls, value: str):
+        cls._class_upload_dir = value
+
+    @property
+    def max_content_length(cls) -> int:
+        return getattr(cls, '_class_max_content_length', MAX_CONTENT_LENGTH)
+
+    @max_content_length.setter
+    def max_content_length(cls, value: int):
+        cls._class_max_content_length = value
+
+
+class UploadHandler(BaseHTTPRequestHandler, metaclass=UploadHandlerMeta):
     """
     Multi-threaded HTTP request handler supporting secure file uploads,
     CORS, W3C Private Network Access (PNA), and health inspections.
     """
 
     server_version = "WoninginrichterServer/2.0.0"
-    upload_dir = UPLOAD_DIR
-    max_content_length = MAX_CONTENT_LENGTH
     chunk_size = CHUNK_SIZE
+
+    @property
+    def upload_dir(self) -> str:
+        if hasattr(self, 'server') and hasattr(self.server, 'upload_dir') and self.server.upload_dir:
+            return self.server.upload_dir
+        if hasattr(self, '_instance_upload_dir') and self._instance_upload_dir:
+            return self._instance_upload_dir
+        return getattr(self.__class__, '_class_upload_dir', UPLOAD_DIR)
+
+    @upload_dir.setter
+    def upload_dir(self, value: str):
+        self._instance_upload_dir = value
+
+    @property
+    def max_content_length(self) -> int:
+        if hasattr(self, 'server') and hasattr(self.server, 'max_content_length') and self.server.max_content_length is not None:
+            return self.server.max_content_length
+        if hasattr(self, '_instance_max_content_length') and self._instance_max_content_length:
+            return self._instance_max_content_length
+        return getattr(self.__class__, '_class_max_content_length', MAX_CONTENT_LENGTH)
+
+    @max_content_length.setter
+    def max_content_length(self, value: int):
+        self._instance_max_content_length = value
 
     def _set_cors_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -632,10 +676,12 @@ class UploadHandler(BaseHTTPRequestHandler):
                 return self.send_json(500, {"status": "error", "error": f"Failed to store file: {e}"})
 
 
-def run_server(port: int = 8080, host: str = ''):
+def run_server(port: int = 8080, host: str = '', upload_dir: str | None = None):
     """Starts the multi-threaded HTTP upload server."""
     server_address = (host, port)
     httpd = ThreadingHTTPServer(server_address, UploadHandler)
+    httpd.upload_dir = upload_dir or UPLOAD_DIR
+    httpd.max_content_length = MAX_CONTENT_LENGTH
 
     try:
         hostname = socket.gethostname()

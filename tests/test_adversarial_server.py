@@ -40,12 +40,18 @@ import concurrent.futures
 from http.client import HTTPConnection
 import json
 import os
+from pathlib import Path
 import shutil
+import sys
 import tempfile
 import threading
 import time
 import unittest
 import uuid
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import server
 from server import (
@@ -70,6 +76,7 @@ class TestAdversarialServer(unittest.TestCase):
 
         # Start ThreadingHTTPServer on an ephemeral port (port 0)
         cls.httpd = ThreadingHTTPServer(('127.0.0.1', 0), UploadHandler)
+        cls.httpd.upload_dir = cls.test_dir
         cls.port = cls.httpd.server_address[1]
         cls.server_thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
         cls.server_thread.start()
