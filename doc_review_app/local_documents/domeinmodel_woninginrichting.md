@@ -18,9 +18,11 @@
 
 ### 1.1 Context, Domeinafbakening & Multi-Tenant SaaS Architectuur
 * **Domein:** De context is een woninginrichter die gespecialiseerd is in 6 categorieën conform Profiel A: Categorie 1 Gordijnen & Rails, Categorie 2 Raamdecoratie (Binnenzonwering & Horren), Categorie 3 Vaste Vloerbekleding & Dekvloertechniek, Categorie 4 Trapbekleding, Traprenovatie & Trapelementen, Categorie 5 Buitenzonwering, Gevelsystemen & Rolluiken, en Categorie 6 Diensten, Montage & Montagelogistiek (zie voor de volledige hiërarchische productspecificatie het separate document *productassortiment_decompositie.md*). Losse meubelen (banken, kasten), slaapcomfort (bedden/boxsprings) en losse karpetten vallen buiten de kern van deze configuratiescope.
+  * *V1 MVP Scope Buitenzonwering (Rolluiken in V2 Backlog):* Conform de historische verkoopdata van GSW (de afgelopen 2 jaar nauwelijks verkocht) behoren **rolluiken** in V1 expliciet **niet tot de MVP scope**. Categorie 5 richt zich in de actieve V1 MVP exclusief op knikarmschermen, ritsscreens, markiezen en uitvalschermen. Rolluiken zijn integraal verplaatst naar de V2 Backlog.
 * **Doelstelling van het Portaal:** Het realiseren van een integraal digitaal portaal dat het complete ketenproces ondersteunt — vanaf het eerste verkoopadvies en inmeten tot en met de montage en nazorg/service.
+* **Conditionele Checklisten & Verplichte Acties als Kernwaarde:** Het fundament van EasyM2M wordt gevormd door contextuele, dynamische checklisten en verplichte inspectie- en montage-acties. Zij borgen dat kritieke bouwkundige condities (ondergronden, leidingwerk, kindveiligheid, obstakels) direct aan de bron worden gevalideerd, waardoor overdrachtsfouten worden geëlimineerd.
 * **Architectuur & Scope V1:** Ontwikkeld als een multi-tenant SaaS-inmeetplatform voor woninginrichters, met woninginrichter GiW (*Groter in Wonen*) als primaire V1 lanceerpartner en referentietopologie. In versie 1 (V1) wordt de oplossing initieel operationeel gemaakt voor deze primaire tenant, met configureerbare isolatie voor toekomstige tenants.
-* **MVP-Afbakening Arbeid & Montage:** In de EasyM2M MVP worden alle berekeningen met betrekking tot arbeid, montagetijden, stelposten en legloon handmatig ingevoerd en/of berekend in het ERP-systeem (zoals LogicTrade of AFAS). Geautomatiseerde arbeidsberekening binnen het platform is expliciet uitgesloten van de MVP-scope.
+* **MVP-Afbakening Arbeid & Montage:** In de EasyM2M MVP worden alle berekeningen met betrekking tot arbeid, montagetijden, stelposten en legloon handmatig ingevoerd en/of berekend in het ERP-systeem (LogicTrade). Geautomatiseerde arbeidsberekening binnen het platform is expliciet uitgesloten van de MVP-scope.
 
 #### Scope-Consolidatietabel (Versie 1 MVP vs. Versie 2 Backlog)
 Om de functionele scope en architecturale afbakening eenduidig te formaliseren, classificeert het platform alle procesonderdelen in twee fasen:
@@ -28,13 +30,13 @@ Om de functionele scope en architecturale afbakening eenduidig te formaliseren, 
 | Functionaliteit / Domeinketen | Versie 1 (V1 MVP — Actieve Scope) | Versie 2 (V2 — Geplande Roadmap & Backlog) |
 | :--- | :--- | :--- |
 | **Portaal & Schermarchitectuur** | 6 Hoofdschermen (`Home`, `Klant`, `Object`, `Project`, `Ruimte`, `Product`) met de Dynamische Hiërarchische Matrix; slanke universele header en context-subheader | Consumenten-Klantportaal (rechtstreekse interactieve toegang voor particuliere klant tot projectstatus en dossier) |
-| **Productgroepen & Assortiment** | Alle 6 categorieën volwaardig in V1 MVP conform Profiel A: Gordijnen & Rails, Raamdecoratie, Vaste Vloerbekleding & Dekvloertechniek, Trapbekleding & Traprenovatie, Buitenzonwering & Rolluiken, en Diensten, Montage & Montagelogistiek (conform `productassortiment_decompositie.md`) | Maatwerk zonnedoeken, vlaggenmasten en industriële terrasoverkappingen |
-| **Afsprakenbeheer & Montagecondities** | Tweedeling: operationele `KalenderAfspraak` (inmetingen en montages gepland in Hoofdscherm 4 Project Tab A en Home dagagenda) en contractuele gelaagde `WerkafspraakEnMontageconditie` (contextueel vastgelegd op Positie-, Ruimte- en Projectniveau, met Project Tab B als geaggregeerde samenvattingsspiegel) | Geautomatiseerde AI-routeplanning en live GPS-verkeersprognoses voor monteursbussen |
-| **Mobiele Buitendienst & Klantnotificatie** | Mobiele Monteurs-Cockpit (`/monteur/vandaag`), 1-tik "Onderweg"-status, videonulmeting, swipeable positiekaarten, digitaal tekenen op glas | Klantnotificatie bij vertrek ("15 min van tevoren bellen / klant belt voor specifiek tijdstip") met Picnic-stijl realtime aankomst-tracking en live ETA |
-| **Verkoop, Inkoop, Logistiek & Betalingen** | PDF-generatie van Meet-, Montage- en Afterservicerapporten met handtekeningen en directe SRP e-mailverzending; orders en artikelen gekoppeld aan ERP (LogicTrade / AFAS) | Digitaal offerte versturen en ondertekenen in M2M met ERP-sync; direct bestellen vanuit M2M met ERP-sync; goederenontvangst en binnenmelden via M2M met ERP-sync; financiële betalingen (iDEAL/PIN) binnen M2M afhandelen |
-| **Arbeid, Montage & Calculatie** | Handmatige invoer van arbeid en montagetarieven en/of calculatie in ERP (LogicTrade / AFAS); geautomatiseerde arbeidsberekening valt buiten V1 MVP | Geautomatiseerde calculatiemodules voor arbeid, montagetijdnormen en legloonregels binnen het platform |
-| **Meetinvoer & Rekenregels** | UI Drie-eenheid (dagmaat invoer, automatische aftrek- en productiemaat), conceptmaten `[CONCEPT]` en `⚠️ Bevat conceptmaten` gating; wiskundige rekenregels voor pakgrootte-afronding (vloeren) en stuklijsten voor trappen | LiDAR 3D-ruimtescanning en automatische vector-contourherkenning uit point-clouds |
-| **Documentendossier & Export** | PDF-generatie van Meet-, Montage- en Afterservicerapporten met handtekeningen en directe SRP e-mailverzending | Realtime tweewegs order-mutatiesynchronisatie met externe ERP-systemen (V1: éénrichting links/exports) |
+| **Productgroepen & Assortiment** | 6 categorieën in V1 MVP conform Profiel A: Gordijnen & Rails, Raamdecoratie, Vaste Vloerbekleding & Dekvloertechniek, Trapbekleding & Traprenovatie, Buitenzonwering & Gevelsystemen (excl. rolluiken), en Diensten & Montage | Rolluiken (voorzet-, opbouw- en inbouwrolluiken; conform 2-jarige verkoopdata GSW nauwelijks verkocht en buiten V1 MVP geplaatst); maatwerk zonnedoeken, vlaggenmasten en industriële terrasoverkappingen |
+| **Afsprakenbeheer & Montagecondities** | Operationele `KalenderAfspraak` gekoppeld aan projecten; contractuele werkafspraken en montagecondities direct vastgelegd op Positie-, Ruimte- en Projectniveau | Tab B (Afsprakenspiegel) en Tab C (Documentendossier) als geaggregeerde schermen op Hoofdscherm 4; rol-agenda op Home; geautomatiseerde AI-routeplanning en live GPS-verkeersprognoses voor monteursbussen |
+| **Mobiele Buitendienst & Klantnotificatie** | Uitvoering via uniform webportaal op tablets (Hoofdscherm 6 Product en Hoofdscherm 4 Project) met fotoregistratie van opleverresultaat en issue-meldingsflow | Mobiele Monteurs-Cockpit (`/monteur/vandaag`), 1-tik "Onderweg"-status, videonulmeting, swipeable positiekaarten; klantnotificatie bij vertrek ("soms 15 min van tevoren bellen of klant belt voor specifiek tijdstip" met vertrek aangeven en realtime locatie/ETA Picnic-stijl) |
+| **Verkoop, Inkoop, Logistiek & Betalingen** | PDF-generatie van Meet-, Montage- en Afterservicerapporten met optionele handtekeningen (afhankelijk van realisatie-effort) en directe SRP e-mailverzending; orders en artikelen gekoppeld aan LogicTrade ERP | Digitaal offerte versturen en ondertekenen vanuit M2M met ERP-sync; direct bestellen vanuit M2M met ERP-sync; goederenontvangst en binnenmelden via M2M met ERP-sync; financiële betalingen (iDEAL/PIN) binnen M2M afhandelen |
+| **Arbeid, Montage & Calculatie** | Handmatige invoer van arbeid en montagetarieven en/of calculatie in LogicTrade ERP; geautomatiseerde arbeidsberekening valt buiten V1 MVP | Geautomatiseerde calculatiemodules voor arbeid, montagetijdnormen en legloonregels binnen het platform |
+| **Meetinvoer & Rekenregels** | UI Drie-eenheid (dagmaat invoer, automatische aftrek- en productiemaat), conditionele inspectie- en montagechecklisten per productgroep; subtiel rood `Draft` status-icoon met hover-tooltip; wiskundige rekenregels voor pakgrootte-afronding (vloeren) en stuklijsten voor trappen | LiDAR 3D-ruimtescanning en automatische vector-contourherkenning uit point-clouds |
+| **Documentendossier & Export** | PDF-generatie van Meet-, Montage- en Afterservicerapporten met optionele digitale handtekeningen en directe SRP e-mailverzending | Realtime tweewegs order-mutatiesynchronisatie met externe ERP-systemen (V1: éénrichting links/exports) |
 
 ### 1.2 De 7 Rollen in de Keten
 Het procesmodel van EasyM2M onderkent zeven primaire rollen die als een estafette samenwerken binnen de woninginrichtingsketen. De procesmatige interactie tussen deze rollen borgt een foutloze overdracht van commercie naar techniek en montage:
@@ -59,33 +61,35 @@ Het procesmodel van EasyM2M onderkent zeven primaire rollen die als een estafett
 * **Tweeweg Agendasynchronisatie (Outlook):** De agenda in het portaal en Microsoft Outlook is volledig tweeweg gesynchroniseerd. Zodra een inmeet- of montageorder wordt ingepland of gewijzigd (in het portaal óf in Outlook), wordt dit realtime over en weer bijgewerkt. *(De automatische herbevestiging van datumwijzigingen naar de klant is gereserveerd voor de backlog).*
 
 ### 1.4 Hoofdlijnen van de 6 Ketenfasen & Conditionele Workflow-Overgangen (Gates)
-Het complete maatwerktraject verloopt organisatorisch via 6 vaste ketenfasen, die in het EasyM2M-portaal deterministisch worden gereflecteerd in 5 data-driven projectstatussen (`Intake` → `Offerte` → `Order` → `Geleverd` → `Afgerond`). Hoewel de fasen identiek zijn, verschillen de te registreren parameters per productcategorie, productgroep en product. De overgang tussen fasen wordt bewaakt door conditionele workflow-gates:
+Het complete maatwerktraject verloopt organisatorisch via 6 vaste ketenfasen (1. Intake, 2. Offerte, 3. Order, 4. Inkoop/Controle, 5. Montage, 6. Nazorg/Afronding), die in het EasyM2M-portaal deterministisch worden gereflecteerd in 5 data-driven projectstatussen (`Intake` → `Offerte` → `Order` → `Geleverd` → `Afgerond`). Hoewel de fasen identiek zijn, verschillen de te registreren parameters per productcategorie, productgroep en product. Inmeten is binnen deze opzet géén starre lineaire ketenfase waar ieder project verplicht op één vast moment doorheen moet, maar een transversale procesactie die op elk gewenst moment kan worden uitgevoerd om productspecificaties en maten van concept naar definitief te brengen. De overgang tussen fasen wordt bewaakt door conditionele workflow-gates:
 
-* **Fase 1: De Intentiefase**  
-  * *Inhoud:* Verkoper en klant maken een principekeuze van te offreren producten en werkzaamheden en plannen een inmeetafspraak. Heeft de klant globale maten meegenomen (bijv. 11 Duettes), dan berekent de adviseur binnen 20 minuten een nauwkeurige conceptofferte op de winkelvloer. Bij akkoord op het prijsniveau (bijv. € 7.000,- tot € 9.000,-) wordt de projectstatus in het portaal direct omgezet naar **Order** (met maatstatus per positie op `concept`). Hierdoor transformeert het traject van een vrijblijvende lead naar een bindende orderverificatie, waarbij de inmeting (Fase 2) fungeert als verificatiecheck. Het 'dwingend' structureren van het showroomproces helpt in de overbrugging van kenniskloven tussen ervaren krachten en junior medewerkers/nieuwe filialen (zoals Maastricht).  
-  * *Gate (Afsluiting):* Formeel afgesloten met een **Inmeetorder** of **Verkooporder** (met status `Order` en maatstatus op `concept`) *(Opmerking: digitaal ondertekenen en eventueel betalen van de inmeetorder is een backlog functionaliteit; streven naar substantiële aanbetalingen tot 80% en het vooraf innen van de € 75,- inmeetbijdrage conform §1.5.1)*.
-* **Fase 2: De Inmeet- & Verificatiefase (Transversale Meetactie & Statusbewaking)**  
-  * *Inhoud & Positie in het Proces:* Alle statussen in het portaal zijn data-driven. Inmeten is conceptueel géén starre lineaire bottleneck waar elk dossier verplicht vóóraf doorheen moet. Het is een **procesactie** die in principe altijd moet worden ingepland zolang de maten niet definitief zijn en er nog geen inmeetafspraak gepland staat. De maatstatus per artikel/positie kent de waarden `concept` vs. `definitief`. Na de inmeetactie op locatie worden de maten door de inmeter op `definitief` gezet (al kan een positie in uitzonderlijke situaties nog op `concept` blijven staan indien nameten noodzakelijk blijft). Het proces kent twee dynamische routes:  
-    * **Traject A (Meetgestuurd / Regulier):** Intake & Wensen (optioneel reeds gestart met globale/concept klantmaten in de showroom) → Inmeetafspraak plannen & inmeting op locatie → Maten op 'definitief' → Calculatie & Offerte → Orderakkoord (projectstatus `Order`).  
-    * **Traject B (Showroom-direct / Directe Order):** Intake met globale/concept klantmaten in de showroom → Direct commercieel akkoord & Orderbevestiging (projectstatus `Order`, maatstatus op `concept`) → Inmeetactie op locatie ter verificatie → Maten op 'definitief' → Vrijgave Inkooporders in ERP.  
+* **Fase 1: De Intake- & Intentiefase**  
+  * *Inhoud:* Verkoper en klant inventariseren wensen, ruimtes en te offreren producten/werkzaamheden en plannen een inmeetafspraak. Heeft de klant globale maten meegenomen (bijv. 11 Duettes), dan berekent de adviseur binnen 20 minuten een nauwkeurige indicatieve calculatie op de winkelvloer. Bij akkoord op het berekende prijsniveau (een exacte prijs op basis van de ingevoerde productspecificaties en conceptmaten, geen vrijblijvende prijsrange) wordt de projectstatus in het portaal direct omgezet naar **Order** (met maatstatus per positie op `concept`). Hierdoor transformeert het traject van een vrijblijvende lead direct naar een bindende verkooporder, waarbij de transversale inmeetactie fungeert als verificatiecheck. Het dwingend structureren van het showroomproces overbrugt kenniskloven tussen ervaren krachten en junior medewerkers.  
+  * *Gate (Afsluiting):* Formeel afgesloten met een **Inmeetorder** of **Verkooporder** (met status `Order` en maatstatus op `concept`) *(Opmerking: digitaal ondertekenen en eventueel betalen van de inmeetorder is een backlog functionaliteit; streven naar substantiële aanbetalingen conform §1.5.1)*.
+* **Transversale Procesactie: Inmeten & Schouw op Locatie**  
+  * *Inhoud & Positie in het Proces:* Alle statussen in het portaal zijn data-driven. Inmeten is conceptueel géén starre lineaire bottleneck waar elk dossier verplicht vóóraf doorheen moet. Het is een transversale **procesactie** die kan plaatsvinden in Fase 1, Fase 2 of Fase 3 zolang de maten niet definitief zijn en er nog geen inmeetafspraak gepland staat. De maatstatus per artikel/positie kent de waarden `concept` vs. `definitief`. Na de inmeetactie op locatie worden de maten via `[ Definitief Maken ]` op `definitief` gezet (al kan een positie in uitzonderlijke situaties nog op `concept` blijven staan indien nameten noodzakelijk blijft). Het proces kent twee dynamische hoofdroutes:  
+    * **Traject A (Meetgestuurd / Regulier):** Intake & Wensen (optioneel gestart met globale conceptmaten) → Inmeetafspraak plannen & inmeting op locatie → Maten op 'definitief' via `[ Definitief Maken ]` → Calculatie & Offerte → Orderakkoord (projectstatus `Order`).  
+    * **Traject B (Showroom-direct / Directe Order):** Intake met globale conceptmaten in showroom → Direct commercieel akkoord & Orderbevestiging (projectstatus `Order`, maatstatus op `concept`) → Inmeetactie op locatie ter verificatie → Maten op 'definitief' via `[ Definitief Maken ]` → Vrijgave inkoop in ERP.  
     Tijdens de inmeetactie meet de inmeter op locatie alle posities exact in, maakt overzichts- en detailfoto's en legt schetsen en montagerichtlijnen vast. Eventueel voorafgegaan door een schouw (conceptmeting in ruwbouw). De inmeettool is softwarematig leidend en dwingend: inmetingen kunnen niet worden afgesloten zonder verplichte parameters zoals montagehoogtes, ondergronden en plintinstructies.  
-  * *Gate (Afsluiting):* Formeel afgesloten met een gevalideerd digitaal **Meetrapport** (via `[ Rapport Maken ]` met rapporttype *Meetrapport*) en toekenning van de status `definitief` aan alle gekoppelde posities.
-* **Fase 3: De Offerte- & Orderfase (ERP-verwerking & Commercieel Akkoord)**  
-  * *Inhoud:* Verkoper vertaalt de calculatie en klantkeuzes (hetzij op basis van definitieve inmeting, hetzij op basis van conceptmaten) naar een offerte en verkooporder in het ERP-systeem. **Verplichte Conceptmaten-Clausule:** Indien een offerte of verkooporder wordt opgesteld op basis van conceptmaten, wordt er automatisch en verplicht een vaste bepalingsregel opgenomen: *"Deze offerte/orderbevestiging is gebaseerd op voorlopige conceptmaten; specificaties, benodigde hoeveelheden en prijzen worden definitief vastgesteld en eventueel herzien zodra de definitieve inmeting op locatie heeft plaatsgevonden en significante maatafwijkingen zijn geconstateerd."*  
-  * *Gate (Afsluiting):* Formeel afgesloten met een **Verkooporder** (in beide trajecten met uniforme projectstatus `Order`; bij Traject B met maatstatus `concept` en actie 'Inmeten vereist', bij Traject A met maatstatus `definitief`). *(Opmerking: digitaal ondertekenen en eventueel (deel)betaling van de order is een backlog functionaliteit)*.
+  * *Gate (Afsluiting):* Formeel afgesloten zodra alle posities van het inmeetdossier definitief zijn gemaakt via `[ Definitief Maken ]` en de inmeter het inmeetbezoek afrondt.
+* **Fase 2: De Offertefase**  
+  * *Inhoud:* Indien de klant in de showroom niet direct tot aankoop overgaat, stelt de adviseur op basis van de intake of een voorafgaande inmeting een gespecificeerde offerte op in LogicTrade ERP. De offerte bevat gedetailleerde calculaties en voorwaarden. **Verplichte Conceptmaten-Clausule:** Indien een offerte wordt opgesteld op basis van conceptmaten, wordt er automatisch en verplicht een vaste bepalingsregel opgenomen: *"Deze offerte/orderbevestiging is gebaseerd op voorlopige conceptmaten; specificaties, benodigde hoeveelheden en prijzen worden definitief vastgesteld en eventueel herzien zodra de definitieve inmeting op locatie heeft plaatsgevonden en eventuele maatafwijkingen zijn geconstateerd."*  
+  * *Gate (Afsluiting):* Formeel afgesloten met een door de klant geaccordeerde offerte die in LogicTrade ERP wordt omgezet naar een verkooporder (projectstatus `Order`).
+* **Fase 3: De Orderfase**  
+  * *Inhoud:* Het project bevindt zich in de actieve orderstatus (hetzij rechtstreeks ontstaan vanuit de showroomintake op conceptmaten, hetzij na acceptatie van de offerte). Indien er nog posities met maatstatus `concept` aanwezig zijn, moet de transversale inmeetactie op locatie worden uitgevoerd alvorens de order technisch kan worden vrijgegeven voor productie en inkoop.
+  * *Gate (Afsluiting):* Alle posities bezitten maatstatus `definitief`, en de order is administratief en technisch gevalideerd voor inkoop.
 * **Fase 4: De Bestelfase (Interne Controle & Inkoop in LogicTrade ERP — INV-ERP-02)**  
   * *Inhoud:* Het daadwerkelijk bestellen en inkopen van materialen is 100% het domein van LogicTrade ERP en geen handeling in EasyM2M (het portaal kent dan ook géén bestelknop of blokkerende bestelstatus; het project behoudt in het portaal de status `Order`). Binnen LogicTrade voert de controleur/werkvoorbereider de vier-ogen kwaliteitscontrole uit op meet- en verkoopdata ter voorkoming van overname- en invoerfouten, gevolgd door verzending van inkooporders naar leveranciers. Bevat de verplichte Orderbevestiging-validatie (ACK Gate) en Spookorder-Alerting ter voorkoming van niet-geproduceerde orders*.  
   * *Gate (Afsluiting in ERP):* Formeel afgesloten binnen LogicTrade met geaccordeerde **Inkooporders** voorzien van geregistreerd fabrikant-bevestigingsnummer en verwachte leverweek; deze geaccordeerde inkooporder met verwachte leverweek vormt reeds de montagetrigger voor de planner, waarna de fysieke binnenmelding van goederen in het magazijn fungeert als definitieve verificatie vóór montage.
 * **Fase 5: De Montagefase (Uitvoering & Status 'Geleverd')**  
-  * *Inhoud:* Planner plant montageafspraak zodra goederen binnen zijn; monteurs monteren alle posities conform instructie, voeren verplicht een videonulmeting uit ter preventie van aansprakelijkheidsclaims, borgen schadevrij werken en registreren eventuele opleverbevindingen/issues op productniveau. Na afronding van de montage genereert de monteur via `[ Rapport Maken ]` (label: *Montagerapport*) het opleverdossier met klantsign-off, dat direct realtime wordt verzonden aan klant en planner.  
-  * *Gate (Afsluiting in Portaal):* Formeel afgesloten met het verzonden **Montagerapport**, waardoor de berekende projectstatus in het portaal deterministisch verspringt naar **Geleverd**.
-* **Fase 6: De Servicefase (Restpunten, Afterservice & Status 'Afgerond')**  
-  * *Inhoud:* Eventuele restpunten, transportschades of nazorgmeldingen worden als service-issues direct geregistreerd op het desbetreffende product (Hoofdscherm 6). Zolang er $\ge 1$ openstaand issue resteert, ontgrendelt op Hoofdscherm 4 de actieknop `[ Afterservice Afspraak Plannen ]` en blijft de status `Geleverd` gehandhaafd. De servicemonteur lost de issues gericht op locatie op via een serviceloop en legt de herstelwerkzaamheden vast via `[ Rapport Maken ]` (label: *Afterservicerapport*).  
-  * *Gate (Afsluiting in Portaal):* Pas zodra alle geregistreerde issues op productniveau zijn opgelost en gesloten (**0 openstaande service-issues**), ontgrendelt op Hoofdscherm 4 de actie `[ Project Sluiten / Afronden ]` en wordt het projectdossier definitief overgezet naar de eindstatus **Afgerond**.
+  * *Inhoud:* Planner plant montageafspraak zodra goederen binnen zijn; monteurs monteren alle posities conform instructie, borgen schadevrij werken en handelen gemonteerde producten af via de knop `[ Gemonteerd ]`. Indien alle producten zonder restpunten zijn gemonteerd, krijgen de producten direct de status `'gereed'`. Zijn er restpunten of beschadigingen, dan worden deze vastgelegd als `Opmerking` van het type `openstaande_actie` en krijgt het product de status `'geleverd'`.  
+  * *Gate (Afsluiting in Portaal):* Zodra aan de strikte macro-statusconditie is voldaan (`products.length > 0` en 100% van de onderliggende producten heeft status `'geleverd'` OF `'gereed'`), verspringt de berekende projectstatus in het portaal deterministisch naar **Geleverd**.
+* **Fase 6: De Nazorg- & Afrondingsfase (Restpunten, Service & Status 'Afgerond')**  
+  * *Inhoud:* Eventuele restpunten, transportschades of nazorgmeldingen die tijdens de montage zijn geregistreerd als `openstaande_actie` worden door de servicemonteur op locatie opgelost. Zolang er $\ge 1$ openstaande actie resteert, blijft de status `Geleverd` gehandhaafd. Zodra alle openstaande acties zijn afgehandeld en gesloten, krijgen ook de laatste producten de status `'gereed'`.  
+  * *Gate (Afsluiting in Portaal):* Pas zodra aan de eindconditie is voldaan (`products.length > 0` én 100% van de producten heeft status `'gereed'` ÉN count(openstaande_actie) = 0), ontgrendelt de afronding en verspringt het projectdossier deterministisch naar de eindstatus **Afgerond**.
+### 1.5 Detailbeschrijving van de 6 Ketenfasen & Transversale Inmeetactie
 
-### 1.5 Detailbeschrijving van de 6 Ketenfasen
-
-#### 1.5.1 Fase 1: De Intentiefase (Verkoop & Inmeetorder)
+#### 1.5.1 Fase 1: De Intake- & Intentiefase (Verkoop & Inmeetorder)
 * **Wensen & Gegevensverzameling:** De verkoper inventariseert in de showroom de wensen van de klant. Alles wat noodzakelijk is voor een succesvolle inmeting wordt gestructureerd vastgelegd:
   * *Klantgegevens:* NAW-gegevens, telefoonnummer en e-mailadres.
   * *Ruimtelijke indeling:* Etages en ruimtes binnen het pand.
@@ -120,30 +124,34 @@ Het complete maatwerktraject verloopt organisatorisch via 6 vaste ketenfasen, di
   * *Externe Fabrikantenconfigurators buiten V1:* Volledige externe configurators van fabrikanten vallen buiten de initiële MVP-scope; de focus ligt op snelle validatie tegen de ERP-artikelenlijst.  
   * *Agenda-Sync:* De inplanning van de inmeetafspraak synchroniseert direct met Microsoft Outlook.
 
-#### 1.5.2 Fase 2: De Inmeetfase & Schouw (Opname op Locatie)
-* **Voorbereiding & Digitale Overdracht:** De inmeter vertrekt naar de klantlocatie met het volledige digitale dossier uit de verkoopfase op zijn tablet.
+#### 1.5.2 Transversale Procesactie: Inmeten & Schouw op Locatie
+* **Voorbereiding & Digitale Overdracht:** De inmeter vertrekt naar de klantlocatie met het volledige digitale dossier uit de verkoopfase op zijn tablet. Inmeten is binnen EasyM2M géén lineaire verplichte bottleneck, maar een flexibele transversale procesactie die kan worden uitgevoerd in de intakefase, offertefase of na orderbevestiging.
 * **Conditionele Inmeetworkflow:** De inmeter doorloopt een vaste, gestandaardiseerde workflow met verplichte stappen:
   * *Entree & Looproutes:* Maken van overzichtsfoto's en filmpjes van de entree, het trappenhuis, de lift en de aanlooproutes naar de montagelocatie (logistieke toegankelijkheid).
   * *Ruimteniveau:* Maken van een duidelijke maatschets van de ruimte (voorzien van genummerde posities), overzichtsfoto's en specifieke ruimtelijke notities.
   * *Positieniveau:* Vastleggen van alle vereiste basis- en detailmaten (hoogte, breedte, montagelijnen, obstakels), detailfoto's van kozijnen of vloeren, en gerichte instructies voor offerte en montage.
-  * *Capaciteits- & Monteursindicatie:* Inschatting van de benodigde montagetijd (uren) en eventueel vereiste specialistische vaardigheden (bijv. meesterstoffeerder voor trappen).
+  * *Bijzonderheden, Extra Werk & Monteursindicatie:* Het inschatten van benodigde uren/montagetijd is uitdrukkelijk géén taak van de inmeter; dit wordt berekend door de planner. De inmeter registreert uitsluitend geconstateerde bijzonderheden, meerwerk/extra werk of de noodzaak voor specifieke specialistische vaardigheden (bijv. meesterstoffeerder voor trappen) via een gerichte opmerking in de conditionele checklist.
 * **Productaanpassing door Inmeter:** Indien de live situatie uitwijst dat een gekozen draft-product technisch niet monteerbaar is (bijv. te geringe plaatsingsdiepte of ongeschikte ondergrond), heeft de inmeter de bevoegdheid het product in overleg aan te passen naar een technisch haalbaar alternatief.
-* **Bouwkundige Schouw (Optioneel):** In situaties van ruwbouw of grootschalige renovatie kan de inmeetfase worden voorafgegaan door een 'schouw' (een conceptmeting waarbij maten en definitieve productkeuzen indicatief zijn en in een later stadium definitief worden gemaakt).
-* **Afsluiting, Meetrapport & Ondertekening (Inclusief Deel-Meetrapport):** Na afloop van de inmeting – zodra alle ingevoerde posities door de inmeter op de state "definitief" zijn gezet (INV-STATE-01) – genereert het portaal automatisch het digitale **Meetrapport** (via de actieknop `[ Rapport Maken ]` met rapporttype *Meetrapport*). Hierin zijn alle geconstateerde bouwkundige details, opmerkingen en eventuele benodigde service-opdrachten verzameld. **Deel-Meetrapport Protocol:** Indien bepaalde ruimtes of verdiepingen zich nog in ruwbouw bevinden (of nog gestukt/geëgaliseerd moeten worden), kan de inmeter een *Deel-Meetrapport* genereren voor de reeds definitief ingemeten ruimtes; de resterende ruimtes blijven op maatstatus `concept` staan met een ingeplande vervolginmeting. De inmeter neemt het (deel-)meetrapport door met de klant. Eventuele klantopmerkingen worden ter plekke toegevoegd. Vervolgens ondertekent de klant het rapport digitaal op het scherm (INV-UI-02), waarna het meetrapport direct via de centrale Single Responsibility (SRP) berichtencomponent (INV-MSG-01) per e-mail aan de klant wordt verzonden. *(Voor gedetailleerde inmeetmethodieken en rekenregels per categorie, zie Deel 3).*
+* **Bouwkundige Schouw (Optioneel):** In situaties van ruwbouw of grootschalige renovatie kan de inmeetactie worden voorafgegaan door een 'schouw' (een conceptmeting waarbij maten en definitieve productkeuzen indicatief zijn en in een later stadium definitief worden gemaakt).
+* **Afsluiting, Meetrapport & Ondertekening (Inclusief Deel-Meetrapport):** Na afloop van de inmeting – zodra alle ingevoerde posities door de inmeter via `[ Definitief Maken ]` op de status "definitief" zijn gezet (INV-STATE-01) – genereert het portaal het digitale **Meetrapport** (via de actieknop `[ Rapport Maken ]` met rapporttype *Meetrapport*). Hierin zijn alle geconstateerde bouwkundige details, opmerkingen en montagerichtlijnen verzameld. **Deel-Meetrapport Protocol:** Indien bepaalde ruimtes of verdiepingen zich nog in ruwbouw bevinden (of nog gestukt/geëgaliseerd moeten worden), kan de inmeter een *Deel-Meetrapport* genereren voor de reeds definitief ingemeten ruimtes; de resterende ruimtes blijven op maatstatus `concept` staan met een ingeplande vervolginmeting. De inmeter neemt het (deel-)meetrapport door met de klant. Eventuele klantopmerkingen worden ter plekke toegevoegd. Vervolgens ondertekent de klant het rapport digitaal op het scherm (INV-UI-02), waarna het meetrapport per e-mail aan de klant wordt verzonden. *(Voor gedetailleerde inmeetmethodieken en rekenregels per categorie, zie Deel 3).*
 
-#### 1.5.3 Fase 3: De Offertefase (Calculatie, ERP & Verkooporder)
+#### 1.5.3 Fase 2: De Offertefase (Calculatie, ERP & Verkooporder)
 * **Dossieroverdracht naar Calculatie:** Het inmeetverslag en de klantwensen vormen het fundament voor de offerteberekening.
 * **ERP-Verwerking:** De definitieve maten en productspecificaties worden in het ERP-systeem (LogicTrade) ingevoerd (in V1 handmatig door de verkoper/calculator, in latere fasen via een API-koppeling).
 * **Offerte-uitgifte & Verkooptraject:** De verkoper stelt de offerte op binnen het ERP-systeem en verstuurt deze naar de klant (valt buiten de directe werking van het portaal).
   * *Automatische Klantvriendelijke Productomschrijvingen (AU20 & AE20 Casus):* *(Wens/idee)* Indien op een offerte of orderbevestiging uitsluitend een cryptische fabrikant-modelcode staat (zoals `AU20`, `AS20` of `AE20`), begrijpt de klant niet wat er besteld is. Dit leidt bij levering regelmatig tot ernstige aflevergeschillen (*"die code zegt me niets, dit heb ik niet besteld"*). Het portaal genereert daarom automatisch een **volledige, klantvriendelijke functionele omschrijving** op alle klantgerichte documenten (bijv. *"Duette 25 mm, vrijhangend, SmartCord-bediening met Top-Down / Bottom-Up"* of bij `AE20`: *"Duette 32 mm, vrijhangend, elektrisch PowerView met Top-Down / Bottom-Up, incl. magnetische laadkabel en Pebble handzender"*). De compacte fabriekscode blijft op de achtergrond behouden voor de technische bestelregels in LogicTrade, EDI-berichten en fabrieksorders.
   * *Fabrieksprijsstaffels & Meetneutraliteit (10–20 cm Intervallen):* *(Wens/idee; zie §3.3.2)* Fabrikantprijslijsten zijn opgebouwd in vaste staffelintervallen (bijv. breedte 1,40–1,60 m × hoogte 1,40–1,60 m). Indien een klant in de showroom een conceptmaat doorgeeft van 1,45 × 1,55 m en de inmeter meet op locatie 1,48 × 1,52 m, valt dit binnen exact hetzelfde staffelblok. Het portaal toont direct dat de berekende prijs 100% prijsneutraal blijft, waardoor offertes direct definitief gemaakt kunnen worden zonder tijdrovende hercalculaties.
   * *Transparante Btw-Weergave op Documenten:* *(Wens/idee)* Terwijl fabrikantcatalogi toeslagen exclusief btw specificeren, toont het consumentenportaal en de offerte alle bedragen consistent inclusief 21% btw.
-* **Orderstatusflow & Uitzonderingenbeheer (95% vs. 5%):**
-  * *Reguliere flow (95%):* De klant accordeert de offerte zonder wijzigingen; de verkooporder is inhoudelijk 1-op-1 identiek aan de calculatie.
-  * *Afwijkingsflow (5%):* Indien de klant alsnog wijzigingen wenst (kleur, stofkeuze, aantal posities), past de verkoper zowel het dossier in het portaal als de order in het ERP handmatig aan.
-* **Afsluiting:** De offertefase wordt formeel afgesloten met een door de klant ondertekende verkooporder.
+* **Afsluiting Offertefase:** De offertefase wordt formeel afgesloten zodra de offerte in het ERP-systeem is opgesteld en door de verkoper aan de klant is aangeboden.
 
-#### 1.5.4 Fase 4: De Bestelfase (Verificatie door Controleur & Inkooporders)
+#### 1.5.4 Fase 3: De Orderfase (Commercieel Akkoord & Verkooporder)
+* **Orderstatusflow & Uitzonderingenbeheer (95% vs. 5%):**
+  * *Reguliere flow (95%):* De klant accordeert de offerte zonder wijzigingen; de verkooporder in LogicTrade ERP is inhoudelijk 1-op-1 identiek aan de calculatie en de projectstatus in het portaal wordt definitief `Order`.
+  * *Afwijkingsflow (5%):* Indien de klant alsnog wijzigingen wenst (kleur, stofkeuze, aantal posities), past de verkoper zowel het dossier in het portaal als de order in het ERP handmatig aan.
+* **Showroom-Direct Order (Traject B):** Bij verkoop in de showroom direct op conceptmaten ontstaat de orderstatus rechtstreeks vanuit de intake; de transversale inmeetactie op locatie brengt de maten vervolgens van concept naar definitief via `[ Definitief Maken ]`.
+* **Afsluiting & Vrijgave:** De orderfase wordt formeel afgesloten met een getekende verkooporder en toekenning van de status `definitief` aan alle gekoppelde posities, waarna de order technisch klaar is voor inkoopcontrole.
+
+#### 1.5.5 Fase 4: De Bestel- & Inkoopcontrolefase (ERP-Verificatie LogicTrade)
 * **Vier-Ogen Kwaliteitsborging:** Voordat inkooporders definitief naar toeleveranciers en fabrieken worden verzonden, voert een onafhankelijke controleur (in de praktijk veelal de inmeter zelf) een grondige visuele check uit.
 * **Verificatieproces:** De controleur toetst de ingevoerde ERP-gegevens integraal aan de oorspronkelijke notities van de verkoper, het inmeetverslag en de fotobijlagen. Hiermee worden kostbare maat- en specificatiefouten in de productieketen geëlimineerd. *(Toekomstperspectief: Zodra er een automatische API-koppeling is gerealiseerd tussen het inmeetportaal en het ERP, zal deze handmatige vier-ogencontrole aanzienlijk verminderen of voor gestandaardiseerde orders zelfs geheel verdwijnen).*
 * **Plaatsing van Inkooporders & Leveranciersbevestigingen:** Na formele goedkeuring door de controleur worden de inkooporders gefiatteerd en verzonden naar de toeleveranciers en fabrikanten (zoals Luxaflex en Toppoint).
@@ -154,7 +162,7 @@ Het complete maatwerktraject verloopt organisatorisch via 6 vaste ketenfasen, di
   * *Boven € 200 - € 300:* Indien met de klant geen minnelijke oplossing mogelijk is, vindt directe escalatie plaats naar de directie.
 * **Trigger voor Montagefase:** Na verzending bevindt het dossier zich in afwachting tot de materialen door toeleveranciers worden geleverd en in het magazijn worden binnengemeld in LogicTrade ERP. Deze magazijnbeschikbaarheid vormt de operationele trigger voor de planner om de montage definitief af te stemmen en in gang te zetten (het binnenmeldingsproces zelf is geen onderdeel van het portaal).
 
-#### 1.5.5 Fase 5: De Montagefase (Planning, Uitvoering & Opleverontvangst)
+#### 1.5.6 Fase 5: De Montagefase (Planning, Uitvoering & Oplevering)
 * **Magazijnontvangst & Montageplanning:**
   * *Binnenmelding als Operationele Trigger:* De dagelijkse goederenontvangst en binnenmelding door de magazijnmedewerker in LogicTrade ERP registreert de fysieke beschikbaarheid van goederen.
   * *Twee Planningsstromen:*
@@ -178,10 +186,10 @@ Het complete maatwerktraject verloopt organisatorisch via 6 vaste ketenfasen, di
   * Mobiel pinnen bij de monteur op locatie is in versie 1 (V1) buiten scope; de monteur richt zich uitsluitend op de vaktechnische montage en oplevering.
 * **Afsluiting & Klantenacceptatie:** Na gezamenlijke inspectie tekent de klant op de tablet voor ontvangst op het digitale **Montagerapport**. Eventuele montagebevindingen worden hierop expliciet vermeld en direct gerouteerd naar de servicefase.
 
-#### 1.5.6 Fase 6: De Servicefase (Oplossing Montagebevindingen door Servicemonteur)
+#### 1.5.7 Fase 6: De Nazorg- & Afrondingsfase (Restpunten, Service & Dossiersluiting)
 * **Doelgerichte Oplossing:** De tijdens de oplevering vastgelegde montagebevindingen worden door de planner ingepland en door de servicemonteur op locatie verholpen.
 * **Procesvoering in het Portaal:** De servicemonteur gebruikt het portaal om de exacte bevindingen, foto's en instructies in te zien en het herstelresultaat digitaal en fotografisch vast te leggen. Deze fase verloopt operationeel als een gerichte herhaling van de montageworkflow met dezelfde waarborgen voor kwaliteit.
-* **Dossierafsluiting:** De servicefase wordt formeel afgesloten met een door de klant digitaal ondertekend definitief **Afterservicerapport** (via `[ Rapport Maken ]` met rapporttype *Afterservicerapport*), waarmee het volledige ketendossier foutloos en sluitend is afgerond.
+* **Dossierafsluiting:** De servicefase wordt formeel afgesloten zodra alle openstaande acties zijn verholpen en gesloten. Het projectdossier wordt definitief overgezet naar de status **Afgerond** zodra `products.length > 0`, 100% van de producten de status `'gereed'` bezit en er 0 openstaande acties resteren.
 
 ---
 ## Deel 2: Ruimtelijke Hiërarchie
@@ -311,7 +319,7 @@ Niet alle artikelen, bewerkingen of kosten in een woninginrichtingsproject zijn 
 * **Steigerhuur & Valbeveiliging:** Huur van een rolsteiger voor hoge vides of trapopgangen over meerdere verdiepingen.
 * **Algemene Afvalcontainer & Stortkosten:** Containerplaatsing voor grootschalige sloop- en afvoerwerkzaamheden.
 * **Projectkortingen & Commerciële Totaalcorrecties:** Een algemene projectkorting of coulancepost over het gehele orderbedrag.
-* **Arbeid, Uurloon & Montagetarieven (MVP-Afbakening):** In de EasyM2M MVP worden alle calculaties rondom arbeid, montagetijden, stelposten en uurtarieven handmatig ingevoerd of direct afgehandeld in het ERP-systeem (LogicTrade / AFAS). Geautomatiseerde arbeidsberekening binnen de mobiele inmeetapp valt expliciet buiten de MVP-scope.
+* **Arbeid, Uurloon & Montagetarieven (MVP-Afbakening):** In de EasyM2M MVP worden alle calculaties rondom arbeid, montagetijden, stelposten en uurtarieven handmatig ingevoerd of direct afgehandeld in het ERP-systeem (LogicTrade). Geautomatiseerde arbeidsberekening binnen de mobiele inmeetapp valt expliciet buiten de MVP-scope.
 
 **Architecturale Verankering in het Systeem:**
 Om te voorkomen dat deze algemene regels als 'spookposities' tussen de fysieke ruimtes en ramen belanden, worden zij in het datamodel en de matrix verankerd aan een speciale systeempositie:
@@ -1184,11 +1192,11 @@ De inmeetchecklist voor trappen borgt zowel traditionele stoffering als moderne 
 
 ### 3.6 Categorie 5: Buitenzonwering, Gevelsystemen & Rolluiken
 
-#### 3.6.1 Productassortiment & Toepassingen (Volwaardig in V1 MVP)
-Buitenzonwering & Gevelsystemen is een **volwaardige kernproductgroep binnen de Versie 1 (V1 MVP) Scope** van EasyM2M (zie voor de complete assortimentsboom het separate artefact *productassortiment_decompositie.md*). De categorie deelt de integrale portaalarchitectuur (gevelposities, matrix-toewijzing, dynamische checklists, digitale werkbonnen en opleverhandtekening op glas) en omvat vier primaire gevelsystemen:
+#### 3.6.1 Productassortiment & Toepassingen (V1 MVP Scope & V2 Backlog)
+Buitenzonwering & Gevelsystemen is een volwaardige kernproductgroep binnen het totale assortimentsmodel van EasyM2M (zie voor de complete assortimentsboom het separate document *productassortiment_decompositie.md*). Voor de initiële Versie 1 (V1 MVP) Scope geldt op basis van de historische verkoopdata van de afgelopen twee jaar dat de operationele focus ligt op Knikarmschermen, Ritsscreens en Markiezen; **Rolluiken vallen buiten de V1 MVP scope en zijn gealloceerd naar de V2 Backlog**. De technische productspecificaties en normeringen van rolluiken zijn hieronder wel reeds integraal gedocumenteerd ter voorbereiding op V2:
 1. **Knikarmschermen (Terrasschermen):** Twee- of meerarmige doekschermen met een uitval van 2,50 tot 4,00 meter en breedtes tot 7,00 meter per deel.
 2. **Ritsscreens (ZIP-screens):** Windvaste vlakschermen voorzien van een ritsgeleidingssysteem in aluminium zijgeleiders; fungeren tevens als insectenwering.
-3. **Rolluiken (Voorzet-, Opbouw- & Inbouwsystemen):** Beveiligende, isolerende en verduisterende aluminium lamellenpantsers (dubbelwandig gerold aluminium met CFK-vrij PU-schuim).
+3. **Rolluiken (Voorzet-, Opbouw- & Inbouwsystemen — V2 Backlog):** Beveiligende, isolerende en verduisterende aluminium lamellenpantsers (dubbelwandig gerold aluminium met CFK-vrij PU-schuim).
    * *Kastmaten & Vormen:* Gestandaardiseerde kastmaten 137 mm, 150 mm, 165 mm, 180 mm en 205 mm; leverbaar in 45° afgeschuind (`45_graden`), rond of half-rond.
    * *Aandrijving:* Somfy io 230V bedraad of 100% autonoom Solar met LiFePO4-accu en monokristallijn zonnepaneel op de cassette (geen geveldoorboring benodigd).
    * *Inbraakwerendheid:* Gecertificeerd conform **RC2** en **RC3** (**NEN-EN 1627**), voorzien van automatische optilbeveiliging (veerconsoles / starre verbinders).
@@ -1221,7 +1229,7 @@ Buitenzonwering & Gevelsystemen is een **volwaardige kernproductgroep binnen de 
 ### 3.7 Categorie 6: Diensten, Montage & Montagelogistiek
 
 > **MVP-Afbakening & Arbeidscalculatie:**  
-> Conform het architectuurbesluit in §1.1 en §2.8 worden loontarieven, urennormen en montagetijdscalculaties in de EasyM2M MVP handmatig ingevoerd of verwerkt in het externe ERP (LogicTrade / AFAS). Paragraaf 3.7 definieert de **technische inmeet- en schouwparameters** die door de inmeter op locatie worden vastgesteld voor een veilige, haalbare montage en logistieke voorbereiding.
+> Conform het architectuurbesluit in §1.1 en §2.8 worden loontarieven, urennormen en montagetijdscalculaties in de EasyM2M MVP handmatig ingevoerd of verwerkt in het externe ERP (LogicTrade). Paragraaf 3.7 definieert de **technische inmeet- en schouwparameters** die door de inmeter op locatie worden vastgesteld voor een veilige, haalbare montage en logistieke voorbereiding.
 
 #### 3.7.1 Sloop & Voorbewerking (Ondergrondsanering)
 * **Verwijderen Bestaande Vloerbekleding:**  
@@ -1380,7 +1388,7 @@ De planning is geen statische éénmalige afspraak voor de hele order, maar een 
   De planner/werkvoorbereider toetst wekelijks alle dossiers die voor de komende werkweek op de rol staan. Indien een order onverhoopt nog niet compleet binnen is, wordt direct geschakeld met toeleveranciers en de klant vóórdat de monteur op pad gaat.
 
 * **Financieel Escalatieprotocol bij Uitvoerings- en Orderfouten:**  
-  Indien tijdens de verificatie of montage fouten worden geconstateerd door overname of verkeerd invullen (bijv. plintenaantallen of afwijkende stofcodes), verloopt de afhandeling conform het escalatieprotocol in §1.5.4 (onder € 200 - € 300 collegiaal / bijvoorbeeld sam-sam; daarboven escalatie naar de directie).
+  Indien tijdens de verificatie of montage fouten worden geconstateerd door overname of verkeerd invullen (bijv. plintenaantallen of afwijkende stofcodes), verloopt de afhandeling conform het escalatieprotocol in §1.5.5 (onder € 200 - € 300 collegiaal / bijvoorbeeld sam-sam; daarboven escalatie naar de directie).
 
 ### 4.4 Fasering, Droogtijden & Vakdisciplines
 * **Aparte planning per sub-positie wegens droogtijden:**  
@@ -1427,7 +1435,7 @@ De planning is geen statische éénmalige afspraak voor de hele order, maar een 
     2. *Is de werking en bedieningsfunctie (o.a. SmartCord, motoren, afstandsbediening, plooival) aan de klant gedemonstreerd?*  
     3. *Zijn alle geleverde goederen gecontroleerd op compleetheid en schadevrijheid?*
   * *Facturatie 1 Werkdag Vooraf:* Facturatie vindt standaard plaats één werkdag voorafgaand aan de montage (vrijdag voor maandag/dinsdag). De factuur vermeldt de totaalsom minus de eerdere aanbetaling.  
-  * *Financiële Afhandeling & Facturatiebeleid:* Het openstaande restantbedrag wordt niet per mobiele PIN bij de monteur geïnd (mobiel pinnen valt in Versie 1 buiten scope conform §1.5.5 en §5.5). De financiële restantafhandeling verloopt via de reguliere debiteurenkanalen van het ERP (voorafbetaling per bank of facturatie vanuit de showroom), waardoor de monteur op locatie zich 100% kan focussen op het vakmanschap en de technische oplevering.
+  * *Financiële Afhandeling & Facturatiebeleid:* Het openstaande restantbedrag wordt niet per mobiele PIN bij de monteur geïnd (mobiel pinnen valt in Versie 1 buiten scope conform §1.5.6 en §5.5). De financiële restantafhandeling verloopt via de reguliere debiteurenkanalen van het ERP (voorafbetaling per bank of facturatie vanuit de showroom), waardoor de monteur op locatie zich 100% kan focussen op het vakmanschap en de technische oplevering.
 * **Digitale Werkboncommunicatie & Geen Ad-Hoc Verstoringen:**  
   Bij niet-spoedeisende afwijkingen (bijv. een niet-passende inzethor) bellen monteurs de planning of showroom niet ad-hoc op. Dergelijke telefoontjes verstoren de lopende werkzaamheden zonder dat het probleem op dat moment telefonisch kan worden opgelost. De monteur documenteert de afwijking met foto's en werkelijk gemeten afmetingen direct digitaal op de **digitale werkbon / afleverbon**. De backoffice en planner pakken dit bij binnenkomst van de bonnen gestructureerd op.
 * **Het 3-Staps Root Cause Analyseprotocol bij Maatafwijkingen:**  
@@ -1588,6 +1596,8 @@ export interface Positie {
   version_id: number;
 }
 
+export type ProductStatus = 'draft' | 'definitief' | 'geleverd' | 'gereed';
+
 export interface ProductToewijzing {
   id: string;
   positie_id: string;
@@ -1595,13 +1605,15 @@ export interface ProductToewijzing {
   artikel_code_erp: string;
   artikel_omschrijving: string;
   productgroep: 'gordijnen' | 'raamdecoratie' | 'vloeren' | 'trappen' | 'buitenzonwering' | 'diensten';
-  montagewijze: 'in_de_dag' | 'op_de_dag' | 'op_raamvleugel' | 'plafond' | 'wand' | 'volvlakkig_verlijmd' | 'zwevend_geklikt' | 'gespannen_spanlatten' | 'overzettreden_mammoetlijm' | 'traploper_roedes' | 'gevel_chemisch' | 'n.v.t.';
+  montagewijze: 'in_de_dag' | 'op_de_dag' | 'in_het_kozijn' | 'op_het_kozijn' | 'tussen_twee_muren' | 'plafond' | 'wand' | 'verlijmd' | 'zwevend' | 'n.v.t.';
   eenheid: 'm2' | 'm1' | 'stuks' | 'pak' | 'set' | 'dagdeel' | 'forfait' | 'stuks_knelpunten';
+  tariefeenheid_diensten?: 'uur' | 'm1' | 'm2' | 'stuk' | 'forfait';
   aantal_besteld: number;
-  status: 'concept' | 'offerte' | 'besteld' | 'geleverd' | 'gemonteerd';
+  status: ProductStatus;
   rekenformule?: string;
   dimension_spec?: DimensionSpec;
   prijs_incl_btw: number;
+  opmerkingen?: Opmerking[];
   issues?: Issue[];
 }
 
@@ -1697,6 +1709,7 @@ export interface OutdoorDimensionSpec {
 export interface ServiceDimensionSpec {
   type: 'diensten';
   dienst_type: 'sloop_ondergrond' | 'egalisatie' | 'deuradvies' | 'verticaal_transport' | 'montage_algemeen';
+  tariefeenheid?: 'uur' | 'm1' | 'm2' | 'stuk' | 'forfait';
   ondergrond_sanering_m2?: number;
   egalisatie_laagdikte_mm?: number;
   advies_deuren_inkorten?: boolean;
@@ -1745,6 +1758,19 @@ export interface Media {
   rol: 'situatie_vooraf' | 'technisch_detail' | 'obstakel' | 'eindresultaat' | 'garantiesticker';
   auteur: string;
   created_at: string;
+}
+
+export interface Opmerking {
+  id: string;
+  entiteit_type: 'object' | 'verdieping' | 'ruimte' | 'vlak' | 'positie' | 'product';
+  entiteit_id: string;
+  type: 'notitie' | 'instructie' | 'openstaande_actie';
+  tekst: string;
+  foto_ids?: string[];
+  opgelost?: boolean;
+  auteur: string;
+  created_at: string;
+  resolved_at?: string;
 }
 
 export interface Notitie {
@@ -1900,7 +1926,7 @@ Om maximale werkruimte, rust en een snelle taakfocus te bieden, hanteert het por
     1. *Stap 1: Klant selecteren of aanmaken* (zoek bestaande klant of maak direct een nieuwe particuliere/zakelijke relatie aan).
     2. *Stap 2: Montageadres / Object selecteren of toevoegen* (kies bestaand object of voer nieuw adres/kavel in).
     3. *Stap 3: Project initialiseren* (direct starten van het verkoop- en inmeetdossier).
-* **Rol-afhankelijke Werkvoorraad & Dagagenda van Vandaag:** Toont voor de ingelogde gebruiker direct de actieve taken en operationele dagagenda van vandaag (bijv. voor de adviseur: lopende offertes; voor de planner: orders gereed voor montage; voor de inmeter en monteur: afspraken van vandaag met tijdvensters, montageruimtes en adresnavigatie).
+* **Projectgekoppelde Werkvoorraad:** Planning en afspraken zijn primair geankerd aan het concrete project (Hoofdscherm 4). Op Hoofdscherm 1 toont het portaal de snelle project-intake en recente projectactiviteit. Een geavanceerde rol-overstijgende dagagenda op dit niveau is gealloceerd naar de V2 Backlog.
 * **Recente Activiteit:** Overzicht van recent gewijzigde projecten, standaard gesorteerd op `laatste wijziging DESC`.
 
 ---
@@ -1946,15 +1972,15 @@ De centrale visuele werkruimte van het project is georganiseerd volgens een modu
 ##### Zone 1: Project Header & Status-Balk (INV-UI-04)
 * **Projectcontext:** Toont de gekoppelde klantgegevens, het montageadres (object), debiteurennummer en projectnummer.
 * **De Actuele Data-Driven Projectstatus:** In de header van Hoofdscherm 4 is **uitsluitend de actuele berekende status** van het project zichtbaar (een van de 5 canonieke statussen: `Intake`, `Offerte`, `Order`, `Geleverd` of `Afgerond`). Er wordt géén statische procespijplijn getoond waarin alle 5 statussen tegelijk zichtbaar zijn.
-* **Conceptmaten-Waarschuwing (Amber Warning Badge):** Indien er $\ge 1$ positie in het project de maatstatus `concept` heeft, toont de header prominent:  
-  `⚠️ [Dossier bevat nog conceptmaten — definitief nameten vereist vóór montage]`
-* **De 6 Canonieke Contextuele Actieknoppen:** Op Hoofdscherm 4 bevinden zich 6 limitatieve actieknoppen die contextueel ontgrendelen op basis van de actuele projectstatus en de staat van de onderliggende data:
-  1. `[ Inmeetafspraak Plannen ]` &rarr; Altijd direct beschikbaar zolang maten op `concept` staan of indien hermeten gewenst is. Opent de `AfspraakPlannerModal` (§5.10.1).
-  2. `[ Rapport Maken ]` &rarr; Geünificeerde rapportknop die op elk gewenst moment een compleet PDF-dossier genereert via een modale dialoog (*Meetrapport*, *Montagerapport*, *Afterservicerapport*). Het *Meetrapport* kan te allen tijde worden gegenereerd (ook tussentijds tijdens intake of conceptfase).
-  3. `[ Montageafspraak Plannen ]` &rarr; Beschikbaar zodra de macro-projectstatus `Order` is (de planner behoudt de flexibiliteit om conform Route B / §1.5.5 vooruit te plannen bij harde deadlines). **Amber Warning Gating:** Indien er nog posities met maatstatus `concept` aanwezig zijn, toont het planningsscherm de waarschuwingsbanner: `⚠️ [Let op: dossier bevat nog conceptmaten — definitief nameten vereist vóór aanvang montage]`.
-  4. `[ Starten Montage ]` &rarr; Dwingend en mechanisch vergrendeld (hard-gated via `INV-ORDER-02`) zolang er nog $\ge 1$ positie in het project de maatstatus `concept` heeft! Montage kan pas daadwerkelijk worden gestart wanneer álle posities de status `definitief` hebben bereikt (`all_positions_definitive == true`). Activeert de mobiele werkbon voor de monteur en dwingt vooraf de videoregistratie van looproute en montageruimten af. Na afronding van de montage en het verzenden van het digitale **Montagerapport** via `[ Rapport Maken ]` springt de berekende projectstatus deterministisch op **Geleverd**.
-  5. `[ Afterservice Afspraak Plannen ]` &rarr; Wordt direct actief zodra er $\ge 1$ openstaand issue of servicemelding op productniveau is geregistreerd. Opent de planning voor een servicebezoek.
-  6. `[ Project Sluiten / Afronden ]` &rarr; Uitsluitend actief wanneer de projectstatus `Geleverd` is én er **0 openstaande issues** resteren. Zet de status deterministisch op **Afgerond**.
+* **Conceptmaten-Statusindicator:** Indien er $\ge 1$ positie in het project de maatstatus `concept` heeft, toont de header een compact, subtiel rood **Draft** status-icoon met interactieve hover-tooltip (*"Dossier bevat nog conceptmaten — definitief nameten vereist vóór productie/montage"*). Er wordt géén opdringerige of schermverstorende amber waarschuwingsbanner getoond.
+* **De Canonieke Contextuele Actieknoppen:** Op Hoofdscherm 4 bevinden zich actieknoppen die contextueel ontgrendelen op basis van de actuele projectstatus en de staat van de onderliggende data:
+  1. `[ Inmeten Starten ]` &rarr; Directe actieknop voor de inmeter op locatie om de inmeetworkflow te activeren en posities definitief te maken via `[ Definitief Maken ]`.
+  2. `[ Inmeetafspraak Plannen ]` &rarr; Altijd direct beschikbaar zolang maten op `concept` staan of indien hermeten gewenst is. Opent de `AfspraakPlannerModal` (§5.10.1).
+  3. `[ Rapport Maken ]` &rarr; Geünificeerde rapportknop die op elk gewenst moment een compleet PDF-dossier genereert via een modale dialoog (*Meetrapport*, *Montagerapport*, *Afterservicerapport*). Het *Meetrapport* kan te allen tijde worden gegenereerd (ook tussentijds tijdens intake of conceptfase).
+  4. `[ Montageafspraak Plannen ]` &rarr; Beschikbaar zodra de macro-projectstatus `Order` is (de planner behoudt de flexibiliteit om conform Route B / §1.5.6 vooruit te plannen bij harde deadlines). Indien er nog posities met maatstatus `concept` aanwezig zijn, toont het planningsscherm de tooltip-notificatie dat nameten vereist is.
+  5. `[ Starten Montage ]` &rarr; Dwingend en mechanisch vergrendeld (hard-gated via `INV-ORDER-02`) zolang er nog $\ge 1$ positie in het project de maatstatus `concept` heeft! Montage kan pas daadwerkelijk worden gestart wanneer álle posities de status `definitief` hebben bereikt (`all_positions_definitive == true`).
+  6. `[ Afterservice Afspraak Plannen ]` &rarr; Wordt direct actief zodra er $\ge 1$ openstaande actie op productniveau is geregistreerd. Opent de planning voor een servicebezoek.
+  7. `[ Project Sluiten / Afronden ]` &rarr; Uitsluitend actief wanneer `products.length > 0`, 100% van de producten de status `'gereed'` bezit én er 0 openstaande acties resteren. Zet de status deterministisch op **Afgerond**.
 * **Verplichte Pre-Action Checklist Gate & Checklist-Beheermodule:**  
   Vóórdat elk van deze acties definitief kan worden uitgevoerd of geopend, toont het portaal eerst een **verplichte checklist** (`PreActionChecklistDialog` §5.10.3) die de gebruiker moet doorlopen en afvinken. Zonder het succesvol doorlopen van de specifieke pre-action vragenlijst (bijv. bereikbaarheid klant en parkeersituatie vóór inmeetplanning; goederenstatus en hulpmiddelen vóór montageplanning) kan de actie niet worden voltooid.
   * **Checklist-Beheermodule (Centraal & Contextueel Beheer):**
@@ -2017,12 +2043,14 @@ Het volledige centrale werkblad waarin alle ruimtelijke niveaus (inclusief posit
   Het productscherm ondersteunt 5 kernactiviteiten, strikt gekoppeld aan de rol van de ingelogde medewerker en de fase van het dossier:
   1. *Verkoper (Adviseur) — Productconfiguratie in Fases & Conceptmaten:*  
      De adviseur configureert het product stapsgewijs: van initiële inspiratie en globale stof-/materiaaloriëntatie in de showroom tot een gedetailleerde concept-offerte en definitieve artikelconfiguratie. De verkoper kan direct globale klantmaten invoeren (voorzien van een duidelijke amberkleurige `[CONCEPT]` badge) om een betrouwbare conceptcalculatie te genereren.
-  2. *Inmeter — Definitief Maken van Meetwaarden:*  
+  2. *Inmeter — [ Definitief Maken ] van Meetwaarden:*  
      De inmeter controleert de bouwkundige situatie ter plekke en legt de definitieve productiematen vast.  
-     *Conditionele Gate:* De knop `[ Meetwaarden Definitief Maken ]` wordt pas ontgrendeld nadat de verplichte checks en acties succesvol zijn uitgevoerd: opnemen van situatievideo, maken van detailfoto's van kozijn/ondergrond en het invullen van verplichte meetopmerkingen en product-specifieke checklistvragen.
-  3. *Monteur — Gereedmelden & Registreren van Aftersales / Restpunten:*  
-     De monteur meldt het gemonteerde product gereed of registreert direct eventuele openstaande restpunten of aftersales-bevindingen.  
-     *Conditionele Gate:* Gereedmelden vereist het doorlopen van de startopname (schadepreventievideo), het uploaden van opleverfoto's en het afvinken van de montagechecklist.
+     *Conditionele Gate:* De actieknop `[ Definitief Maken ]` wordt ontgrendeld zodra de inmeter de verplichte inspectiepunten en product-specifieke checklistvragen heeft doorlopen en gevalideerd. Na bevestiging krijgt de positie direct maatstatus `definitief`.
+  3. *Monteur — [ Gemonteerd ] Afhandeling & Oplevering:*  
+     Na afronding van de montagewerkzaamheden klikt de monteur op de actieknop `[ Gemonteerd ]`.  
+     *Workflow & Status-Toekenning:*  
+     * *Zonder Restpunten:* Indien het product schadevrij en compleet is geplaatst, krijgt het product direct de status `'gereed'`.  
+     * *Met Restpunten of Schade:* Indien er sprake is van transportschade, productiefouten of ontbrekende delen, registreert de monteur direct een `Opmerking` van het type `openstaande_actie` met detailfoto's. Het product krijgt in dat geval de status `'geleverd'` (zodat het project in status `Geleverd` blijft totdat nazorg is voltooid).
   4. *Monteur / Servicemonteur — Afhandelen en Afvinken van Aftersales:*  
      De servicemonteur handelt openstaande service-orders of herstelwerkzaamheden voor dit product af en vinkt de herstelacties af (uitsluitend na het uploaden van herstelbewijsmateriaal en verificatie van de checklist).
   5. *Inmeter / Werkvoorbereider — [ Hermeting Vlaggen ]:*  
@@ -2125,34 +2153,16 @@ Het portaal faciliteert directe visuele interactie en toewijzing over de volledi
 
 ---
 
-### 5.5 Monteursscherm, Mobiele Monteurs-Cockpit (`/monteur/vandaag`), Beeldregistratie & Rapporten (Kwaliteitsborging & Schadepreventie)
+### 5.5 Montagewerkplek, Beeldregistratie & Rapporten (Uniform Webportaal)
 
-* **1. Mobiele Monteurs-Cockpit (`/monteur/vandaag` — Buitendienst Touch Workflow):**  
-  Voor monteurs en servicemonteurs op pad met smartphone of tablet biedt het portaal een speciale, geoptimaliseerde mobiele cockpit (`/monteur/vandaag`):
-  * **Ochtendoverzicht & Busbelading (Digitale Laadlijst):**
-    * Overzicht van alle voor vandaag ingeplande afspraken op chronologische volgorde met route-optimalisatie.
-    * Dynamische laadlijst per afspraak: toont exact welke goederen, pakketten en montagematerialen per positie moeten worden ingeladen vanuit het magazijn (inclusief referentie naar magazijnlocatie en controlecheck).
-    * Waarschuwingsbadge voor specifiek benodigd gereedschap: klimmaterieel (rolsteiger, hoge trap), stalenwaaiers of specifieke lijmen/primers.
-    * Direct inzicht in sleutel-, parkeer- en toegangsinstructies.
-  * **Onderweg & Aankomst (1-Tik Status & Klantnotificatie):**
-    * Met één tik activeert de monteur de status `[ Onderweg ]`. Dit triggert optioneel een automatische SMS/e-mailnotificatie naar de klant met verwachte aankomsttijd (ETA).
-    * Bij aankomst klikt de monteur op `[ Aangekomen / Starten ]`, wat de afspraakstatus op `aangekomen_bezig` zet en direct de schadepreventie-intake activeert.
-  * **Schadepreventie & Videonulmeting Vooraf:**
-    * Vóór aanvang van enige montagewerkzaamheid dwingt de interface de videonulmeting af: een korte videorondgang van de looproute (voordeur, hal, trap, lift) en de montageruimten.
-    * Foto's van eventuele reeds bestaande beschadigingen aan wanden, vloeren of stucwerk worden direct vastgelegd met datum, tijd en gps-stempel ter uitsluiting van retailer-aansprakelijkheid.
-  * **Inzage in Gemaakte Inhoudelijke Afspraken (Voorkomen van Discussies):**
-    * De monteur ziet direct alle contractuele afspraken (Tab B): *wie sloopt de vloer, wie levert de plinten, wie kort deuren in*.
-    * Indien een klant vraagt om deuren in te korten, toont de cockpit direct de bindende afspraak: `verantwoordelijke_partij: klant (via timmerman/aannemer) conform §3.4.5`.
-  * **Swipeable Positiekaarten & Inspecties:**
-    * Per vertrek presenteert de app swipeable kaarten voor elke individuele positie met exacte montagematen, profielkeuze, bedieningszijde en toleranties.
-    * Directe registratie van verplichte veiligheidschecks (EN 13120 kinderveiligheidsklemmen) en bouwkundige inspecties (`InspectieResultaat`: restvocht %, vlakheid dekvloer).
-  * **Gereedmelden, Restpunten & Issue-Registratie:**
-    * Per positie meldt de monteur gereed via `[ Positie Gereed ]`.
-    * Indien een product ontbreekt, beschadigd is of nalevering vereist, opent de knop `[ Issue / Servicepunt Melden ]` direct de `IssueRegistrationModal` (§5.10.6) met camerakoppeling.
-  * **Oplevering & Digitale Handtekening op Glas:**
-    * Aan het einde van het bezoek opent de knop `[ Oplevering & Afronding ]` de `OpleverRapportSignOffDialog` (§5.10.5).
-    * De monteur en klant doorlopen samen de oplevervragen, de klant kan een eventuele opmerking toevoegen en zet zijn digitale handtekening op het touchscreen (`touch-action: none` conform §5.8).
-    * Het systeem genereert direct het definitieve **Montagerapport (PDF)**, archiveert dit in het projectdossier en zendt het automatisch per e-mail naar de klant via de notificatie-engine.
+#### 5.5.1 Montagewerkplek op het Uniforme Webportaal (V1 MVP Scope - Actief)
+* **1. Montagewerkplek op het Uniforme Webportaal (V1 MVP Scope):**  
+  Voor de Versie 1 (V1 MVP) Scope werkt de monteur via het uniforme webportaal (primair Hoofdscherm 6 Product en Hoofdscherm 4 Project), responsive geoptimaliseerd voor touchscreens en tablets (44×44px touch-targets). De monteur doorloopt de volgende taken op het webportaal:
+  * **Taakuitvoering in V1:**
+    * De monteur opent het project op Hoofdscherm 4 en inspecteert de geplande afspraak en montagelocatie.
+    * Per positie/product navigeert de monteur naar Hoofdscherm 6 (Product) voor de definitieve maten, montagewijze en specificaties.
+    * Na plaatsing handelt de monteur het product af via de knop `[ Gemonteerd ]`. Bij succes krijgt het product direct status `'gereed'`; bij eventuele restpunten of transportschade registreert de monteur direct een `Opmerking` van het type `openstaande_actie` met detailfoto's en krijgt het product de status `'geleverd'`.
+    * Na afhandeling van alle posities genereert de monteur het digitale **Montagerapport** via de geünificeerde knop `[ Rapport Maken ]`.
 * **2. Volledige Inzage ter Voorbereiding:**  
   De monteur heeft vooraf volledige inzage in het complete projectdossier (inclusief eerdere opmerkingen, meetwaarden, foto's, situatieschetsen en montagerichtlijnen). Dit stelt de monteur in staat om de montagedag optimaal voor te bereiden en eventuele specifieke materiaaleisen of gereedschappen vooraf mee te nemen.
 * **3. Schadepreventie & Beeldregistratie:**  
@@ -2173,6 +2183,21 @@ Het portaal faciliteert directe visuele interactie en toewijzing over de volledi
   Alle uitgaande communicatie (afspraakbevestigingen van inmeting/montage, toezending van het ondertekende inmeetverslag en opleververslag als PDF) wordt afgehandeld door één centrale, ontkoppelde notificatie-engine naar het gevalideerde e-mailadres van de klant.
 * **8. Geen Mobiele PIN-betaling in V1:**  
   Financiële afhandeling via een mobiel PIN-apparaat valt nadrukkelijk buiten de scope van Versie 1; facturatie en betalingsverkeer verlopen via de reguliere administratieve keten of het ERP-systeem.
+
+#### 5.5.2 Geavanceerde Monteurs-Cockpit & Slimme Buitendienst (V2 Backlog & Roadmap)
+De volgende innovatieve functionaliteiten zijn gealloceerd naar de **V2 Backlog & Roadmap** voor doorontwikkeling na de initiële uitrol van het uniforme webportaal:
+* **Mobiele Monteurs-Cockpit (`/monteur/vandaag` — Buitendienst Smartphone Touch Workflow):**  
+  Een gescheiden mobiele cockpit geoptimaliseerd voor buitendienstmonteurs op smartphones:
+  * **Ochtendoverzicht & Busbelading (Digitale Laadlijst):**
+    * Overzicht van alle voor vandaag ingeplande afspraken op chronologische volgorde met route-optimalisatie.
+    * Dynamische laadlijst per afspraak: toont exact welke goederen, pakketten en montagematerialen per positie moeten worden ingeladen vanuit het magazijn (inclusief referentie naar magazijnlocatie en controlecheck).
+    * Waarschuwingsbadge voor specifiek benodigd gereedschap: klimmaterieel (rolsteiger, hoge trap), stalenwaaiers of specifieke lijmen/primers.
+    * Direct inzicht in sleutel-, parkeer- en toegangsinstructies.
+  * **Onderweg & Aankomst (1-Tik Status & Klantnotificatie met Live ETA):**
+    * Met één tik activeert de monteur de status `[ Onderweg ]`. Dit triggert optioneel een automatische SMS/e-mailnotificatie naar de klant met verwachte aankomsttijd (ETA, Picnic-model).
+    * Bij aankomst klikt de monteur op `[ Aangekomen / Starten ]`, wat de afspraakstatus op `aangekomen_bezig` zet en direct de schadepreventie-intake activeert.
+  * **Swipeable Positiekaarten & Interactieve Montagekaarten:**
+    * Per vertrek presenteert de app swipeable kaarten voor elke individuele positie met directe fotovastlegging en inline instructies.
 
 ---
 

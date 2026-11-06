@@ -1,10 +1,15 @@
+// [SPEC-CHANGE-AUTHORIZED: 3-jaars horizon, samengestelde verkoopvectoren en CPQ omzetcalculatie]
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   harvest2YearOrders,
   DEFAULT_HARVEST_STATUSES,
+  calculateDateFrom,
+  calculateLineTurnoverCents,
+  extractCompositeKey,
   type Harvest2YrOptions,
   type LogicTradeOrderHeader,
   type LogicTradeOrderLine,
+  type HarvestedOrderVector,
 } from '@/lib/logictrade/harvest-2yr-orders';
 
 describe('Harvest2YrOrders Service (TDD Suite)', () => {
@@ -708,6 +713,160 @@ describe('Harvest2YrOrders Service (TDD Suite)', () => {
       expect(result.uniqueArticlesFound).toBe(1);
       expect(result.articles[0].orderOptions).toContain('Kleur: Antraciet');
       expect(result.articles[0].orderOptions).toContain('Montage in de dag');
+    });
+
+    it('[SPEC-CHANGE-AUTHORIZED] calculateDateFrom handles 3 years and custom reference dates', () => {
+      const ref = new Date('2026-11-06T12:00:00.000Z');
+      const date2Yr = calculateDateFrom(2, ref);
+      const date3Yr = calculateDateFrom(3, ref);
+
+      const d2 = new Date(date2Yr);
+      const d3 = new Date(date3Yr);
+
+      expect(d2.getUTCFullYear()).toBe(2024);
+      expect(d3.getUTCFullYear()).toBe(2023);
+      expect(d3.getTime()).toBeLessThan(d2.getTime());
+    });
+
+    it('[SPEC-CHANGE-AUTHORIZED: 3-jaars horizon, samengestelde verkoopvectoren en CPQ omzetcalculatie] calculateLineTurnoverCents calculates line turnover safely in cents', () => {
+      // Direct linePrice
+      expect(calculateLineTurnoverCents({ id: 1, linePrice: 120.50 })).toBe(12050);
+      // Fallback partPrice * quantity
+      expect(calculateLineTurnoverCents({ id: 2, partPrice: 45.00, quantity: 3 })).toBe(13500);
+      // Zero or missing
+      expect(calculateLineTurnoverCents({ id: 3 })).toBe(0);
+      // Free items with catalog price must return 0 cents, not fall back to partPrice
+      expect(calculateLineTurnoverCents({ id: 5, linePrice: 0, partPrice: 50.00, quantity: 1 })).toBe(0);
+      // Negative linePrice defense
+      expect(calculateLineTurnoverCents({ id: 6, linePrice: -25.00 })).toBe(0);
+      // Negative / NaN defense
+      expect(calculateLineTurnoverCents({ id: 4, linePrice: NaN as any })).toBe(0);
+    });
+
+    it('[SPEC-CHANGE-AUTHORIZED: 3-jaars horizon, samengestelde verkoopvectoren en CPQ omzetcalculatie] preserves checkpoint state and aggregates composite order vectors upon resumption', async () => {
+      const initialCheckpoint = {
+        lastPage: 1,
+        processedOrderIds: ['ORD-PAGE-1'],
+        totalTurnoverCents: 50000,
+        turnoverByYearCents: { 2025: 50000 },
+        ordersCountByYear: { 2025: 1 },
+        orderVectors: [
+          {
+            vectorId: 'VEC-1',
+            rawCode: 'A00033250',
+            rawDescription: 'Forbo Marmoleum Click',
+            totalTurnoverCents: 50000,
+            totalQuantity: 2,
+            occurrences: 1,
+            orderNumbers: ['8001'],
+            comments: ['Bestaand commentaar'],
+          },
+        ],
+      };
+
+      const page2Orders: LogicTradeOrderHeader[] = [
+        {
+          id: 'ORD-PAGE-1', // Reeds verwerkte order op hervatte pagina
+          orderNumber: '8001',
+          status: 'Definitief',
+          createdDate: '2025-06-01T10:00:00Z',
+          lines: [{ id: 'L-OLD', articleCode: 'A00033250', linePrice: 500.00 }],
+        },
+        {
+          id: 'ORD-PAGE-2', // Nieuwe order
+          orderNumber: '8002',
+          status: 'Definitief',
+          createdDate: '2025-07-01T10:00:00Z',
+          lines: [
+            {
+              id: 'L-NEW',
+              articleCode: 'A00033250',
+              articleDescription: 'Forbo Marmoleum Click',
+              linePrice: 200.00,
+              quantity: 1,
+            },
+          ],
+        },
+      ];
+
+      const mockFetcher = vi.fn().mockResolvedValue({ data: page2Orders, totalPages: 2 });
+
+      const result = await harvest2YearOrders({
+        dryRun: true,
+        years: 3,
+        extractOrderVectors: true,
+        initialCheckpoint: initialCheckpoint as any,
+        rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+      });
+
+      // Total turnover moet initiële 50000 + 20000 = 70000 zijn
+      expect(result.totalTurnoverCents).toBe(70000);
+      expect(result.turnoverByYearCents?.[2025]).toBe(70000);
+      // ordersCountByYear mag de reeds verwerkte order niet dubbel tellen: 1 + 1 = 2
+      expect(result.ordersCountByYear?.[2025]).toBe(2);
+
+      // Order vector moet samengevoegd zijn onder composiet-sleutel
+      expect(result.orderVectors).toHaveLength(1);
+      expect(result.orderVectors?.[0].totalTurnoverCents).toBe(70000);
+      expect(result.orderVectors?.[0].totalQuantity).toBe(3);
+      expect(result.orderVectors?.[0].occurrences).toBe(2);
+      expect(result.orderVectors?.[0].orderNumbers).toContain('8002');
+    });
+
+    it('[SPEC-CHANGE-AUTHORIZED] extractCompositeKey handles aliases and fallbacks cleanly', () => {
+      const key1 = extractCompositeKey({ id: 1, articleCode: 'A01', articleDescription: 'Gordijn' });
+      expect(key1).toEqual({ key: 'A01:::Gordijn', code: 'A01', description: 'Gordijn' });
+
+      const key2 = extractCompositeKey({ id: 2, code: 'C02', description: 'Vloer' });
+      expect(key2).toEqual({ key: 'C02:::Vloer', code: 'C02', description: 'Vloer' });
+
+      const key3 = extractCompositeKey({ id: 3 });
+      expect(key3).toEqual({ key: 'ONBEKEND:::ONBEKEND', code: 'ONBEKEND', description: 'ONBEKEND' });
+    });
+
+    it('[SPEC-CHANGE-AUTHORIZED] extracts composite order vectors when extractOrderVectors: true', async () => {
+      const mockOrders: LogicTradeOrderHeader[] = [
+        {
+          id: 'ORD-VEC-1',
+          orderNumber: '8001',
+          status: 'Definitief',
+          createdDate: '2025-06-03T10:00:00Z',
+          lines: [
+            {
+              id: 'LV-1',
+              articleCode: 'A00033250',
+              articleDescription: 'Forbo Marmoleum Click',
+              linePrice: 250.00,
+              quantity: 1,
+              comment: 'Intern commentaar',
+            },
+            {
+              id: 'LV-2',
+              articleCode: 'A00033250',
+              articleDescription: 'Desso Tapijt Essence',
+              linePrice: 150.00,
+              quantity: 2,
+            },
+          ],
+        },
+      ];
+
+      const mockFetcher = vi.fn().mockResolvedValue({ data: mockOrders, totalPages: 1 });
+
+      const result = await harvest2YearOrders({
+        dryRun: true,
+        years: 3,
+        extractOrderVectors: true,
+        rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+      });
+
+      expect(result.orderVectors).toBeDefined();
+      expect(result.orderVectors).toHaveLength(2);
+      expect(result.orderVectors?.[0].rawCode).toBe('A00033250');
+      expect(result.orderVectors?.[0].rawDescription).toBe('Forbo Marmoleum Click');
+      expect(result.orderVectors?.[0].totalTurnoverCents).toBe(25000);
+      expect(result.orderVectors?.[1].rawDescription).toBe('Desso Tapijt Essence');
+      expect(result.orderVectors?.[1].totalTurnoverCents).toBe(15000);
     });
   });
 });

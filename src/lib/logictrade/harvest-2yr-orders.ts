@@ -45,11 +45,31 @@ export interface HarvestCheckpoint {
   lastPage: number;
   processedOrderIds: string[];
   aggregatedArticles?: Record<string, HarvestedRawArticle>;
+  orderVectors?: HarvestedOrderVector[];
+  totalTurnoverCents?: number;
+  turnoverByYearCents?: Record<number, number>;
+  ordersCountByYear?: Record<number, number>;
+}
+
+export interface HarvestedOrderVector {
+  vectorId: string;
+  rawCode: string;
+  rawDescription: string;
+  totalTurnoverCents: number;
+  totalQuantity: number;
+  occurrences: number;
+  orderNumbers: string[];
+  comments: string[];
+  matchedDbArticleCode?: string | null;
 }
 
 export interface Harvest2YrOptions {
   dateFrom?: string; // ISO date string, defaults to 2 years before now
+  years?: number; // Horizon in years (defaults to 2)
+  extractOrderVectors?: boolean; // When true, aggregates lines into unique HarvestedOrderVector records
   pageSize?: number;
+  maxPages?: number;
+  maxOrders?: number;
   checkpointFilePath?: string;
   statusFilter?: string[];
   originFilter?: string | string[];
@@ -66,7 +86,34 @@ export interface Harvest2YrResult {
   totalOrderLinesProcessed: number;
   uniqueArticlesFound: number;
   articles: HarvestedRawArticle[];
+  orderVectors?: HarvestedOrderVector[];
+  totalTurnoverCents?: number;
+  turnoverByYearCents?: Record<number, number>;
+  ordersCountByYear?: Record<number, number>;
   checkpointSaved: boolean;
+}
+
+export function calculateDateFrom(years: number = 2, referenceDate?: Date): string {
+  const ref = referenceDate || new Date();
+  const ms = years * 365.25 * 24 * 60 * 60 * 1000;
+  return new Date(ref.getTime() - ms).toISOString();
+}
+
+export function calculateLineTurnoverCents(line: LogicTradeOrderLine): number {
+  if (typeof line.linePrice === 'number' && Number.isFinite(line.linePrice)) {
+    return line.linePrice > 0 ? Math.round(line.linePrice * 100) : 0;
+  }
+  const partPrice = typeof line.partPrice === 'number' && Number.isFinite(line.partPrice) ? line.partPrice : 0;
+  const quantity = typeof line.quantity === 'number' && Number.isFinite(line.quantity) ? line.quantity : 1;
+  const total = partPrice * quantity;
+  return Number.isFinite(total) && total > 0 ? Math.round(total * 100) : 0;
+}
+
+export function extractCompositeKey(line: LogicTradeOrderLine): { key: string; code: string; description: string } {
+  const code = String(line.articleCode || line.code || 'ONBEKEND').trim();
+  const description = String(line.articleDescription || line.description || code).trim();
+  const key = `${code}:::${description}`;
+  return { key, code, description };
 }
 
 /**
@@ -177,10 +224,9 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
   const pageSize = options.pageSize || 50;
   const limiter = options.rateLimiter || defaultRateLimiter;
 
-  // Bereken standaard datum: 2 jaar voor heden
-  const twoYearsAgoMs = 2 * 365.25 * 24 * 60 * 60 * 1000;
-  const defaultDateFrom = new Date(Date.now() - twoYearsAgoMs).toISOString();
-  const dateFrom = options.dateFrom || defaultDateFrom;
+  // Bereken standaard datum conform gewenste horizon (standaard 2 jaar)
+  const years = typeof options.years === 'number' && options.years > 0 ? options.years : 2;
+  const dateFrom = options.dateFrom || calculateDateFrom(years);
   const dateFromTime = new Date(dateFrom).getTime();
 
   // Status whitelist
@@ -198,6 +244,17 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
 
   let totalOrdersScanned = 0;
   let totalOrderLinesProcessed = 0;
+  let totalTurnoverCents = checkpoint.totalTurnoverCents || 0;
+  const turnoverByYearCents: Record<number, number> = { ...(checkpoint.turnoverByYearCents || {}) };
+  const ordersCountByYear: Record<number, number> = { ...(checkpoint.ordersCountByYear || {}) };
+  const orderVectorsMap = new Map<string, HarvestedOrderVector>();
+
+  if (Array.isArray(checkpoint.orderVectors)) {
+    for (const vec of checkpoint.orderVectors) {
+      const key = `${vec.rawCode}:::${vec.rawDescription}`;
+      orderVectorsMap.set(key, { ...vec });
+    }
+  }
 
   const headers: Record<string, string> = {
     'api-key': apiKey,
@@ -264,18 +321,38 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
           if (typeof order.origin === 'string') {
             rawOrigin = order.origin;
           } else if (order.origin && typeof order.origin === 'object') {
-            rawOrigin = order.origin.code || order.origin.description || '';
+            rawOrigin = (order.origin as any).code || (order.origin as any).description || (order.origin as any).name || '';
           }
+          if (!rawOrigin && (order as any).branch) {
+            rawOrigin = typeof (order as any).branch === 'string' ? (order as any).branch : (order as any).branch?.name || (order as any).branch?.description || '';
+          }
+          if (!rawOrigin && (order as any).company) {
+            rawOrigin = typeof (order as any).company === 'string' ? (order as any).company : (order as any).company?.name || (order as any).company?.companyName || '';
+          }
+          const ordNum = String(order.orderNumber || '').trim().toUpperCase();
           const normOrigin = rawOrigin.trim().toUpperCase();
-          if (!normOrigin || !filters.includes(normOrigin)) {
+          const matchesOrigin = normOrigin ? filters.some(f => normOrigin === f || normOrigin.includes(f)) : false;
+          const matchesOrderPrefix = !normOrigin && ordNum.startsWith('V');
+
+          if (!matchesOrigin && !matchesOrderPrefix) {
             continue;
           }
         }
       }
 
+      let orderYear = 0;
+      if (order.createdDate) {
+        const d = new Date(order.createdDate);
+        if (!isNaN(d.getFullYear())) orderYear = d.getFullYear();
+      }
+
       // Sla reeds verwerkte sub-orders over bij hervatting
       if (processedOrderSet.has(orderIdStr)) {
         continue;
+      }
+
+      if (orderYear > 0) {
+        ordersCountByYear[orderYear] = (ordersCountByYear[orderYear] || 0) + 1;
       }
 
       // Haal orderregels op voor deze order:
@@ -316,6 +393,47 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
 
         // Ondersteun articleDescription of description alias
         const rawDescription = (line.articleDescription || line.description || rawCode).trim();
+
+        const lineTurnoverCents = calculateLineTurnoverCents(line);
+        totalTurnoverCents += lineTurnoverCents;
+        if (orderYear > 0) {
+          turnoverByYearCents[orderYear] = (turnoverByYearCents[orderYear] || 0) + lineTurnoverCents;
+        }
+
+        if (options.extractOrderVectors) {
+          const { key } = extractCompositeKey(line);
+          const qty = typeof line.quantity === 'number' && Number.isFinite(line.quantity) ? line.quantity : 1;
+
+          let vector = orderVectorsMap.get(key);
+          if (!vector) {
+            vector = {
+              vectorId: `VEC-${orderVectorsMap.size + 1}`,
+              rawCode,
+              rawDescription,
+              totalTurnoverCents: 0,
+              totalQuantity: 0,
+              occurrences: 0,
+              orderNumbers: [],
+              comments: [],
+            };
+            orderVectorsMap.set(key, vector);
+          }
+          vector.totalTurnoverCents += lineTurnoverCents;
+          vector.totalQuantity += qty;
+          vector.occurrences += 1;
+          const ordNum = String(order.orderNumber || order.id || '');
+          if (ordNum && !vector.orderNumbers.includes(ordNum)) {
+            vector.orderNumbers.push(ordNum);
+          }
+          let commentStr = '';
+          if (typeof line.comment === 'string') commentStr = line.comment;
+          else if (line.comment && typeof line.comment === 'object') {
+            commentStr = [line.comment.extern, line.comment.intern].filter(Boolean).join(' | ');
+          }
+          if (commentStr && !vector.comments.includes(commentStr) && vector.comments.length < 5) {
+            vector.comments.push(commentStr);
+          }
+        }
 
         // Parseer opties en afmetingen uit line.comment (extern & intern)
         const commentParsed = parseCommentExtern(line.comment);
@@ -457,6 +575,13 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
 
     checkpoint.lastPage = currentPage;
     checkpoint.processedOrderIds = Array.from(processedOrderSet);
+    checkpoint.aggregatedArticles = aggregatedArticles;
+    if (options.extractOrderVectors) {
+      checkpoint.orderVectors = Array.from(orderVectorsMap.values());
+    }
+    checkpoint.totalTurnoverCents = totalTurnoverCents;
+    checkpoint.turnoverByYearCents = turnoverByYearCents;
+    checkpoint.ordersCountByYear = ordersCountByYear;
 
     // Persisteer checkpoint defensief indien niet dryRun en pad geconfigureerd
     if (!options.dryRun && options.checkpointFilePath) {
@@ -469,8 +594,22 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
       }
     }
 
-    const totalPages = envelope?.totalPages || 1;
-    if (currentPage >= totalPages) {
+    const totalPages =
+      typeof envelope?.totalPages === 'number'
+        ? envelope.totalPages
+        : typeof envelope?.totalCount === 'number'
+        ? Math.ceil(envelope.totalCount / pageSize)
+        : orders.length >= pageSize
+        ? currentPage + 1
+        : currentPage;
+    if (options.maxOrders && totalOrdersScanned >= options.maxOrders) {
+      hasMorePages = false;
+    }
+    if (options.maxPages && currentPage >= options.maxPages) {
+      hasMorePages = false;
+    }
+
+    if (currentPage >= totalPages || orders.length < pageSize) {
       hasMorePages = false;
     } else {
       currentPage++;
@@ -484,6 +623,10 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
     totalOrderLinesProcessed,
     uniqueArticlesFound: articles.length,
     articles,
+    orderVectors: options.extractOrderVectors ? Array.from(orderVectorsMap.values()) : undefined,
+    totalTurnoverCents,
+    turnoverByYearCents,
+    ordersCountByYear,
     checkpointSaved: !options.dryRun && !!options.checkpointFilePath,
   };
 }
