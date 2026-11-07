@@ -12,36 +12,60 @@
 ## Overzicht van de 6 Categorieën (EasyM2M MVP)
 
 ```mermaid
-graph TD
-    Assortiment["Assortiment EasyM2M (Profiel A)"] --> C1["1. Gordijnen & Rails"]
-    Assortiment --> C2["2. Raamdecoratie, Binnenzonwering<br/>& Horren"]
-    Assortiment --> C3["3. Vaste Vloerbekleding<br/>& Dekvloertechniek"]
-    Assortiment --> C4["4. Trapbekleding, Traprenovatie<br/>& Trapelementen"]
-    Assortiment --> C5["5. Buitenzonwering, Gevelsystemen<br/>& Rolluiken"]
-    Assortiment --> C6["6. Diensten, Montage & Logistiek<br/>(MVP: Handmatig / ERP)"]
+flowchart TD
+    Assortiment["Assortiment EasyM2M (Profiel A)"]
 
-    C1 --> C1_1["Stoffen, Confectie & Microflex"]
-    C1 --> C1_2["Rails, Roedes, Interstil & Motoren"]
+    Assortiment --> C1
+    subgraph C1["1. Gordijnen & Rails"]
+        direction LR
+        C1_1["Stoffen, Confectie & Microflex"]
+        C1_2["Rails, Roedes, Interstil & Motoren"]
+    end
 
-    C2 --> C2_1["Binnenzonwering (Duette, Plissé, Jaloezie, Shutters)"]
-    C2 --> C2_2["Boorvrije Kaders (EasyClick/Perfect Fit) & Velux"]
-    C2 --> C2_3["Horren (Inzet, Plissé hordeuren, Pollen/Petscreen)"]
+    C1 ~~~ C2
+    Assortiment --> C2
+    subgraph C2["2. Raamdecoratie, Binnenzonwering & Horren"]
+        direction LR
+        C2_1["Binnenzonwering (Duette, Plissé, Jaloezie, Shutters)"]
+        C2_2["Boorvrije Kaders (EasyClick/Perfect Fit) & Velux"]
+        C2_3["Horren (Inzet, Plissé hordeuren, Pollen/Petscreen)"]
+    end
 
-    C3 --> C3_1["Harde Vloeren (Dryback/Click PVC, Laminaat, Parket, Gietvloer)"]
-    C3 --> C3_2["Zachte & Elastische Vloeren (Tapijt, Vinyl, Marmoleum)"]
-    C3 --> C3_3["Ondervloeren, CM-Vochtmeting & Coral Inloopzones"]
+    C2 ~~~ C3
+    Assortiment --> C3
+    subgraph C3["3. Vaste Vloerbekleding & Dekvloertechniek"]
+        direction LR
+        C3_1["Harde Vloeren (Dryback/Click PVC, Laminaat, Parket, Gietvloer)"]
+        C3_2["Zachte & Elastische Vloeren (Tapijt, Vinyl, Marmoleum)"]
+        C3_3["Ondervloeren, CM-Vochtmeting & Coral Inloopzones"]
+    end
 
-    C4 --> C4_1["Traprenovatie (PVC Overzettreden Synchroon Vloer)"]
-    C4 --> C4_2["Open Trappen Contratreden & Trapstoffering Tapijt"]
-    C4 --> C4_3["Trapleuningen met LED & Balustrades"]
+    C3 ~~~ C4
+    Assortiment --> C4
+    subgraph C4["4. Trapbekleding, Traprenovatie & Trapelementen"]
+        direction LR
+        C4_1["Traprenovatie (PVC Overzettreden Synchroon Vloer)"]
+        C4_2["Open Trappen Contratreden & Trapstoffering Tapijt"]
+        C4_3["Trapleuningen met LED & Balustrades"]
+    end
 
-    C5 --> C5_1["Rolluiken (Voorzet, Inbouw, Opbouw & SOLAR)"]
-    C5 --> C5_2["Verticale Gevelscreens (Windklasse 6 & Valbeveiliging)"]
-    C5 --> C5_3["Knikarmschermen, Markiezen & Lamellendaken"]
+    C4 ~~~ C5
+    Assortiment --> C5
+    subgraph C5["5. Buitenzonwering, Gevelsystemen & Rolluiken"]
+        direction LR
+        C5_1["Rolluiken (Voorzet, Inbouw, Opbouw & SOLAR)"]
+        C5_2["Verticale Gevelscreens (Windklasse 6 & Valbeveiliging)"]
+        C5_3["Knikarmschermen, Markiezen & Lamellendaken"]
+    end
 
-    C6 --> C6_1["Vloervoorbewerking, Schuren & Egalisatie"]
-    C6 --> C6_2["Deurinspectie & Knelpuntenadvies (Geen Uitvoering)"]
-    C6 --> C6_3["Hijsmaterieel (Ladderliften) & Afvalrecycling"]
+    C5 ~~~ C6
+    Assortiment --> C6
+    subgraph C6["6. Diensten, Montage & Logistiek (MVP: Handmatig / ERP)"]
+        direction LR
+        C6_1["Vloervoorbewerking, Schuren & Egalisatie"]
+        C6_2["Deurinspectie & Knelpuntenadvies (Geen Uitvoering)"]
+        C6_3["Hijsmaterieel (Ladderliften) & Afvalrecycling"]
+    end
 ```
 
 ---
