@@ -26,6 +26,17 @@ cloud_sync_degraded: bool = False
 # Achtergrond threadpool voor non-blocking sidecar pushes
 _thread_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="cloud_sync_")
 
+# Canonieke release seed-documenten (Git repository SSOT).
+# Behoudt provenance bij container restarts: lokale bestanden worden niet overschreven door verouderde cloud hashes.
+CANONICAL_SEEDS: Set[str] = {
+    "productassortiment_decompositie.md",
+    "domeinmodel_woninginrichting.md",
+    "domeinmodel_woninginrichting_v44.md",
+    "domeinmodel_woninginrichting_v34.md",
+    "domeinmodel_woninginrichting_v33.md",
+    "domeinmodel_origineel_basis.md",
+}
+
 
 def _get_cloud_headers() -> Dict[str, str]:
     return {
@@ -320,7 +331,14 @@ def pull_documents_from_cloud(documents_dir: Optional[Path] = None) -> Tuple[int
                 disk_norm = disk_bytes.decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
                 disk_sha256 = hashlib.sha256(disk_norm.encode("utf-8")).hexdigest()
                 if cloud_sha256 and disk_sha256 != cloud_sha256:
-                    should_write = True
+                    if clean_name in CANONICAL_SEEDS:
+                        logger.info(
+                            "Preserved local canonical seed document '%s' (Git SSOT provenance; cloud hash divergence ignored).",
+                            clean_name,
+                        )
+                        should_write = False
+                    else:
+                        should_write = True
             except Exception:
                 should_write = True
 

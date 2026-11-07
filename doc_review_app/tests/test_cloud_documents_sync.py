@@ -214,3 +214,71 @@ def test_connectivity_probe_and_degradation(monkeypatch):
         is_up = cloud_sync.check_connection()
 
     assert is_up is False
+
+
+def test_pull_documents_from_cloud_preserves_seed_documents(tmp_path, monkeypatch):
+    """Verify pull_documents_from_cloud does NOT overwrite canonical seed documents with outdated cloud state,
+    while correctly synchronizing non-seed reviewer uploads and missing documents."""
+    monkeypatch.setattr(settings, "supabase_url", "https://test.supabase.co")
+    monkeypatch.setattr(settings, "supabase_anon_key", "test-key")
+
+    # 1. Existing local canonical seed document with modern Git HEAD content (6 categories)
+    seed_file = tmp_path / "productassortiment_decompositie.md"
+    modern_seed_content = "# Decompositie Productassortiment\nOverzicht van de 6 Categorieën\n"
+    seed_file.write_text(modern_seed_content, encoding="utf-8")
+
+    # 2. Existing local reviewer-uploaded document (non-seed)
+    reviewer_file = tmp_path / "reviewer_notes.md"
+    reviewer_file.write_text("Old reviewer draft", encoding="utf-8")
+
+    # 3. Cloud response:
+    # - Stale 5-category content for the seed document
+    # - Updated content for the reviewer document
+    # - A brand new document that was missing on disk
+    stale_cloud_seed = "# Decompositie Productassortiment\nOverzicht van de 5 Hoofdcategorieën\n"
+    updated_reviewer_content = "Updated reviewer content from cloud"
+    missing_doc_content = "# Brand New Document"
+
+    cloud_rows = [
+        {
+            "filename": "productassortiment_decompositie.md",
+            "content": stale_cloud_seed,
+            "sha256": hashlib.sha256(stale_cloud_seed.encode("utf-8")).hexdigest(),
+            "file_size": len(stale_cloud_seed),
+            "is_deleted": False,
+            "updated_at": "2026-11-04T09:28:00Z",
+        },
+        {
+            "filename": "reviewer_notes.md",
+            "content": updated_reviewer_content,
+            "sha256": hashlib.sha256(updated_reviewer_content.encode("utf-8")).hexdigest(),
+            "file_size": len(updated_reviewer_content),
+            "is_deleted": False,
+            "updated_at": "2026-11-05T10:00:00Z",
+        },
+        {
+            "filename": "nieuw_toegevoegd.md",
+            "content": missing_doc_content,
+            "sha256": hashlib.sha256(missing_doc_content.encode("utf-8")).hexdigest(),
+            "file_size": len(missing_doc_content),
+            "is_deleted": False,
+            "updated_at": "2026-11-05T11:00:00Z",
+        },
+    ]
+
+    def mock_urlopen(req, timeout=None):
+        return MockHTTPResponse(200, cloud_rows)
+
+    with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+        count, tombstone_names, tombstone_stems = cloud_sync.pull_documents_from_cloud(tmp_path)
+
+    # Local seed document MUST remain untouched (Seed Provenance / Git SSOT wins)
+    assert seed_file.read_text(encoding="utf-8") == modern_seed_content
+
+    # Non-seed reviewer document MUST be updated from cloud
+    assert reviewer_file.read_text(encoding="utf-8") == updated_reviewer_content
+
+    # Missing document MUST be pulled and written to disk
+    assert (tmp_path / "nieuw_toegevoegd.md").exists()
+    assert (tmp_path / "nieuw_toegevoegd.md").read_text(encoding="utf-8") == missing_doc_content
+
