@@ -1,4 +1,4 @@
-import { DomainCategory } from './canonical-catalog';
+import { DomainCategory, type ItemRole } from './canonical-catalog';
 
 export type CanonicalDomain =
   | 'RAAMBEKLEDING' // Categorie 1 Gordijnen & Rails (§3.2) en Categorie 2 Raamdecoratie (§3.3)
@@ -30,13 +30,307 @@ export function mapDomainToCategory(domain: CanonicalDomain): DomainCategory {
   }
 }
 
-export type CanonicalItemRole =
-  | 'CONFIGURABLE_MAIN'
-  | 'FINISHED_GOOD'
-  | 'ACCESSORY'
-  | 'SPARE_PART'
-  | 'SAMPLE'
-  | 'LABOR_SERVICE';
+// SSOT Type-Unificatie: CanonicalItemRole is de bindende alias van de canonieke ItemRole
+export type CanonicalItemRole = ItemRole;
+
+export type ServiceDisciplineType =
+  | 'GORDIJN_RAIL_MONTAGE'
+  | 'BINNENZONWERING_MONTAGE'
+  | 'VLOER_LEGSERVICE'
+  | 'TRAP_STOFFERING_MONTAGE'
+  | 'BUITENZONWERING_MONTAGE'
+  | 'INMEET_SCHOUW_SERVICE'
+  | 'SLOOP_EGALISATIE_SERVICE'
+  | 'LOGISTIEK_MATERIEEL_SERVICE'
+  | 'OVERIGE_DIENSTEN';
+
+export interface ServiceDisciplineResult {
+  discipline?: ServiceDisciplineType;
+  isMaterialAndService: boolean;
+}
+
+export const SERVICE_DISCIPLINE_TO_PRODUCT_GROUP: Record<ServiceDisciplineType, string> = {
+  GORDIJN_RAIL_MONTAGE: '6.1',
+  BINNENZONWERING_MONTAGE: '6.2',
+  VLOER_LEGSERVICE: '6.3',
+  TRAP_STOFFERING_MONTAGE: '6.4',
+  BUITENZONWERING_MONTAGE: '6.5',
+  INMEET_SCHOUW_SERVICE: '6.6',
+  SLOOP_EGALISATIE_SERVICE: '6.7',
+  LOGISTIEK_MATERIEEL_SERVICE: '6.8',
+  OVERIGE_DIENSTEN: '6.9',
+};
+
+export interface ServiceDisciplineRule {
+  discipline: ServiceDisciplineType;
+  priority: number; // 1 = hoogste prioriteit, 9 = laagste
+  compositePhrases?: string[]; // Meerwoords-termen gematcht op genormaliseerde tekst NA uitsluitingen
+  intrinsicTokens?: string[]; // Zelfstandige diensttermen die direct kwalificeren
+  targetTokens?: string[]; // Atomaire stammen van doelbereik
+  actionTokens?: string[]; // Atomaire stammen van handelingen (strikt exact)
+  excludeTokens?: string[]; // Atomaire losse woorden die exact overeen moeten komen (t === ex)
+  excludePhrases?: string[]; // Meerwoords-uitsluitingen gematcht op genormaliseerde string
+}
+
+export const SERVICE_DISCIPLINE_RULES: ServiceDisciplineRule[] = [
+  // 1. Trap (hoogste prioriteit: voorkomt vloer-overlap bij traptreden; beschermt fysieke C4 Trapbekleding & Traprenovatie)
+  {
+    discipline: 'TRAP_STOFFERING_MONTAGE',
+    priority: 1,
+    compositePhrases: [
+      'trap stofferen', 'trap bekleden', 'traprenovatie en stoffering', 'stoffering per trede',
+      'treden bekleden', 'treden stofferen', 'overzettreden plaatsen', 'legkosten per trede',
+      'tapijt leggen trap', 'stalen trap stofferen', 'stalen trap bekleden'
+    ],
+    intrinsicTokens: ['trapstoffering'],
+    targetTokens: ['trap', 'trappen', 'trede', 'treden', 'trapoverzet', 'stootbord', 'stootborden'],
+    actionTokens: ['stofferen', 'stoffering', 'bekleden', 'bekleding', 'montage', 'monteren', 'verlijmen', 'plaatsen', 'leggen'],
+    excludeTokens: ['traplijm', 'trapstrip', 'trapklem', 'profiel', 'staalmonster', 'knipstaal', 'beugel', 'montagebeugel'],
+    excludePhrases: ['emmer traplijm', 'koker traplijm'],
+  },
+  // 2. Inmeten & Schouw (inclusief bouwkundig advies en deurenadvies)
+  {
+    discipline: 'INMEET_SCHOUW_SERVICE',
+    priority: 2,
+    compositePhrases: [
+      'inmeet service', 'inmeetservice', 'technische schouw', 'lasermeting',
+      'cm meting', 'carbid meting', 'vochtmeting dekvloer', '3d lasermeting',
+      'deurknelpunten advies', 'deuradvies', 'deurenadvies', 'inmeetadvies'
+    ],
+    intrinsicTokens: ['inmeten', 'inmeting', 'inmeet', 'schouw', 'lasermeting', 'vochtmeting', 'carbidmeting', 'deuradvies', 'deurenadvies'],
+    targetTokens: ['deur', 'deuren', 'dekvloer'],
+    actionTokens: ['inmeten', 'opmeten', 'schouwen', 'advies'],
+    excludeTokens: ['laserapparaat', 'meetlint', 'inspectieluik', 'gereedschap'],
+    excludePhrases: ['optische afstandsmeter'],
+  },
+  // 3. Sloop & Egalisatie
+  {
+    discipline: 'SLOOP_EGALISATIE_SERVICE',
+    priority: 3,
+    compositePhrases: [
+      'vloer egaliseren', 'dekvloer egaliseren', 'diamantschuren', 'vloer slopen',
+      'lijmresten schuren', 'vloer strippen', 'egaliseren 2mm', 'egaliseren cement', 'dekvloer primeren',
+      'tapijt strippen', 'pvc strippen', 'marmoleum strippen', 'vloerbedekking verwijderen'
+    ],
+    intrinsicTokens: ['egalisatie', 'egaliseren', 'diamantschuren', 'slopen', 'vloersloop', 'ondergrondsanering'],
+    targetTokens: ['egaline', 'dekvloer', 'vloer', 'ondervloer', 'lijmresten', 'puin', 'tapijt', 'pvc', 'laminaat', 'visgraat'],
+    actionTokens: ['aanbrengen', 'uitvoeren', 'verwijderen', 'slopen', 'schuren', 'egaliseren', 'strippen', 'primeren'],
+    excludeTokens: ['voorstrijk', 'schuurschijf', 'gereedschap'],
+    excludePhrases: ['zak egaline', 'primer 10kg', 'emmer primer', 'hechtprimer 10kg'],
+  },
+  // 4. Logistiek & Materieel
+  {
+    discipline: 'LOGISTIEK_MATERIEEL_SERVICE',
+    priority: 4,
+    compositePhrases: [
+      'ladderlift verhuur', 'puin afvoer', 'afval container', 'verticaal transport',
+      'lift assistentie', 'ladderlift dagdeel', 'afvalcontainer 6', 'transportkosten', 'bezorgkosten'
+    ],
+    intrinsicTokens: ['ladderlift', 'verhuislift', 'afvalcontainer', 'puincontainer', 'transportkosten', 'bezorgkosten', 'bezorging', 'transport'],
+    targetTokens: ['container', 'puin', 'afvoer', 'materieel', 'lift'],
+    actionTokens: ['inzet', 'huur', 'dagdeel', 'plaatsing', 'afvoeren', 'bezorgen', 'leveren', 'rijden'],
+    excludeTokens: ['containerzak', 'kruiwagen', 'spanband'],
+    excludePhrases: ['rol containerzakken'],
+  },
+  // 5. Buitenzonwering & Gevelsystemen
+  {
+    discipline: 'BUITENZONWERING_MONTAGE',
+    priority: 5,
+    compositePhrases: [
+      'ritsscreen montage', 'rolluik plaatsen', 'knikarmscherm monteren',
+      'markies ophangen', 'buitenzonwering montage', 'screens plaatsen gevel'
+    ],
+    targetTokens: ['buitenzonwering', 'rolluik', 'ritsscreen', 'ritsscreens', 'knikarmscherm', 'markies', 'markiezen', 'terrasoverkapping', 'screen', 'screens'],
+    actionTokens: ['montage', 'monteren', 'plaatsen', 'ophangen', 'installeren', 'aansluiten'],
+    excludeTokens: ['afstandsbediening', 'schakelaar', 'buismotor', 'handzender'],
+    excludePhrases: ['losse motor', 'somfy zender'],
+  },
+  // 6. Gordijn & Rail Montage
+  {
+    discipline: 'GORDIJN_RAIL_MONTAGE',
+    priority: 6,
+    compositePhrases: [
+      'wave rail monteren', 'wave rail plaatsen', 'wave rail montage',
+      'rail monteren', 'rail plaatsen', 'roede monteren', 'fournituren en montage',
+      'enkele retourplooi', 'dubbele retourplooi', 'confectie enkele plooi',
+      'confectie dubbele plooi', 'atelier confectie', 'atelierconfectie',
+      'gordijnconfectie', 'gordijnen ophangen'
+    ],
+    intrinsicTokens: ['confectie', 'gordijnconfectie', 'atelierconfectie'],
+    targetTokens: ['gordijn', 'rail', 'gordijnrail', 'roede', 'binnenloop', 'wepro', 'wave', 'plooi', 'plooien'],
+    actionTokens: ['montage', 'monteren', 'hangen', 'ophangen', 'plaatsen', 'confectie', 'confectioneren', 'buigen'],
+    excludeTokens: ['stofmonster', 'stalenboek', 'knipstaal', 'haakjes', 'glijders', 'eindstop', 'klemsteun', 'montageset'],
+    excludePhrases: ['losse gordijnstof', 'meter stof'],
+  },
+  // 7. Binnenzonwering & Raamdecoratie
+  {
+    discipline: 'BINNENZONWERING_MONTAGE',
+    priority: 7,
+    compositePhrases: [
+      'plisse monteren', 'plissé monteren', 'duette plaatsen', 'jaloezie monteren', 'rolgordijn ophangen',
+      'hor plaatsen', 'raamdecoratie montage', 'montagekosten raambekleding',
+      'plaatsing raambekleding', 'montage raambekleding', 'binnenzonwering montage',
+      'zonwering monteren', 'montage binnenzonwering'
+    ],
+    targetTokens: ['raamdecoratie', 'raambekleding', 'binnenzonwering', 'zonwering', 'jaloezie', 'plisse', 'plissé', 'duette', 'lamel', 'lamellen', 'rolgordijn', 'vouwgordijn', 'hor', 'horren', 'inzethor', 'rolhor', 'voorzethor', 'plissehor', 'hordeur', 'hordeuren'],
+    actionTokens: ['montage', 'monteren', 'plaatsen', 'plaatsing', 'hangen', 'ophangen', 'installatie', 'installeren'],
+    excludeTokens: ['buiten', 'gevel', 'terras', 'rolluik', 'ritsscreen', 'klemsteun', 'montageclip', 'montageset', 'beugel'],
+    excludePhrases: ['losse lamel', 'klemsteunen set', 'montageset rolgordijn'],
+  },
+  // 8. Vloeren Legservice (inclusief 'legservice', 'legloon', 'legkosten' in intrinsicTokens)
+  {
+    discipline: 'VLOER_LEGSERVICE',
+    priority: 8,
+    compositePhrases: [
+      'visgraat leggen', 'pvc leggen', 'laminaat leggen', 'tapijt leggen',
+      'tapijt spannen', 'tapijt verlijmen', 'plinten monteren', 'afkitten plinten',
+      'plinten afkitten', 'legkosten marmoleum', 'legkosten visgraat', 'plint montage', 'pvc montage', 'vloer montage',
+      'ondervloer leggen', 'ondervloer plaatsen', 'plakplinten monteren',
+      'vinyl leggen', 'vinyl plaatsen', 'vinyl verlijmen'
+    ],
+    intrinsicTokens: ['legservice', 'legloon', 'legkosten', 'vloerenlegservice'],
+    targetTokens: ['vloer', 'vloeren', 'pvc', 'laminaat', 'parket', 'visgraat', 'marmoleum', 'tapijt', 'vinyl', 'plint', 'plinten', 'ondervloer', 'plakplint'],
+    actionTokens: ['leggen', 'verlijmen', 'plaatsen', 'monteren', 'spannen', 'afkitten', 'zagen', 'legservice', 'montage'],
+    excludeTokens: ['trap', 'trappen', 'trede', 'treden', 'vloerlijm', 'montagekit', 'montageprofiel', 'montagelijm'],
+    excludePhrases: ['emmer vloerlijm', 'koker montagekit', 'rol ondervloer', 'pak ondervloer'],
+  },
+  // 9. Overige Diensten & Projectregie (inclusief standalone 'montage' en 'montagekosten')
+  {
+    discipline: 'OVERIGE_DIENSTEN',
+    priority: 9,
+    compositePhrases: [
+      'projectregie woninginrichting', 'totaalinrichting montage', 'montageleiding op locatie',
+      'montagekosten complete villa', 'montagekosten villa', 'complete villa montage',
+      'uurtarief monteur', 'arbeidsloon montage', 'montage nazorg',
+      'dienstverlening op locatie', 'onderhoudscontract woninginrichting'
+    ],
+    intrinsicTokens: ['montage', 'montagekosten', 'montageloon', 'uurtarief', 'arbeidsloon', 'plaatsing', 'plaatsingskosten', 'werkloon', 'projectregie', 'montageleiding', 'dienst', 'diensten', 'onderhoud', 'garantie', 'voorrijkosten'],
+    targetTokens: ['uurtarief', 'regie', 'nazorg', 'montage', 'tarief', 'uren'],
+    actionTokens: ['uitvoeren', 'verlenen', 'monteur', 'kosten', 'tarief', 'uren'],
+    excludeTokens: ['clip', 'klem', 'klemsteun', 'klemsteunen', 'kit', 'lijm', 'beugel', 'profiel', 'set', 'tapijt', 'gordijn', 'vloer', 'tafel', 'stoel', 'kast', 'montageset', 'montagebeugel', 'montageprofiel', 'montageclip', 'montageclips', 'accessoire'],
+    excludePhrases: [],
+  },
+];
+
+export function detectIsMaterialAndService(rawDescription: string): boolean {
+  if (!rawDescription || typeof rawDescription !== 'string') return false;
+  const norm = rawDescription.toLowerCase().trim();
+
+  // 1. EXPLICIETE SERVICE-SUBSTANTIEVEN (Onmiskenbaar een zuivere dienst, zelfs bij samengestelde namen zoals 'PVC visgraat legservice')
+  if (/\b(legservice|vloerenlegservice|montageservice|inmeetservice|confectieservice|stoffeerservice|plaatsingsservice|reparatieservice|diensten|arbeidsloon|uurtarief|legloon|legkosten|montagekosten|plaatsingskosten)\b/i.test(norm)) {
+    return false;
+  }
+
+  // 2. LEADING-VERB WHITELIST (Zuivere werkzaamheid / dienstterm vooraan)
+  if (/^(legloon|legkosten|montage|montagekosten|arbeidsloon|uurtarief|plaatsingskosten|inmeting|inmeetservice|inmeten|confectie|stoffering|stofferen|vervoer|transport|bezorging|sloop|egalisatie|egaliseren)\b/i.test(norm)) {
+    return false;
+  }
+
+  // 3. DIENST-VOOR-INCLUSIEF CHECK (Bijv. 'Inmeten incl. montage', 'Confectie inclusief hangen' -> zuivere dienst)
+  if (/\b(legservice|montage|inmeten|confectie|stofferen|egaliseren|slopen)\s+(incl|inclusief)\b/i.test(norm)) {
+    return false;
+  }
+
+  const hybridPatterns = [
+    /\b(incl|inclusief)\.?(?:\s+\w+){0,3}\s+(montage|plaatsen|leggen|hangen|meten|inmeten|confectie|stofferen|verlijmen|aanbrengen|egaliseren)\b/i,
+    /\b(afkitten\s*plinten|plinten\s*afkitten|leveren\s*en\s*monteren|montage\s*en\s*levering)\b/i,
+  ];
+  return hybridPatterns.some(p => p.test(norm));
+}
+
+export function matchServiceDisciplineFromTokens(rawDescription: string): ServiceDisciplineType | undefined {
+  if (!rawDescription || typeof rawDescription !== 'string') return undefined;
+  const normalized = rawDescription.toLowerCase().trim();
+  const tokens = normalized.split(/[\s,\.\/\-_+]+/).filter(Boolean);
+
+  // 1. GLOBALE SAMPLE / STALEN VETO-POORT (Voorkomt categorisch dat knipstalen/monsters als dienst worden gekaapt)
+  const GLOBAL_NON_SERVICE_VETO_TOKENS = ['sample', 'knipstaal', 'stofmonster', 'staalmonster', 'staalkaart', 'stalenboek', 'kleurstaal', 'showmonster', 'staaltje'];
+  if (GLOBAL_NON_SERVICE_VETO_TOKENS.some(veto => tokens.some(t => t === veto || t.startsWith(veto)))) {
+    return undefined;
+  }
+
+  for (const rule of SERVICE_DISCIPLINE_RULES) {
+    // 2. VETO FASE (Exclude checks per regel VÓÓR toewijzing)
+    if (rule.excludePhrases && rule.excludePhrases.some(phrase => normalized.includes(phrase))) {
+      continue;
+    }
+
+    if (rule.excludeTokens && rule.excludeTokens.some(ex => tokens.some(t => t === ex))) {
+      continue;
+    }
+
+    // 3. COMPOSITE PHRASES FASE (Meerwoords-termen die uitsluitingen hebben doorstaan)
+    if (rule.compositePhrases && rule.compositePhrases.some(phrase => normalized.includes(phrase))) {
+      return rule.discipline;
+    }
+
+    // 4. INTRINSIC TOKENS FASE (Termen die op zichzelf reeds onmiskenbaar een dienst aanduiden)
+    if (rule.intrinsicTokens && rule.intrinsicTokens.some(intrinsic => tokens.some(t => t === intrinsic))) {
+      return rule.discipline;
+    }
+
+    // 5. TARGET + ACTION COMBINATORIEK (met compound suffix en strikt exacte actietoken matching)
+    if (rule.targetTokens && rule.targetTokens.length > 0) {
+      let targetMatchedIndex = -1;
+      for (let i = 0; i < tokens.length; i++) {
+        if (rule.targetTokens.some(target => tokens[i] === target || tokens[i].startsWith(target) || (target.length >= 3 && tokens[i].endsWith(target)))) {
+          targetMatchedIndex = i;
+          break;
+        }
+      }
+
+      if (targetMatchedIndex === -1) {
+        continue;
+      }
+
+      if (!rule.actionTokens || rule.actionTokens.length === 0) {
+        return rule.discipline;
+      }
+
+      let actionMatched = false;
+      for (let j = 0; j < tokens.length; j++) {
+        // Strikt exact (t === action): voorkomt dat hardware-composieten zoals 'montageset' of 'montagebeugel' als handeling matchen!
+        if (j !== targetMatchedIndex && rule.actionTokens.some(action => tokens[j] === action)) {
+          actionMatched = true;
+          break;
+        }
+      }
+
+      if (actionMatched) {
+        return rule.discipline;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+export function detectServiceDiscipline(
+  rawDescription: string,
+  itemRole?: ItemRole
+): ServiceDisciplineResult {
+  const isHybrid = detectIsMaterialAndService(rawDescription);
+  const matchedDiscipline = matchServiceDisciplineFromTokens(rawDescription);
+
+  if (matchedDiscipline) {
+    return {
+      discipline: matchedDiscipline,
+      isMaterialAndService: isHybrid,
+    };
+  }
+
+  if (itemRole === 'LABOR_SERVICE' || itemRole === 'SERVICE') {
+    return {
+      discipline: 'OVERIGE_DIENSTEN',
+      isMaterialAndService: false,
+    };
+  }
+
+  return {
+    discipline: undefined,
+    isMaterialAndService: false,
+  };
+}
 
 export interface HarvestedRawArticle {
   articleCode: string;
@@ -187,14 +481,26 @@ export function classifyCognitiveTypology(raw: HarvestedRawArticle): EnrichedPro
     domain = 'GORDIJNEN';
     confidence = 0.98;
     reasoningParts.push('Gedetecteerd als stalen- of monsterartikel');
-  } else if (
-    /inmeten|monteren|montage(?:\s+|$)|arbeidsloon|uurtarief|plaatsen|bezorgen|dienst/i.test(name)
-  ) {
-    itemRole = 'LABOR_SERVICE';
-    productType = 'MONTAGE_SERVICE';
-    domain = 'DIENSTEN';
-    confidence = 0.98;
-    reasoningParts.push('Gedetecteerd als arbeidsloon of installatieservice');
+  } else {
+    // Service discipline detectie via de declaratieve lexicale ontologie
+    const serviceResult = detectServiceDiscipline(raw.articleName);
+    if (serviceResult.discipline && !serviceResult.isMaterialAndService) {
+      // Zuivere dienst: promoveer naar Categorie 6 arbeidsdienst
+      itemRole = 'LABOR_SERVICE';
+      productType = serviceResult.discipline;
+      domain = 'DIENSTEN';
+      confidence = 0.95;
+      reasoningParts.push(`Service discipline geïdentificeerd als ${serviceResult.discipline}`);
+    } else if (
+      /arbeidsloon|uurtarief|montageloon|montagekosten|plaatsingskosten|bezorgkosten|voorrijkosten/i.test(name) &&
+      !detectIsMaterialAndService(name)
+    ) {
+      itemRole = 'LABOR_SERVICE';
+      productType = 'OVERIGE_DIENSTEN';
+      domain = 'DIENSTEN';
+      confidence = 0.95;
+      reasoningParts.push('Gedetecteerd als arbeidsloon of servicetarief');
+    }
   }
 
   // --- 2. Categorie & Typologie Detectie (indien niet reeds sample of labor) ---
@@ -304,10 +610,18 @@ export function classifyCognitiveTypology(raw: HarvestedRawArticle): EnrichedPro
         }
         // F. Vloeren (§3.4)
         else if (
-          /pvc|laminaat|parket|tapijt|marmoleum|visgraat|dryback|stroken/i.test(sanitizedText)
+          /pvc|laminaat|parket|tapijt|marmoleum|visgraat|dryback|stroken|plint|plinten|ondervloer/i.test(sanitizedText)
         ) {
           domain = 'VLOEREN';
-          productType = 'PVC_VLOER';
+          if (/plint|plinten|plakplint|afwerkplint/i.test(sanitizedText)) {
+            productType = 'PLINTEN_PROFIELEN';
+            itemRole = 'FINISHED_GOOD';
+          } else if (/ondervloer/i.test(sanitizedText)) {
+            productType = 'ONDERVLOER';
+            itemRole = 'FINISHED_GOOD';
+          } else {
+            productType = 'PVC_VLOER';
+          }
           confidence = 0.95;
           reasoningParts.push('Vloerbekleding ontologie gematcht conform §3.4');
         }

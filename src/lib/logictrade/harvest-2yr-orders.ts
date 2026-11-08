@@ -1,7 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { defaultRateLimiter, RateLimiter } from './rate-limiter';
-import { HarvestedRawArticle } from '@/domain/search/v2/cognitive-typology-classifier';
+import {
+  HarvestedRawArticle,
+  detectServiceDiscipline,
+  SERVICE_DISCIPLINE_TO_PRODUCT_GROUP,
+  type ServiceDisciplineType,
+} from '@/domain/search/v2/cognitive-typology-classifier';
 
 export const DEFAULT_HARVEST_STATUSES = [
   'CONFIRMED',
@@ -61,6 +66,10 @@ export interface HarvestedOrderVector {
   orderNumbers: string[];
   comments: string[];
   matchedDbArticleCode?: string | null;
+  serviceDiscipline?: ServiceDisciplineType;
+  serviceProductGroup?: string;
+  isService?: boolean;
+  isHybrid?: boolean;
 }
 
 export interface Harvest2YrOptions {
@@ -406,6 +415,7 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
 
           let vector = orderVectorsMap.get(key);
           if (!vector) {
+            const serviceResult = detectServiceDiscipline(rawDescription);
             vector = {
               vectorId: `VEC-${orderVectorsMap.size + 1}`,
               rawCode,
@@ -415,6 +425,12 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
               occurrences: 0,
               orderNumbers: [],
               comments: [],
+              serviceDiscipline: serviceResult.discipline,
+              serviceProductGroup: serviceResult.discipline
+                ? SERVICE_DISCIPLINE_TO_PRODUCT_GROUP[serviceResult.discipline]
+                : undefined,
+              isService: Boolean(serviceResult.discipline),
+              isHybrid: serviceResult.isMaterialAndService,
             };
             orderVectorsMap.set(key, vector);
           }

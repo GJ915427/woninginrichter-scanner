@@ -329,9 +329,10 @@ describe('CognitiveTypologyClassifier (TDD Suite)', () => {
     });
 
     it('T4: recognizes supplier code prefix when supplierName is missing', () => {
+      // [SPEC-CHANGE-AUTHORIZED: Test T4 fixture-update naar 'Vadain gordijnstof Uni ecru' conform INV-GOV-18]
       const input: HarvestedRawArticle = {
         articleCode: 'LT_VADAINCONFECTIE_99',
-        articleName: 'Confectie enkele retourplooi',
+        articleName: 'Vadain gordijnstof Uni ecru',
         orderOptions: [],
         rawConfigurations: [],
         historicalOccurrences: 3,
@@ -341,6 +342,104 @@ describe('CognitiveTypologyClassifier (TDD Suite)', () => {
 
       expect(result.domain).toBe('GORDIJNEN');
       expect(result.classificationConfidence).toBeGreaterThanOrEqual(0.99);
+    });
+  });
+
+  describe('Categorie 6 Service Disciplines & Typology Alignment', () => {
+    it('C6-1: classifies curtain confection as LABOR_SERVICE / GORDIJN_RAIL_MONTAGE', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'SRV-CONF-01',
+        articleName: 'Confectie enkele retourplooi',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 5,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      expect(result.domain).toBe('DIENSTEN');
+      expect(result.category).toBe('DIENSTEN');
+      expect(result.itemRole).toBe('LABOR_SERVICE');
+      expect(result.productType).toBe('GORDIJN_RAIL_MONTAGE');
+    });
+
+    it('C6-2: classifies stair renovation and upholstery as LABOR_SERVICE / TRAP_STOFFERING_MONTAGE', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'A00038393',
+        articleName: 'Traprenovatie en stoffering per trede',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 6,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      expect(result.domain).toBe('DIENSTEN');
+      expect(result.category).toBe('DIENSTEN');
+      expect(result.itemRole).toBe('LABOR_SERVICE');
+      expect(result.productType).toBe('TRAP_STOFFERING_MONTAGE');
+    });
+
+    it('C6-3: classifies pure PVC installation service with "inclusief" as pure LABOR_SERVICE', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'A00038023',
+        articleName: 'PVC visgraat legservice inclusief verlijmen',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 10,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      expect(result.domain).toBe('DIENSTEN');
+      expect(result.category).toBe('DIENSTEN');
+      expect(result.itemRole).toBe('LABOR_SERVICE');
+      expect(result.productType).toBe('VLOER_LEGSERVICE');
+    });
+
+    it('C6-4: preserves FINISHED_GOOD / VLOEREN for hybrid goods (plinten incl. montage)', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'PLINT-HYBRID-01',
+        articleName: 'MDF plinten inclusief plaatsen en afkitten',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 4,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      expect(result.domain).toBe('VLOEREN');
+      expect(result.itemRole).toBe('FINISHED_GOOD');
+    });
+
+    it('C6-5: prevents sample / knipstaal with montage verb from service hijacking', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'STAAL-WAVE-01',
+        articleName: 'Knipstaal wave rail monteren proefstaal',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 2,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      expect(result.itemRole).not.toBe('LABOR_SERVICE');
+      expect(result.domain).not.toBe('DIENSTEN');
+    });
+
+    it('C6-6: prevents hardware assembly set from being classified as service', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'SET-MONT-01',
+        articleName: 'Rolgordijn montageset met klemsteun beugel',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 3,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      expect(result.itemRole).not.toBe('LABOR_SERVICE');
+      expect(result.domain).not.toBe('DIENSTEN');
     });
   });
 

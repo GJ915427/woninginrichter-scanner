@@ -1229,9 +1229,44 @@ Buitenzonwering & Gevelsystemen is een volwaardige kernproductgroep binnen het t
 ### 3.7 Categorie 6: Diensten, Montage & Montagelogistiek
 
 > **MVP-Afbakening & Arbeidscalculatie:**  
-> Conform het architectuurbesluit in §1.1 en §2.8 worden loontarieven, urennormen en montagetijdscalculaties in de EasyM2M MVP handmatig ingevoerd of verwerkt in het externe ERP (LogicTrade). Paragraaf 3.7 definieert de **technische inmeet- en schouwparameters** die door de inmeter op locatie worden vastgesteld voor een veilige, haalbare montage en logistieke voorbereiding.
+> Conform het architectuurbesluit in §1.1 en §2.8 worden loontarieven, urennormen en montagetijdscalculaties in de EasyM2M MVP handmatig ingevoerd of verwerkt in het externe ERP (LogicTrade / AFAS). Paragraaf 3.7 definieert de **technische inmeet- en schouwparameters** die door de inmeter op locatie worden vastgesteld voor een veilige, haalbare montage en logistieke voorbereiding conform het canonieke 9-productgroepen stelsel (6.1 t/m 6.9).
 
-#### 3.7.1 Sloop & Voorbewerking (Ondergrondsanering)
+#### 3.7.1 Gordijnconfectie & Gordijnrailmontage (Cat 1)
+* **Atelierconfectie:** Confectioneren van gordijnen, inbetweens en vitrages per baan of strekkende meter (enkele plooi, dubbele/vlinderplooi, wave-plooi 60/80 mm).
+* **Railmontage:** Monteren van aluminium gordijnrails (Wepro, Stas, KS), roedes en binnenloopsystemen aan wand of plafond; buigen van bochten; draperen en afhangen van gordijnen per m¹.
+* **Elektrische Aandrijving:** Plaatsen en afstellen van 230V/accugevoede railmotoren (Somfy Glydea, MotionBlinds).
+
+#### 3.7.2 Binnenzonwering- & Horrenmontage (Cat 2)
+* **Kozijnmontage:** Vakkundige montage van Duette®, plissés, jaloezieën, rolgordijnen en vouwgordijnen conform NEN-EN 13120 (kindveiligheid).
+* **Boorvrije Montagesystemen:** Plaatsen van EasyClick, TruFit en PerfectFit kaders via magneetband of klemsteunen op aluminium en kunststof draai-kiepramen zonder kozijnbeschadiging.
+* **Insectenwering & Horren:** Inmeten en monteren van vaste inzethorren, rolhorren, plissé hordeuren en voorzethorren.
+
+#### 3.7.3 Vloeren Legservice & Randafwerking (Cat 3)
+* **Vloerinstallatie:** Ambachtelijk leggen van Dryback PVC (stroken en visgraatverband incl. walsen met 50 kg wals), Click-PVC, laminaat, marmoleum en vinyl; volvlaks verlijmen of spannen van kamerbreed tapijt op ondertapijt.
+* **Ondervloeren:** Uitrollen en afplakken van akoestische en drukvaste ondervloeren (10 dB $\Delta L_{\text{lin}}$ / 21 dB $\Delta L_w$ contactgeluidreductie).
+* **Randafwerking:** Verstek zagen en verlijmen van hoge MDF-plinten (68/90/120 mm), afkitten met acrylaatkit aan wandzijde en overschilderbare polymeerkit aan vloerzijde per m¹; plaatsen van plakplinten en dilatatieprofielen.
+
+#### 3.7.4 Trapbekleding & Traprenovatie Montage (Cat 4)
+* **Trapstoffering met Tapijt:** Bekleden van dichte of open trappen (12 tot 16 treden) met tapijt, trapmatten of traplopers inclusief roedes; stofferen van stootborden en zijkanten (trapwangen).
+* **Traprenovatie met Overzettreden:** Vakkundig zagen, kalibreren en verlijmen van PVC- of laminaat-overzettreden met elastische MS-polymeerlijm; monteren van geïntegreerde aluminium neusprofielen en uitlooptreden aansluitend op overloopvloer.
+* **Accessoires:** Uitfrezen en aansluiten van geïntegreerde LED-treeverlichting en monteren van trapleuningen.
+
+#### 3.7.5 Buitenzonwering & Gevelmontage (Cat 5)
+* **Gevelmontage & Verankering:** Chemische ankerverankering (M10/M12 injectiemortel) van knikarmschermen, ritsscreens en rolluiken aan de buitengevel conform NEN-EN 13561 (Windklasse 6) en NEN 2608.
+* **Elektrotechnische Aansluiting:** Boren van kabeldoorvoeren, aansluiten van 230V motoren (Somfy io), monteren van zon/wind-automaten en inleren van afstandsbedieningen/app-sturing.
+
+#### 3.7.6 Inmeting, Bouwkundige Schouw & Technisch Advies
+* **3D Laser-inmeting:** Digitale opmeting van breedte, hoogte, dagmaten, kozijndieptes en haaksheid van raam- en vloeroppervlakken.
+* **Bouwfysische Schouw Dekvloer:** CM-vochtmeting conform NEN 2741 (max. 2,0% CM cementdekvloer zonder VV, max. 1,5% met VV, max. 0,5% anhydriet); vlakheidsmeting met 2-meter rei conform NEN-EN 13813; controle op scheurvorming en dilataties.
+* **Deurinspectie & Beleid Deuren Inkorten (Strikte Taakafbakening):**
+  * Doordat een nieuwe vloeropbouw het peil met 5 tot 15 mm kan verhogen, kunnen binnendeuren gaan klemmen op de vloer of dorpels.
+  * **Strikte Taakafbakening (Geen Uitvoering door Stoffeerders):** Conform de operationele beleidslijn van lanceerpartner *Groter in Wonen* (vestiging Gronsveld, zie ook domeinmodel §3.4.5) voeren eigen stoffeerders en vloerenleggers **definitief géén zaag- of schaafwerkzaamheden aan binnendeuren** meer uit. Dit beleid is ingesteld wegens substantiële aansprakelijkheids- en schaderisico's (zoals het splijten van kwetsbaar fineer, constructiebreuk bij honingraatdeuren of beschadiging van stalen stabilisatiestaven in kamerhoge deuren).
+  * **Inmeetprocedure & Adviesrol:** Bij speling < 4 mm tussen de toekomstige vloerhoogte en de onderkant van de deur registreert de technisch inmeter het knelpunt op het inmeetverslag:
+    * Type deur: **opdekdeur** (paumelles, opdekrand) vs. **stompe deur** (insteekscharnieren).
+    * Gemeten speling en benodigde inkorting (in mm).
+    * Status: *Signalerend adviespunt* ten behoeve van de aannemer, timmerman of opdrachtgever. De klant draagt zelf de verantwoordelijkheid voor het tijdig laten inkorten en opnieuw afhangen van de deuren vóór de vloerinstallatie.
+
+#### 3.7.7 Sloop, Ondergrondsanering & Voorbewerking
 * **Verwijderen Bestaande Vloerbekleding:**  
   De inmeter inventariseert het type te verwijderen vloer (volvlakkig verlijmd tapijt, zwevend laminaat, verlijmd PVC, parket op spaanplaat) en toetst de hechtingssterkte aan de dekvloer.
 * **Afvoeren & Containerlogistiek:**  
@@ -1239,35 +1274,36 @@ Buitenzonwering & Gevelsystemen is een volwaardige kernproductgroep binnen het t
 * **Schuren & Lijmresten:**  
   Vastleggen van de benodigde voorbewerking (diamantschuren van watervaste lijmresten, affrezen van egalisatieresten, verwijderen van tapijtspanlatten).
 
-#### 3.7.2 Egalisatie & Vloertechniek (Minerale Voorbereiding)
-* **Primeren:**  
-  Verplichte selectie van het type primer op basis van de ondergrond: hechtprimer voor dichte/calciumsulfaat (anhydriet) ondergronden versus dispersieprimer voor zuigende cementdekvloeren (§3.4.2).
-* **Projectegalisatie (Laagdikte in mm):**  
-  De inmeter stelt aan de hand van de reitest (2m rei) de benodigde laagdikte vast: standaard egalisatie (2–3 mm), verzwaarde egalisatie (> 3 mm) of dichtsmeren van vloerverwarmingssleuven.
-* **Zakkenverbruik:**  
-  Het portaal berekent automatisch de benodigde hoeveelheid egaline (`1,6 kg/m²/mm laagdikte`) ter verificatie van de materiaalbehoefte en het laadgewicht van de montagebus.
+* **Egalisatie & Vloertechniek:**  
+  Aanbrengen hechtprimer en gieten van egaline (standaard 2–3 mm vs. renovatielagen > 3 mm, $1{,}6\,\text{kg/m}^2/\text{mm}$); aanbrengen 2K epoxy vochtscherm met kwartszand instrooien.
 
-#### 3.7.3 Deurinspectie & Advisering (GSW Deurenbeleid)
-* **Vrije Deurspeling & Nulmeting:**  
-  De inmeter meet bij elke binnendeur de vrije tussenruimte tussen de onderzijde van het deurblad en het peil van de nieuwe vloeropbouw (inclusief egalisatie, ondervloer en toplaag).
-* **Adviesrol t.o.v. Zaagverbod:**  
-  Indien de resterende speling minder dan 4–6 mm bedraagt, registreert de inmeter `advies_inkorten` inclusief het exacte aantal deuren. Conform de veiligheidsnorm van §3.4.5 zagen monteurs van de woninginrichter definitief géén deuren in; de inmeter levert een schriftelijk adviesrapport op ter attentie van de klant, aannemer of timmerman.
-
-#### 3.7.4 Verticaal Transport & Hijsmiddelen (Logistiek & Bereikbaarheid)
+#### 3.7.8 Montagelogistiek, Verticaal Transport & Afvalbeheer
 * **Schouw Trappenhuis & Doorgang:**  
   Bij levering op etages toetst de inmeter de bereikbaarheid: aanwezigheid van een geschikte personen-/goederenlift, breedte van het trappenhuis en de draaicirkel van bordessen (met name bij zware tapijtrollen van 400/500 cm of lange gordijnrails).
 * **Inzet Ladderlift / Verhuislift:**  
   Indien intern transport onmogelijk is of arbo-risico's oplevert, markeert de inmeter de noodzaak voor een verhuislift / ladderlift per dagdeel, inclusief inspectie van de opstelplaats aan de gevel en eventuele gemeentelijke vergunningsplicht.
+* **Materieel & Steigers:** Rolsteiger / hoogwerker conform Arbowetgeving bij montage boven 2,5 meter werkhoogte; containerplaatsing (3 of 6 m³) voor bouw- en sloopafval.
+* **Logistiek & Milieu:** Postcode-staffels transport- en bezorgkosten; Cradle-to-Cradle scheiding en recyclingbijdrage voor PVC-snijafval.
 
-#### 3.7.5 Inmeet- en Rekenmatrix Diensten & Montage
+#### 3.7.9 Service, Garantie & Nazorg
+* **CBW-Garantiebezoeken:** Uitvoeren van inspecties en herstelwerkzaamheden onder CBW-erkende garantievoorwaarden.
+* **Nazorg & Regiewerk:** Nalevering monteren, nastellen van deuren en draai-kiepsystemen na zetting; uurtarief ervaren monteur / 2e man assistentie; projectregie bij complete woninginrichting.
+* **Onderhoudscontracten:** Periodiek reinigen en smeren van screens/rolluiken en onderhoudsadvies voor PVC/houten vloeren.
+
+#### 3.7.10 Inmeet- en Rekenmatrix Diensten & Montage
 
 | Dienstgroep / Bewerking | Primaire Eenheid | Registratie Inmeter & Schouwcondities | MVP Portaalactie | Output naar Werkbon & ERP |
 | :--- | :--- | :--- | :--- | :--- |
-| **Sloop & Verwijderen Vloer** | $m^2$ | Type vloer (verlijmd vs zwevend), hechtlaag, trapbekleding | Registreert oppervlakte en slooptijdindicatie | Post `sloop_vloer_m2` naar ERP-offerte |
-| **Afvalcontainer / Afvoer** | forfait | Bereikbaarheid oprit, afvalvolume, vergunning | Selecteert container-type (3 $m^3$, 6 $m^3$) | Post `afvalcontainer` in `pos_project_algemeen` |
+| **Gordijn- & Railmontage** | m¹ / stuks | Railbreedte, montagehoogte, wand/plafond, elektrische aansluiting | Berekent railmontage per m¹ en afhangen | Post naar ERP werkbon |
+| **Binnenzonwering & Horren** | stuks | In/op de dag, kozijntype, kindveiligheid NEN-EN 13120, TruFit/klemsteun | Registreert montagewijze per raam | Post naar ERP werkbon |
+| **Vloeren Legservice** | $m^2$ / m¹ | Type vloer (Dryback/Click), legpatroon (visgraat), plinttype en afkitten | Berekent m² leggen en m¹ plinten afkitten | Post `vloer_legservice_m2` naar ERP |
+| **Trapbekleding & Renovatie** | stuks treden | Aantal treden open/dicht, overzettreden vs tapijt, wangen, LED | Registreert treden en afwerkopties | Post naar ERP werkbon |
+| **Buitenzonwering Montage** | stuks | Gevelconstructie, latei, chemische ankers M12, 230V/Solar | Registreert ankers en bekabeling | Post naar ERP werkbon |
+| **Inmeting & Deurinspectie** | stuks_knelpunten | 3D laser-inmeting, deurspleet peilmeting (< 4 mm) | Signaleert `advies_inkorten` | Adviesrapport voor aannemer/klant; monteur zaagt niet |
+| **Sloop & Verwijderen Vloer** | $m^2$ | Type vloer (verlijmd vs zwevend), hechtlaag, tapijtbekleding | Registreert oppervlakte en slooptijdindicatie | Post `sloop_vloer_m2` naar ERP-offerte |
 | **Egalisatie & Primeren** | $m^2$ / laagdikte mm | Type dekvloer, reitest (> 2 mm), vloerverwarmingssleuven | Berekent zakkenverbruik ($1,6\,\text{kg/m}^2/\text{mm}$) | Materiaalbehoefte en egalisatiepost |
-| **Deurspeling Advisering** | stuks_knelpunten | Speling onder deurblad gemeten t.o.v. nieuwe vloerhoogte | Signaleert `advies_inkorten` bij speling < 4 mm | Adviesrapport voor aannemer/klant; monteur zaagt niet |
-| **Ladderlift / Hijsmiddel** | dagdeel | Etagehoogte, raamdoorgang, gevelopstelplaats | Registreert materieelnoodzaak en dagdelen | Reservering materieel en post in `pos_project_algemeen` |
+| **Ladderlift & Logistiek** | dagdeel / forfait | Etagehoogte, raamdoorgang, gevelopstelplaats, afvalcontainer | Registreert materieelnoodzaak en container | Reservering materieel en post in `pos_project_algemeen` |
+| **Service & Regiewerk** | uren / forfait | Nazorg, CBW-garantie, projectregie villa/woning | Registreert man-uren en regie-omvang | Post regie-uren naar ERP |
 
 ---
 ## Deel 4: Plannings- en Uitvoeringsstructuur (Gefaseerde Montage & Afhankelijkheden)
@@ -1708,7 +1744,21 @@ export interface OutdoorDimensionSpec {
 
 export interface ServiceDimensionSpec {
   type: 'diensten';
-  dienst_type: 'sloop_ondergrond' | 'egalisatie' | 'deuradvies' | 'verticaal_transport' | 'montage_algemeen';
+  dienst_type:
+    | 'gordijn_rail_montage'
+    | 'binnenzonwering_montage'
+    | 'vloer_legservice'
+    | 'trap_stoffering_montage'
+    | 'buitenzonwering_montage'
+    | 'inmeet_schouw_service'
+    | 'sloop_egalisatie_service'
+    | 'logistiek_materieel_service'
+    | 'overige_diensten'
+    | 'sloop_ondergrond'
+    | 'egalisatie'
+    | 'deuradvies'
+    | 'verticaal_transport'
+    | 'montage_algemeen';
   tariefeenheid?: 'uur' | 'm1' | 'm2' | 'stuk' | 'forfait';
   ondergrond_sanering_m2?: number;
   egalisatie_laagdikte_mm?: number;

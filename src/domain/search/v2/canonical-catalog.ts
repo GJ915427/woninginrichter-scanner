@@ -15,7 +15,19 @@ export type DomainCategory =
   | 'DIENSTEN'
   | 'UNCLASSIFIED';
 
-export type ItemRole = 'PRODUCT' | 'ACCESSORY' | 'SERVICE' | 'UNKNOWN';
+export type ItemRole =
+  | 'PRODUCT'
+  | 'ACCESSORY'
+  | 'UNKNOWN'
+  | 'FINISHED_GOOD'
+  | 'CONFIGURABLE_MAIN'
+  | 'COMPONENT'
+  | 'RAW_MATERIAL'
+  | 'SAMPLE'
+  | 'SPARE_PART'
+  | 'SERVICE'
+  | 'LABOR_SERVICE'
+  | 'DISCONTINUED';
 
 export interface CapabilityOption {
   stepId: string;          // Formele SSOT stap (bv. 'MONTAGE', 'BEDIENINGS_TYPE', 'VORM', 'STOF_KLEUR')
@@ -318,6 +330,106 @@ export const CANONICAL_SEED_CATALOG: CanonicalSeedProduct[] = [
     entityType: 'UNCLASSIFIED_ITEM',
     brand: '',
     capabilities: []
+  },
+  {
+    id: 34988,
+    code: 'A00034988',
+    name: 'Inmeetservice woninginrichting',
+    description: 'Volledige optische laser-inmeting en technische schouw op locatie',
+    unit: 'Stuk',
+    salesPrice: 0.0,
+    salesGroup: 'DIENSTEN',
+    supplierName: 'Eigen Beheer',
+    supplierId: null,
+    groups: ['Diensten', 'Inmeten & Schouw'],
+    vatCode: 'HOOG',
+    domain: 'DIENSTEN',
+    itemRole: 'LABOR_SERVICE',
+    entityType: 'INMEET_SCHOUW_SERVICE',
+    brand: 'Home Studio',
+    capabilities: [],
+    synonyms: ['inmeten', 'lasermeting', 'technische schouw'],
+    isDiscontinued: false,
+  },
+  {
+    id: 36789,
+    code: 'A00036789',
+    name: 'Railmontage en confectie service',
+    description: 'Plaatsen van gordijnrails, roedes en afhangen van geconfectioneerde gordijnen',
+    unit: 'Stuk',
+    salesPrice: 48.5,
+    salesGroup: 'DIENSTEN',
+    supplierName: 'Eigen Beheer',
+    supplierId: null,
+    groups: ['Diensten', 'Gordijn & Rail Montage'],
+    vatCode: 'HOOG',
+    domain: 'DIENSTEN',
+    itemRole: 'LABOR_SERVICE',
+    entityType: 'GORDIJN_RAIL_MONTAGE',
+    brand: 'Home Studio',
+    capabilities: [],
+    synonyms: ['railmontage', 'gordijnen ophangen', 'roede plaatsen'],
+    isDiscontinued: false,
+  },
+  {
+    id: 38023,
+    code: 'A00038023',
+    name: 'PVC visgraat legservice inclusief verlijmen',
+    description: 'Ambachtelijk leggen en volvlaks verlijmen van dryback PVC visgraatstroken',
+    unit: 'm2',
+    salesPrice: 35.5,
+    salesGroup: 'DIENSTEN',
+    supplierName: 'Eigen Beheer',
+    supplierId: null,
+    groups: ['Diensten', 'Vloeren Legservice'],
+    vatCode: 'HOOG',
+    domain: 'DIENSTEN',
+    itemRole: 'LABOR_SERVICE',
+    entityType: 'VLOER_LEGSERVICE',
+    brand: 'Home Studio',
+    capabilities: [],
+    synonyms: ['visgraat leggen', 'pvc leggen', 'vloer leggen'],
+    isDiscontinued: false,
+  },
+  {
+    id: 38393,
+    code: 'A00038393',
+    name: 'Traprenovatie en stoffering per trede',
+    description: 'Bekleden van dichte of open traptreden met tapijt of trapoverzettreden',
+    unit: 'Stuk',
+    salesPrice: 33.5,
+    salesGroup: 'DIENSTEN',
+    supplierName: 'Eigen Beheer',
+    supplierId: null,
+    groups: ['Diensten', 'Trapbekleding & Stoffering'],
+    vatCode: 'HOOG',
+    domain: 'DIENSTEN',
+    itemRole: 'LABOR_SERVICE',
+    entityType: 'TRAP_STOFFERING_MONTAGE',
+    brand: 'Home Studio',
+    capabilities: [],
+    synonyms: ['trap stofferen', 'trede bekleden', 'traprenovatie'],
+    isDiscontinued: false,
+  },
+  {
+    id: 35120,
+    code: 'A00035120',
+    name: 'Vloer egaliseren en voorbereiden',
+    description: 'Schuren, primeren en egaliseren van dekvloeren tot gewenste vlakheidsklasse',
+    unit: 'm2',
+    salesPrice: 18.5,
+    salesGroup: 'DIENSTEN',
+    supplierName: 'Eigen Beheer',
+    supplierId: null,
+    groups: ['Diensten', 'Sloop & Egalisatie'],
+    vatCode: 'HOOG',
+    domain: 'DIENSTEN',
+    itemRole: 'LABOR_SERVICE',
+    entityType: 'SLOOP_EGALISATIE_SERVICE',
+    brand: 'Home Studio',
+    capabilities: [],
+    synonyms: ['egaliseren', 'egalisatie', 'dekvloer schuren'],
+    isDiscontinued: false,
   }
 ];
 

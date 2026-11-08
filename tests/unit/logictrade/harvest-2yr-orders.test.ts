@@ -868,5 +868,73 @@ describe('Harvest2YrOrders Service (TDD Suite)', () => {
       expect(result.orderVectors?.[1].rawDescription).toBe('Desso Tapijt Essence');
       expect(result.orderVectors?.[1].totalTurnoverCents).toBe(15000);
     });
+
+    // [SPEC-CHANGE-AUTHORIZED: Uitbreiding van order-harvesting tests met C6 productgroep vectoren]
+    it('aggregates and classifies C6 service disciplines on HarvestedOrderVector', async () => {
+      const mockOrders: LogicTradeOrderHeader[] = [
+        {
+          id: 'ORD-SRV-1',
+          orderNumber: '9001',
+          status: 'Definitief',
+          createdDate: '2025-06-03T10:00:00Z',
+          lines: [
+            {
+              id: 'L-SRV-1',
+              articleCode: 'SRV-01',
+              articleDescription: 'PVC visgraat legservice inclusief verlijmen',
+              linePrice: 355.00,
+              quantity: 1,
+            },
+            {
+              id: 'L-SRV-2',
+              articleCode: 'SRV-02',
+              articleDescription: 'Confectie enkele retourplooi',
+              linePrice: 120.00,
+              quantity: 2,
+            },
+            {
+              id: 'L-HYB-1',
+              articleCode: 'MAT-01',
+              articleDescription: 'MDF plinten inclusief plaatsen en afkitten',
+              linePrice: 85.00,
+              quantity: 10,
+            },
+          ],
+        },
+      ];
+
+      const mockFetcher = vi.fn().mockResolvedValue({ data: mockOrders, totalPages: 1 });
+
+      const result = await harvest2YearOrders({
+        dryRun: true,
+        years: 3,
+        extractOrderVectors: true,
+        rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+      });
+
+      expect(result.orderVectors).toBeDefined();
+      expect(result.orderVectors).toHaveLength(3);
+
+      const pvcVector = result.orderVectors?.find(v => v.rawCode === 'SRV-01');
+      expect(pvcVector).toBeDefined();
+      expect(pvcVector?.serviceDiscipline).toBe('VLOER_LEGSERVICE');
+      expect(pvcVector?.serviceProductGroup).toBe('6.3');
+      expect(pvcVector?.isService).toBe(true);
+      expect(pvcVector?.isHybrid).toBe(false);
+
+      const confVector = result.orderVectors?.find(v => v.rawCode === 'SRV-02');
+      expect(confVector).toBeDefined();
+      expect(confVector?.serviceDiscipline).toBe('GORDIJN_RAIL_MONTAGE');
+      expect(confVector?.serviceProductGroup).toBe('6.1');
+      expect(confVector?.isService).toBe(true);
+      expect(confVector?.isHybrid).toBe(false);
+
+      const hybVector = result.orderVectors?.find(v => v.rawCode === 'MAT-01');
+      expect(hybVector).toBeDefined();
+      expect(hybVector?.serviceDiscipline).toBe('VLOER_LEGSERVICE');
+      expect(hybVector?.serviceProductGroup).toBe('6.3');
+      expect(hybVector?.isService).toBe(true);
+      expect(hybVector?.isHybrid).toBe(true);
+    });
   });
 });

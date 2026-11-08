@@ -163,13 +163,19 @@ def test_zes_categorieen_domeinmodel_harmonisatie(v44_content: str):
     assert "5 disciplines" not in v44_content
     assert "De 6 Categorieën in Detail" in v44_content
 
-    # 5. Paragraaf 3.7 Categorie 6 aanwezigheid met sub-secties
+    # 5. Paragraaf 3.7 Categorie 6 aanwezigheid met geharmoniseerde 9 productgroepen (6.1 t/m 6.9)
+    # [SPEC-CHANGE-AUTHORIZED: Uitbreiding van verificatie voor de 9 C6 productgroepen en ServiceDimensionSpec dienst_type veld]
     assert "### 3.7 Categorie 6: Diensten, Montage & Montagelogistiek" in v44_content
-    assert "#### 3.7.1 Sloop & Voorbewerking" in v44_content
-    assert "#### 3.7.2 Egalisatie & Vloertechniek" in v44_content
-    assert "#### 3.7.3 Deurinspectie & Advisering" in v44_content
-    assert "#### 3.7.4 Verticaal Transport & Hijsmiddelen" in v44_content
-    assert "#### 3.7.5 Inmeet- en Rekenmatrix Diensten & Montage" in v44_content
+    assert "#### 3.7.1 Gordijnconfectie & Gordijnrailmontage (Cat 1)" in v44_content
+    assert "#### 3.7.2 Binnenzonwering- & Horrenmontage (Cat 2)" in v44_content
+    assert "#### 3.7.3 Vloeren Legservice & Randafwerking (Cat 3)" in v44_content
+    assert "#### 3.7.4 Trapbekleding & Traprenovatie Montage (Cat 4)" in v44_content
+    assert "#### 3.7.5 Buitenzonwering & Gevelmontage (Cat 5)" in v44_content
+    assert "#### 3.7.6 Inmeting, Bouwkundige Schouw & Technisch Advies" in v44_content
+    assert "#### 3.7.7 Sloop, Ondergrondsanering & Voorbewerking" in v44_content
+    assert "#### 3.7.8 Montagelogistiek, Verticaal Transport & Afvalbeheer" in v44_content
+    assert "#### 3.7.9 Service, Garantie & Nazorg" in v44_content
+    assert "#### 3.7.10 Inmeet- en Rekenmatrix Diensten & Montage" in v44_content
 
 
 def test_titels_harmonisatie_c3_c4_c5(v44_content: str):

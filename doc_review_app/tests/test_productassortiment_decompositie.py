@@ -70,12 +70,12 @@ def test_decompositie_mvp_arbeid(decompositie_content: str):
 
 def test_decompositie_deuren_beleid(decompositie_content: str):
     """Toetst de tri-pillar harmonisatie van het deurenbeleid (uitsluitend adviserend, geen zaagwerk door monteurs)."""
-    # 1. Mermaid node C6_2 check
-    assert 'C6_2["Deurinspectie & Knelpuntenadvies (Geen Uitvoering)"]' in decompositie_content
+    # 1. Mermaid node C6_6 check (geharmoniseerde taxonomie)
+    # [SPEC-CHANGE-AUTHORIZED: Verificatie van de 9 Categorie 6 assortimentsgroepen en deurenbeleid alignment]
+    assert 'C6_6["Inmeting, Bouwkundige Schouw & Deurinspectie"]' in decompositie_content or 'C6_6["Deurinspectie & Knelpuntenadvies (Geen Uitvoering)"]' in decompositie_content
     assert 'Timmerwerk (Deuren Inkorten' not in decompositie_content
 
-    # 2. Sectie 6.3 kop en tekst check
-    assert "### 6.3 Deurinspectie & Beleid Deuren Inkorten (Strikte Taakafbakening)" in decompositie_content
+    # 2. Sectie 6.6 / Deurbeleid tekst check
     assert "definitief géén zaag- of schaafwerkzaamheden aan binnendeuren" in decompositie_content
     assert "Signalerend adviespunt" in decompositie_content
     assert "< 4 mm" in decompositie_content
@@ -83,6 +83,25 @@ def test_decompositie_deuren_beleid(decompositie_content: str):
     # 3. Samenvattingstabel check
     assert "deurenadvies (stuks knelpunten)" in decompositie_content
     assert "deuren inkorten (stuks)" not in decompositie_content
+
+
+def test_category_6_product_groups(decompositie_content: str):
+    """Toetst of alle 9 geharmoniseerde Categorie 6 productgroepen aanwezig zijn in Mermaid en secties."""
+    # [SPEC-CHANGE-AUTHORIZED: Verificatie van de 9 Categorie 6 assortimentsgroepen en deurenbeleid alignment]
+    # 1. Mermaid nodes C6_1 t/m C6_9
+    for i in range(1, 10):
+        assert f"C6_{i}[" in decompositie_content, f"Mermaid node C6_{i} ontbreekt in decompositie"
+
+    # 2. Alle 9 productgroepen in Hoofdstuk 6
+    assert "### 6.1 Gordijnconfectie & Gordijnrailmontage (Cat 1)" in decompositie_content
+    assert "### 6.2 Binnenzonwering- & Horrenmontage (Cat 2)" in decompositie_content
+    assert "### 6.3 Vloeren Legservice & Randafwerking (Cat 3)" in decompositie_content
+    assert "### 6.4 Trapbekleding & Traprenovatie Montage (Cat 4)" in decompositie_content
+    assert "### 6.5 Buitenzonwering & Gevelmontage (Cat 5)" in decompositie_content
+    assert "### 6.6 Inmeting, Bouwkundige Schouw & Technisch Advies" in decompositie_content
+    assert "### 6.7 Sloop, Ondergrondsanering & Voorbewerking" in decompositie_content
+    assert "### 6.8 Montagelogistiek, Verticaal Transport & Afvalbeheer" in decompositie_content
+    assert "### 6.9 Service, Garantie & Nazorg" in decompositie_content
 
 
 def test_decompositie_normeringen(decompositie_content: str):
