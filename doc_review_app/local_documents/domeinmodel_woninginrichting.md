@@ -135,7 +135,7 @@ Het complete maatwerktraject verloopt organisatorisch via 6 vaste ketenfasen (1.
   * *Inhoud:* Planner plant montageafspraak zodra goederen binnen zijn; monteurs monteren alle posities conform instructie, borgen schadevrij werken en handelen gemonteerde producten af via de knop `[ Gemonteerd ]`. Indien alle producten zonder restpunten zijn gemonteerd, krijgen de producten direct de status `'gereed'`. Zijn er restpunten of beschadigingen, dan worden deze vastgelegd als `Opmerking` van het type `openstaande_actie` en krijgt het product de status `'geleverd'`.  
   * *Gate (Afsluiting in Portaal):* Zodra aan de strikte macro-statusconditie is voldaan (`products.length > 0` en 100% van de onderliggende producten heeft status `'geleverd'` OF `'gereed'`), verspringt de berekende projectstatus in het portaal deterministisch naar **Geleverd**.
 * **Fase 6: De Nazorg- & Afrondingsfase (Restpunten, Service & Status 'Afgerond')**  
-  * *Inhoud:* Eventuele restpunten, transportschades of nazorgmeldingen die tijdens de montage zijn geregistreerd als `openstaande_actie` worden door de servicemonteur op locatie opgelost. Zolang er $\ge 1$ openstaande actie resteert, blijft de status `Geleverd` gehandhaafd. Zodra alle openstaande acties zijn afgehandeld en gesloten, krijgen ook de laatste producten de status `'gereed'`.  
+  * *Inhoud:* Eventuele restpunten, transportschades of nazorgmeldingen die tijdens de montage zijn geregistreerd als `openstaande_actie` worden door de servicemonteur op locatie opgelost. Zolang er ≥ 1 openstaande actie resteert, blijft de status `Geleverd` gehandhaafd. Zodra alle openstaande acties zijn afgehandeld en gesloten, krijgen ook de laatste producten de status `'gereed'`.  
   * *Gate (Afsluiting in Portaal):* Pas zodra aan de eindconditie is voldaan (`products.length > 0` én 100% van de producten heeft status `'gereed'` ÉN count(openstaande_actie) = 0), ontgrendelt de afronding en verspringt het projectdossier deterministisch naar de eindstatus **Afgerond**.
 ### 1.5 Detailbeschrijving van de 6 Ketenfasen & Transversale Inmeetactie
 
@@ -340,7 +340,7 @@ Een positie is een specifieke functionele montageplek of gevelopening die zich *
 ### 2.7 Niveau 7: Sub-posities (Productlagen met suffix 1a, 1b...)
 Een productlaag definieert het concrete product of de bewerking die op een positie wordt aangebracht.
 * **Single-Product Rule (Geen Letterbadge bij Enkelvoudig Product):**
-  Indien er op een positie slechts **één enkel product** is toegewezen (bijv. alleen een Duette of alleen een PVC-vloer), wordt er in de UI en documenten **géén letterbadge (1a)** getoond. De positie toont eenvoudigweg de positie-identificatie (`Positie 1: Duette`). Pas zodra er sprake is van **twee of meer productlagen ($\ge 2$)** op dezelfde positie (bijv. 1a = Hor, 1b = Houten jaloezie, 1c = Overgordijn), worden de letters `1a`, `1b`, `1c` expliciet toegekend en getoond.
+  Indien er op een positie slechts **één enkel product** is toegewezen (bijv. alleen een Duette of alleen een PVC-vloer), wordt er in de UI en documenten **géén letterbadge (1a)** getoond. De positie toont eenvoudigweg de positie-identificatie (`Positie 1: Duette`). Pas zodra er sprake is van **twee of meer productlagen (≥ 2)** op dezelfde positie (bijv. 1a = Hor, 1b = Houten jaloezie, 1c = Overgordijn), worden de letters `1a`, `1b`, `1c` expliciet toegekend en getoond.
 * **Synchrone Cluster-Notatie:**
   Bij een samengestelde raampartij of geclusterde posities (bijv. Positie 1 en 2 overkoepeld door één brede rail of gordijn) wordt de synchrone relatie aangeduid als `Positie 1-2` (of bij meerdere lagen `Positie 1-2a`).
 
@@ -398,7 +398,7 @@ Omdat productspecificaties, stof- en materiaaleigenschappen, confectievormen en 
 Binnen EasyM2M geldt een fundamenteel en domeinoverstijgend principebesluit over hoe maatvoering, montagesituaties en fabrieksberekeningen in de software worden gemodelleerd en gepresenteerd:
 
 * **Strikte Maateenheden Invariant (INV-UNIT-01):**  
-  Alle lineaire afmetingen (breedtes, hoogtes, dieptes, dagmaten, productiematen, aftrekken, spelingen) worden in het gehele portaal, in alle rekenregels en in de API-contracten **ALTIJD en uitsluitend in millimeters (mm)** vastgelegd en berekend als integer. Oppervlakten worden uitgedrukt in vierkante meters ($m^2$, afgerond op 2 decimalen), volumes in liters of kilogrammen. Het gebruik van centimeters (cm) in invoervelden is strikt verboden ter preventie van schaalfouten met een factor 10.
+  Alle lineaire afmetingen (breedtes, hoogtes, dieptes, dagmaten, productiematen, aftrekken, spelingen) worden in het gehele portaal, in alle rekenregels en in de API-contracten **ALTIJD en uitsluitend in millimeters (mm)** vastgelegd en berekend als integer. Oppervlakten worden uitgedrukt in vierkante meters (m², afgerond op 2 decimalen), volumes in liters of kilogrammen. Het gebruik van centimeters (cm) in invoervelden is strikt verboden ter preventie van schaalfouten met een factor 10.
 * **De Bronmaat is ALTIJD de Dagmaat (Strakke Maat):**  
   De inmeter meet en registreert in het veld te allen tijde de daadwerkelijke, strakke fysieke opening (de 'dagmaat': B1..B3, H1..H3). De inmeter hoeft — en mag — op de ladder nooit zelfstandig fabrieksaftrekken, spelingen of confectietoenames uit het hoofd te gaan uitrekenen of direct als bestelmaat in te voeren. Dit voorkomt menselijke rekenfouten onder tijdsdruk op de bouwplaats.
 * **De UI Drie-eenheid:**  
@@ -417,7 +417,7 @@ Binnen EasyM2M geldt een fundamenteel en domeinoverstijgend principebesluit over
   * *Visuele markering:* In de UI krijgt de overschreven waarde een opvallende kleurmarkering (oranje/rode badge: `[Handmatige Aanpassing]`), zodat de werkvoorbereider / controleur in Fase 4 direct ziet dat hier bewust is afgeweken van de standaard rekenregel.
   * *Audittrail & ERP Export:* De oorspronkelijke gemeten dagmaat, de standaard berekende maat én de handmatig gecorrigeerde maat blijven alle drie bewaard in de database inclusief tijdstempel en gebruikers-ID. Bij export naar ERP LogicTrade wordt altijd de definitief overschreven maat geëxporteerd als bindende bestelmaat.
 * **Dwingende Inrichting van de Inmeettool ter Borging van de Kenniskloof:** *(Wens/idee)*  
-  De inmeettool fungeert als het centrale kwaliteitsanker van de organisatie. Waar senior adviseurs (zoals Carlo) leunen op 35 jaar impliciete praktijkervaring om alle details vooraf te tackelen, helpt de inmeettool dezelfde foutloosheid te borgen bij junior adviseurs en nieuwe filialen (zoals Maastricht). Het dwingend inrichten van het inmeetdossier (waarbij de inmeter een meting pas kan afronden nadat relevante parameters zoals montagehoogte, ondergrondclassificatie, montagewijze, plint- en zaaginspectie zijn ingevoerd) is het beoogde streefbeeld. Dit elimineert ad-hoc telefoontjes, montagediscussies tussen verkoop en inmeter (Guy), en faalkosten op locatie.
+  De inmeettool fungeert als het centrale kwaliteitsanker van de organisatie. Waar senior adviseurs leunen op jarenlange impliciete praktijkervaring om alle details vooraf te tackelen, helpt de inmeettool dezelfde foutloosheid te borgen bij junior adviseurs en nieuwe filialen (zoals Maastricht). Het dwingend inrichten van het inmeetdossier (waarbij de inmeter een meting pas kan afronden nadat relevante parameters zoals montagehoogte, ondergrondclassificatie, montagewijze, plint- en zaaginspectie zijn ingevoerd) is het beoogde streefbeeld. Dit elimineert ad-hoc telefoontjes, montagediscussies tussen verkoop en inmeter (Guy), en faalkosten op locatie.
 
 #### 3.1.2 Uniforme Werkwijze, Referentiepunten & Visuele Opname
 * **Filosofie van de Uniforme Werkwijze & Uitbanning Vage Meetbonnen:**  
@@ -559,7 +559,7 @@ De bouwkundige ondergrond van het montagevlak bepaalt welk bevestigingsmateriaal
   Voor specifieke dekvloernormen (zoals het standaard primeren van cement-/anhydrietvloeren, capacitieve oppervlaktevochtmeting en de 10 dB VvE contactgeluidnorm bij appartementen) wordt verwezen naar het categoriespecifieke hoofdstuk Vloerbekleding (§3.4.2).
 
 #### 3.1.8 Integrale Inmeetchecklist & Portaal-Model: Bestaande Situatie, Uitvoeringscondities & Nieuwe Situatie
-Tijdens het inmeten doorloopt de inmeter een gestandaardiseerde, dynamische inmeetchecklist. De software dwingt mechanisch af dat een positie of ruimte pas formeel kan worden afgerond en vrijgegeven als alle verplichte checklist-items van die positie succesvol zijn gevalideerd.
+Tijdens het inmeten doorloopt de inmeter een gestandaardiseerde, dynamische inmeetchecklist. De software dwingt mechanisch af dat een positie pas de maatstatus 'definitief' kan krijgen via de actieknop [ Definitief Maken ] (INV-STATE-01) nadat alle verplichte checklist-items van die positie succesvol zijn doorlopen en gevalideerd.
 
 * **Bestaande Situatie & Demontage:** Vastlegging van demontage door klant vs. monteur, hergebruik van bestaande rails/onderdelen, en afvoer van afval/oude vloeren.
 * **Nieuwe Situatie & Configuraties (Conceptverificatie):** De checklist dekt nadrukkelijk ook de nieuwe situatie af. Keuzes zoals de bedieningszijde (links of rechts bij een Duette/rolgordijn), montagewijze (in de dag vs op de dag, wand vs plafond) of klinkvrijheid zijn veelal reeds in het verkoopgesprek (Fase 1) verkend en staan als concept geregistreerd in het dossier. De inmeter toetst deze conceptwaarden ter plekke aan de fysieke werkelijkheid en bevestigt deze definitief.
@@ -1369,7 +1369,7 @@ Buitenzonwering, Gevelsystemen & Buitenleven vormt een volwaardige kernproductgr
 ### 3.7 Categorie 6: Diensten, Montage & Montagelogistiek
 
 > **MVP-Afbakening & Arbeidscalculatie:**  
-> Conform het architectuurbesluit in §1.1 en §2.8 worden loontarieven, urennormen en montagetijdscalculaties in de EasyM2M MVP handmatig ingevoerd of verwerkt in het externe ERP (LogicTrade / AFAS). Paragraaf 3.7 definieert de **technische inmeet- en schouwparameters** die door de inmeter op locatie worden vastgesteld voor een veilige, haalbare montage en logistieke voorbereiding conform het canonieke 9-productgroepen stelsel (6.1 t/m 6.9).
+> Conform het architectuurbesluit in §1.1 en §2.8 worden loontarieven, urennormen en montagetijdscalculaties in de EasyM2M MVP handmatig ingevoerd of verwerkt in het externe ERP (zoals LogicTrade). Paragraaf 3.7 definieert de **technische inmeet- en schouwparameters** die door de inmeter op locatie worden vastgesteld voor een veilige, haalbare montage en logistieke voorbereiding conform het canonieke 9-productgroepen stelsel (6.1 t/m 6.9).
 
 #### 3.7.1 Gordijnconfectie & Gordijnrailmontage (Cat 1)
 * **Atelierconfectie:** Confectioneren van gordijnen, inbetweens en vitrages per baan of strekkende meter (enkele plooi, dubbele/vlinderplooi, wave-plooi 60/80 mm).
@@ -1435,12 +1435,12 @@ Buitenzonwering, Gevelsystemen & Buitenleven vormt een volwaardige kernproductgr
 | :--- | :--- | :--- | :--- | :--- |
 | **Gordijn- & Railmontage** | m¹ / stuks | Railbreedte, montagehoogte, wand/plafond, elektrische aansluiting | Berekent railmontage per m¹ en afhangen | Post naar ERP werkbon |
 | **Binnenzonwering & Horren** | stuks | In/op de dag, kozijntype, kindveiligheid NEN-EN 13120, TruFit/klemsteun | Registreert montagewijze per raam | Post naar ERP werkbon |
-| **Vloeren Legservice** | $m^2$ / m¹ | Type vloer (Dryback/Click), legpatroon (visgraat), plinttype en afkitten | Berekent m² leggen en m¹ plinten afkitten | Post `vloer_legservice_m2` naar ERP |
+| **Vloeren Legservice** | m² / m¹ | Type vloer (Dryback/Click), legpatroon (visgraat), plinttype en afkitten | Berekent m² leggen en m¹ plinten afkitten | Post `vloer_legservice_m2` naar ERP |
 | **Trapbekleding & Renovatie** | stuks treden | Aantal treden open/dicht, overzettreden vs tapijt, wangen, LED | Registreert treden en afwerkopties | Post naar ERP werkbon |
 | **Buitenzonwering Montage** | stuks | Gevelconstructie, latei, chemische ankers M12, 230V/Solar | Registreert ankers en bekabeling | Post naar ERP werkbon |
 | **Inmeting & Deurinspectie** | stuks_knelpunten | 3D laser-inmeting, deurspleet peilmeting (< 4 mm) | Signaleert `advies_inkorten` | Adviesrapport voor aannemer/klant; monteur zaagt niet |
-| **Sloop & Verwijderen Vloer** | $m^2$ | Type vloer (verlijmd vs zwevend), hechtlaag, tapijtbekleding | Registreert oppervlakte en slooptijdindicatie | Post `sloop_vloer_m2` naar ERP-offerte |
-| **Egalisatie & Primeren** | $m^2$ / laagdikte mm | Type dekvloer, reitest (> 2 mm), vloerverwarmingssleuven | Berekent zakkenverbruik ($1,6\,\text{kg/m}^2/\text{mm}$) | Materiaalbehoefte en egalisatiepost |
+| **Sloop & Verwijderen Vloer** | m² | Type vloer (verlijmd vs zwevend), hechtlaag, tapijtbekleding | Registreert oppervlakte en slooptijdindicatie | Post `sloop_vloer_m2` naar ERP-offerte |
+| **Egalisatie & Primeren** | m² / laagdikte mm | Type dekvloer, reitest (> 2 mm), vloerverwarmingssleuven | Berekent zakkenverbruik ($1,6\,\text{kg/m}^2/\text{mm}$) | Materiaalbehoefte en egalisatiepost |
 | **Ladderlift & Logistiek** | dagdeel / forfait | Etagehoogte, raamdoorgang, gevelopstelplaats, afvalcontainer | Registreert materieelnoodzaak en container | Reservering materieel en post in `pos_project_algemeen` |
 | **Service & Regiewerk** | uren / forfait | Nazorg, CBW-garantie, projectregie villa/woning | Registreert man-uren en regie-omvang | Post regie-uren naar ERP |
 
@@ -1452,12 +1452,12 @@ Om logistieke faalkosten, materiaaltekorten en retourstromen te elimineren, hant
 | **Gordijnen (Baanstof met rapport)** | Volle banen / strekkende meters | Afronding per baan op een geheel veelvoud van het verticaal rapport ($N \times V_r$); confectiebreedte afgerond op hele banen; volle rollen stof bij projectorders | Restcoupons worden meegeleverd aan de klant of verwerkt als kussenhoezen/stalen. |
 | **Gordijnen (Kamerhoge stof)** | Strekkende meters van volle rol | Breedte rail $\times$ plooifactor + 20 cm zoomtoeslag; rapportafronding of volle rollen bij projectorders | Afsnijdsels onderzoom/zijzoom; klantbehoud conform §3.2. |
 | **Ondervloeren (Rollen)** | Volle rollen (bijv. 15 m² per rol) | $\lceil \text{Netto } m^2 / 15 \rceil$ volle rollen; klant betaalt voor de afgeronde volle rol | Monteur vraagt bij oplevering of klant overschot wil behouden; restvoorraad naar magazijn. |
-| **Harde Vloeren (PVC, Laminaat, Parket)** | Volle pakken / dozen ($m^2$ per pak) | $\lceil (\text{Netto } m^2 \times (1 + \text{Snijverlies})) / \text{Pakinhoud} \rceil$ volle pakken | Klant behoudt minimaal 1 gesloten reservepak voor toekomstig herstel / plankvervanging. |
+| **Harde Vloeren (PVC, Laminaat, Parket)** | Volle pakken / dozen (m² per pak) | $\lceil (\text{Netto } m^2 \times (1 + \text{Snijverlies})) / \text{Pakinhoud} \rceil$ volle pakken | Klant behoudt minimaal 1 gesloten reservepak voor toekomstig herstel / plankvervanging. |
 | **Traprenovatie (Rechte overzettreden)** | Standaarddozen à 4 stuks | $\lceil N_{\text{recht}} / 4 \rceil$ volle dozen | Ongebruikte rechte treden worden als spare parts overgedragen aan de klant. |
 | **Traprenovatie (Verdreven treden XL)** | XL-kits à 2 stuks (paar) | $\lceil N_{\text{verdreven}} / 2 \rceil$ kits | Maatwerk mallen en overmaatse treden; geen fabrieksretour mogelijk. |
 | **High-Tack Montagemortel / Mammoetlijm** | Kokers à 290 ml | $\lceil N_{\text{treden}} / 2{,}5 \rceil$ kokers | Aangebroken kokers blijven bij monteur; volle kokers retour voorraad. |
 | **Egaline (Cementgebonden)** | Zakken à 25 kg | $\lceil (\text{Netto } m^2 \times \text{laagdikte mm} \times 1{,}6) / 25 \rceil$ volle zakken | Droog bewaren; restzakken retour centraal magazijn. |
-| **Ladderlift / Hijsmiddelen** | Dagdelen (ochtend / middag) | Vaste boeking per dagdeel van 4 uur inclusief gecertificeerd bedienend personeel | Annulering minimaal 24 uur vooraf bij windkracht $\ge 6$ Bft. |
+| **Ladderlift / Hijsmiddelen** | Dagdelen (ochtend / middag) | Vaste boeking per dagdeel van 4 uur inclusief gecertificeerd bedienend personeel | Annulering minimaal 24 uur vooraf bij windkracht ≥ 6 Bft. |
 
 ---
 ## Deel 4: Plannings- en Uitvoeringsstructuur (Gefaseerde Montage & Afhankelijkheden)
@@ -2176,14 +2176,14 @@ De centrale visuele werkruimte van het project is georganiseerd volgens een modu
 ##### Zone 1: Project Header & Status-Balk (INV-UI-04)
 * **Projectcontext:** Toont de gekoppelde klantgegevens, het montageadres (object), debiteurennummer en projectnummer.
 * **De Actuele Data-Driven Projectstatus:** In de header van Hoofdscherm 4 is **uitsluitend de actuele berekende status** van het project zichtbaar (een van de 5 canonieke statussen: `Intake`, `Offerte`, `Order`, `Geleverd` of `Afgerond`). Er wordt géén statische procespijplijn getoond waarin alle 5 statussen tegelijk zichtbaar zijn.
-* **Conceptmaten-Statusindicator:** Indien er $\ge 1$ positie in het project de maatstatus `concept` heeft, toont de header een compact, subtiel rood **Draft** status-icoon met interactieve hover-tooltip (*"Dossier bevat nog conceptmaten — definitief nameten vereist vóór productie/montage"*). Er wordt géén opdringerige of schermverstorende amber waarschuwingsbanner getoond.
+* **Conceptmaten-Statusindicator:** Indien er ≥ 1 positie in het project de maatstatus `concept` heeft, toont de header een compact, subtiel rood **Draft** status-icoon met interactieve hover-tooltip (*"Dossier bevat nog conceptmaten — definitief nameten vereist vóór productie/montage"*). Er wordt géén opdringerige of schermverstorende amber waarschuwingsbanner getoond.
 * **De Canonieke Contextuele Actieknoppen:** Op Hoofdscherm 4 bevinden zich actieknoppen die contextueel ontgrendelen op basis van de actuele projectstatus en de staat van de onderliggende data:
   1. `[ Inmeten Starten ]` &rarr; Directe actieknop voor de inmeter op locatie om de inmeetworkflow te activeren en posities definitief te maken via `[ Definitief Maken ]`.
   2. `[ Inmeetafspraak Plannen ]` &rarr; Altijd direct beschikbaar zolang maten op `concept` staan of indien hermeten gewenst is. Opent de `AfspraakPlannerModal` (§5.10.1).
   3. `[ Rapport Maken ]` &rarr; Geünificeerde rapportknop die op elk gewenst moment een compleet PDF-dossier genereert via een modale dialoog (*Meetrapport*, *Montagerapport*, *Afterservicerapport*). Het *Meetrapport* kan te allen tijde worden gegenereerd (ook tussentijds tijdens intake of conceptfase).
   4. `[ Montageafspraak Plannen ]` &rarr; Beschikbaar zodra de macro-projectstatus `Order` is (de planner behoudt de flexibiliteit om conform Route B / §1.5.6 vooruit te plannen bij harde deadlines). Indien er nog posities met maatstatus `concept` aanwezig zijn, toont het planningsscherm de tooltip-notificatie dat nameten vereist is.
-  5. `[ Starten Montage ]` &rarr; Dwingend en mechanisch vergrendeld (hard-gated via `INV-ORDER-02`) zolang er nog $\ge 1$ positie in het project de maatstatus `concept` heeft! Montage kan pas daadwerkelijk worden gestart wanneer álle posities de status `definitief` hebben bereikt (`all_positions_definitive == true`).
-  6. `[ Afterservice Afspraak Plannen ]` &rarr; Wordt direct actief zodra er $\ge 1$ openstaande actie op productniveau is geregistreerd. Opent de planning voor een servicebezoek.
+  5. `[ Starten Montage ]` &rarr; Dwingend en mechanisch vergrendeld (hard-gated via `INV-ORDER-02`) zolang er nog ≥ 1 positie in het project de maatstatus `concept` heeft! Montage kan pas daadwerkelijk worden gestart wanneer álle posities de status `definitief` hebben bereikt (`all_positions_definitive == true`).
+  6. `[ Afterservice Afspraak Plannen ]` &rarr; Wordt direct actief zodra er ≥ 1 openstaande actie op productniveau is geregistreerd. Opent de planning voor een servicebezoek.
   7. `[ Project Sluiten / Afronden ]` &rarr; Uitsluitend actief wanneer `products.length > 0`, 100% van de producten de status `'gereed'` bezit én er 0 openstaande acties resteren. Zet de status deterministisch op **Afgerond**.
 * **Verplichte Pre-Action Checklist Gate & Checklist-Beheermodule:**  
   Vóórdat elk van deze acties definitief kan worden uitgevoerd of geopend, toont het portaal eerst een **verplichte checklist** (`PreActionChecklistDialog` §5.10.3) die de gebruiker moet doorlopen en afvinken. Zonder het succesvol doorlopen van de specifieke pre-action vragenlijst (bijv. bereikbaarheid klant en parkeersituatie vóór inmeetplanning; goederenstatus en hulpmiddelen vóór montageplanning) kan de actie niet worden voltooid.
@@ -2274,7 +2274,7 @@ Het volledige centrale werkblad waarin alle ruimtelijke niveaus (inclusief posit
   * *Traprenovatie & Bekleding:* Uitvoering (stoffering met ondertapijt vs overzettreden CPL/hout/PVC), neusprofielen (antislip), stootborden en geïntegreerde LED-tredeverlichting.
   * *Buitenzonwering & Gevelsystemen:* Type (knikarmscherm, ritsscreen, rolluik, markies), windklasse (NEN-EN 13561), gevelconstructie & verankering (chemisch anker M10/M12, lateiboring), kastmaat, geleidertype, bediening (230V Somfy io vs Solar accu-motor) en sensoren (zon/wind/trilling).
 * **Dynamische Meetgegevens per Productgroep & De UI Drie-eenheid:**  
-  Het meetpaneel toont transparant de UI Drie-eenheid (Gemeten Dagmaat B1..B3 en H1..H3 $\to$ Rekenformule/Aftrek $\to$ Blijvende Bestelmaat) met automatische validatie:
+  Het meetpaneel toont transparant de UI Drie-eenheid (Gemeten Dagmaat B1..B3 en H1..H3 → Rekenformule/Aftrek → Blijvende Bestelmaat) met automatische validatie:
   * *Raamdecoratie:* Meervoudige dagmaten (B1, B2, B3 en H1, H2, H3 in mm), strakke productiematen, aftrekmaten/spelingen voor draaikiepramen, ventilatieroosters, pakkethoogte en verplichte **Montagehoogte (MH in mm)** ten behoeve van de EN 13120 kindveiligheidscoefficient.
   * *Maatafwijkings-Alert (> 5%):* Indien de door de inmeter definitief gemeten dagmaat > 5% afwijkt van de oorspronkelijke showroom-conceptmaat, toont het scherm een attentievlag die de verkoopadviseur attendeert op een eventuele commerciële prijsherziening conform de conceptmaten-clausule.
   * *Gordijnen:* Railbreedte, hoogte vanaf plafond/rail tot vloer, gewenste vloervrijloop, pakketbreedte en afloop van vensterbanken.
@@ -2347,7 +2347,7 @@ Het portaal faciliteert directe visuele interactie en toewijzing over de volledi
 
 ### 5.4 Projectafspraken & Flexibele Planning (Inmeting, Montage & Afterservice)
 * **Directe Koppeling aan het Project (Multi-Appointment conform INV-PLAN-01):**  
-  Afspraken hangen functioneel en relationeel direct aan het **Project** (binnen de administratieve entiteiten-driehoek Klant → Object → Project, te onderscheiden van de bouwkundige ruimtelijke niveaus). Aan één project kunnen **meerdere afspraken** van verschillende types worden gekoppeld ($N \ge 1$), zoals een oriënterende ruwbouwschouw, controlemeting, montagedagen of afterservice-bezoeken.
+  Afspraken hangen functioneel en relationeel direct aan het **Project** (binnen de administratieve entiteiten-driehoek Klant → Object → Project, te onderscheiden van de bouwkundige ruimtelijke niveaus). Aan één project kunnen **meerdere afspraken** van verschillende types worden gekoppeld (N ≥ 1), zoals een oriënterende ruwbouwschouw, controlemeting, montagedagen of afterservice-bezoeken.
   * *Zichtbaarheid op het Projectscherm:* Alle ingeplande en historische afspraken behorende bij het project zijn direct inzichtelijk op Hoofdscherm 4 (Project, Zone 2: Tab A & Tab B).
   * *Specifieke Afspraakinstructies & Opmerkingen:* Aan elke afzonderlijke afspraak kan de planner/verkoper een specifieke instructie of contextuele opmerking koppelen (bijv. *"fysieke stalen meenemen"*, *"klant 15 minuten van tevoren bellen"*, of *"sleutel afhalen bij de buren op nummer 12"*).
 * **Flexibele Dataset bij Planning (SSOT conform §1.5.1):**  
