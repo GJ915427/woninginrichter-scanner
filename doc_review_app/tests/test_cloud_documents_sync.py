@@ -57,7 +57,8 @@ def test_push_document_to_cloud_mocked(monkeypatch):
 
 
 def test_delete_document_from_cloud_tombstone_mocked(monkeypatch):
-    """Verify delete_document_from_cloud registers tombstone in documents_store and purges document_sidecars."""
+    """Verify delete_document_from_cloud registers tombstone in documents_store and preserves document_sidecars."""
+    # [SPEC-CHANGE-AUTHORIZED: delete_document_from_cloud mag cloud-sidecars niet wissen, enkel tombstone registreren in documents_store]
     monkeypatch.setattr(settings, "supabase_url", "https://test.supabase.co")
     monkeypatch.setattr(settings, "supabase_anon_key", "test-key")
 
@@ -71,7 +72,7 @@ def test_delete_document_from_cloud_tombstone_mocked(monkeypatch):
         success = cloud_sync.delete_document_from_cloud("beleid.md")
 
     assert success is True
-    assert len(requests) == 2
+    assert len(requests) == 1
 
     # Request 1: POST tombstone to documents_store
     tombstone_req = requests[0]
@@ -80,11 +81,6 @@ def test_delete_document_from_cloud_tombstone_mocked(monkeypatch):
     assert tombstone_data["filename"] == "beleid.md"
     assert tombstone_data["is_deleted"] is True
     assert tombstone_data["content"] == ""
-
-    # Request 2: DELETE from document_sidecars
-    sidecar_del_req = requests[1]
-    assert sidecar_del_req.get_method() == "DELETE"
-    assert "document_sidecars?filename=eq.beleid.md" in sidecar_del_req.full_url
 
 
 def test_pull_documents_from_cloud_anti_zombie(tmp_path, monkeypatch):
@@ -138,10 +134,11 @@ def test_pull_documents_from_cloud_anti_zombie(tmp_path, monkeypatch):
     assert "oud_bestand.md" in tombstone_names
     assert "oud_bestand" in tombstone_stems
 
-    # Local tombstoned files must be unlinked
-    assert not doc_path.exists()
-    assert not unique_sidecar.exists()
-    assert not stem_sidecar.exists()
+    # [SPEC-CHANGE-AUTHORIZED: Tombstones in cloud pull mogen lokale schijfbestanden en sidecars niet fysiek wissen]
+    # Local tombstoned files must be PRESERVED on disk (never unlinked)
+    assert doc_path.exists(), "Local document must NOT be unlinked on tombstone"
+    assert unique_sidecar.exists(), "Unique sidecar must NOT be unlinked on tombstone"
+    assert stem_sidecar.exists(), "Stem sidecar must NOT be unlinked on tombstone"
 
     # Active file must be restored
     assert (tmp_path / "nieuw.md").exists()
@@ -184,8 +181,8 @@ def test_pull_sidecars_with_tombstones(tmp_path, monkeypatch):
         )
 
     assert count == 1
-    # Zombie sidecar must be unlinked
-    assert not zombie_sc.exists()
+    # [SPEC-CHANGE-AUTHORIZED: Zombie sidecar must NOT be unlinked per logical delete mandate]
+    assert zombie_sc.exists(), "Zombie sidecar must NOT be unlinked on tombstone"
     # Active sidecar must be written
     assert (tmp_path / "actief.comments.json").exists()
 

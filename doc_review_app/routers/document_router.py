@@ -194,8 +194,13 @@ def delete_document(
     doc_id: int,
     current_user: User = Depends(require_admin),
 ) -> Dict[str, Any]:
-    """Delete a document by ID, unlink from disk, and register tombstone in cloud."""
-    return document_service.delete_document(doc_id=doc_id, sync_cloud=True)
+    """Delete a document logically by ID and register tombstone in cloud."""
+    return document_service.delete_document(
+        doc_id=doc_id,
+        sync_cloud=True,
+        user_id=current_user.id,
+        user_initials=current_user.initials,
+    )
 
 
 @router.post(

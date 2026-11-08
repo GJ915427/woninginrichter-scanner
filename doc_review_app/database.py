@@ -52,7 +52,9 @@ CREATE TABLE IF NOT EXISTS documents (
     content_hash TEXT NOT NULL,
     file_size INTEGER NOT NULL,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER NOT NULL DEFAULT 0 CHECK(is_deleted IN (0, 1)),
+    deleted_at TEXT
 );
 
 -- Annotations table: highlighted text selections and badges
@@ -110,6 +112,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_documents_filename ON documents(filename);
 CREATE INDEX IF NOT EXISTS idx_documents_content_hash ON documents(content_hash);
+CREATE INDEX IF NOT EXISTS idx_documents_is_deleted ON documents(is_deleted);
 CREATE INDEX IF NOT EXISTS idx_annotations_document_id ON annotations(document_id);
 CREATE INDEX IF NOT EXISTS idx_annotations_offsets ON annotations(document_id, start_offset, end_offset);
 CREATE INDEX IF NOT EXISTS idx_annotations_is_deleted ON annotations(is_deleted);
@@ -205,6 +208,17 @@ def get_db_session() -> Generator[sqlite3.Connection, None, None]:
 def _migrate_db(conn: sqlite3.Connection) -> None:
     """Idempotently ensure required columns and tables exist in live databases."""
     try:
+        # Check documents table
+        doc_cols = [r[1] for r in conn.execute("PRAGMA table_info(documents)").fetchall()]
+        if doc_cols and "is_deleted" not in doc_cols:
+            try:
+                conn.execute("ALTER TABLE documents ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0 CHECK(is_deleted IN (0, 1))")
+            except sqlite3.OperationalError:
+                conn.execute("ALTER TABLE documents ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+        if doc_cols and "deleted_at" not in doc_cols:
+            conn.execute("ALTER TABLE documents ADD COLUMN deleted_at TEXT")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_is_deleted ON documents(is_deleted);")
+
         # Check comments table
         comment_cols = [r[1] for r in conn.execute("PRAGMA table_info(comments)").fetchall()]
         if comment_cols and "is_deleted" not in comment_cols:

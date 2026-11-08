@@ -102,7 +102,7 @@ def create_annotation(
     def _execute(conn: sqlite3.Connection) -> Dict[str, Any]:
         # Validate document exists
         doc = conn.execute(
-            "SELECT id, content FROM documents WHERE id = ?",
+            "SELECT id, content FROM documents WHERE id = ? AND is_deleted = 0",
             (document_id,),
         ).fetchone()
         if not doc:
@@ -262,7 +262,7 @@ def list_annotations(
     def _execute(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
         # Check document exists
         doc = conn.execute(
-            "SELECT id, filename FROM documents WHERE id = ?",
+            "SELECT id, filename FROM documents WHERE id = ? AND is_deleted = 0",
             (document_id,),
         ).fetchone()
         if not doc:
@@ -1046,7 +1046,7 @@ def generate_document_ast_feedback(
     """Compile all open review comments for a document into a structured AST-anchored report."""
     def _execute(conn: sqlite3.Connection) -> Dict[str, Any]:
         doc = conn.execute(
-            "SELECT id, filename, title, content FROM documents WHERE id = ?",
+            "SELECT id, filename, title, content FROM documents WHERE id = ? AND is_deleted = 0",
             (document_id,),
         ).fetchone()
         if not doc:

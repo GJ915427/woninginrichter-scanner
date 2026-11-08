@@ -199,19 +199,7 @@ def delete_document_from_cloud(filename: str) -> bool:
         cloud_sync_degraded = True
         return False
 
-    # 2. Delete corresponding sidecar from document_sidecars
-    try:
-        del_url = f"{settings.supabase_url.rstrip('/')}/rest/v1/document_sidecars?filename=eq.{urllib.parse.quote(clean_name, safe='')}"
-        del_headers = {
-            "apikey": settings.supabase_anon_key,
-            "Authorization": f"Bearer {settings.supabase_anon_key}",
-        }
-        del_req = urllib.request.Request(del_url, headers=del_headers, method="DELETE")
-        with urllib.request.urlopen(del_req, timeout=5) as del_resp:
-            logger.info("Purged sidecar for '%s' from Supabase (status %d).", clean_name, del_resp.status)
-    except Exception as e:
-        logger.debug("Sidecar deletion for '%s' in Supabase: %s", clean_name, e)
-
+    # 2. Sidecars are preserved in cloud (never deleted) for audit and history integrity
     cloud_sync_degraded = False
     return success
 
@@ -290,32 +278,7 @@ def pull_documents_from_cloud(documents_dir: Optional[Path] = None) -> Tuple[int
             if is_md or not has_active_md_sibling:
                 tombstone_stems_set.add(stem)
 
-            # Physically unlink local document from disk if present (anti-resurrection)
-            if target_path.exists():
-                try:
-                    target_path.unlink()
-                    logger.info("Unlinked resurrected Git document '%s' per cloud tombstone.", clean_name)
-                except Exception as e:
-                    logger.error("Failed unlinking tombstoned document '%s': %s", clean_name, e)
-
-            # Unlink unique sidecar
-            unique_sidecar = target_dir / f"{clean_name}.comments.json"
-            if unique_sidecar.exists():
-                try:
-                    unique_sidecar.unlink()
-                    logger.info("Unlinked sidecar '%s' per cloud tombstone.", unique_sidecar.name)
-                except Exception as e:
-                    logger.error("Failed unlinking unique sidecar '%s': %s", unique_sidecar.name, e)
-
-            # Unlink stem sidecar only if is_md or no active markdown sibling
-            if is_md or not has_active_md_sibling:
-                stem_sidecar = target_dir / f"{stem}.comments.json"
-                if stem_sidecar.exists():
-                    try:
-                        stem_sidecar.unlink()
-                        logger.info("Unlinked stem sidecar '%s' per cloud tombstone.", stem_sidecar.name)
-                    except Exception as e:
-                        logger.error("Failed unlinking stem sidecar '%s': %s", stem_sidecar.name, e)
+            # Physical file and sidecars are preserved on disk (never unlinked per logical delete mandate)
             continue
 
         # Active document: restore / sync from cloud
@@ -406,13 +369,7 @@ def pull_sidecars_from_cloud(
             or ("." not in doc_filename and doc_filename in tombstone_stems_set)
             or (stem in tombstone_stems_set and "." in doc_filename and Path(doc_filename).suffix.lower() in [".md", ".markdown"])
         ):
-            # Clean up any local sidecar on disk if tombstoned
-            sc_path = get_sidecar_path(doc_filename, target_dir)
-            if sc_path.exists():
-                try:
-                    sc_path.unlink()
-                except Exception:
-                    pass
+            # Preserve local sidecar on disk (never unlinked per logical delete mandate)
             continue
 
         sidecar_path = get_sidecar_path(doc_filename, target_dir)

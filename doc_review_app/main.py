@@ -163,7 +163,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 6. Auto-sync local documents folder with SQLite on startup (sync_cloud=False to prevent overwriting cloud)
     from doc_review_app.services.document_service import sync_local_directory_with_db
     with get_db() as db:
-        sync_local_directory_with_db(db=db, sync_cloud=False)
+        sync_local_directory_with_db(db=db, sync_cloud=False, tombstone_filenames=tombstone_filenames)
 
     # 7. Auto-migrate existing annotations, comments, permissions, and audit logs between SQLite and JSON sidecars
     from doc_review_app.storage.migration import auto_migrate_if_needed
@@ -187,7 +187,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             if not cur.fetchone():
                 kelly = user_service.get_user_by_username(db, "kelly.schreurs")
                 if kelly:
-                    doc = db.execute("SELECT id, filename FROM documents ORDER BY id ASC LIMIT 1").fetchone()
+                    doc = db.execute("SELECT id, filename FROM documents WHERE is_deleted = 0 ORDER BY id ASC LIMIT 1").fetchone()
                     if doc:
                         now_iso = datetime.now(timezone.utc).isoformat()
                         db.execute(

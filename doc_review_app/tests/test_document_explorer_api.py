@@ -105,7 +105,8 @@ class TestDocumentExplorerAPI:
         target_file.unlink(missing_ok=True)
 
     def test_delete_document_and_cascade(self, auth_client: TestClient):
-        """Deleting a document cascades annotations/comments and removes disk file."""
+        """Deleting a document logically marks is_deleted=1 and preserves disk file."""
+        # [SPEC-CHANGE-AUTHORIZED: Gebruiker specificeert expliciet: echt fysiek verwijderen van schijf is niet de bedoeling, het betreft een logische verwijdering uit de app]
         # 1. Create document via upload
         files = [
             ("files", ("to_delete.md", io.BytesIO(b"# To Delete\nContent here.\n"), "text/markdown"))
@@ -132,21 +133,25 @@ class TestDocumentExplorerAPI:
             ann_row = db.execute("SELECT id FROM annotations WHERE id = ?", (ann_id,)).fetchone()
             assert ann_row is not None
 
-        # 3. Delete document
+        # 3. Delete document logically
         del_res = auth_client.delete(f"/api/documents/{doc_id}")
         assert del_res.status_code == 200
         assert del_res.json()["deleted"] is True
+        assert del_res.json().get("is_deleted") == 1
 
-        # 4. Verify DB row and cascading annotations are deleted
+        # 4. Verify DB row is soft-deleted (is_deleted = 1) and sub-resources return 404
         with get_db() as db:
-            doc_row = db.execute("SELECT id FROM documents WHERE id = ?", (doc_id,)).fetchone()
-            assert doc_row is None
-            ann_row = db.execute("SELECT id FROM annotations WHERE id = ?", (ann_id,)).fetchone()
-            assert ann_row is None
+            doc_row = db.execute("SELECT is_deleted, deleted_at FROM documents WHERE id = ?", (doc_id,)).fetchone()
+            assert doc_row is not None
+            assert doc_row["is_deleted"] == 1
+            assert doc_row["deleted_at"] is not None
 
-        # 5. Verify file is unlinked from disk
+        sub_res = auth_client.get(f"/api/documents/{doc_id}/annotations")
+        assert sub_res.status_code == 404
+
+        # 5. Verify physical file is PRESERVED on disk (NOT unlinked)
         target_file = settings.documents_dir / "to_delete.md"
-        assert not target_file.exists()
+        assert target_file.exists(), "Fysiek bestand moet bewaard blijven op schijf"
 
     def test_delete_nonexistent_document_returns_404(self, auth_client: TestClient):
         """Deleting a document with non-existent ID returns 404 Not Found."""

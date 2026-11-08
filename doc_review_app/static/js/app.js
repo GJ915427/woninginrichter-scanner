@@ -764,7 +764,7 @@
     }
     state.pendingDeleteDoc = doc;
     if (els.deleteDocMessage) {
-      els.deleteDocMessage.textContent = `Weet je zeker dat je "${doc.filename}" wilt verwijderen? Alle bijbehorende annotaties en opmerkingen worden definitief gewist.`;
+      els.deleteDocMessage.textContent = `Weet je zeker dat je "${doc.filename}" wilt verwijderen uit de app? Het document wordt logisch verborgen in de app; het fysieke bestand op schijf blijft bewaard.`;
     }
     if (els.deleteDocDialog) {
       els.deleteDocDialog.style.display = 'flex';
@@ -785,7 +785,7 @@
 
     try {
       await api(`/api/documents/${docToDelete.id}`, { method: 'DELETE' });
-      showToast(`Document "${docToDelete.filename}" verwijderd.`, 'info');
+      showToast(`Document "${docToDelete.filename}" verwijderd uit de app (bestand blijft op schijf).`, 'info');
 
       // Refresh documents
       const docs = await api('/api/documents');

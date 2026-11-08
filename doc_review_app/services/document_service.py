@@ -11,7 +11,7 @@ import logging
 import os
 from pathlib import Path
 import sqlite3
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from fastapi import HTTPException, status
 
@@ -106,11 +106,13 @@ def upsert_document(
     user_id: Optional[int] = None,
     is_admin: bool = False,
     db: Optional[sqlite3.Connection] = None,
+    *,
+    restore_deleted: bool = False,
 ) -> Dict[str, Any]:
     """Insert or update a document record in SQLite documents table.
     
     Standardizes line endings to LF, computes SHA-256 hash, and updates or creates
-    the document row. Returns dict with id, filename, action ('created'|'updated'), and sha256.
+    the document row. Returns dict with id, filename, action ('created'|'updated'|'restored'|'skipped'), and sha256.
     """
     clean_filename, resolved_format = validate_filename_and_format(filename, format)
     normalized_content = normalize_line_endings(content)
@@ -121,13 +123,22 @@ def upsert_document(
 
     def _execute(conn: sqlite3.Connection) -> Dict[str, Any]:
         cursor = conn.execute(
-            "SELECT id, content_hash FROM documents WHERE filename = ?",
+            "SELECT id, content_hash, is_deleted FROM documents WHERE filename = ?",
             (clean_filename,),
         )
         existing = cursor.fetchone()
 
         if existing:
             doc_id = existing["id"]
+            if existing["is_deleted"] == 1 and not restore_deleted:
+                return {
+                    "id": doc_id,
+                    "filename": clean_filename,
+                    "action": "skipped",
+                    "sha256": sha256_hash,
+                    "is_deleted": 1,
+                }
+
             conn.execute(
                 """
                 UPDATE documents
@@ -136,18 +147,20 @@ def upsert_document(
                     format = ?,
                     content_hash = ?,
                     file_size = ?,
-                    updated_at = ?
+                    updated_at = ?,
+                    is_deleted = 0,
+                    deleted_at = NULL
                 WHERE id = ?
                 """,
                 (title, normalized_content, resolved_format, sha256_hash, file_size, now_iso, doc_id),
             )
-            action = "updated"
+            action = "restored" if existing["is_deleted"] == 1 else "updated"
         else:
             cursor = conn.execute(
                 """
                 INSERT INTO documents (
-                    filename, title, content, format, content_hash, file_size, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    filename, title, content, format, content_hash, file_size, created_at, updated_at, is_deleted, deleted_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)
                 """,
                 (clean_filename, title, normalized_content, resolved_format, sha256_hash, file_size, now_iso, now_iso),
             )
@@ -188,11 +201,14 @@ def list_documents(
                 d.format,
                 d.file_size AS size_bytes,
                 d.updated_at,
+                d.is_deleted,
+                d.deleted_at,
                 COUNT(c.id) AS comment_count
             FROM documents d
             JOIN document_access da ON da.document_id = d.id AND da.user_id = ?
             LEFT JOIN annotations a ON a.document_id = d.id AND a.is_deleted = 0
             LEFT JOIN comments c ON c.annotation_id = a.id AND c.is_deleted = 0
+            WHERE d.is_deleted = 0
             GROUP BY d.id
             ORDER BY d.id ASC
         """
@@ -206,10 +222,13 @@ def list_documents(
                 d.format,
                 d.file_size AS size_bytes,
                 d.updated_at,
+                d.is_deleted,
+                d.deleted_at,
                 COUNT(c.id) AS comment_count
             FROM documents d
             LEFT JOIN annotations a ON a.document_id = d.id AND a.is_deleted = 0
             LEFT JOIN comments c ON c.annotation_id = a.id AND c.is_deleted = 0
+            WHERE d.is_deleted = 0
             GROUP BY d.id
             ORDER BY d.id ASC
         """
@@ -242,6 +261,8 @@ def list_documents(
                 "size_bytes": row["size_bytes"],
                 "updated_at": row["updated_at"],
                 "comment_count": comment_count,
+                "is_deleted": row["is_deleted"],
+                "deleted_at": row["deleted_at"],
             })
         return result
 
@@ -262,9 +283,9 @@ def get_document_by_id(doc_id: int, db: Optional[sqlite3.Connection] = None) -> 
     def _execute(conn: sqlite3.Connection) -> Optional[Dict[str, Any]]:
         doc_cursor = conn.execute(
             """
-            SELECT id, filename, title, content, format, content_hash, file_size, created_at, updated_at
+            SELECT id, filename, title, content, format, content_hash, file_size, created_at, updated_at, is_deleted, deleted_at
             FROM documents
-            WHERE id = ?
+            WHERE id = ? AND is_deleted = 0
             """,
             (doc_id,),
         )
@@ -335,6 +356,8 @@ def get_document_by_id(doc_id: int, db: Optional[sqlite3.Connection] = None) -> 
             "file_size": doc["file_size"],
             "created_at": doc["created_at"],
             "updated_at": doc["updated_at"],
+            "is_deleted": doc["is_deleted"],
+            "deleted_at": doc["deleted_at"],
             "annotations": annotations_list,
         }
 
@@ -439,70 +462,56 @@ def create_annotation_for_document(
         return _execute(conn)
 
 
-def delete_document(doc_id: int, db: Optional[sqlite3.Connection] = None, *, sync_cloud: bool = False) -> Dict[str, Any]:
-    """Delete a document by ID, cascading annotations and comments, unlinking from disk, and conditionally tombstones in cloud."""
-    from doc_review_app.config import settings
-    from doc_review_app.storage.json_storage import get_sidecar_path
-
+def delete_document(
+    doc_id: int,
+    db: Optional[sqlite3.Connection] = None,
+    *,
+    sync_cloud: bool = False,
+    user_id: Optional[int] = None,
+    user_initials: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Delete a document logically by setting is_deleted=1 and deleted_at in SQLite.
+    
+    Physical files and sidecars on disk are preserved (never unlinked).
+    Conditionally creates a cloud tombstone if sync_cloud=True.
+    """
     def _execute(conn: sqlite3.Connection) -> Dict[str, Any]:
-        cursor = conn.execute("SELECT id, filename FROM documents WHERE id = ?", (doc_id,))
+        cursor = conn.execute("SELECT id, filename, is_deleted FROM documents WHERE id = ?", (doc_id,))
         row = cursor.fetchone()
-        if not row:
+        if not row or row["is_deleted"] == 1:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document with ID {doc_id} not found."
+                detail=f"Document with ID {doc_id} not found or already deleted."
             )
         filename = row["filename"]
+        now_iso = datetime.now(timezone.utc).isoformat()
         
-        # Foreign keys will cascade delete annotations and comments in SQLite
-        conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+        # Soft delete in SQLite without unlinking disk files or sidecars
+        conn.execute("UPDATE documents SET is_deleted = 1, deleted_at = ? WHERE id = ?", (now_iso, doc_id))
         
-        # Remove file from local_documents directory if present
-        clean_name = Path(filename).name
-        target_dir = settings.documents_dir
-        file_path = (target_dir / clean_name).resolve()
-        
+        # Log to audit_logs
         try:
-            if file_path.is_relative_to(target_dir.resolve()):
-                file_path.unlink(missing_ok=True)
-        except Exception:
-            pass
-
-        # Handle sidecar unlinking:
-        # 1. Unlink unique sidecar (<filename>.comments.json)
-        unique_sidecar = target_dir / f"{clean_name}.comments.json"
-        try:
-            if unique_sidecar.is_relative_to(target_dir.resolve()):
-                unique_sidecar.unlink(missing_ok=True)
-        except Exception:
-            pass
-
-        # 2. Check if stem sidecar should be unlinked
-        # If there's an active sibling on disk with the same stem, keep stem sidecar for that sibling!
-        stem = Path(clean_name).stem
-        ext = Path(clean_name).suffix.lower()
-        is_md = ext in [".md", ".markdown"]
-        
-        has_active_stem_sibling = any(
-            f.is_file()
-            and f.name != clean_name
-            and f.suffix.lower() in [".md", ".markdown", ".txt"]
-            and f.stem == stem
-            for f in target_dir.iterdir()
-        ) if target_dir.exists() else False
-
-        if is_md or not has_active_stem_sibling:
-            stem_sidecar = target_dir / f"{stem}.comments.json"
-            try:
-                if stem_sidecar.is_relative_to(target_dir.resolve()):
-                    stem_sidecar.unlink(missing_ok=True)
-            except Exception:
-                pass
+            from doc_review_app.services.comment_service import log_audit_entry
+            log_audit_entry(
+                conn=conn,
+                entity_type="document",
+                entity_id=doc_id,
+                action="SOFT_DELETE",
+                user_id=user_id or 1,
+                user_initials=user_initials or "SA",
+                document_id=doc_id,
+                new_value=filename,
+                metadata=json.dumps({"event": "DOCUMENT_SOFT_DELETE", "filename": filename}),
+            )
+        except Exception as exc:
+            logger.warning(f"Could not log soft-delete audit entry in SQLite: {exc}")
 
         return {
             "id": doc_id,
             "filename": filename,
             "deleted": True,
+            "is_deleted": 1,
+            "deleted_at": now_iso,
             "message": f"Document '{filename}' successfully deleted."
         }
 
@@ -536,10 +545,12 @@ def check_document_access(
     db: Optional[sqlite3.Connection] = None,
 ) -> bool:
     """Verify if a user has access to a given document. Admin has full access."""
-    if is_admin:
-        return True
-
     def _execute(conn: sqlite3.Connection) -> bool:
+        doc = conn.execute("SELECT id, is_deleted FROM documents WHERE id = ?", (document_id,)).fetchone()
+        if not doc or doc["is_deleted"] == 1:
+            return False
+        if is_admin:
+            return True
         cursor = conn.execute(
             "SELECT 1 FROM document_access WHERE document_id = ? AND user_id = ?",
             (document_id, user_id),
@@ -561,11 +572,16 @@ def check_document_access_by_annotation(
     """Check existence of annotation and access permissions to parent document. Returns (exists, has_access)."""
     def _execute(conn: sqlite3.Connection) -> Tuple[bool, bool]:
         cursor = conn.execute(
-            "SELECT document_id FROM annotations WHERE id = ?",
+            """
+            SELECT a.document_id, d.is_deleted
+            FROM annotations a
+            JOIN documents d ON d.id = a.document_id
+            WHERE a.id = ?
+            """,
             (annotation_id,),
         )
         row = cursor.fetchone()
-        if not row:
+        if not row or row["is_deleted"] == 1:
             return False, False
         if is_admin:
             return True, True
@@ -588,15 +604,16 @@ def check_document_access_by_comment(
     def _execute(conn: sqlite3.Connection) -> Tuple[bool, bool]:
         cursor = conn.execute(
             """
-            SELECT a.document_id
+            SELECT a.document_id, d.is_deleted
             FROM comments c
             JOIN annotations a ON a.id = c.annotation_id
+            JOIN documents d ON d.id = a.document_id
             WHERE c.id = ?
             """,
             (comment_id,),
         )
         row = cursor.fetchone()
-        if not row:
+        if not row or row["is_deleted"] == 1:
             return False, False
         if is_admin:
             return True, True
@@ -623,7 +640,7 @@ def get_document_access_matrix(db: Optional[sqlite3.Connection] = None) -> Dict[
         users = users_cur.fetchall()
 
         docs_cur = conn.execute(
-            "SELECT id, filename FROM documents ORDER BY filename ASC"
+            "SELECT id, filename FROM documents WHERE is_deleted = 0 ORDER BY filename ASC"
         )
         docs = docs_cur.fetchall()
 
@@ -675,7 +692,7 @@ def toggle_document_access(
     Performs atomic dual-write to SQLite and document sidecar JSON (with non-blocking cloud push).
     """
     def _execute(conn: sqlite3.Connection) -> Dict[str, Any]:
-        doc = conn.execute("SELECT id, filename FROM documents WHERE id = ?", (document_id,)).fetchone()
+        doc = conn.execute("SELECT id, filename FROM documents WHERE id = ? AND is_deleted = 0", (document_id,)).fetchone()
         if not doc:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -802,7 +819,7 @@ def batch_update_document_access(
                     detail=f"Invalid document ID: {doc_id_raw}",
                 )
 
-            doc = conn.execute("SELECT id, filename FROM documents WHERE id = ?", (doc_id,)).fetchone()
+            doc = conn.execute("SELECT id, filename FROM documents WHERE id = ? AND is_deleted = 0", (doc_id,)).fetchone()
             if not doc:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -955,12 +972,13 @@ def save_uploaded_file(
     settings.documents_dir.mkdir(parents=True, exist_ok=True)
     target_path.write_text(content_str, encoding="utf-8")
 
-    # Upsert in database
+    # Upsert in database (explicit user upload restores deleted document)
     res = upsert_document(
         filename=clean_name,
         content=content_str,
         format=fmt,
         db=db,
+        restore_deleted=True,
     )
     return res
 
@@ -1135,6 +1153,7 @@ def sync_local_directory_with_db(
     *,
     sync_cloud: bool = False,
     folder: Optional[Path] = None,
+    tombstone_filenames: Optional[Set[str]] = None,
 ) -> Dict[str, Any]:
     """Synchronize physical files in settings.documents_dir with SQLite.
     
@@ -1152,6 +1171,8 @@ def sync_local_directory_with_db(
     target_folder = (folder or settings.documents_dir).resolve()
     target_folder.mkdir(parents=True, exist_ok=True)
 
+    tombstones: Set[str] = set(tombstone_filenames) if tombstone_filenames else set()
+
     # Pre-Scan Connectivity Probe & Cloud Pull (if sync_cloud=True)
     if sync_cloud:
         try:
@@ -1159,7 +1180,9 @@ def sync_local_directory_with_db(
             if cloud_sync.check_connection():
                 logger.info("Supabase connectivity verified; pulling cloud state before local scan.")
                 try:
-                    cloud_sync.pull_documents_from_cloud(target_folder)
+                    res = cloud_sync.pull_documents_from_cloud(target_folder)
+                    if isinstance(res, tuple) and len(res) >= 2:
+                        tombstones.update(res[1])
                 except Exception as e:
                     logger.warning("Cloud pull failed during pre-scan: %s", e)
         except Exception as e:
@@ -1172,11 +1195,33 @@ def sync_local_directory_with_db(
 
     def _execute_sync(conn: sqlite3.Connection) -> Dict[str, Any]:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, filename, content_hash FROM documents")
+        cursor.execute("SELECT id, filename, content_hash, is_deleted FROM documents")
         existing_docs = {
-            row["filename"]: {"id": row["id"], "hash": row["content_hash"]}
+            row["filename"]: {"id": row["id"], "hash": row["content_hash"], "is_deleted": row["is_deleted"]}
             for row in cursor.fetchall()
         }
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        for ts_filename in tombstones:
+            if ts_filename in existing_docs:
+                if existing_docs[ts_filename]["is_deleted"] != 1:
+                    conn.execute(
+                        "UPDATE documents SET is_deleted = 1, deleted_at = ? WHERE id = ?",
+                        (now_iso, existing_docs[ts_filename]["id"])
+                    )
+                    existing_docs[ts_filename]["is_deleted"] = 1
+            else:
+                fmt = "markdown" if ts_filename.lower().endswith((".md", ".markdown")) else "text"
+                cursor.execute(
+                    """
+                    INSERT INTO documents (
+                        filename, title, content, format, content_hash, file_size, created_at, updated_at, is_deleted, deleted_at
+                    ) VALUES (?, ?, '', ?, '', 0, ?, ?, 1, ?)
+                    """,
+                    (ts_filename, ts_filename, fmt, now_iso, now_iso, now_iso)
+                )
+                stub_id = cursor.lastrowid
+                existing_docs[ts_filename] = {"id": stub_id, "hash": "", "is_deleted": 1}
 
         disk_filenames = set()
 
@@ -1202,6 +1247,11 @@ def sync_local_directory_with_db(
             clean_name = entry.name
             disk_filenames.add(clean_name)
             fmt = "markdown" if (lower_name.endswith(".md") or lower_name.endswith(".markdown")) else "text"
+
+            if clean_name in tombstones:
+                continue
+            if clean_name in existing_docs and existing_docs[clean_name]["is_deleted"] == 1:
+                continue
 
             try:
                 raw_bytes = Path(entry.path).read_bytes()
@@ -1234,13 +1284,15 @@ def sync_local_directory_with_db(
                     updated.append(clean_name)
 
         for db_name, db_info in existing_docs.items():
+            if db_info["is_deleted"] == 1:
+                continue
             if db_name not in disk_filenames:
                 file_on_disk = target_folder / db_name
                 if not file_on_disk.exists():
                     delete_document(doc_id=db_info["id"], db=conn, sync_cloud=False)
                     removed.append(db_name)
 
-        cursor.execute("SELECT COUNT(*) as cnt FROM documents")
+        cursor.execute("SELECT COUNT(*) as cnt FROM documents WHERE is_deleted = 0")
         total_count = cursor.fetchone()["cnt"]
 
         # Ensure any sidecars on disk are hydrated into SQLite

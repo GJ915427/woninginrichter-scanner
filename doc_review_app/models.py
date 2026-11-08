@@ -171,6 +171,8 @@ class DocumentSummary(BaseModel):
     size_bytes: int
     updated_at: str
     comment_count: int = 0
+    is_deleted: Optional[int] = 0
+    deleted_at: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -350,6 +352,8 @@ class DocumentDetail(BaseModel):
     file_size: int
     created_at: str
     updated_at: str
+    is_deleted: Optional[int] = 0
+    deleted_at: Optional[str] = None
     annotations: List[AnnotationResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
