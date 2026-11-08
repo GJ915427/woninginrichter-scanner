@@ -17,7 +17,57 @@
 ## Deel 1: Procesmodel & De 6 Ketenfasen (EasyM2M)
 
 ### 1.1 Context, Domeinafbakening & Multi-Tenant SaaS Architectuur
-* **Domein:** De context is een woninginrichter die gespecialiseerd is in 6 categorieën conform Profiel A: Categorie 1 Gordijnen & Rails, Categorie 2 Raamdecoratie (Binnenzonwering & Horren), Categorie 3 Vaste Vloerbekleding & Dekvloertechniek, Categorie 4 Trapbekleding, Traprenovatie & Trapelementen, Categorie 5 Buitenzonwering, Gevelsystemen & Rolluiken, en Categorie 6 Diensten, Montage & Montagelogistiek (zie voor de volledige hiërarchische productspecificatie het separate document *productassortiment_decompositie.md*). Losse meubelen (banken, kasten), slaapcomfort (bedden/boxsprings) en losse karpetten vallen buiten de kern van deze configuratiescope.
+* **Domein:** De context is een woninginrichter die gespecialiseerd is in 6 hoofdcategorieën conform **Assortimentsprofiel A**. Losse meubelen (banken, kasten), slaapcomfort (bedden/boxsprings) en losse karpetten vallen buiten de kern van deze configuratiescope.
+  * *Wat is Assortimentsprofiel A?* In de branche staat 'Profiel A' voor de full-service maatwerk woninginrichter en woningstoffeerder. Deze richt zich exclusief op vaste vloer-, wand- en raamafwerkingen en buitenzonwering die projectmatig worden geadviseerd, ingemeten, op maat geconfectioneerd en vakkundig gemonteerd. Dit onderscheidt de formule scherp van meubelzaken (los meubilair zoals bankstellen, eetkamertafels en kasten), beddenspeciaalzaken (slaapcomfort, ledikanten en matrassen) en doe-het-zelf bouwmarkten of tapijthallen. Alles binnen Profiel A betreft confectie- en maatwerkartikelen die nauwgezet ingemeten en vakkundig op locatie gemonteerd worden.
+  * *Integrale Taxonomieboom (De 6 Categorieën & Productgroepen):*
+
+```text
+📁 assortiment-easym2m/
+├── 📁 1-gordijnen-en-rails/
+│   ├── 📄 1.1-stoffen-confectie-en-microflex
+│   └── 📄 1.2-rails-roedes-interstil-en-motoren
+├── 📁 2-raamdecoratie-en-horren/
+│   ├── 📄 2.1-binnenzonwering-duette-plisse-jaloezie-shutters
+│   ├── 📄 2.2-boorvrije-kaders-easyclick-perfectfit-velux
+│   └── 📄 2.3-horren-inzet-plisse-pollen-petscreen
+├── 📁 3-vaste-vloerbekleding-en-dekvloertechniek/
+│   ├── 📄 3.1-harde-vloeren-pvc-parket-gietvloer
+│   ├── 📄 3.2-zachte-en-elastische-vloeren-tapijt-vinyl-marmoleum
+│   └── 📄 3.3-ondervloeren-cm-vochtmeting-coral-inloopzones
+├── 📁 4-trapbekleding-en-traprenovatie/
+│   ├── 📄 4.1-traprenovatie-pvc-overzettreden-synchroon
+│   ├── 📄 4.2-open-trappen-contratreden-en-trapstoffering
+│   └── 📄 4.3-trapleuningen-met-led-en-balustrades
+├── 📁 5-buitenzonwering-en-gevelsystemen/
+│   ├── 📄 5.1-rolluiken-voorzet-inbouw-opbouw-solar
+│   ├── 📄 5.2-verticale-gevelscreens-windklasse-6
+│   └── 📄 5.3-knikarmschermen-markiezen-lamellendaken
+└── 📁 6-diensten-montage-en-logistiek/
+    ├── 📄 6.1-gordijnconfectie-en-gordijnrailmontage-cat-1
+    ├── 📄 6.2-binnenzonwering-en-horrenmontage-cat-2
+    ├── 📄 6.3-vloeren-legservice-en-randafwerking-cat-3
+    ├── 📄 6.4-trapbekleding-en-traprenovatie-montage-cat-4
+    ├── 📄 6.5-buitenzonwering-en-gevelmontage-cat-5
+    ├── 📄 6.6-inmeting-bouwkundige-schouw-en-deurinspectie
+    ├── 📄 6.7-sloop-ondergrondsanering-en-voorbewerking
+    ├── 📄 6.8-montagelogistiek-verticaal-transport-en-afvalbeheer
+    └── 📄 6.9-service-garantie-en-nazorg
+```
+
+  *Hiërarchische Assortimentsstructuur:*
+    1. **Categorie 1: Gordijnen & Rails**
+       * *Productgroepen:* Baanstoffen (met patroonrapport), Kamerhoge stoffen (naadloos), Inbetweens & Vitrages, Rails & Roedes (inclusief bochten/buigradii en trekstangen), Wave-gordijnsystemen (Wave 6 cm / 8 cm).
+    2. **Categorie 2: Raamdecoratie (Binnenzonwering & Horren)**
+       * *Productgroepen:* Horizontale & Verticale Jaloezieën (Hout, Bamboe, Aluminium, Polywood), Rolgordijnen & Duo-rolgordijnen, Plissé & Duette shades, Vouwgordijnen, Vaste en inklemmende Horren (Inzethorren, Plissé hordeuren).
+    3. **Categorie 3: Vaste Vloerbekleding & Dekvloertechniek**
+       * *Productgroepen:* Massief & Meerlaags Parket (Eiken toplaag 3–6 mm), Dryback PVC (verlijmd) & Click-PVC, Marmoleum & Linoleum, Vast Tapijt & Naaldvilt, PU-Gietvloeren, Egaline & Dekvloerprimers, Schoonloopsystemen (Forbo Coral, Emco) en Scratch no More vloerbescherming.
+    4. **Categorie 4: Trapbekleding, Traprenovatie & Trapelementen**
+       * *Productgroepen:* Traditionele Trapstoffering (Tapijt op trap), Geweven Traplopers (Sisal/Wol) met roedes en bandering, Overzettreden (Cortex composiet, CPL/HPL) met stootborden en trapneusprofielen, Trapwangen & Balustrades, Geïntegreerde LED-trapverlichting met sensoren.
+    5. **Categorie 5: Buitenzonwering, Gevelsystemen & Rolluiken**
+       * *Productgroepen (V1 MVP):* Knikarmschermen (Terrasschermen), Ritsscreens (Zipscreens), Uitvalschermen, Markiezen, Lamellendaken & Vrijstaande overkappingen (Brustor B200), Glazen schuifwanden (10 mm ESG) en Terrasverwarming (Solamagic, Bromic).
+       * *Productgroepen (V2 Backlog):* Rolluiken (Voorzet-, Opbouw- en Inbouwrolluiken; buiten V1 MVP geplaatst conform verkoopdata).
+    6. **Categorie 6: Diensten, Montage & Montagelogistiek**
+       * *Productgroepen:* 6.1 Gordijnconfectie & Gordijnrailmontage (Cat 1), 6.2 Binnenzonwering- & Horrenmontage (Cat 2), 6.3 Vloeren Legservice & Randafwerking (Cat 3), 6.4 Trapbekleding & Traprenovatie Montage (Cat 4), 6.5 Buitenzonwering & Gevelmontage (Cat 5), 6.6 Inmeting, Bouwkundige Schouw & Technisch Advies, 6.7 Sloop, Ondergrondsanering & Voorbewerking, 6.8 Montagelogistiek, Verticaal Transport & Afvalbeheer, 6.9 Service, Garantie & Nazorg.
   * *V1 MVP Scope Buitenzonwering (Rolluiken in V2 Backlog):* Conform de historische verkoopdata van GSW (de afgelopen 2 jaar nauwelijks verkocht) behoren **rolluiken** in V1 expliciet **niet tot de MVP scope**. Categorie 5 richt zich in de actieve V1 MVP exclusief op knikarmschermen, ritsscreens, markiezen en uitvalschermen. Rolluiken zijn integraal verplaatst naar de V2 Backlog.
 * **Doelstelling van het Portaal:** Het realiseren van een integraal digitaal portaal dat het complete ketenproces ondersteunt — vanaf het eerste verkoopadvies en inmeten tot en met de montage en nazorg/service.
 * **Conditionele Checklisten & Verplichte Acties als Kernwaarde:** Het fundament van EasyM2M wordt gevormd door contextuele, dynamische checklisten en verplichte inspectie- en montage-acties. Zij borgen dat kritieke bouwkundige condities (ondergronden, leidingwerk, kindveiligheid, obstakels) direct aan de bron worden gevalideerd, waardoor overdrachtsfouten worden geëlimineerd.
@@ -536,6 +586,17 @@ Om faalkosten uit te bannen en de inmeter op de ladder niet te overspoelen met s
 
 #### 3.2.1 Productassortiment, Merken & Configuratoren
 * **Producten:** Overgordijnen, Vitrage, Inbetweens.
+* **Textielsoorten, Vezelsamenstelling & Weefsels:**
+  * *Synthetische garens:* 100% PES (polyester) en **Trevira CS** (permanent vlamvertragend conform DIN 4102 B1 / NEN-EN 13773 klasse 1 voor projectinrichting en veeleisende particuliere toepassingen; vormvast en krimpvrij).
+  * *Natuurlijke vezels:* Linnen, katoen en wol (luxe valling en natuurlijke structuur; hygroscopisch waardoor ademend en vochtregulerend).
+  * *Weefselstructuren:* **Chenille** (zachte, volumineuze poolgarens met hoge slijtweerstand en rijke textuur) en velours (gesneden poolweefsel met intense kleurdiepte en hoge akoestische demping).
+* **Voeringen, Tussenvoeringen & Akoestiek:**
+  * *Interlining (Tussenvoering):* Geruwde katoenen molton (*interlining*), ingenaaid tussen de hoofd- en voeringstof. Biedt essentiële bescherming tegen ultraviolette UV-straling (vooral bij natuurlijke weefsels zoals zijde en linnen ter voorkoming van vezelveroudering en verkleuring) en geeft het gordijn een weelderig, vol en zwaar volume.
+  * *Akoestische isolatie:* **Akoestische molton** met een gewogen geluidsabsorptiecoëfficiënt van **$\alpha_w \ge 0,65$** (alpha_w) voor effectieve nagalmreductie in moderne woningen met harde vloeren en grote glaspartijen.
+  * *Thermische & Verduisterende voeringen:* **3-pass blackout** voering (lichtdichtheid 100%, opgebouwd uit een witte acryl-ruglaag, een zwarte blokkeerlaag en een witte tussenlaag ter bescherming van de stof) en thermische isolatielagen voor energiebesparing bij enkel glas of koude gevels.
+* **Verzwarings- & Afwerkingsmaterialen:**
+  * *Loodveter:* Standaard ingenaaid in de onderzoom bij vitrages en soepel vallende inbetweens: gewichtsklasse **25–50 g/m** (loodvrij polymeer-zinkcomposiet conform Europese **RoHS**- en **REACH**-milieurichtlijnen).
+  * *Verzwaringsloodjes:* Rechthoekige loodjes van 15–30g in de hoeken van de zijzomen om opkrullen van hoeken te voorkomen.
 * **Rails & Roedes:** Losse rails, roedes, rails met hoeken/bochten (bijv. links 20 cm, rechts 30 cm retourbocht).  
   * *Merken & Configuratoren:* Hoogwaardige designrails en roedes (*Interstil*) beschikken over een eigen **Interstil Configurator** voor orderinvoer en technische verificatie. Complexe bogen (zoals erkers > 70% ronding) worden direct door Interstil zelf op locatie ingemeten (zie 3.2.3).
 * **Merken, Confectie & Configurators:**  
@@ -548,6 +609,7 @@ Om faalkosten uit te bannen en de inmeter op de ladder niet te overspoelen met s
 * **Plooitypes & Confectievormen:**
   * *Enkele Plooi:* Bescheiden stofverbruik (1,8× tot 2,0× de railbreedte).
   * *Dubbele Plooi (Vlinderplooi):* Standaard luxe valling (2,2× tot 2,5× de railbreedte).
+  * *Driedubbele Plooi (Trioplooi):* Rijke, diepe plooivorming met een royale stofbehoefte (factor **2,7x–3,0x** de railbreedte). Dé aanbevolen confectiestandaard voor transparante vitrages en ragfijne inbetweens om voldoende body en optimale privacy te waarborgen.
   * *Retourplooi (Enkele of Dubbele Retourplooi):* Afwisselend naar voren en achteren geplooide confectie. Bij montage strak onder het plafond geldt: **hoofdje = 0 mm**, zodat het gordijn niet tegen het plafond aanloopt.
   * *Wave-Plooi (Wave 6 cm & Wave 8 cm):* Vaste runner-afstand via koord, hangt altijd strak en gelijkmatig onder de rail (hangwijze verplicht onder de rail):
     * *60 mm runnergordel:* Resulteert in een totale golfdiepte van **12 cm** (**6 cm naar voren en 6 cm naar achteren**). Afstand tot raam of achterwand: **exact 8 cm tot het hart van de rail** (vaste regel: 2 cm vrije speling vanaf het glas/obstakel + 6 cm halve golfdiepte). Minimaal 10 cm koofdiepte voor een enkele rail.
@@ -565,7 +627,25 @@ Om faalkosten uit te bannen en de inmeter op de ladder niet te overspoelen met s
   * *Kamerhoge stoffen (280 - 320 cm, naadloos):* Confectie is naadloos over de gehele breedte.
   * *Baanstof / breedtestof (140 - 150 cm):* Banen moeten aan elkaar gestikt worden (verticale naden en patroonrapport).
     * Stofbehoefte = Aantal banen × (Gordijnhoogte + Zoomtoeslag + Rapportverspringing).
-    * *Rekenvoorbeeld patroonrapport:* Bij een patroonrapport van 64 cm en een snijhoogte van 270 cm wordt de snijmaat naar boven afgerond op een veelvoud van 64 cm (5 × 64 = 320 cm) om perfecte horizontale patroonaansluiting over de gehele breedte te garanderen.
+    * *Wiskundige Patroonrapport- & Snijverliesberekening (Dual-Layer Specificatie):*  
+      **Laag 1: In gewone mensentaal voor adviseurs, inmeters en atelier:**  
+      Bij gordijnstoffen met een herhalend verticaal patroon (patroonrapport) moeten alle banen aan elkaar gestikt worden zónder dat het patroon horizontaal verspringt. Om ervoor te zorgen dat de bloemen, strepen of figuren op exact dezelfde hoogte doorlopen, kan niet zomaar op de strakke gordijnmaat worden geknipt:  
+      * *Stap 1 (Zoomtoeslag optellen):* Neem de gewenste afgewerkte confectiehoogte van het gordijn en tel daar de zomen bij op: standaard 10 cm voor de hoofdzoom (bovenzijde) en 20 cm voor de dubbele onderzoom (onderzijde). Dit geeft de minimaal benodigde stofhoogte per baan (bijv. 250 cm gordijn + 10 cm + 20 cm = 280 cm stof).  
+      * *Stap 2 (Hele patronen tellen):* Deel deze benodigde stofhoogte door de hoogte van één patroonrapport (bijv. een patroon dat zich elke 64 cm herhaalt). Deel 280 cm door 64 cm = 4,375 patronen. Omdat een patroon nooit half geknipt mag worden, ronden we dit **altijd af naar boven** op een heel aantal patronen: 5 hele patronen.  
+      * *Stap 3 (Bruto knipmaat bepalen):* Vermenigvuldig het aantal hele patronen met de patroonhoogte: 5 patronen × 64 cm = 320 cm. Dit is de werkelijke maat waarop de stof van de rol wordt afgeknipt (de bruto knipmaat).  
+      * *Stap 4 (Snijverlies inzichtelijk maken):* Het verschil tussen wat we afknippen (320 cm) en wat we feitelijk nodig hebben inclusief zomen (280 cm) is het snijverlies: 320 cm - 280 cm = 40 cm afval per baan. Dit verlies is technisch noodzakelijk om het patroon over de gehele gordijnbreedte perfect horizontaal te laten aansluiten.  
+
+      **Laag 2: Formele wiskundige specificatie voor softwareontwikkelaars & ERP-calculatie:**  
+      Bij baanstoffen met een verticaal patroonrapport ($V_r$ in mm) berekent het algoritme de exacte knipmaat en het snijverlies via onderstaande discrete functies:  
+      1. *Bruto benodigde kniphoogte vóór rapport:*  
+         $$K = \text{Confectiehoogte} + 100\,\text{mm (hoofdzoom)} + 200\,\text{mm (onderzoom)}$$  
+      2. *Aantal benodigde rapporten per baan (afronding naar boven):*  
+         $$N = \left\lceil \frac{K}{V_r} \right\rceil$$  
+      3. *Bruto knipmaat per baan:*  
+         $$\text{Bruto knipmaat} = N \times V_r$$  
+      4. *Snijverlies per baan:*  
+         $$\text{Snijverlies} = (N \times V_r) - K$$  
+    * *Rekenvoorbeeld patroonrapport:* Bij een confectiehoogte van 250 cm ($K = 250 + 10 + 20 = 280\,\text{cm}$) en een patroonrapport van 64 cm berekent het systeem: $N = \lceil 280 / 64 \rceil = 5$ rapporten. De bruto knipmaat bedraagt $5 \times 64 = 320\,\text{cm}$, met een berekend snijverlies van $320 - 280 = 40\,\text{cm}$ per baan om een perfecte horizontale patroonaansluiting over de gehele breedte te garanderen.
 * **Confectiestandaard Overlap Middennaad (Stelgordijnen):**  
   Bij stelgordijnen (tweeledig sluitend vanuit het midden naar weerszijden) past het confectie-atelier standaard een overlap van **10 cm (100 mm)** toe op de stofbreedte. Dit waarborgt dat de gordijndelen in gesloten toestand overlappend over elkaar heen vallen, waardoor lichtkieren in het midden volledig worden geëlimineerd. Dit is een vast confectievoorschrift en géén checkvraag voor de inmeter.
 * **Keuze Valgedrag Gordijn (Vrijhangend vs. Slepend):**  
@@ -587,11 +667,20 @@ Om faalkosten uit te bannen en de inmeter op de ladder niet te overspoelen met s
   De berekende waarde wordt door het systeem automatisch afgerond naar de dichtstbijzijnde standaard leverbare stangmaat: **100 cm, 125 cm of 150 cm**. Hierdoor hangt het handvat van de trekstang ergonomisch perfect op ca. 140–150 cm boven het vloerpeil.
 * **Meerdelige Rails & Tussenverbinders:**  
   Bij raillengtes > 6,00 m of bij moeilijke transportroutes (zoals een smal trappenhuis) wordt de rail opgedeeld in meerdere delen met interne verbindingsstukken. De positie van de tussenverbinder (links, rechts of in het midden) wordt **altijd verplicht in overleg met de klant** bepaald, schriftelijk vastgelegd op de inmeetbon en door de klant geaccordeerd om esthetische discussies achteraf uit te sluiten.
-* **Buigradii Rekenvoorbeeld (Huismerk Rail R=10 vs. Standaard R=15 & R=20):**  
-  Bij railbochten (in erkers of bij retourbochten naar de muur) bepaalt de buigradius de exacte zaagmaat en een soepele geleiding van de glijders:
-  * *Huismerk GiW rail (Radius R = 10 cm):* U-maten: 25 cm wandlinks + 170 cm breedte + 25 cm wandrechts (som = 220 cm) → Correctie 2 bochten met R = 10 cm: 2 × [2R - (π × R)/2] = 2 × [20 - 15,7] = 8,6 cm reductie → **Werkelijke zaaglengte profiel = 211,4 cm**.
-  * *Designrail extern (Radius R = 20 cm):* Zelfde U-maten (som = 220 cm) → Correctie 2 bochten met R = 20 cm: 2 × [40 - 31,4] = 17,2 cm reductie → **Werkelijke zaaglengte profiel = 202,8 cm**.
-  * *Standaard fabrieksbocht:* Radius R = 15 cm (bochtontwikkeling ca. 23,6 cm).
+* **Buigradii Rekenregels & Zaaglengtereductie (Dual-Layer Specificatie):**  
+  **Laag 1: In gewone mensentaal voor inmeters en monteurs:**  
+  Wanneer een gordijnrail in een erker of als retourbocht om de hoek loopt, snijdt de gebogen rail de haakse hoek af (een bocht is immers korter dan twee rechte hoeken tegen elkaar). Als een monteur de rail zou afzagen op de strakke optelsom van de wandmaten, wordt de rail te lang en past deze niet meer tussen de muren!  
+  * *De vuistregel voor de zaaglengte:* Elke 90-graden bocht verkort de benodigde profiellengte ten opzichte van de strakke wandmaten:  
+    - Bij een **kleine buigbocht (straal 10 cm, GiW huismerk):** scheelt elke bocht exact **4,3 cm** (afgerond van 4,29 cm). Heeft een U-rail twee bochten van 10 cm, dan trekken we in totaal $2 \times 4{,}3 = 8{,}6\text{ cm}$ af van de totale wandmaat. Bij wandmaten van 25 cm links + 170 cm midden + 25 cm rechts (samen 220 cm) is de werkelijke zaaglengte van de rail dus $220 - 8{,}6 = \mathbf{211{,}4\text{ cm}}$.  
+    - Bij een **grote designbocht (straal 20 cm):** scheelt elke bocht maar liefst **8,6 cm** (afgerond van 8,58 cm). Twee bochten van 20 cm geven een totale reductie van $2 \times 8{,}6 = 17{,}2\text{ cm}$. De werkelijke zaaglengte wordt dan $220 - 17{,}2 = \mathbf{202{,}8\text{ cm}}$.  
+    - Bij een **standaard fabrieksbocht (straal 15 cm):** scheelt elke bocht **6,4 cm** ($2 \times 6{,}4 = 12{,}8\text{ cm}$ reductie op twee bochten).  
+
+  **Laag 2: Formele wiskundige specificatie voor software & zaagoptimalisatie:**  
+  De geometrische verkorting per 90°-bocht bedraagt het verschil tussen de omgeschreven rechte hoek ($2R$) en het kwart-cirkelsegment $\frac{\pi \times R}{2}$:  
+  $$\text{Reductie per 90°-bocht} = 2R - \frac{\pi \times R}{2} = R \times \left(2 - \frac{\pi}{2}\right) \approx R \times 0{,}4292$$  
+  * *Huismerk GiW rail (Radius $R = 10\text{ cm}$):* U-maten: 25 cm wandlinks + 170 cm breedte + 25 cm wandrechts (som = 220 cm) $\to$ Correctie 2 bochten met $R = 10\text{ cm}$: $2 \times [2R - (\pi \times R)/2] = 2 \times [20 - 15{,}708] = 8{,}58\text{ cm} \approx 8{,}6\text{ cm}$ reductie $\to$ **Werkelijke zaaglengte profiel = 211,4 cm**.  
+  * *Designrail extern (Radius $R = 20\text{ cm}$):* Zelfde U-maten (som = 220 cm) $\to$ Correctie 2 bochten met $R = 20\text{ cm}$: $2 \times [40 - 31{,}416] = 17{,}17\text{ cm} \approx 17{,}2\text{ cm}$ reductie $\to$ **Werkelijke zaaglengte profiel = 202,8 cm**.  
+  * *Standaard fabrieksbocht:* Radius $R = 15\text{ cm}$ (bochtontwikkeling $\frac{\pi \times 15}{2} \approx 23{,}6\text{ cm}$, reductie per bocht $30 - 23{,}56 = 6{,}44\text{ cm}$).
 * **Inmeetregel Hergebruik Bestaande Rails:**  
   Uitsluitend wanneer er een bestaande situatie is waarbij de klant een bestaande gordijnrail of roede **behoudt** en er uitsluitend nieuwe gordijnen op deze bestaande rail besteld worden, voert de inmeter direct de **blijvende maat** van de rail/roede in (en vinkt in de UI expliciet aan: `[x] Bestaande rail behouden - maat is blijvende railmaat`). In alle andere gevallen geldt onverkort: **meten is dagmaat invoeren**.
 * **Bochten, Erkers & Ronde Systemen:**  
@@ -700,6 +789,18 @@ De inmeetchecklist voor gordijnen en rails is geoptimaliseerd voor directe verwe
   * *Merken & Fabrikanten:* Hunter Douglas (*Luxaflex, Sunway*), **Toppoint** (volledig geïntegreerd voor raamdecoratie en insectenwering).  
   * *Private label / Huismerk:* Dealer-eigen huismerken (zoals *Groter in Wonen*, in het ERP en op inkoopbonnen vastgelegd onder de merkcode **'GiW'**, o.a. geproduceerd door *Zonnelux* als private label).  
   * *Productgroepen:* Rolgordijnen (standaard voorzien van montageprofiel t.b.v. snelle montage en klantvriendelijke afklikbaarheid bij schilderen), Duettes / plissés, Silhouette (kantelbare stoffen lamellen tussen transparante sluiers), Duo-rolgordijnen / Twist (afwisselend dichte en transparante banen), Jaloezieën (horizontaal hout/alu, verticaal textiel, pvc en aluminium zoals Luminette/Allure), Vouwgordijnen, Paneelgordijnen, en **Insectenwering / Horren** (plisséhordeuren, rolhorren, inzethorren en vaste hordeuren).
+* **Houten Jaloezieën & Houtsoorten:**  
+  * *Abachi:* Zeer lichtgewicht tropisch hardhout met een rustige nerfstructuur. Dankzij het lage soortelijk gewicht uitermate geschikt voor brede raampartijen (tot 3000 mm breed) zonder overbelasting van het optrekmechanisme.  
+  * *Basswood (Amerikaans Lindehout):* Dé kwaliteitsstandaard voor houten lamellen (50 mm en 65 mm). Homogeen van structuur, vormvast, ongevoelig voor temperatuurschommelingen en uitstekend dekkend te lakken of beitsen.  
+  * *Bamboe:* Ecologisch verantwoord composiet van verlijmde bamboestrips. Dunne, elegante lamelopbouw met een karakteristieke natuurlijke tekening en hoge taaiheid.  
+* **Shutters & Luikconstructies:**  
+  * *Basswood Shutters:* Hoogwaardige binnenluiken met verstelbare lamellen (63 mm, 76 mm, 89 mm of 114 mm) in massief Basswood voor woon- en slaapkamers.  
+  * *Polywood Shutters:* Vochtbestendige kunststof composiet shutters met een massieve aluminium kern tegen kromtrekken. Dé dwingende keuze voor vochtige ruimtes (badkamers, wellness en keukens).  
+  * *Montagekaders:* Geleverd in L-kader (in de dag) of Z-kader (op de dag overlappend over de dagkant).  
+* **Montagesystemen zonder Boren:**  
+  * *EasyClick, FrameFix, Splendid Pliss & Louvolite Perfect Fit:* Slanke aluminium montageframes die magnetisch of met klemsteunen tussen de glaslatten van kunststof of aluminium draaikiepramen worden bevestigd. Volledig schadevrij zonder boren of schroeven, waardoor fabrieksgaranties op kozijnen behouden blijven.  
+* **Trekstang- & Bedieningsformule:**  
+  * Bij handbediende raamdecoratie en serresystemen met trekstang berekent de software automatisch de ideale stanglengte: `Trekstanglengte = Montagehoogte - 1400 mm`.
 * **Duette® Marktaandeel & Onderhoudseigenschappen:**  
   Duettes / honingraatplissés vertegenwoordigen circa **80% van de raamdecoratieverkopen** in de woninginrichtingspraktijk.  
   * *Veelzijdigheid:* Toepasbaar in vrijwel elke bouwkundige situatie: rechthoekig, trapezium, driehoek, rond/boog, serre-/plafondmontage, vrijhangend, ingespannen met spandraden, direct op het glas (TruFit/klemsteunen), Top-Down / Bottom-Up en elektrisch.  
@@ -784,12 +885,12 @@ De inmeetchecklist voor gordijnen en rails is geoptimaliseerd voor directe verwe
     * *Standaard:* In de dag (in kozijn) of op de dag (op muur/kozijn).
     * *Boorvrije montagesystemen:* TruFit (plakprofielen direct op het glas met handgreepbediening), Glide (smalle zijgeleiders), FrameFix (volledig magnetisch 4-zijdig frame dat zonder boren naadloos op kunststof of aluminium kozijnen hecht), Klem- en plakframes (Perfect Fit, SmartFit en klemsteunen voor draaikiepramen).
 
-#### 3.3.3 Bedieningssystemen, Kindveiligheid (EN 13120) & Arbo-Veiligheid (Hoge Ramen)
+#### 3.3.3 Bedieningssystemen, Kindveiligheid (NEN-EN 13120) & Arbo-Veiligheid (Hoge Ramen)
 * **Bedieningsvormen & Aandrijving:**
   * *Handmatig:* Ketting, koord, handgreepbediening (LiteRise), SmartCord (veersysteem met intrekbaar enkelvoudig koord op constante vaste lengte, pompende slagen voor optrekken, 100% Child Safe), eindloze ketting of koord voorzien van kettingspanner of breekbare koordbreker.
   * *Elektrisch & Smart Home:* AE10 (1 motor) en AE20 (2 motoren voor onafhankelijke Top-Down / Bottom-Up aansturing), PowerView, Somfy.
   * *Accu & USB-C:* Oplaadbare accumotoren (geen vaste 230V bekabeling noodzakelijk).
-* **Kindveiligheid & Child Safety (EN 13120) & Dwingende Montagehoogte-Gating:**  
+* **Kindveiligheid & Child Safety (NEN-EN 13120) & Dwingende Montagehoogte-Gating:**  
   Bij koord- en kettingbediening moet het bedieningskoord minimaal **150 cm boven het vloerniveau** hangen, verplicht voorzien zijn van een breekbare kettingslot of vastgezette veiligheidskoordhouder/kettingspanner.  
   * *Strikte Portaal-Gating Montagehoogte:* Om een definitief einde te maken aan de historische praktijk waarbij de montagehoogte structureel niet werd ingevuld en standaard op 2,60 m werd aangenomen (met te korte kettingen, nabestellingen en dubbele monteurritten tot gevolg), geldt de **Montagehoogte als verplicht, blokkerend numeriek invoerveld** voor alle koord- en kettingbediende producten.  
   * *Formule Kettinglengte:* Het portaal berekent de maximale kettinglengte automatisch: `Kettinglengte = Montagehoogte - 1500 mm`.  
@@ -806,6 +907,10 @@ De inmeetchecklist voor gordijnen en rails is geoptimaliseerd voor directe verwe
 * **Insectenwering (Horren) als Functionele Productgroep:**  
   Insectenwering/horren vallen binnen het domeinmodel volwaardig onder **Categorie 2 (Raamdecoratie / Zonwering)**. In tegenstelling tot decoratieve raambekleding is een hor een zuiver effectief en functioneel werend product: insecten buiten houden met een maximale transparantie van het gaas en minimale visuele verstoring van het kozijnaanzicht.
   * **Toonaangevende Merken in het Portaal:** **Luxaflex** en **Toppoint** (volledig geïntegreerd met typecodes, stalen en profielkleuren).
+  * **Gespecialiseerde Gaassoorten:**  
+    * *Poll-tex Gaas:* Elektrostatisch geladen gaas dat pollen en allergenen actief aantrekt en tot meer dan 90% van de pollen uit de buitenlucht tegenhoudt (gecertificeerd door ECARF). Dé medische keuze voor bewoners met ernstige pollenallergieën en hooikoorts.  
+    * *Petscreen (Dieren- & Kattenklauwbestendig Gaas):* Extra zwaar geweven vinyl-polyestergaas dat tot 7 keer sterker is dan traditioneel glasvezelgaas. Bestand tegen de scherpe nagels en klauwen van honden en katten.  
+    * *ClearView Gaas:* Ultra-fijndradig antracietkleurig gaas dat een superieure luchtstroom en een nagenoeg onzichtbare doorkijk van binnen naar buiten garandeert met behoud van volledige insectenwering.  
   * **Producttypen binnen de Productgroep Insectenwering:**
     * **Plisséhordeuren:** Bij uitstek geschikt voor schuifpuien, openslaande deuren en balkondeuren. Voorzien van gevouwen harmonicagaas en een ultra-lage kunststof ondergeleider (slechts 3 tot 5 mm hoog) voor een drempelloze, rolstoelvriendelijke doorloop. Dankzij de flexibele kettingconstructie en speling in de bovenbak is dit systeem zeer vergevingsgezind voor kleine bouwkundige maatafwijkingen en lichte scheefstand.
     * **Oprolbare Hordeuren (Nultolerantie & Verplichte Waterpascontrole):** De oprolbare hordeur loopt in een strakke cassette met vaste zij- en ondergeleiders. In tegenstelling tot plisséhordeuren vereist dit product **absolute nultolerantie**: indien de vloer (parket, tegels) niet 100% waterpas ligt (zelfs 2 mm verloop) of de dagkant scheef gestukadoord is (ruitvorming), gaat het strak gespannen gaas blazen en loopt het mechanisme vast (€ 800,- faalkosten). Bij keuze voor een oprolbare hordeur schrijft het portaal dwingend een waterpasmeting op de vloer én een kruismeting (D1 vs D2) voor.
@@ -965,11 +1070,20 @@ De inmeetchecklist voor raamdecoratie en binnenzonwering volgt een dynamische co
   * *Rolbreedtes Vinyl:* Standaard 4 meter breed (optioneel 2 of 3 meter).  
   * *Tapijt op Vloerverwarming (Advies Volvlakkig Verlijmen):* Bij aanwezigheid van vloerverwarming is het traditioneel spannen van tapijt op rubber ondertapijt met spanlatten **volledig uitgesloten**; de ingesloten luchtlaag en de dikte van het ondertapijt isoleren te sterk, waardoor het warmterendement verloren gaat. In situaties met vloerverwarming adviseert het portaal dat het tapijt **volvlakkig verlijmd (geplakt)** moet worden met een geschikte emissiearme dispersielijm met een lage warmtedoorgangsweerstand (`R <= 0,15 m²K/W`).  
   * *Trapbekleding met Ondertapijt (Vast All-in Tarief per Trede):* Bij het bekleden van trappen met tapijt op rubber ondertapijt (zoals Black Pearl) wordt het ondertapijt niet per strekkende meter van een volle rol berekend (wat bij discountformules leidde tot verplichte afname van een complete rol van 7,30 meter voor een trapje van slechts 3 meter). De woninginrichter hanteert een **vast all-in voorraad-tarief per trede** (inclusief benodigd rubber ondertapijt, spuitlijm en arbeidsloon). Omdat ondertapijt en lijm voorraadartikelen zijn, betaalt de klant exact voor het aantal treden zonder restmateriaalverspilling.
-* **Marmoleum:**  
-  * *Vaste rolbreedte:* 2 meter breed.
-* **Harde Vloeren (PVC & Laminaat):**  
-  * *Uitvoeringsvormen:* Dryback (plak-PVC), Click-PVC, Laminaat.
-  * *Legpatronen:* Rechte plank, Visgraat (90°), Hongaarse punt (sergeantstrepen, 45° of 60°), Weense punt (72°), Tegel (met of zonder voegstrips/accentbiezen), Bies & Band afwerking.
+* **Marmoleum & Linoleum:**  
+  * *Vaste rolbreedte:* 2 meter breed. Natuurproduct op basis van lijnolie, houtmeel en jute rug.  
+  * *Thermisch Gelaste Naden:* Bij projectmatige en intensieve particuliere toepassingen worden de naden naadloos afgewerkt met thermisch gelaste naden met bijpassend smeltlasdraad voor 100% vloeistofdichte hygiëne.
+* **Harde Vloeren (PVC, Laminaat & Parket):**  
+  * *Uitvoeringsvormen:* Dryback (plak-PVC), Click-PVC, Laminaat, en **Lamelparket / Multiplank**.  
+  * *Lamelparket & Multiplank:* Meerlaags opgebouwde houten vloerdelen met een watervast verlijmde multiplex of berken drager en een massief eiken toplaag van 3–6 mm. Hoge dimensionale stabiliteit en uitstekend geschikt voor plaatsing op vloerverwarming conform strikte stookprotocolrichtlijnen.  
+  * *Legpatronen:* Rechte plank, Visgraat (90°), Hongaarse punt (sergeantstrepen, 45° of 60°), Weense punt (72°), Tegel (met of zonder voegstrips/accentbiezen), Bies & Band afwerking.  
+  * *Dilatatienormering:* Bij zwevende dekvloeren en kliksystemen is bij aaneengesloten vloeroppervlakken van meer dan 40 m² of lengtes van meer dan 8 meter een bouwkundige dilatatievoeg met overgangsprofiel verplicht om krimp- en uitzetspanningen op te vangen.
+* **Minerale & PU-Gietvloeren:**  
+  * Polyurethaan (PU) gietvloeren en minerale cementgebonden gietvloeren (*systemen van o.a. Arturo, Cemart*). Naadloze, vloeistofdichte en elastische afwerkvloeren die een specifieke voorbewerking (schuren, schraaplaag en topsealer) vereisen.
+* **Schoonloop- & Entreesystemen:**  
+  * **Forbo Coral** en **Emco** hoogwaardige schoonloop- en droogloopzones. Bij nieuwbouw en verbouw bij voorkeur geplaatst in een verzonken matput met verzonken aluminium putrandprofielen voor een drempelloze, vlakke overgang.
+* **Kraspreventie & Meubelbescherming:**  
+  * **Scratch no More** viltglijders met speciaal droogloopvezelmateriaal voor stoel- en tafelpoten, die krassen door zand en vuil op harde vloeren (PVC, parket, gietvloeren) effectief voorkomen.
 
 #### 3.4.2 Ondervloeren, Egalisatie & Voorbehandeling (Ondergrond, Vocht & Vlakheid)
 * **Ondervloeren & Voorbehandeling:**  
@@ -1102,6 +1216,10 @@ De inmeetchecklist voor vloerbekleding structureert alle bouwkundige en technisc
     * *Verlijming:* Rechtstreeks volvlaks verlijmd op de bestaande trapconstructie met extreem sterke high-tack polymeermontagelijm (*mammoetlijm*).  
     * *LED-Verlichting & Bewegingssensoren:* Optionele geïntegreerde LED-strips in trede of wang met afstandsbediening én automatische bewegingssensoren bij begin (onder) en einde (boven) van de trap, waardoor de verlichting automatisch inschakelt bij betreden.  
   * *Accessoires:* Trapneusprofielen, antislipstrips.
+* **Trapwangen, Balustrades & Trapleuningen:**  
+  * *Trapwangen:* Wangen bekleden in bijpassend CPL/vinyl of contrasterend geschilderd/gecoat (RAL 9010 of RAL 9005).  
+  * *Balustrades & Spijlen:* Traphekken en balustrades met moderne ranke stalen spijlen (poedercoating RAL 9005 matzwart fijnstructuur).  
+  * *Trapleuningen met LED-verlichting:* Ronde of rechthoekige trapleuningen in massief eiken of zwart staal met optioneel geïntegreerde diffuse LED-lijn aan de onderzijde van de leuning.
 * **Vakdiscipline:** Vereist een gespecialiseerde en schaarse vakdiscipline stofferen/traprenovatie (slechts 1-2 monteurs per vestiging).
 
 ---
@@ -1118,29 +1236,46 @@ De inmeetchecklist voor vloerbekleding structureert alle bouwkundige en technisc
 * **Wel-trede Portaalvlakheid:**  
   De bovenste trede (de wel-trede) sluit direct aan op de vloer van de overloop. De inmeter controleert de hoogtegelijkheid tussen wel-trede en afwerkvloer; hoogteverschil > 3 mm vereist een overgangsprofiel of egalisatie van het portaal.
 
-#### 3.5.3 Rekenregels, Bill-of-Materials (BOM) & Kwantificering Trapbekleding
+#### 3.5.3 Rekenregels, Bill-of-Materials (BOM) & Kwantificering Trapbekleding (Dual-Layer Specificatie)
 
 ##### A. Traplopers (Sisal / Wol / Flatweave)
-* **Breedte loper:** Standaard 60, 70, 80, 90 of 100 cm.
-* **Vrije trapwang-marge:** $(\text{trapbreedte} - \text{loperbreedte}) / 2$, aan beide zijden identiek gecentreerd.
-* **Lengte loper:**
-  $$L_{\text{lopertotaal}} = \sum_{i=1}^{N_{\text{treden}}} (\text{aantrede}_i + \text{optrede}_i + \text{neusoversteek}_i) + (N_{\text{treden}} \times 2\,\text{cm extra voor plooi}) + 30\,\text{cm reserve}$$
-* **Afwerking randen:** Katoenen of linnen bandering (standaard 5 cm of 8 cm breed, blind gestikt of zichtbaar doorgestikt) over de volledige dubbele lengte:
-  $$\text{lengte\_bandering} = 2 \times L_{\text{lopertotaal}}\,\text{meter}$$
-* **Bevestigingsmaterialen & BOM Traploper:**
-  - Traploperroedes: 1 roede per trede (metaal: messing, chroom, nikkel, matzwart).
-  - Roedeklemmen / oogjes: $2 \times N_{\text{treden}}$ stuks (links en rechts van de loper).
-  - Ondertapijt stroken (rubber/vilt): 1 strook per aantrede/optrede ter geluiddemping en slijtagepreventie.
+**Laag 1: In gewone mensentaal voor adviseurs en trapstoffeerders:**  
+Een traploper is een gecentreerde tapijtloper op een houten of geschilderde trap. Om de exacte loperlengte en bandering te bepalen, hanteren we een helder stappenplan:  
+* *Stap 1 (Trapmaten optellen):* Meet voor elke trede het horizontale loopvlak (de aantrede), de verticale opstap (de optrede) en het vooroverstekende randje (de trapneus). Tel al deze maten van alle treden bij elkaar op.  
+* *Stap 2 (Plooispeling toevoegen):* Omdat de loper strak in de hoek van de trede gedreven wordt en om de trapneus vouwt, telt het atelier **2 cm extra speling per trede** op voor de plooiing en het strakspannen.  
+* *Stap 3 (Kopse reserve toevoegen):* Aan het begin onderaan de trap en bij de beëindiging bovenaan is extra loperstof nodig om de loper netjes om te vouwen en onzichtbaar vast te nieten. We tellen hiervoor standaard **30 cm vaste reserve** op bij het totaal.  
+* *Stap 4 (Bandering berekenen):* De loper wordt aan beide zijkanten afgewerkt met katoenen of linnen band. De benodigde bandlengte is eenvoudigweg **twee keer de totale loperlengte** (linkerkant + rechterkant).  
+* *Stap 5 (Bevestigingsmaterialen):* Voor elke trede is 1 metalen traploperroede nodig, met aan weerszijden een bevestigingsoog (dus 2 roedeklemmen per trede).  
+
+**Laag 2: Formele wiskundige specificatie voor ERP & bestelsystemen:**  
+* **Breedte loper:** Standaard 60, 70, 80, 90 of 100 cm.  
+* **Vrije trapwang-marge:** $(\text{trapbreedte} - \text{loperbreedte}) / 2$, aan beide zijden identiek gecentreerd.  
+* **Totale Lengte loper ($L_{\text{lopertotaal}}$):**  
+  $$L_{\text{lopertotaal}} = \sum_{i=1}^{N_{\text{treden}}} (\text{aantrede}_i + \text{optrede}_i + \text{neusoversteek}_i) + (N_{\text{treden}} \times 2\,\text{cm extra voor plooi}) + 30\,\text{cm reserve}$$  
+* **Afwerking randen (Bandering over dubbele lengte):**  
+  $$\text{lengte\_bandering} = 2 \times L_{\text{lopertotaal}}\,\text{meter}$$  
+* **Bevestigingsmaterialen & BOM Traploper:**  
+  - Traploperroedes: 1 roede per trede (metaal: messing, chroom, nikkel, matzwart).  
+  - Roedeklemmen / oogjes: $2 \times N_{\text{treden}}$ stuks (links en rechts van de loper).  
+  - Ondertapijt stroken (rubber/vilt): 1 strook per aantrede/optrede ter geluiddemping en slijtagepreventie.  
 
 ##### B. PVC Overzettreden & Traprenovatie (Coretec / Belakos / Trenovo / Cortex)
-* **Rechte treden:** Verpakt in standaarddozen à 4 stuks ($100 \times 30\,\text{cm}$ of $100 \times 38\,\text{cm}$):
-  $$\text{dozen\_recht} = \left\lceil \frac{N_{\text{recht}}}{4} \right\rceil$$
-* **Verdreven treden (Draaitreden XL):** Verpakt in XL-kits à 2 stuks ($130 \times 40\,\text{cm}$ of $140 \times 45\,\text{cm}$ met extra diepe neusoversteek):
-  $$\text{kits\_verdreven} = \left\lceil \frac{N_{\text{verdreven}}}{2} \right\rceil$$
-* **Stootborden:** 1 stootbord per trede ($N_{\text{stootborden}} = N_{\text{treden}}$) plus optioneel 1 wel-trede stootbord bij aansluiting overloop.
-* **Kantprofielen & Trapwangen:** U-profielen of aluminium afdekkappen voor zijkanten bij open trap; afdeklijsten voor trapwangen.
-* **High-Tack Polymeerkit (Mammoetlijm):** Verbruiksnorm van 1 koker à 290 ml per 2,5 overzettreden:
-  $$\text{kokers\_mammoetlijm} = \left\lceil \frac{N_{\text{treden}}}{2{,}5} \right\rceil$$
+**Laag 1: In gewone mensentaal voor calculators en montageteams:**  
+Traprenovatie met harde overzettreden kent strikte verpakkingseenheden die altijd naar boven moeten worden afgerond op volle verpakkingen:  
+* *Rechte treden (Volle dozen à 4 stuks):* Rechte overzettreden worden door de fabrikant uitsluitend per **volle doos van 4 stuks** geleverd. Heeft een trap bijvoorbeeld 9 rechte treden? Dan delen we $9 / 4 = 2{,}25$ en ronden dit altijd naar boven af: er moeten **3 volle dozen** besteld worden (12 treden, waarvan 3 rest/zaagreserve).  
+* *Verdreven draaitreden (XL-kits à 2 stuks):* Schuine draaitreden in de bocht van de trap zijn breder en dieper en worden geleverd in **XL-sets van 2 stuks**. Voor bijvoorbeeld 4 verdreven treden zijn $4 / 2 = \mathbf{2\text{ kits}}$ nodig; bij 5 verdreven treden $5 / 2 = 2{,}5 \to \mathbf{3\text{ kits}}$ (6 treden).  
+* *Stootborden:* Voor elke trede is exact 1 stootbord nodig (plus eventueel 1 extra voor de aansluiting met de overloop).  
+* *Montagelijm (Mammoetlijm verbruik):* Overzettreden worden volvlaks verlijmd met extreem sterke High-Tack elastische montagelijm (*Mammoetlijm*). De vuistregel is: **1 koker à 290 ml per 2,5 treden**. Voor een trap van 13 treden is dit $13 / 2{,}5 = 5{,}2$, wat naar boven wordt afgerond op **6 kokers**. De monteur grijpt zo nooit mis.  
+
+**Laag 2: Formele wiskundige specificatie voor ERP & magazijnbeheer:**  
+* **Rechte treden (Doos à 4 stuks, $100 \times 30\,\text{cm}$ of $100 \times 38\,\text{cm}$):**  
+  $$\text{dozen\_recht} = \left\lceil \frac{N_{\text{recht}}}{4} \right\rceil$$  
+* **Verdreven treden (XL-kits à 2 stuks, $130 \times 40\,\text{cm}$ of $140 \times 45\,\text{cm}$):**  
+  $$\text{kits\_verdreven} = \left\lceil \frac{N_{\text{verdreven}}}{2} \right\rceil$$  
+* **Stootborden:** 1 stootbord per trede ($N_{\text{stootborden}} = N_{\text{treden}}$) plus optioneel 1 wel-trede stootbord bij aansluiting overloop.  
+* **Kantprofielen & Trapwangen:** U-profielen of aluminium afdekkappen voor zijkanten bij open trap; afdeklijsten voor trapwangen.  
+* **High-Tack Polymeerkit (Mammoetlijm norm 1 koker per 2,5 treden):**  
+  $$\text{kokers\_mammoetlijm} = \left\lceil \frac{N_{\text{treden}}}{2{,}5} \right\rceil$$  
 * **Geïntegreerde LED-verlichting (Optioneel):** $N_{\text{treden}}$ stuks LED-strips, 1 centrale transformator/controller (230V $\to$ 24V), en 2 automatische bewegingssensoren (onderste en bovenste trede).
 
 * **Voorbeeld Trapbekleding Tapijt (Rechte & Verdreven Treden):**  
@@ -1193,14 +1328,19 @@ De inmeetchecklist voor trappen borgt zowel traditionele stoffering als moderne 
 ### 3.6 Categorie 5: Buitenzonwering, Gevelsystemen & Rolluiken
 
 #### 3.6.1 Productassortiment & Toepassingen (V1 MVP Scope & V2 Backlog)
-Buitenzonwering & Gevelsystemen is een volwaardige kernproductgroep binnen het totale assortimentsmodel van EasyM2M (zie voor de complete assortimentsboom het separate document *productassortiment_decompositie.md*). Voor de initiële Versie 1 (V1 MVP) Scope geldt op basis van de historische verkoopdata van de afgelopen twee jaar dat de operationele focus ligt op Knikarmschermen, Ritsscreens en Markiezen; **Rolluiken vallen buiten de V1 MVP scope en zijn gealloceerd naar de V2 Backlog**. De technische productspecificaties en normeringen van rolluiken zijn hieronder wel reeds integraal gedocumenteerd ter voorbereiding op V2:
+Buitenzonwering, Gevelsystemen & Buitenleven vormt een volwaardige kernproductgroep binnen het integrale assortimentsmodel van EasyM2M. Voor de initiële Versie 1 (V1 MVP) Scope geldt op basis van de historische verkoopdata van de afgelopen twee jaar dat de operationele focus ligt op Knikarmschermen, Ritsscreens, Buitenleven en Markiezen; **Rolluiken vallen buiten de V1 MVP scope en zijn gealloceerd naar de V2 Backlog**. De technische productspecificaties, materialen en normeringen van zowel de actieve V1 producten als de V2 rolluiken zijn hieronder integraal gedocumenteerd als Single Source of Truth:
 1. **Knikarmschermen (Terrasschermen):** Twee- of meerarmige doekschermen met een uitval van 2,50 tot 4,00 meter en breedtes tot 7,00 meter per deel.
-2. **Ritsscreens (ZIP-screens):** Windvaste vlakschermen voorzien van een ritsgeleidingssysteem in aluminium zijgeleiders; fungeren tevens als insectenwering.
-3. **Rolluiken (Voorzet-, Opbouw- & Inbouwsystemen — V2 Backlog):** Beveiligende, isolerende en verduisterende aluminium lamellenpantsers (dubbelwandig gerold aluminium met CFK-vrij PU-schuim).
-   * *Kastmaten & Vormen:* Gestandaardiseerde kastmaten 137 mm, 150 mm, 165 mm, 180 mm en 205 mm; leverbaar in 45° afgeschuind (`45_graden`), rond of half-rond.
-   * *Aandrijving:* Somfy io 230V bedraad of 100% autonoom Solar met LiFePO4-accu en monokristallijn zonnepaneel op de cassette (geen geveldoorboring benodigd).
-   * *Inbraakwerendheid:* Gecertificeerd conform **RC2** en **RC3** (**NEN-EN 1627**), voorzien van automatische optilbeveiliging (veerconsoles / starre verbinders).
+2. **Ritsscreens (ZIP-screens):** Windvaste vlakschermen voorzien van een ritsgeleidingssysteem in aluminium zijgeleiders; fungeren tevens als insectenwering. Gecertificeerd conform **Windklasse 6** volgens **NEN-EN 13561** (bestand tegen zware storm tot 10 Beaufort).
+3. **Buitenleven & Terrasoverkappingen:**
+   * *Lamellendaken:* Luxe aluminium lamellendaken (**Brustor B200**) met kantelbare lamellen voor variabele zonwering, ventilatie en waterdichte afsluiting met geïntegreerde waterafvoer in de aluminium staanders.
+   * *Glazen Schuifwanden:* Meersporen glazen schuifwanden met **10 mm ESG** gehard veiligheidsglas op aluminium looprails met tochtborstels en optionele meenemers.
+   * *Terrasverwarming & Comfort:* Hoogwaardige infraroodstralers van **Solamagic** of **Bromic** (korte golf IR-A, vermogen 1500–2500W per element).
 4. **Markiezen:** Traditionele houten of aluminium kapconstructies voor klassieke gevels en horeca.
+5. **3.6.1 Rolluiken (Voorzet-, Opbouw- & Inbouwsystemen — V2 Backlog & Roadmap):**  
+   Beveiligende, isolerende en verduisterende aluminium lamellenpantsers (dubbelwandig gerold aluminium met CFK-vrij PU-schuim).  
+   * *Kastmaten & Vormen:* Gestandaardiseerde kastmaten 137 mm, 150 mm, 165 mm, 180 mm en 205 mm; leverbaar in 45° afgeschuind (`45_graden`), rond of half-rond.  
+   * *Aandrijving & Zonne-energie:* Somfy io 230V bedraad of 100% autonoom Solar met **Somfy Oximo Solar io** motor, interne **LiFePO4** lithium-accu en monokristallijn zonnepaneel op de cassette (geen geveldoorboring benodigd).  
+   * *Inbraakwerendheid:* Gecertificeerd conform **RC2** en **RC3** (**NEN-EN 1627**), voorzien van automatische optilbeveiliging (veerconsoles / starre verbinders).
 
 #### 3.6.2 Constructieve Inmeetparameters & Veiligheidsnormen (NEN-EN 13561, NEN 2608 & NEN-EN 1627)
 * **Gevelbelasting & Windklasse (NEN-EN 13561):** Conform de Europese norm **NEN-EN 13561** moeten knikarmschermen en ritsscreens bestand zijn tegen specifieke windbelastingen: Windklasse 1 t/m 6 (ritsscreens klasse 6 bestand tot windkracht 10 Beaufort / zware storm).
@@ -1273,7 +1413,6 @@ Buitenzonwering & Gevelsystemen is een volwaardige kernproductgroep binnen het t
   Het portaal registreert de netto oppervlakte ondergrondsanering (in m²) en stelt vast of afvoer via de reguliere monteurswagen mogelijk is of dat plaatsing van een afvalcontainer op de oprit/straat noodzakelijk is.
 * **Schuren & Lijmresten:**  
   Vastleggen van de benodigde voorbewerking (diamantschuren van watervaste lijmresten, affrezen van egalisatieresten, verwijderen van tapijtspanlatten).
-
 * **Egalisatie & Vloertechniek:**  
   Aanbrengen hechtprimer en gieten van egaline (standaard 2–3 mm vs. renovatielagen > 3 mm, $1{,}6\,\text{kg/m}^2/\text{mm}$); aanbrengen 2K epoxy vochtscherm met kwartszand instrooien.
 
@@ -1304,6 +1443,21 @@ Buitenzonwering & Gevelsystemen is een volwaardige kernproductgroep binnen het t
 | **Egalisatie & Primeren** | $m^2$ / laagdikte mm | Type dekvloer, reitest (> 2 mm), vloerverwarmingssleuven | Berekent zakkenverbruik ($1,6\,\text{kg/m}^2/\text{mm}$) | Materiaalbehoefte en egalisatiepost |
 | **Ladderlift & Logistiek** | dagdeel / forfait | Etagehoogte, raamdoorgang, gevelopstelplaats, afvalcontainer | Registreert materieelnoodzaak en container | Reservering materieel en post in `pos_project_algemeen` |
 | **Service & Regiewerk** | uren / forfait | Nazorg, CBW-garantie, projectregie villa/woning | Registreert man-uren en regie-omvang | Post regie-uren naar ERP |
+
+#### 3.7.11 Samenvattende ERP Verpakkings- & Logistiekgovernance
+Om logistieke faalkosten, materiaaltekorten en retourstromen te elimineren, hanteert EasyM2M in samenwerking met het ERP-systeem (LogicTrade) een strikte **ERP Verpakkingsgovernance**. Bestellingen naar fabrikanten en groothandels worden automatisch afgerond op basis van de fysieke verpakkings- en besteleenheden per materiaalgroep:
+
+| Materiaalgroep / Categorie | Fysieke Besteleenheid | Afrondingsformule & Calculatieregels | Restmateriaal- en Retourbeleid |
+| :--- | :--- | :--- | :--- |
+| **Gordijnen (Baanstof met rapport)** | Volle banen / strekkende meters | Afronding per baan op een geheel veelvoud van het verticaal rapport ($N \times V_r$); confectiebreedte afgerond op hele banen; volle rollen stof bij projectorders | Restcoupons worden meegeleverd aan de klant of verwerkt als kussenhoezen/stalen. |
+| **Gordijnen (Kamerhoge stof)** | Strekkende meters van volle rol | Breedte rail $\times$ plooifactor + 20 cm zoomtoeslag; rapportafronding of volle rollen bij projectorders | Afsnijdsels onderzoom/zijzoom; klantbehoud conform §3.2. |
+| **Ondervloeren (Rollen)** | Volle rollen (bijv. 15 m² per rol) | $\lceil \text{Netto } m^2 / 15 \rceil$ volle rollen; klant betaalt voor de afgeronde volle rol | Monteur vraagt bij oplevering of klant overschot wil behouden; restvoorraad naar magazijn. |
+| **Harde Vloeren (PVC, Laminaat, Parket)** | Volle pakken / dozen ($m^2$ per pak) | $\lceil (\text{Netto } m^2 \times (1 + \text{Snijverlies})) / \text{Pakinhoud} \rceil$ volle pakken | Klant behoudt minimaal 1 gesloten reservepak voor toekomstig herstel / plankvervanging. |
+| **Traprenovatie (Rechte overzettreden)** | Standaarddozen à 4 stuks | $\lceil N_{\text{recht}} / 4 \rceil$ volle dozen | Ongebruikte rechte treden worden als spare parts overgedragen aan de klant. |
+| **Traprenovatie (Verdreven treden XL)** | XL-kits à 2 stuks (paar) | $\lceil N_{\text{verdreven}} / 2 \rceil$ kits | Maatwerk mallen en overmaatse treden; geen fabrieksretour mogelijk. |
+| **High-Tack Montagemortel / Mammoetlijm** | Kokers à 290 ml | $\lceil N_{\text{treden}} / 2{,}5 \rceil$ kokers | Aangebroken kokers blijven bij monteur; volle kokers retour voorraad. |
+| **Egaline (Cementgebonden)** | Zakken à 25 kg | $\lceil (\text{Netto } m^2 \times \text{laagdikte mm} \times 1{,}6) / 25 \rceil$ volle zakken | Droog bewaren; restzakken retour centraal magazijn. |
+| **Ladderlift / Hijsmiddelen** | Dagdelen (ochtend / middag) | Vaste boeking per dagdeel van 4 uur inclusief gecertificeerd bedienend personeel | Annulering minimaal 24 uur vooraf bij windkracht $\ge 6$ Bft. |
 
 ---
 ## Deel 4: Plannings- en Uitvoeringsstructuur (Gefaseerde Montage & Afhankelijkheden)
