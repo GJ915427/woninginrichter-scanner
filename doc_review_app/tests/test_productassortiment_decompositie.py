@@ -37,13 +37,17 @@ def test_decompositie_file_exists():
 
 def test_decompositie_categories(decompositie_content: str):
     """Toetst of exact alle 6 categorieën volwaardig aanwezig zijn in de taxonomie."""
-    # 1. Mermaid diagram C1 t/m C6 aanwezigheid
-    assert 'C1["1. Gordijnen & Rails"]' in decompositie_content
-    assert 'C2["2. Raamdecoratie, Binnenzonwering' in decompositie_content
-    assert 'C3["3. Vaste Vloerbekleding' in decompositie_content
-    assert 'C4["4. Trapbekleding, Traprenovatie' in decompositie_content
-    assert 'C5["5. Buitenzonwering, Gevelsystemen' in decompositie_content
-    assert 'C6["6. Diensten, Montage & Logistiek' in decompositie_content
+    # 1. Unicode Tree View C1 t/m C6 categorieën aanwezigheid
+    # [SPEC-CHANGE-AUTHORIZED: Vervanging van Mermaid-diagram door Unicode Tree View voor Categorieën 1 t/m 6 en alle 9 Categorie 6 groepen]
+    for cat in [
+        "1-gordijnen-en-rails/",
+        "2-raamdecoratie-en-horren/",
+        "3-vaste-vloerbekleding-en-dekvloertechniek/",
+        "4-trapbekleding-en-traprenovatie/",
+        "5-buitenzonwering-en-gevelsystemen/",
+        "6-diensten-montage-en-logistiek/",
+    ]:
+        assert cat in decompositie_content, f"Unicode Tree categorie {cat} ontbreekt in decompositie"
 
     # 2. Hoofdstuktitels aanwezigheid
     assert "## 1. Gordijnen & Rails" in decompositie_content
@@ -70,9 +74,9 @@ def test_decompositie_mvp_arbeid(decompositie_content: str):
 
 def test_decompositie_deuren_beleid(decompositie_content: str):
     """Toetst de tri-pillar harmonisatie van het deurenbeleid (uitsluitend adviserend, geen zaagwerk door monteurs)."""
-    # 1. Mermaid node C6_6 check (geharmoniseerde taxonomie)
-    # [SPEC-CHANGE-AUTHORIZED: Verificatie van de 9 Categorie 6 assortimentsgroepen en deurenbeleid alignment]
-    assert 'C6_6["Inmeting, Bouwkundige Schouw & Deurinspectie"]' in decompositie_content or 'C6_6["Deurinspectie & Knelpuntenadvies (Geen Uitvoering)"]' in decompositie_content
+    # 1. Unicode Tree View node 6.6 check (geharmoniseerde taxonomie)
+    # [SPEC-CHANGE-AUTHORIZED: Vervanging van Mermaid-diagram door Unicode Tree View voor Categorieën 1 t/m 6 en alle 9 Categorie 6 groepen]
+    assert '6.6-inmeting-bouwkundige-schouw-en-deurinspectie' in decompositie_content
     assert 'Timmerwerk (Deuren Inkorten' not in decompositie_content
 
     # 2. Sectie 6.6 / Deurbeleid tekst check
@@ -86,11 +90,11 @@ def test_decompositie_deuren_beleid(decompositie_content: str):
 
 
 def test_category_6_product_groups(decompositie_content: str):
-    """Toetst of alle 9 geharmoniseerde Categorie 6 productgroepen aanwezig zijn in Mermaid en secties."""
-    # [SPEC-CHANGE-AUTHORIZED: Verificatie van de 9 Categorie 6 assortimentsgroepen en deurenbeleid alignment]
-    # 1. Mermaid nodes C6_1 t/m C6_9
+    """Toetst of alle 9 geharmoniseerde Categorie 6 productgroepen aanwezig zijn in de Unicode Tree View en secties."""
+    # [SPEC-CHANGE-AUTHORIZED: Vervanging van Mermaid-diagram door Unicode Tree View voor Categorieën 1 t/m 6 en alle 9 Categorie 6 groepen]
+    # 1. Unicode Tree View nodes 6.1 t/m 6.9
     for i in range(1, 10):
-        assert f"C6_{i}[" in decompositie_content, f"Mermaid node C6_{i} ontbreekt in decompositie"
+        assert f"6.{i}-" in decompositie_content, f"Unicode Tree node 6.{i} ontbreekt in decompositie"
 
     # 2. Alle 9 productgroepen in Hoofdstuk 6
     assert "### 6.1 Gordijnconfectie & Gordijnrailmontage (Cat 1)" in decompositie_content

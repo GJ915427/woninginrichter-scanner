@@ -11,67 +11,37 @@
 
 ## Overzicht van de 6 Categorieën (EasyM2M MVP)
 
-```mermaid
-flowchart TD
-    Assortiment["Assortiment EasyM2M (Profiel A)"]
-
-    Assortiment --> C1
-    subgraph C1["1. Gordijnen & Rails"]
-        direction LR
-        C1_1["Stoffen, Confectie & Microflex"]
-        C1_2["Rails, Roedes, Interstil & Motoren"]
-    end
-
-    C1 ~~~ C2
-    Assortiment --> C2
-    subgraph C2["2. Raamdecoratie, Binnenzonwering & Horren"]
-        direction LR
-        C2_1["Binnenzonwering (Duette, Plissé, Jaloezie, Shutters)"]
-        C2_2["Boorvrije Kaders (EasyClick/Perfect Fit) & Velux"]
-        C2_3["Horren (Inzet, Plissé hordeuren, Pollen/Petscreen)"]
-    end
-
-    C2 ~~~ C3
-    Assortiment --> C3
-    subgraph C3["3. Vaste Vloerbekleding & Dekvloertechniek"]
-        direction LR
-        C3_1["Harde Vloeren (Dryback/Click PVC, Laminaat, Parket, Gietvloer)"]
-        C3_2["Zachte & Elastische Vloeren (Tapijt, Vinyl, Marmoleum)"]
-        C3_3["Ondervloeren, CM-Vochtmeting & Coral Inloopzones"]
-    end
-
-    C3 ~~~ C4
-    Assortiment --> C4
-    subgraph C4["4. Trapbekleding, Traprenovatie & Trapelementen"]
-        direction LR
-        C4_1["Traprenovatie (PVC Overzettreden Synchroon Vloer)"]
-        C4_2["Open Trappen Contratreden & Trapstoffering Tapijt"]
-        C4_3["Trapleuningen met LED & Balustrades"]
-    end
-
-    C4 ~~~ C5
-    Assortiment --> C5
-    subgraph C5["5. Buitenzonwering, Gevelsystemen & Rolluiken"]
-        direction LR
-        C5_1["Rolluiken (Voorzet, Inbouw, Opbouw & SOLAR)"]
-        C5_2["Verticale Gevelscreens (Windklasse 6 & Valbeveiliging)"]
-        C5_3["Knikarmschermen, Markiezen & Lamellendaken"]
-    end
-
-    C5 ~~~ C6
-    Assortiment --> C6
-    subgraph C6["6. Diensten, Montage & Logistiek (MVP: Handmatig / ERP)"]
-        direction LR
-        C6_1["Gordijnconfectie & Gordijnrailmontage (Cat 1)"]
-        C6_2["Binnenzonwering- & Horrenmontage (Cat 2)"]
-        C6_3["Vloeren Legservice & Randafwerking (Cat 3)"]
-        C6_4["Trapbekleding & Traprenovatie Montage (Cat 4)"]
-        C6_5["Buitenzonwering & Gevelmontage (Cat 5)"]
-        C6_6["Inmeting, Bouwkundige Schouw & Deurinspectie"]
-        C6_7["Sloop, Ondergrondsanering & Voorbewerking"]
-        C6_8["Montagelogistiek, Verticaal Transport & Afvalbeheer"]
-        C6_9["Service, Garantie & Nazorg"]
-    end
+```text
+📁 assortiment-easym2m/
+├── 📁 1-gordijnen-en-rails/
+│   ├── 📄 1.1-stoffen-confectie-en-microflex
+│   └── 📄 1.2-rails-roedes-interstil-en-motoren
+├── 📁 2-raamdecoratie-en-horren/
+│   ├── 📄 2.1-binnenzonwering-duette-plisse-jaloezie-shutters
+│   ├── 📄 2.2-boorvrije-kaders-easyclick-perfectfit-velux
+│   └── 📄 2.3-horren-inzet-plisse-pollen-petscreen
+├── 📁 3-vaste-vloerbekleding-en-dekvloertechniek/
+│   ├── 📄 3.1-harde-vloeren-pvc-parket-gietvloer
+│   ├── 📄 3.2-zachte-en-elastische-vloeren-tapijt-vinyl-marmoleum
+│   └── 📄 3.3-ondervloeren-cm-vochtmeting-coral-inloopzones
+├── 📁 4-trapbekleding-en-traprenovatie/
+│   ├── 📄 4.1-traprenovatie-pvc-overzettreden-synchroon
+│   ├── 📄 4.2-open-trappen-contratreden-en-trapstoffering
+│   └── 📄 4.3-trapleuningen-met-led-en-balustrades
+├── 📁 5-buitenzonwering-en-gevelsystemen/
+│   ├── 📄 5.1-rolluiken-voorzet-inbouw-opbouw-solar
+│   ├── 📄 5.2-verticale-gevelscreens-windklasse-6
+│   └── 📄 5.3-knikarmschermen-markiezen-lamellendaken
+└── 📁 6-diensten-montage-en-logistiek/
+    ├── 📄 6.1-gordijnconfectie-en-gordijnrailmontage-cat-1
+    ├── 📄 6.2-binnenzonwering-en-horrenmontage-cat-2
+    ├── 📄 6.3-vloeren-legservice-en-randafwerking-cat-3
+    ├── 📄 6.4-trapbekleding-en-traprenovatie-montage-cat-4
+    ├── 📄 6.5-buitenzonwering-en-gevelmontage-cat-5
+    ├── 📄 6.6-inmeting-bouwkundige-schouw-en-deurinspectie
+    ├── 📄 6.7-sloop-ondergrondsanering-en-voorbewerking
+    ├── 📄 6.8-montagelogistiek-verticaal-transport-en-afvalbeheer
+    └── 📄 6.9-service-garantie-en-nazorg
 ```
 
 ---
