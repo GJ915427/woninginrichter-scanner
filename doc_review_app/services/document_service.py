@@ -523,13 +523,16 @@ def delete_document(
             result = _execute(conn)
 
     # Cloud sync happens OUTSIDE the SQLite write lock!
+    cloud_synced = False
     if sync_cloud:
         try:
             from doc_review_app.storage import cloud_sync
-            cloud_sync.delete_document_from_cloud(result["filename"])
+            cloud_synced = bool(cloud_sync.delete_document_from_cloud(result["filename"]))
         except Exception as e:
             logger.warning("Cloud tombstone creation failed for '%s': %s", result["filename"], e)
+            cloud_synced = False
 
+    result["cloud_synced"] = cloud_synced
     return result
 
 
@@ -1308,6 +1311,10 @@ def sync_local_directory_with_db(
             "removed": removed,
             "errors": errors,
             "total_documents": total_count,
+            "_missing_cloud_tombstones": [
+                doc_name for doc_name, doc_info in existing_docs.items()
+                if doc_info["is_deleted"] == 1 and doc_name not in tombstones
+            ],
         }
 
     # Bounded SQLite transaction
@@ -1337,6 +1344,16 @@ def sync_local_directory_with_db(
                             )
                     except Exception as e:
                         logger.warning("Post-sync cloud push failed for '%s': %s", name, e)
+
+                # Reconcile missing cloud tombstones for locally soft-deleted documents
+                for name in sync_result.get("_missing_cloud_tombstones", []):
+                    if cloud_sync.cloud_sync_degraded:
+                        break
+                    try:
+                        cloud_sync.delete_document_from_cloud(name)
+                    except Exception as e:
+                        logger.warning("Post-sync cloud tombstone reconciliation failed for '%s': %s", name, e)
+
             sync_result["cloud_sync_degraded"] = cloud_sync.cloud_sync_degraded
         except Exception as e:
             logger.debug("Post-sync cloud push warning: %s", e)
@@ -1344,6 +1361,7 @@ def sync_local_directory_with_db(
     else:
         sync_result["cloud_sync_degraded"] = False
 
+    sync_result.pop("_missing_cloud_tombstones", None)
     return sync_result
 
 

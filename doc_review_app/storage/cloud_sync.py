@@ -131,7 +131,7 @@ def push_document_to_cloud(filename: str, content: str, file_size: int, sha256_h
     normalized_content = content.replace("\r\n", "\n").replace("\r", "\n")
     computed_hash = sha256_hash or hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
 
-    url = f"{settings.supabase_url.rstrip('/')}/rest/v1/documents_store"
+    url = f"{settings.supabase_url.rstrip('/')}/rest/v1/documents_store?on_conflict=filename"
     headers = _get_cloud_headers()
     payload = {
         "filename": clean_name,
@@ -172,7 +172,7 @@ def delete_document_from_cloud(filename: str) -> bool:
     headers = _get_cloud_headers()
 
     # 1. Post tombstone to documents_store
-    store_url = f"{settings.supabase_url.rstrip('/')}/rest/v1/documents_store"
+    store_url = f"{settings.supabase_url.rstrip('/')}/rest/v1/documents_store?on_conflict=filename"
     tombstone_payload = {
         "filename": clean_name,
         "is_deleted": True,

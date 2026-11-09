@@ -48,7 +48,8 @@ def test_push_document_to_cloud_mocked(monkeypatch):
     assert success is True
     assert len(captured_req) == 1
     req = captured_req[0]
-    assert req.full_url == "https://test.supabase.co/rest/v1/documents_store"
+    # [SPEC-CHANGE-AUTHORIZED: Update Supabase PostgREST on_conflict query-parameter contract for merge-duplicates upserts]
+    assert req.full_url == "https://test.supabase.co/rest/v1/documents_store?on_conflict=filename"
     payload = json.loads(req.data.decode("utf-8"))
     assert payload["filename"] == "beleid.md"
     assert payload["content"] == "# Beleid\nInhoud"
@@ -76,7 +77,8 @@ def test_delete_document_from_cloud_tombstone_mocked(monkeypatch):
 
     # Request 1: POST tombstone to documents_store
     tombstone_req = requests[0]
-    assert tombstone_req.full_url == "https://test.supabase.co/rest/v1/documents_store"
+    # [SPEC-CHANGE-AUTHORIZED: Update Supabase PostgREST on_conflict query-parameter contract for merge-duplicates upserts]
+    assert tombstone_req.full_url == "https://test.supabase.co/rest/v1/documents_store?on_conflict=filename"
     tombstone_data = json.loads(tombstone_req.data.decode("utf-8"))
     assert tombstone_data["filename"] == "beleid.md"
     assert tombstone_data["is_deleted"] is True
@@ -279,3 +281,106 @@ def test_pull_documents_from_cloud_preserves_seed_documents(tmp_path, monkeypatc
     assert (tmp_path / "nieuw_toegevoegd.md").exists()
     assert (tmp_path / "nieuw_toegevoegd.md").read_text(encoding="utf-8") == missing_doc_content
 
+
+
+def test_soft_deleted_document_resists_passive_resurrection_even_if_cloud_lacks_tombstone(tmp_path, monkeypatch):
+    """Verify that a document marked as is_deleted=1 in SQLite is NEVER resurrected
+    by local disk scan even if a physical file exists on disk and cloud has no tombstone."""
+    # [SPEC-CHANGE-AUTHORIZED: Deletion SSOT in SQLite guarantees soft-deleted documents resist passive resurrection]
+    import sqlite3
+    from doc_review_app.database import init_db
+    from doc_review_app.services import document_service
+
+    # Setup isolated test database in memory / tmp_path
+    from doc_review_app.database import get_connection
+    db_file = tmp_path / "test_resurrection.db"
+    init_db(db_file)
+    conn = get_connection(db_file)
+
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(settings, "documents_dir", docs_dir)
+
+    # 1. Create a document and soft-delete it
+    doc_file = docs_dir / "domeinmodel_woninginrichting_v34.md"
+    doc_file.write_text("# Domeinmodel V34\nInhoud", encoding="utf-8")
+
+    doc_info = document_service.upsert_document(
+        filename="domeinmodel_woninginrichting_v34.md",
+        content="# Domeinmodel V34\nInhoud",
+        format="markdown",
+        db=conn,
+    )
+    doc_id = doc_info["id"]
+
+    # Delete logically (without unlinking file on disk)
+    del_res = document_service.delete_document(doc_id=doc_id, db=conn, sync_cloud=False)
+    assert del_res["is_deleted"] == 1
+    assert "cloud_synced" in del_res
+    assert doc_file.exists(), "Physical file must be preserved on disk"
+
+    # 2. Run sync_local_directory_with_db with empty tombstones (simulating cloud lacking tombstone)
+    sync_res = document_service.sync_local_directory_with_db(
+        db=conn,
+        folder=docs_dir,
+        sync_cloud=False,
+        tombstone_filenames=set(),
+    )
+
+    # 3. Verify document remains deleted in SQLite and is NOT in active total_documents
+    cursor = conn.execute("SELECT id, filename, is_deleted FROM documents WHERE id = ?", (doc_id,))
+    row = cursor.fetchone()
+    assert row["is_deleted"] == 1, "Soft-deleted document must NOT be resurrected"
+    assert "domeinmodel_woninginrichting_v34.md" not in sync_res["added"]
+    assert "domeinmodel_woninginrichting_v34.md" not in sync_res["updated"]
+    conn.close()
+
+
+def test_cloud_tombstone_reconciliation_on_sync(tmp_path, monkeypatch):
+    """Verify that sync_local_directory_with_db identifies locally deleted documents
+    that lack cloud tombstones and pushes tombstones during post-commit cloud sync."""
+    # [SPEC-CHANGE-AUTHORIZED: Delta-reconciliation pushes missing cloud tombstones for locally soft-deleted documents]
+    import sqlite3
+    from doc_review_app.database import init_db
+    from doc_review_app.services import document_service
+
+    monkeypatch.setattr(settings, "supabase_url", "https://test.supabase.co")
+    monkeypatch.setattr(settings, "supabase_anon_key", "test-key")
+
+    from doc_review_app.database import get_connection
+    db_file = tmp_path / "test_reconcile.db"
+    init_db(db_file)
+    conn = get_connection(db_file)
+
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create active doc and soft-deleted doc
+    active_file = docs_dir / "actief.md"
+    active_file.write_text("# Actief", encoding="utf-8")
+    deleted_file = docs_dir / "domeinmodel_woninginrichting_v34.md"
+    deleted_file.write_text("# V34", encoding="utf-8")
+
+    doc1 = document_service.upsert_document(filename="actief.md", content="# Actief", format="markdown", db=conn)
+    doc2 = document_service.upsert_document(filename="domeinmodel_woninginrichting_v34.md", content="# V34", format="markdown", db=conn)
+
+    # Soft delete doc2 locally
+    document_service.delete_document(doc_id=doc2["id"], db=conn, sync_cloud=False)
+
+    pushed_tombstones = []
+    def mock_delete_from_cloud(filename):
+        pushed_tombstones.append(filename)
+        return True
+
+    monkeypatch.setattr(cloud_sync, "delete_document_from_cloud", mock_delete_from_cloud)
+    monkeypatch.setattr(cloud_sync, "check_connection", lambda: True)
+    monkeypatch.setattr(cloud_sync, "pull_documents_from_cloud", lambda folder: (0, set(), set()))
+
+    sync_res = document_service.sync_local_directory_with_db(
+        db=conn,
+        folder=docs_dir,
+        sync_cloud=True,
+    )
+
+    assert "domeinmodel_woninginrichting_v34.md" in pushed_tombstones
+    conn.close()
