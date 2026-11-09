@@ -1,4 +1,4 @@
-// [SPEC-CHANGE-AUTHORIZED: Sanering van legacy HTML migratiesteiger en transitie naar enterprise behavioral testsuite]
+// [SPEC-CHANGE-AUTHORIZED: Sanering van legacy HTML migratiesteiger en transitie naar enterprise behavioral testsuite conform Stitch Optie 1 macro-canvas, permanente compacte meta-strip, directe kolomselectie en off-canvas explorer]
 import { test, expect } from '@playwright/test';
 
 test.describe('Matrix Orders Enterprise Behavioral Suite', () => {
@@ -54,38 +54,27 @@ test.describe('Matrix Orders Enterprise Behavioral Suite', () => {
     }
   });
 
-  // TC-SLIDE-01: Fluid Flexbox Sliding Header Toggle
-  test('TC-SLIDE-01: Sliding header toggle collapses order meta card and expands viewport', async ({ page }) => {
+  // TC-SLIDE-01: Permanent Compact Executive Order Strip (Stitch Option 1 Macro-Canvas)
+  test('TC-SLIDE-01: Permanent compact executive order strip remains visible with expansive macro-canvas viewport', async ({ page }) => {
     await page.goto('/matrix-orders');
     await page.waitForSelector('#matrix-viewport');
 
     const vp = page.locator('#matrix-viewport');
-    const vpBoxInitial = await vp.boundingBox();
-    expect(vpBoxInitial).not.toBeNull();
-
-    const toggleBtn = page.locator('#btn-toggle-header-collapse');
-    await expect(toggleBtn).toBeVisible();
-    await expect(toggleBtn).toHaveAttribute('aria-expanded', 'true');
-
-    // Order meta card should be visible
-    await expect(page.locator('#order-meta-card #meta-order-number')).toBeVisible();
-
-    // Click toggle to collapse
-    await toggleBtn.click();
-    await expect(toggleBtn).toHaveAttribute('aria-expanded', 'false');
-
-    // Order meta card content is now hidden
-    await expect(page.locator('#order-meta-card #meta-order-number')).not.toBeVisible();
-
-    // Wait for CSS height transition to complete
-    await page.waitForTimeout(300);
-
-    // Matrix viewport height should have expanded
-    const vpBoxCollapsed = await vp.boundingBox();
-    expect(vpBoxCollapsed).not.toBeNull();
-    if (vpBoxInitial && vpBoxCollapsed) {
-      expect(vpBoxCollapsed.height).toBeGreaterThan(vpBoxInitial.height + 40);
+    const vpBox = await vp.boundingBox();
+    expect(vpBox).not.toBeNull();
+    if (vpBox) {
+      // Macro-canvas viewport takes substantial vertical space
+      expect(vpBox.height).toBeGreaterThanOrEqual(340);
     }
+
+    // Permanent executive order meta card is visible
+    await expect(page.locator('#order-meta-card #meta-order-number')).toBeVisible();
+    await expect(page.locator('#order-meta-card #meta-customer-name')).toBeVisible();
+    await expect(page.locator('#order-meta-card #meta-status')).toBeVisible();
+    await expect(page.locator('#order-meta-card #meta-total-amount')).toBeVisible();
+
+    // Collapse toggle button is cleanly sanitized
+    await expect(page.locator('#btn-toggle-header-collapse')).toHaveCount(0);
   });
 
   // TC-PAR-04: Cel-Click Bewerking & Fitts' Law (Touch targets >= 48px conform Gebruikersitem 8)
@@ -107,20 +96,20 @@ test.describe('Matrix Orders Enterprise Behavioral Suite', () => {
     // Klik op de cel opent de Product Edit Drawer
     await firstCell.click();
 
-    const drawer = page.locator('div[role=\"dialog\"][aria-labelledby=\"product-edit-title\"]');
+    const drawer = page.locator('div[role="dialog"][aria-labelledby="product-edit-title"]');
     await expect(drawer).toBeVisible();
 
     // Verifieer formulierelementen (maten, aantal, CPQ realtime calculatie)
-    await expect(drawer.locator('input[type=\"number\"]').first()).toBeVisible();
-    await expect(drawer.locator('button:has-text(\"Opslaan & Toepassen\")')).toBeVisible();
+    await expect(drawer.locator('input[type="number"]').first()).toBeVisible();
+    await expect(drawer.locator('button:has-text("Opslaan & Toepassen")')).toBeVisible();
 
     // Sluiten via Escape
     await page.keyboard.press('Escape');
     await expect(drawer).not.toBeVisible();
   });
 
-  // TC-PAR-05: FSM Process Buttons Removed from ActionBar & Present in TopNav Select
-  test('TC-PAR-05: 8 FSM process buttons removed from actionbar with active select in TopNav', async ({ page }) => {
+  // TC-PAR-05: FSM Process Buttons Removed from ActionBar & Present via Workflow Stage Tag
+  test('TC-PAR-05: 8 FSM process buttons removed from actionbar with active stage tag in ActionBar and 6 TopNav tabs', async ({ page }) => {
     await page.goto('/matrix-orders');
 
     // Verify FSM buttons #fsm-step-1 to #fsm-step-8 are no longer rendered in actionbar
@@ -128,63 +117,74 @@ test.describe('Matrix Orders Enterprise Behavioral Suite', () => {
       await expect(page.locator(`#fsm-step-${step}`)).toHaveCount(0);
     }
 
-    // TopNav FSM select dropdown remains operational with stage 5 selected
-    const fsmSelect = page.locator('#fsm-stage-select');
-    await expect(fsmSelect).toBeVisible();
-    await expect(fsmSelect).toHaveValue('5');
+    // TopNav contains 6 capsule tabs conform Stitch Optie 1
+    const topNav = page.locator('nav[aria-label="Hoofdnavigatie"]');
+    await expect(topNav).toBeVisible();
+    await expect(topNav.locator('button:has-text("Project")')).toBeVisible();
+
+    // ActionBar displays active workflow stage tag
+    const stageTag = page.locator('#workflowStageTag');
+    await expect(stageTag).toBeVisible();
+    await expect(stageTag).toContainText('Bestellen');
   });
 
-  // TC-PAR-06: Column Multi-Selection
-  test('TC-PAR-06: Multi-selection of spatial position columns', async ({ page }) => {
+  // TC-PAR-06: Direct Column Multi-Selection
+  test('TC-PAR-06: Direct multi-selection of spatial position columns', async ({ page }) => {
     await page.goto('/matrix-orders');
+    await page.waitForSelector('#matrix-table thead tr:nth-child(4) th');
 
-    // Click 'Posities Selecteren' in action bar
-    const selectModeBtn = page.locator('button:has-text(\"Posities Selecteren\")');
-    await selectModeBtn.click();
-
-    // Row 4 position headers are now clickable
+    // Row 4 position headers are directly clickable without toggle button
     const firstPosHeader = page.locator('#matrix-table thead tr:nth-child(4) th').nth(2);
     await firstPosHeader.click();
 
     // Should receive ring-2 highlight
     await expect(firstPosHeader).toHaveClass(/ring-2/);
 
-    // Action bar button label updates to include count
-    await expect(page.locator('button:has-text(\"Selectie (1)\")')).toBeVisible();
+    // Floating bar appears with selected count
+    const floatingBar = page.locator('aside[aria-label="Cluster selectie actiebalk"]');
+    await expect(floatingBar).toBeVisible();
+    await expect(floatingBar).toContainText('1 kolom geselecteerd');
   });
 
   // TC-PAR-07: Slide-Over Media Drawer & WAI-ARIA
   test('TC-PAR-07: Slide-over drawer with WAI-ARIA dialog attributes and Escape listener', async ({ page }) => {
     await page.goto('/matrix-orders');
 
-    // Click '+ Foto' button
-    const photoBtn = page.locator('button:has-text(\"+ Foto\")');
-    await photoBtn.click();
+    // Click 'Bijlagen' button in executive order strip
+    const mediaBtn = page.locator('#btn-meta-media-drawer');
+    await expect(mediaBtn).toBeVisible();
+    await mediaBtn.click();
 
     // Drawer should open
-    const drawer = page.locator('div[role=\"dialog\"]');
+    const drawer = page.locator('div[role="dialog"]');
     await expect(drawer).toBeVisible();
     await expect(drawer).toHaveAttribute('aria-modal', 'true');
-    await expect(drawer).toHaveAttribute('aria-labelledby', 'media-drawer-title');
 
     // Close on Escape
     await page.keyboard.press('Escape');
     await expect(drawer).not.toBeVisible();
   });
 
-  // TC-PAR-08: Order Switching via Sidebar
+  // TC-PAR-08: Order Switching via Orders Explorer Drawer
   test('TC-PAR-08: Instant order switching updates matrix and header', async ({ page }) => {
     await page.goto('/matrix-orders');
 
     // Currently on Jaspers V26001376
-    await expect(page.locator('h1')).toContainText('V26001376');
+    await expect(page.locator('#meta-order-number')).toContainText('V26001376');
+
+    // Open Orders Explorer drawer via trigger button
+    const openSidebarBtn = page.locator('button[aria-label="Open Orders Explorer"]');
+    if (await openSidebarBtn.isVisible()) {
+      await openSidebarBtn.click();
+    }
 
     // Click first order in sidebar (DrHaack V26001761) using explicit ID
     const drHaackItem = page.locator('#sidebar-order-V26001761');
+    await expect(drHaackItem).toBeVisible();
     await drHaackItem.click();
 
     // Header updates to V26001761
-    await expect(page.locator('h1')).toContainText('V26001761');
+    await expect(page.locator('#meta-order-number')).toContainText('V26001761');
     await expect(page.locator('body')).toContainText('DrHaack holding b.v.');
   });
 });

@@ -11,7 +11,7 @@ import { MatrixOrderMetaCard } from '../../components/matrix/MatrixOrderMetaCard
 import { MatrixClusterFloatingBar } from '../../components/matrix/MatrixClusterFloatingBar';
 import { MatrixAuditTrailTable } from '../../components/matrix/MatrixAuditTrailTable';
 import { MatrixOverlayCoordinator } from '../../components/matrix/MatrixOverlayCoordinator';
-import { Position, FsmProcessStep, FSM_STAGES } from '../../types/matrix';
+import { Position, FSM_STAGES } from '../../types/matrix';
 import { buildCellKey, findCellKeyByOrderLine, findOrderLineByCompoundKey } from '../../utils/matrix-overlay-state';
 import { attachMatrixDockingListener } from '../../utils/matrix-docking';
 
@@ -22,11 +22,11 @@ import { attachMatrixDockingListener } from '../../utils/matrix-docking';
 export default function MatrixOrdersPage() {
   const {
     orders, currentOrderIndex, selectedOrder, fsmStage, setFsmStage,
-    columnSelectMode, selectedColumnIds, activeOverlay, openOverlay, closeOverlay,
+    selectedColumnIds, activeOverlay, openOverlay, closeOverlay,
     highlightedCellKey, setHighlightedCellKey, activeMediaTab, setActiveMediaTab,
     sidebarOpen, setSidebarOpen, visibleLevels, toggleLevelVisibility,
-    isHeaderCollapsed, setIsHeaderCollapsed, selectOrder, goToNextOrder, goToPreviousOrder,
-    toggleColumnSelection, toggleColumnSelectMode, clearColumnSelection,
+    selectOrder, goToNextOrder, goToPreviousOrder,
+    toggleColumnSelection, clearColumnSelection,
     addMediaItem, deletePosition, updateCell, assignProductToCell, assignVlakToPosition,
     mergePositionsToCluster, dissolveCluster,
   } = useMatrixState();
@@ -50,6 +50,12 @@ export default function MatrixOrdersPage() {
     () => findOrderLineByCompoundKey(selectedOrder, highlightedCellKey),
     [selectedOrder, highlightedCellKey]
   );
+
+  const activeStep = FSM_STAGES.find((s) => s.step === fsmStage) ?? {
+    step: fsmStage,
+    label: 'Montage gepland',
+    status: 'actueel' as const,
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -118,25 +124,23 @@ export default function MatrixOrdersPage() {
         />
 
         <div id="order-meta-card">
-          {!isHeaderCollapsed && (
-            <MatrixOrderMetaCard
-              selectedOrder={selectedOrder}
-              onOpenPdf={() => openOverlay({ type: 'media', positionId: 'pos_order_meta', title: `Historisch LT Document - ${selectedOrder.id}` })}
-              onOpenMedia={() => openOverlay({ type: 'media_drawer', positionId: 'pos_project_algemeen', title: `Werffoto's & Media (${selectedOrder.klant})` })}
-            />
-          )}
+          <MatrixOrderMetaCard
+            selectedOrder={selectedOrder}
+            orders={orders}
+            currentOrderIndex={currentOrderIndex}
+            onSelectOrder={selectOrder}
+            onOpenMedia={() => openOverlay({ type: 'media_drawer', positionId: 'pos_project_algemeen', title: `Werffoto's & Media (${selectedOrder.klant})` })}
+          />
         </div>
 
         <MatrixActionBar
-          columnSelectMode={columnSelectMode} selectedColumnCount={selectedColumnIds.size}
-          onToggleColumnSelectMode={toggleColumnSelectMode}
-          onOpenMediaDrawer={(tab) => {
-            setActiveMediaTab(tab);
-            openOverlay({ type: 'media', positionId: 'pos_project_algemeen', title: `Werffoto's & Media (${selectedOrder.klant})` });
-          }}
-          historischDocumentUrl={selectedOrder.historisch_document_url}
-          isHeaderCollapsed={isHeaderCollapsed}
-          onToggleHeaderCollapse={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
+          workflowStage={activeStep.label}
+          onWorkflowStageClick={() => openOverlay({ type: 'fsm_modal', step: activeStep })}
+          onMakeAppointment={() => {}}
+          onMakeReport={() => {}}
+          onInmeten={() => {}}
+          onMonteren={() => {}}
+          onAfronden={() => {}}
         />
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -144,14 +148,15 @@ export default function MatrixOrdersPage() {
             id="matrix-viewport"
             className="overflow-auto bg-white rounded-xl shadow-xs border border-slate-200 scroll-pt-[130px] transition-all duration-200"
             style={{
-              height: isHeaderCollapsed ? 'calc(100vh - 200px)' : 'calc(100vh - 290px)',
+              height: 'calc(100vh - 200px)',
               minHeight: '340px',
             }}
           >
             <table id="matrix-table" className="border-separate border-spacing-0 table-fixed min-w-max text-xs">
               <MatrixHeader
-                etages={selectedOrder.etages} columnSelectMode={columnSelectMode}
-                selectedColumnIds={selectedColumnIds} onToggleColumnSelection={toggleColumnSelection}
+                etages={selectedOrder.etages}
+                selectedColumnIds={selectedColumnIds}
+                onToggleColumnSelection={toggleColumnSelection}
                 visibleLevels={visibleLevels}
                 onOpenLevelVisibility={(pos, isHover) => {
                   if (isHover && activeOverlay && activeOverlay.type !== 'level_visibility') return;

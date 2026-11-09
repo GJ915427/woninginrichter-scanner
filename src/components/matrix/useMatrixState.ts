@@ -26,7 +26,6 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
   const [orders, setOrders] = useState<MatrixOrder[]>(initialOrders);
   const [currentOrderIndex, setCurrentOrderIndex] = useState<number>(2); // Jaspers (V26001376)
   const [fsmStage, setFsmStage] = useState<number>(5); // Bestellen (Actueel)
-  const [columnSelectMode, setColumnSelectMode] = useState<boolean>(false);
   const [selectedColumnIds, setSelectedColumnIds] = useState<Set<string>>(new Set());
 
   // Single-Active Overlay State Machine Coordinator
@@ -37,7 +36,7 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
   const [activeMediaTab, setActiveMediaTab] = useState<'foto' | 'video' | 'opmerking'>('foto');
   const [mediaContextFilter, setMediaContextFilter] = useState<'position' | 'room' | 'project'>('project');
   const [rollupLevel, setRollupLevel] = useState<RollupLevel>('positie');
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
   // Niveau-Zichtbaarheid State (V5)
   const [visibleLevels, setVisibleLevels] = useState<HeaderLevelVisibility>({
@@ -53,9 +52,6 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
       [level]: !prev[level],
     }));
   }, []);
-
-  // Header Collapse State
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState<boolean>(false);
 
   const selectedOrder = useMemo(() => {
     return orders[currentOrderIndex] ?? orders[0];
@@ -100,15 +96,6 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
         next.add(posId);
       }
       return next;
-    });
-  }, []);
-
-  const toggleColumnSelectMode = useCallback(() => {
-    setColumnSelectMode((prev) => {
-      if (prev) {
-        setSelectedColumnIds(new Set());
-      }
-      return !prev;
     });
   }, []);
 
@@ -330,7 +317,6 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     selectedOrder,
     fsmStage,
     setFsmStage,
-    columnSelectMode,
     selectedColumnIds,
     activeOverlay,
     openOverlay,
@@ -352,18 +338,15 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     setRollupLevel,
     sidebarOpen,
     setSidebarOpen,
-    // Niveau-Zichtbaarheid & Header Collapse (V5)
+    // Niveau-Zichtbaarheid (V5)
     visibleLevels,
     setVisibleLevels,
     toggleLevelVisibility,
-    isHeaderCollapsed,
-    setIsHeaderCollapsed,
     // Handlers
     selectOrder,
     goToNextOrder,
     goToPreviousOrder,
     toggleColumnSelection,
-    toggleColumnSelectMode,
     clearColumnSelection,
     addMediaItem,
     updateQuantity,

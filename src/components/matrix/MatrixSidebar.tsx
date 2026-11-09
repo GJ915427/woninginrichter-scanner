@@ -49,7 +49,7 @@ export function MatrixSidebar({
   }
 
   return (
-    <aside className="w-80 min-w-[320px] max-w-[320px] bg-white text-slate-800 flex flex-col border-r border-slate-200 select-none text-xs">
+    <aside aria-label="Orders Explorer" className="w-80 min-w-[320px] max-w-[320px] bg-white text-slate-800 flex flex-col border-r border-slate-200 select-none text-xs">
       {/* HEADER */}
       <div className="p-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
         <div className="flex items-center gap-2">

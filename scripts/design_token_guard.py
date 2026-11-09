@@ -49,6 +49,9 @@ EMOJI_ENFORCED_COMPONENTS = {
     "src/components/matrix/MatrixTopNav.tsx",
     "src/components/matrix/MatrixOrderMetaCard.tsx",
     "src/components/matrix/MatrixActionBar.tsx",
+    "src/components/matrix/MatrixHeader.tsx",
+    "src/components/matrix/MatrixCell.tsx",
+    "src/components/matrix/MatrixProductRow.tsx",
 }
 
 MVP_DIRECTORIES = [

@@ -33,13 +33,14 @@ export interface MatrixCellProps {
 }
 
 /**
- * Matrixcel conform Gebruikersitem 8 en 11.
+ * Matrixcel conform Stitch Optie 1 en Gebruikersitem 8 en 11.
+ * - Cel-cardificatie met afgeronde container en zuivere typografie.
  * - Stepper en box om aantal geëlimineerd; de gehele cel is klikbaar (min-h-[48px]).
  * - Lege cellen (—) zijn klikbaar en openen de drawer om een product toe te wijzen.
- * - Regelnummer uitgegrijst in text-slate-600 (WCAG AA 7.48:1) zonder rood omkaderend vakje.
  * - Subpositie badge [a] alleen zichtbaar indien er daadwerkelijk meerdere subposities zijn.
+ * - Regelnummer in rustige badge (#20) met WCAG AA contrast.
  * - Long-press (500ms) en rechtermuisklik openen het contextmenu; synthetische click-bleed onderdrukt.
- * - Ondersteunt visuele selectie/highlighting vanuit de LogicTrade audit-trail tabel.
+ * - Warm cream achtergrond voor pos_project_algemeen / Algemeen kolom.
  */
 export function MatrixCell({
   cellData,
@@ -52,6 +53,8 @@ export function MatrixCell({
   onCellClick,
   onCellContextMenu,
 }: MatrixCellProps) {
+  const isAlgemeen = positionId === 'pos_project_algemeen' || positionId === 'pos-gen';
+
   const { handlers } = useLongPress({
     onLongPress: (e) => {
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -81,7 +84,9 @@ export function MatrixCell({
         {...handlers}
         id={cellKey ? `matrix-cell-${productId}-${cellKey}` : undefined}
         onContextMenu={handleContextMenu}
-        className="w-[160px] min-w-[160px] max-w-[160px] min-h-[48px] px-3 py-3 text-center border-r border-b border-slate-100 bg-white cursor-pointer select-none hover:bg-blue-50/20 transition-colors align-middle"
+        className={`w-[160px] min-w-[160px] max-w-[160px] min-h-[48px] px-3 py-3 text-center border-r border-b border-slate-100 cursor-pointer select-none transition-colors align-middle ${
+          isAlgemeen ? 'bg-amber-50/20 hover:bg-amber-50/40' : 'bg-white hover:bg-blue-50/20'
+        }`}
         title="Klik om dit artikel toe te wijzen aan deze positie"
       >
         <span className="text-slate-300 font-mono text-sm">—</span>
@@ -99,11 +104,13 @@ export function MatrixCell({
       className={`relative w-[160px] min-w-[160px] max-w-[160px] min-h-[48px] p-2 text-center border-r border-b border-slate-200 align-top cursor-pointer select-none transition-all duration-200 ${
         isHighlighted
           ? 'ring-2 ring-blue-500 bg-blue-50/40 shadow-sm z-10'
+          : isAlgemeen
+          ? 'bg-amber-50/30 hover:bg-amber-50/50'
           : 'bg-white hover:bg-slate-50'
       }`}
       title="Klik om maten en aantal te bewerken. Rechtsklik voor opties."
     >
-      {/* Sub-positie badge & uitgegrijst regelnummer zonder omkadering */}
+      {/* Sub-positie badge & regelnummer badge */}
       <div className="flex items-center justify-between mb-1">
         {hasMultipleSubPositions && cellData.subPos ? (
           <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-100 px-1 rounded">
@@ -113,8 +120,8 @@ export function MatrixCell({
           <span />
         )}
         {cellData.line && (
-          <span className="text-[10px] font-mono text-slate-600 font-medium">
-            {cellData.line}
+          <span className="text-[10px] font-mono font-semibold text-amber-800 bg-amber-50 border border-amber-200/60 px-1 py-0.2 rounded">
+            #{cellData.line}
           </span>
         )}
       </div>
@@ -138,10 +145,10 @@ export function MatrixCell({
       )}
       {cellData.dim && (
         <div
-          className="text-[10px] text-slate-500 font-mono truncate max-w-[140px]"
+          className="text-[10px] text-slate-500 font-mono truncate max-w-[140px] tracking-tight"
           title={cellData.dim}
         >
-          {cellData.dim}
+          {cellData.dim.replace('x', '×')}
         </div>
       )}
       {cellData.note && !isIncluded && (

@@ -122,8 +122,8 @@ test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
     await expect(targetCell).toContainText(/(?:stuks|st)\b/i);
   });
 
-  // TC-FSM-01: Non-intrusive FSM Modal via TopNav stage select
-  test('TC-FSM-01: Selecting FSM stage in TopNav opens FSM modal without window.alert', async ({ page }) => {
+  // TC-FSM-01: Non-intrusive FSM Modal via Actionbar Workflow Stage Tag
+  test('TC-FSM-01: Clicking workflowStageTag in Actionbar opens FSM modal without window.alert', async ({ page }) => {
     let alertTriggered = false;
     page.on('dialog', async (dialog) => {
       alertTriggered = true;
@@ -132,14 +132,15 @@ test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
 
     await page.goto('/matrix-orders');
 
-    // Select step 3 (Inmeten) via TopNav dropdown
-    const stageSelect = page.locator('#fsm-stage-select');
-    await stageSelect.selectOption('3');
+    // Click workflow stage tag in ActionBar
+    const stageTag = page.locator('#workflowStageTag');
+    await expect(stageTag).toBeVisible();
+    await stageTag.click();
 
     // FSM modal should open
     const modal = page.locator('div[role="dialog"][aria-labelledby="fsm-modal-title"]');
     await expect(modal).toBeVisible();
-    await expect(modal).toContainText('Inmeten');
+    await expect(modal).toContainText('Bestellen');
     expect(alertTriggered).toBe(false);
 
     // Close modal
@@ -147,14 +148,23 @@ test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
     await expect(modal).not.toBeVisible();
   });
 
-  // TC-DOC-01: Authentic LogicTrade Document Link
-  test('TC-DOC-01: LT Brondocument button links to authentic PDF', async ({ page }) => {
+  // TC-DOC-01: Media & Documents Drawer Trigger
+  test('TC-DOC-01: Media & Documents Drawer button opens slide-over drawer with attachments', async ({ page }) => {
     await page.goto('/matrix-orders');
 
-    const ltDocBtn = page.locator('#btn-historisch-document');
-    await expect(ltDocBtn).toBeVisible();
-    await expect(ltDocBtn).toHaveAttribute('href', '/documents/order-v26001376-logictrade.pdf');
-    await expect(ltDocBtn).toHaveAttribute('target', '_blank');
+    const mediaBtn = page.locator('#btn-meta-media-drawer');
+    await expect(mediaBtn).toBeVisible();
+    await expect(mediaBtn).toContainText('Bijlagen');
+    await mediaBtn.click();
+
+    // Slide-over media drawer opens
+    const drawer = page.locator('div[role="dialog"]');
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toContainText(/Media & Notities|Werf/i);
+
+    // Close drawer
+    await page.keyboard.press('Escape');
+    await expect(drawer).not.toBeVisible();
   });
 
   // TC-SUB-01: Conditional Subposition Badges
@@ -275,20 +285,25 @@ test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
     await expect(posHeader).toContainText('Kozijn A');
   });
 
-  // TC-NAV-01: Top Nav Order Switcher
-  test('TC-NAV-01: Top nav switches orders cleanly without state bleed', async ({ page }) => {
+  // TC-NAV-01: Executive Strip Order Switcher
+  test('TC-NAV-01: Executive strip order switcher dropdown switches orders cleanly without state bleed', async ({ page }) => {
     await page.goto('/matrix-orders');
-    await page.waitForSelector('nav[aria-label="Kruimelpad & Ordernavigatie"]');
 
-    const topNav = page.locator('nav[aria-label="Kruimelpad & Ordernavigatie"]');
-    await expect(topNav).toContainText('3 / 7');
+    const orderBtn = page.locator('#meta-order-number');
+    await expect(orderBtn).toBeVisible();
+    await expect(orderBtn).toContainText('V26001376');
 
-    // Click Vorige -> switches to order 2
-    await topNav.locator('button[aria-label="Vorige order"]').click();
-    await expect(topNav).toContainText('2 / 7');
+    // Open order popover listbox
+    await orderBtn.click();
+    const listbox = page.locator('div[role="listbox"][aria-label="Order selectielijst"]');
+    await expect(listbox).toBeVisible();
 
-    // Click Volgende -> switches back to order 3
-    await topNav.locator('button[aria-label="Volgende order"]').click();
-    await expect(topNav).toContainText('3 / 7');
+    // Click previous order button inside listbox
+    const prevBtn = listbox.locator('button[aria-label="Vorige order"]');
+    await expect(prevBtn).toBeVisible();
+    await prevBtn.click();
+
+    // Order switches cleanly to previous order (V26001797)
+    await expect(orderBtn).toContainText('V26001797');
   });
 });

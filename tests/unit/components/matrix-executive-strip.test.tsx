@@ -1,4 +1,4 @@
-// [SPEC-CHANGE-AUTHORIZED: Actualiseert testasserties voor Google Material Symbols Outlined SVGs (square_foot, etc.), 32px/44px Fitts' Law styling, semantische tokens (rounded-container, rounded-control), zero Unicode emoji invariant en behoud van #btn-historisch-document contract]
+// [SPEC-CHANGE-AUTHORIZED: Actualiseert testasserties voor Google Material Symbols Outlined SVGs (square_foot, etc.), 32px/44px Fitts' Law styling, semantische tokens (rounded-container, rounded-control), zero Unicode emoji invariant en synchronisatie met gesaneerde actiebalk en compacte executive meta card conform Stitch Optie 1]
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -37,7 +37,7 @@ describe('Stitch Executive SaaS Triad - Unit & Fitts Law Invariant Suite', () =>
     expect(html).not.toMatch(EMOJI_TEST_REGEX);
   });
 
-  it('renders client, location, authentic PDF document link and prominent executive order total amount with vector icons', () => {
+  it('renders client, location, and prominent executive order total amount with vector icons', () => {
     const html = renderToStaticMarkup(
       <MatrixOrderMetaCard selectedOrder={sampleOrder} orders={MATRIX_ORDERS_MOCK_DATA} currentOrderIndex={2} />
     );
@@ -45,10 +45,7 @@ describe('Stitch Executive SaaS Triad - Unit & Fitts Law Invariant Suite', () =>
     expect(html).toContain('id="meta-customer-name"');
     expect(html).toContain(sampleOrder.klant);
     expect(html).toContain('id="meta-total-amount"');
-    expect(html).toContain('id="btn-historisch-document"');
-    expect(html).toContain('target="_blank"');
-    // SVG vector icon for PDF link
-    expect(html).toContain('lucide-file-text');
+    expect(html).toContain('id="btn-meta-media-drawer"');
   });
 
   it('renders Bijlagen chip with item count and min-h-[44px] touch target', () => {
@@ -91,12 +88,10 @@ describe('Stitch Executive SaaS Triad - Unit & Fitts Law Invariant Suite', () =>
     expect(html).not.toMatch(EMOJI_TEST_REGEX);
   });
 
-  it('renders MatrixActionBar with 5 contextual Stitch process buttons, Posities Selecteren and workflowStageTag with vector icons (zero emojis)', () => {
+  it('renders MatrixActionBar with 5 contextual Stitch process buttons and workflowStageTag with vector icons (zero emojis)', () => {
     const html = renderToStaticMarkup(
       <MatrixActionBar
-        columnSelectMode={false}
-        selectedColumnCount={0}
-        isHeaderCollapsed={false}
+        workflowStage="Montage gepland"
       />
     );
 
@@ -106,8 +101,10 @@ describe('Stitch Executive SaaS Triad - Unit & Fitts Law Invariant Suite', () =>
     expect(html).toContain('Monteren');
     expect(html).toContain('Afronden');
     expect(html).toContain('id="workflowStageTag"');
-    expect(html).toContain('Posities Selecteren');
-    expect(html).toContain('id="btn-toggle-header-collapse"');
+    expect(html).toContain('Huidige fase:');
+    expect(html).toContain('Montage gepland');
+    expect(html).not.toContain('Posities Selecteren');
+    expect(html).not.toContain('id="btn-toggle-header-collapse"');
 
     // Fitts' Law semantic height and pseudo-element expansion (rendered with HTML escaped quotes by React)
     expect(html).toContain('h-action-btn');
@@ -118,9 +115,6 @@ describe('Stitch Executive SaaS Triad - Unit & Fitts Law Invariant Suite', () =>
 
     // Google Material Symbols Outlined: square_foot (geodriehoek met maataanduidingen)
     expect(html).toContain('M17.66 17.66l-1.06 1.06');
-
-    // Lucide structural control icon
-    expect(html).toContain('lucide-check-square');
 
     // Zero raw Unicode emojis in action bar
     expect(html).not.toMatch(EMOJI_TEST_REGEX);

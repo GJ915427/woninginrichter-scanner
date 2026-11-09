@@ -2,7 +2,7 @@
 
 // [SPEC-CHANGE-AUTHORIZED: Handcrafting van compacte Executive Order Strip conform Stitch specificatie met 2-laags gestapelde micro-labels, SVG iconen, pointerdown touch popover orderpicker, dubbele statusindicatie met rounded-control en Fitts law >= 44px touch targets]
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Paperclip, FileText, ChevronDown } from 'lucide-react';
+import { MapPin, Paperclip, ChevronDown } from 'lucide-react';
 import { MatrixOrder } from '../../types/matrix';
 import { centsToEuroString } from '../../utils/matrix-pricing';
 
@@ -185,41 +185,21 @@ export function MatrixOrderMetaCard({
         </div>
       </div>
 
-      {/* Rechterzijde: Bijlagen Pill | Authentiek PDF Document | Prominent Orderbedrag */}
-      <div className="flex-shrink-0 flex items-center gap-3">
+      {/* Rechterzijde: Bijlagen Pill & Prominent Orderbedrag conform Stitch Optie 1 */}
+      <div className="flex-shrink-0 flex items-center gap-4">
         <button
           type="button"
           id="btn-meta-media-drawer"
           onClick={() => onOpenMedia?.()}
           aria-label="Bijlagen en notities openen"
-          className="min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition-colors shadow-2xs cursor-pointer"
+          className="h-action-btn relative before:content-[''] before:absolute before:-inset-y-1.5 before:inset-x-0 before:min-h-[44px] px-3.5 py-1.5 rounded-pill text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-2 shadow-2xs"
         >
-          <Paperclip className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+          <Paperclip className="w-3.5 h-3.5 text-slate-500 shrink-0" aria-hidden="true" />
           <span>Bijlagen</span>
-          <span className="bg-slate-100 px-1.5 py-0.5 rounded-pill text-slate-700 text-[10px] font-semibold">
+          <span className="bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded-full text-[10px]">
             {selectedOrder.media?.length ?? 7}
           </span>
         </button>
-
-        <a
-          id="btn-historisch-document"
-          href={docUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => {
-            if (onOpenPdf && !selectedOrder.historisch_document_url) {
-              e.preventDefault();
-              onOpenPdf();
-            }
-          }}
-          aria-label="Historisch document openen"
-          title="Historisch gegenereerd LogicTrade PDF brondocument openen"
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control text-slate-600 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 transition-colors shadow-2xs"
-        >
-          <FileText className="w-4 h-4 text-slate-500" aria-hidden="true" />
-        </a>
-
-        <div className="h-6 w-px bg-slate-200" />
 
         <div className="flex flex-col items-end gap-0.5">
           <span className="text-[9px] uppercase font-semibold text-slate-500 tracking-wider text-right">

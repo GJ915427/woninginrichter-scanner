@@ -5,7 +5,6 @@ import { Etage, Position, HeaderLevelVisibility } from '../../types/matrix';
 
 export interface MatrixHeaderProps {
   etages: Etage[];
-  columnSelectMode: boolean;
   selectedColumnIds: Set<string>;
   onToggleColumnSelection: (positionId: string) => void;
   visibleLevels?: HeaderLevelVisibility;
@@ -28,7 +27,6 @@ interface FlattenedPosition {
  */
 export function MatrixHeader({
   etages,
-  columnSelectMode,
   selectedColumnIds,
   onToggleColumnSelection,
   visibleLevels,
@@ -67,11 +65,10 @@ export function MatrixHeader({
           <th
             style={{ top: `${topEtage}px`, left: '0px' }}
             onClick={(e) => handleOpenLevelVisibility(e, false)}
-            onMouseEnter={(e) => handleOpenLevelVisibility(e, true)}
-            title="Klik of beweeg hierover om niveau-zichtbaarheid aan te passen"
+            title="Klik hierop om niveau-zichtbaarheid aan te passen"
             className="sticky left-0 z-40 w-[280px] min-w-[280px] max-w-[280px] sticky-col-0 bg-slate-100 px-4 py-1 text-left font-semibold text-slate-600 border-r border-b border-slate-300 h-[36px] cursor-pointer hover:bg-slate-200/60 transition select-none"
           >
-            etage
+            Etage
           </th>
           <th style={{ top: `${topEtage}px` }} className="sticky z-30 w-[160px] min-w-[160px] max-w-[160px] bg-amber-50/80 px-3 py-1 text-center text-amber-900 border-r border-b border-amber-200 font-bold h-[36px]">Algemeen</th>
           {etages.map((etage) => {
@@ -79,7 +76,7 @@ export function MatrixHeader({
             if (totalPos === 0) return null;
             return (
               <th key={etage.id} colSpan={Math.max(1, totalPos)} style={{ top: `${topEtage}px` }} onContextMenu={(e) => handleCtx('etage', etage.name, etage.id, e)} className="sticky z-30 bg-slate-100 px-3 py-1 text-left overflow-hidden font-bold text-slate-800 border-r border-b border-slate-300 cursor-context-menu select-none h-[36px]">
-                <span className="sticky-group-label-etage inline-flex will-change-transform min-h-[26px] h-full items-center gap-1.5 px-3 py-0.5 rounded bg-white border border-slate-200 shadow-2xs hover:bg-slate-50 transition">🏢 {etage.name}</span>
+                <span className="sticky-group-label-etage inline-flex will-change-transform min-h-[26px] h-full items-center gap-1.5 px-3 py-0.5 rounded bg-white border border-slate-200 shadow-2xs hover:bg-slate-50 transition">{etage.name}</span>
               </th>
             );
           })}
@@ -92,11 +89,10 @@ export function MatrixHeader({
           <th
             style={{ top: `${topRuimte}px`, left: '0px' }}
             onClick={(e) => handleOpenLevelVisibility(e, false)}
-            onMouseEnter={(e) => handleOpenLevelVisibility(e, true)}
-            title="Klik of beweeg hierover om niveau-zichtbaarheid aan te passen"
+            title="Klik hierop om niveau-zichtbaarheid aan te passen"
             className="sticky left-0 z-40 w-[280px] min-w-[280px] max-w-[280px] sticky-col-0 bg-slate-50 px-4 py-1 text-left text-slate-600 border-r border-b border-slate-300 h-[34px] cursor-pointer hover:bg-slate-200/60 transition select-none"
           >
-            ruimte
+            Ruimte
           </th>
           <th style={{ top: `${topRuimte}px` }} className="sticky z-30 w-[160px] min-w-[160px] max-w-[160px] bg-amber-50/50 px-3 py-1 text-center text-amber-800 border-r border-b border-amber-200 text-[11px] h-[34px]">Project</th>
           {etages.flatMap((etage) =>
@@ -118,11 +114,10 @@ export function MatrixHeader({
           <th
             style={{ top: `${topCluster}px`, left: '0px' }}
             onClick={(e) => handleOpenLevelVisibility(e, false)}
-            onMouseEnter={(e) => handleOpenLevelVisibility(e, true)}
-            title="Klik of beweeg hierover om niveau-zichtbaarheid aan te passen"
+            title="Klik hierop om niveau-zichtbaarheid aan te passen"
             className="sticky left-0 z-40 w-[280px] min-w-[280px] max-w-[280px] sticky-col-0 bg-white px-4 py-0.5 text-left text-slate-500 border-r border-b border-slate-300 font-normal h-[28px] cursor-pointer hover:bg-slate-200/60 transition select-none"
           >
-            positie-cluster
+            Cluster
           </th>
           <th style={{ top: `${topCluster}px` }} className="sticky z-30 w-[160px] min-w-[160px] max-w-[160px] bg-amber-50/30 px-3 py-0.5 text-center text-amber-700 border-r border-b border-amber-200 h-[28px]">—</th>
           {etages.flatMap((etage) =>
@@ -134,7 +129,7 @@ export function MatrixHeader({
                 return (
                   <React.Fragment key={room.id + '-clusters'}>
                     <th colSpan={Math.max(1, clusteredPositions.length)} style={{ top: `${topCluster}px` }} onContextMenu={(e) => handleCtx('cluster', cluster.name, cluster.id, e)} className="sticky z-30 bg-blue-50/50 px-3 py-0.5 text-left overflow-hidden text-blue-700 border-r border-b border-blue-200 font-medium cursor-context-menu select-none hover:bg-blue-100/50 transition h-[28px]">
-                      <span className="sticky-group-label-cluster inline-flex will-change-transform items-center gap-1">🔗 {cluster.name}</span>
+                      <span className="sticky-group-label-cluster inline-flex will-change-transform items-center gap-1 px-2.5 py-0.5 rounded-pill bg-blue-100 text-blue-700 font-semibold text-[10px]">{cluster.name}</span>
                     </th>
                     {remainingPositions.map((pos) => (
                       <th key={pos.id} style={{ top: `${topCluster}px` }} className="sticky z-30 px-3 py-0.5 text-center text-slate-400 border-r border-b border-slate-200 h-[28px]">—</th>
@@ -155,8 +150,7 @@ export function MatrixHeader({
         <th
           style={{ top: `${topPosities}px`, left: '0px' }}
           onClick={(e) => handleOpenLevelVisibility(e, false)}
-          onMouseEnter={(e) => handleOpenLevelVisibility(e, true)}
-          title="Klik of beweeg hierover om niveau-zichtbaarheid aan te passen"
+          title="Klik hierop om niveau-zichtbaarheid aan te passen"
           className="sticky left-0 z-40 w-[280px] min-w-[280px] max-w-[280px] sticky-col-0 bg-slate-100 px-4 py-2 text-left font-bold text-slate-900 border-r border-b border-slate-300 h-[54px] cursor-pointer hover:bg-slate-200/60 transition select-none"
         >
           Artikelen & Diensten
@@ -171,28 +165,19 @@ export function MatrixHeader({
             <th
               key={position.id}
               style={{ top: `${topPosities}px` }}
-              onClick={() => columnSelectMode && onToggleColumnSelection(position.id)}
+              onClick={() => onToggleColumnSelection(position.id)}
               onContextMenu={(e) => handleCtx('position', position.name, position.id, e)}
-              className={`sticky z-30 w-[160px] min-w-[160px] max-w-[160px] px-3 py-1 text-center border-r border-b border-slate-300 cursor-context-menu select-none transition h-[54px] ${
-                columnSelectMode ? 'cursor-pointer hover:bg-blue-50/80' : ''
-              } ${isSelected ? 'bg-blue-100/90 ring-2 ring-blue-500 ring-inset' : 'bg-slate-50/90'}`}
+              className={`sticky z-30 w-[160px] min-w-[160px] max-w-[160px] px-3 py-1 text-center border-r border-b border-slate-300 cursor-pointer select-none transition h-[54px] ${
+                isSelected ? 'bg-blue-100/90 ring-2 ring-blue-500 ring-inset' : 'bg-slate-50/90 hover:bg-blue-50/50'
+              }`}
             >
               <div className="flex items-center justify-center gap-1">
-                {columnSelectMode && (
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => onToggleColumnSelection(position.id)}
-                    aria-label={`Selecteer kolom ${position.name}`}
-                    className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                  />
-                )}
                 <span className="font-bold text-slate-900 truncate">{position.name}</span>
               </div>
               {position.vlak && (
                 <div className="text-[10px] text-slate-500 font-normal leading-tight truncate">{position.vlak}</div>
               )}
-              <div className="text-[10px] text-slate-400 font-normal truncate">{position.type}</div>
+              <div className="text-[10px] text-slate-500 font-normal truncate">{position.type}</div>
             </th>
           );
         })}

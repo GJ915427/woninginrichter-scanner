@@ -17,6 +17,8 @@ export interface MatrixTopNavProps {
   onNextOrder?: () => void;
   customerName?: string;
   projectName?: string;
+  fsmStage?: number;
+  onFsmStageChange?: (stage: number) => void;
 }
 
 const NAV_TABS = ['Home', 'Klant', 'Object', 'Project', 'Ruimte', 'Product'] as const;
@@ -45,13 +47,12 @@ export function MatrixTopNav({
           className="flex items-center gap-2.5 min-h-[44px] px-1 hover:opacity-90 transition-opacity select-none"
           title="EasyM2M LogicTrade Portaal"
         >
-          <div className="w-9 h-9 rounded-container bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-sm shadow-blue-500/20">
-            <span>E=M²</span>
+          <div className="w-9 h-9 rounded-container bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-extrabold text-xs tracking-tight leading-none shadow-sm shadow-blue-500/20 active:scale-95 transition-transform select-none">
+            E=M²
           </div>
-          <div className="flex items-center text-base tracking-tight leading-none">
-            <span className="font-bold text-slate-900">Easy</span>
-            <span className="font-bold text-blue-600">M2M</span>
-          </div>
+          <span className="font-bold text-slate-800 tracking-tight text-sm">
+            Easy<span className="text-blue-600">M2M</span>
+          </span>
         </Link>
 
         {/* 6 Capsule Navigatietabs met Fitts' Law >= 44px hit-box */}

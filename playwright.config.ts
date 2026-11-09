@@ -1,7 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests/e2e',
+  testDir: './tests',
+  testMatch: /.*\.spec\.ts$/,
   timeout: 120000,
   expect: {
     timeout: 10000,
@@ -26,7 +27,7 @@ export default defineConfig({
   webServer: {
     command: 'npx next dev -p 8088 -H 127.0.0.1',
     url: 'http://127.0.0.1:8088',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
     timeout: 120000,
   },
 });
