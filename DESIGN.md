@@ -8,6 +8,11 @@
 | `--color-brand-hover` | `#072b5c` | EasyM2M Merkidentiteit |
 | `--color-brand-muted` | `#ebf2fa` | EasyM2M Merkidentiteit |
 | `--color-accent-blue` | `#2563eb` | EasyM2M Merkidentiteit |
+| `--radius-container` | `0.75rem` | Afronding & Geometrie Hiërarchie (Stitch 3-Tier SSOT) |
+| `--radius-control` | `0.5rem` | Afronding & Geometrie Hiërarchie (Stitch 3-Tier SSOT) |
+| `--radius-pill` | `9999px` | Afronding & Geometrie Hiërarchie (Stitch 3-Tier SSOT) |
+| `--spacing-action-btn` | `2rem` | Landschap Tablet Proporties & Fitts' Law |
+| `--min-touch-target` | `2.75rem` | Landschap Tablet Proporties & Fitts' Law |
 | `--color-neutral-dark` | `#222222` | Neutrale Typografie & Achtergronden |
 | `--color-neutral-medium` | `#555555` | Neutrale Typografie & Achtergronden |
 | `--color-neutral-light` | `#dddddd` | Neutrale Typografie & Achtergronden |

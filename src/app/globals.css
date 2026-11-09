@@ -3,8 +3,6 @@
 :root {
   --background: #ffffff;
   --foreground: #222222;
-  --font-geist-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 @theme {
@@ -13,6 +11,15 @@
   --color-brand-hover: #072b5c;
   --color-brand-muted: #ebf2fa;
   --color-accent-blue: #2563eb;
+
+  /* Afronding & Geometrie Hiërarchie (Stitch 3-Tier SSOT) */
+  --radius-container: 0.75rem; /* 12px: Containers, Logo Box, Popovers (utility: rounded-container) */
+  --radius-control: 0.5rem;    /* 8px: Controls, Tabs, Badges, Knoppen (utility: rounded-control) */
+  --radius-pill: 9999px;      /* 9999px: Tellers, Avatars (utility: rounded-pill) */
+
+  /* Landschap Tablet Proporties & Fitts' Law */
+  --spacing-action-btn: 2rem;  /* 32px: Sleek visual button height (utility: h-action-btn) */
+  --min-touch-target: 2.75rem; /* 44px: WCAG 2.5.5 touch target (before:min-h-[44px]) */
 
   /* Neutrale Typografie & Achtergronden */
   --color-neutral-dark: #222222;
@@ -46,8 +53,8 @@
   /* Alleen voor externe :root variabelen */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-plus-jakarta, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  --font-mono: var(--font-jetbrains-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, monospace);
 }
 
 /* Base Body Resets & Focus Indicators (Onaangeroerd behouden conform INV-GOV-13) */

@@ -1,6 +1,6 @@
 'use client';
 
-// [SPEC-CHANGE-AUTHORIZED: Handcrafting van compacte Executive Order Strip conform Stitch specificatie met 2-laags gestapelde micro-labels, SVG iconen, pointerdown touch popover orderpicker, dubbele statusindicatie en Fitts law >= 44px touch targets]
+// [SPEC-CHANGE-AUTHORIZED: Handcrafting van compacte Executive Order Strip conform Stitch specificatie met 2-laags gestapelde micro-labels, SVG iconen, pointerdown touch popover orderpicker, dubbele statusindicatie met rounded-control en Fitts law >= 44px touch targets]
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Paperclip, FileText, ChevronDown } from 'lucide-react';
 import { MatrixOrder } from '../../types/matrix';
@@ -90,7 +90,7 @@ export function MatrixOrderMetaCard({
                   aria-haspopup="listbox"
                   aria-expanded={isPopoverOpen}
                   onClick={() => setIsPopoverOpen(!isPopoverOpen)}
-                  className="min-h-[44px] px-2.5 py-1 inline-flex items-center gap-1.5 rounded bg-slate-50 hover:bg-slate-100 border border-slate-200 font-extrabold text-xs text-slate-900 font-mono transition-colors shadow-2xs cursor-pointer"
+                  className="min-h-[44px] px-2.5 py-1 inline-flex items-center gap-1.5 rounded-control bg-slate-50 hover:bg-slate-100 border border-slate-200 font-extrabold text-xs text-slate-900 font-mono transition-colors shadow-2xs cursor-pointer"
                   title="Klik om te wisselen van order"
                 >
                   <span>{selectedOrder.id}</span>
@@ -102,7 +102,7 @@ export function MatrixOrderMetaCard({
                 <div
                   role="listbox"
                   aria-label="Order selectielijst"
-                  className="absolute top-full left-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
+                  className="absolute top-full left-0 mt-2 w-80 bg-white rounded-container shadow-xl border border-slate-200 p-3 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
                 >
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
                     <span className="font-bold text-slate-800">Orders ({orderList.length})</span>
@@ -112,7 +112,7 @@ export function MatrixOrderMetaCard({
                         aria-label="Vorige order"
                         disabled={currentIndex <= 0}
                         onClick={() => currentIndex > 0 && onSelectOrder?.(currentIndex - 1)}
-                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
                       >‹</button>
                       <span className="font-mono text-xs text-slate-600 px-1 font-semibold">{currentIndex + 1} / {orderList.length}</span>
                       <button
@@ -120,7 +120,7 @@ export function MatrixOrderMetaCard({
                         aria-label="Volgende order"
                         disabled={currentIndex >= orderList.length - 1}
                         onClick={() => currentIndex < orderList.length - 1 && onSelectOrder?.(currentIndex + 1)}
-                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
                       >›</button>
                     </div>
                   </div>
@@ -134,7 +134,7 @@ export function MatrixOrderMetaCard({
                           onSelectOrder?.(idx);
                           setIsPopoverOpen(false);
                         }}
-                        className={`w-full min-h-[44px] px-3 py-2 text-left rounded-lg transition-colors flex items-center justify-between ${
+                        className={`w-full min-h-[44px] px-3 py-2 text-left rounded-control transition-colors flex items-center justify-between ${
                           idx === currentIndex
                             ? 'bg-blue-50 border border-blue-200 text-blue-900 font-semibold'
                             : 'hover:bg-slate-50 text-slate-700'
@@ -164,7 +164,7 @@ export function MatrixOrderMetaCard({
             </span>
             <span
               id="meta-status"
-              className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
+              className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded-control text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
             >
               Order
             </span>
@@ -177,7 +177,7 @@ export function MatrixOrderMetaCard({
             </span>
             <span
               id="meta-product-status"
-              className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
+              className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded-control text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
             >
               {selectedOrder.status || 'Definitief'}
             </span>
@@ -192,11 +192,11 @@ export function MatrixOrderMetaCard({
           id="btn-meta-media-drawer"
           onClick={() => onOpenMedia?.()}
           aria-label="Bijlagen en notities openen"
-          className="min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition-colors shadow-2xs cursor-pointer"
+          className="min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition-colors shadow-2xs cursor-pointer"
         >
           <Paperclip className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
           <span>Bijlagen</span>
-          <span className="bg-slate-100 px-1.5 py-0.5 rounded-full text-slate-700 text-[10px] font-semibold">
+          <span className="bg-slate-100 px-1.5 py-0.5 rounded-pill text-slate-700 text-[10px] font-semibold">
             {selectedOrder.media?.length ?? 7}
           </span>
         </button>
@@ -214,7 +214,7 @@ export function MatrixOrderMetaCard({
           }}
           aria-label="Historisch document openen"
           title="Historisch gegenereerd LogicTrade PDF brondocument openen"
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 transition-colors shadow-2xs"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control text-slate-600 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 transition-colors shadow-2xs"
         >
           <FileText className="w-4 h-4 text-slate-500" aria-hidden="true" />
         </a>

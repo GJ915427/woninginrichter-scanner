@@ -1,4 +1,4 @@
-// [SPEC-CHANGE-AUTHORIZED: Actualiseert testasserties voor gestapelde micro-labels, SVG vectoren, afwezigheid van ruwe Unicode emojis en behoud van interactieve controls conform Stitch Optie 1]
+// [SPEC-CHANGE-AUTHORIZED: Actualiseert testasserties voor Google Material Symbols Outlined SVGs (square_foot, etc.), 32px/44px Fitts' Law styling, semantische tokens (rounded-container, rounded-control), zero Unicode emoji invariant en behoud van #btn-historisch-document contract]
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -30,6 +30,9 @@ describe('Stitch Executive SaaS Triad - Unit & Fitts Law Invariant Suite', () =>
     expect(html).toContain('ORDERBEDRAG');
     expect(html).toContain('text-slate-500'); // WCAG 2.1 AA compliant contrast >= 4.5:1
 
+    // Semantic tokens
+    expect(html).toContain('rounded-control');
+
     // Zero raw Unicode emojis in order meta card
     expect(html).not.toMatch(EMOJI_TEST_REGEX);
   });
@@ -56,6 +59,7 @@ describe('Stitch Executive SaaS Triad - Unit & Fitts Law Invariant Suite', () =>
     expect(html).toContain('id="btn-meta-media-drawer"');
     expect(html).toContain('Bijlagen');
     expect(html).toContain('min-h-[44px]');
+    expect(html).toContain('rounded-pill');
     expect(html).toContain('lucide-paperclip');
   });
 
@@ -75,10 +79,13 @@ describe('Stitch Executive SaaS Triad - Unit & Fitts Law Invariant Suite', () =>
     expect(html).not.toContain('id="fsm-stage-select"');
     expect(html).not.toContain('aria-label="Vorige order"');
 
-    // Elevated white capsule for active Project tab
+    // Squircle logo and semantic tokens
+    expect(html).toContain('rounded-container');
+    expect(html).toContain('rounded-control');
+    expect(html).toContain('rounded-pill');
+
+    // Active Project tab
     expect(html).toContain('bg-white text-blue-600 font-bold shadow-2xs border border-slate-200/50');
-    // Soft blue avatar
-    expect(html).toContain('bg-blue-100 text-blue-700 font-semibold border border-blue-200/50');
 
     // Zero raw Unicode emojis in top nav
     expect(html).not.toMatch(EMOJI_TEST_REGEX);
@@ -102,11 +109,17 @@ describe('Stitch Executive SaaS Triad - Unit & Fitts Law Invariant Suite', () =>
     expect(html).toContain('Posities Selecteren');
     expect(html).toContain('id="btn-toggle-header-collapse"');
 
-    // Vector SVG icons
-    expect(html).toContain('lucide-calendar');
-    expect(html).toContain('lucide-ruler');
-    expect(html).toContain('lucide-wrench');
-    expect(html).toContain('lucide-lock');
+    // Fitts' Law semantic height and pseudo-element expansion (rendered with HTML escaped quotes by React)
+    expect(html).toContain('h-action-btn');
+    expect(html).toMatch(/before:content-\[(\'\'|&#x27;&#x27;)\]/);
+    expect(html).toContain('before:-inset-y-1.5');
+    expect(html).toContain('before:min-h-[44px]');
+    expect(html).toContain('rounded-control');
+
+    // Google Material Symbols Outlined: square_foot (geodriehoek met maataanduidingen)
+    expect(html).toContain('M17.66 17.66l-1.06 1.06');
+
+    // Lucide structural control icon
     expect(html).toContain('lucide-check-square');
 
     // Zero raw Unicode emojis in action bar

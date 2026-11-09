@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 EasyM2M Design Token & Drift Guard (INV-GOV-22 / Separation of Mechanism & Policy)
-Enforces INV-UI-EMOJI-BAN with Ratchet Baseline.
+Enforces INV-UI-EMOJI-BAN with Ratchet Baseline and Semantic Token / Icon Whitelisting.
 
 Mechanische bewaking die waarborgt dat:
 1. EasyM2M MVP componenten (src/components/matrix/ en src/components/configurator/)
@@ -10,6 +10,10 @@ Mechanische bewaking die waarborgt dat:
 2. DESIGN.md 100% synchroon is met het native @theme blok in src/app/globals.css (zero drift).
 3. Gemigreerde EasyM2M componenten en nieuw toegevoegde bestanden 100% vrij zijn van ruwe
    Unicode emoji's (INV-UI-EMOJI-BAN). Iconografie moet verlopen via vector SVGs of lucide-react.
+4. Processen in MatrixActionBar importeren uit MaterialSymbols (bijv. square_foot geodriehoek voor Inmeten)
+   en gebruiken géén lucide: Ruler.
+5. MatrixTopNav hanteert de 3-tier afrondingshiërarchie (rounded-container en rounded-control)
+   en voorkomt regressie naar afgeronde rounded-full tabs.
 """
 
 import sys
@@ -169,6 +173,33 @@ def scan_emojis(file_path: Path) -> list[tuple[int, str, str]]:
         print(f"[design_token_guard] [ERROR] Reading emojis in {file_path}: {e}", file=sys.stderr)
     return violations
 
+def scan_semantic_tokens_and_icons(file_path: Path, rel_posix: str) -> list[str]:
+    """Mechanisch valideren van iconen whitelist en semantische tokens in executive componenten."""
+    violations = []
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
+
+        # 1. MatrixActionBar: Verbod op Lucide Ruler voor Inmeten & Afdwingen MaterialSymbols
+        if rel_posix == 'src/components/matrix/MatrixActionBar.tsx':
+            if 'MaterialSymbols' not in content:
+                violations.append("MatrixActionBar.tsx moet procesiconen importeren uit './MaterialSymbols' conform Stitch Optie 1.")
+            if re.search(r'\bimport\b[^\n]*\bRuler\b[^\n]*\bfrom\s+[\'"]lucide-react[\'"]', content):
+                violations.append("MatrixActionBar.tsx mag geen 'lucide: Ruler' gebruiken voor Inmeten; gebruik IconSquareFoot.")
+            if re.search(r'<\s*Ruler\b', content):
+                violations.append("MatrixActionBar.tsx gebruikt verboden 'Ruler' component; vervang door IconSquareFoot.")
+
+        # 2. MatrixTopNav: Verbod op regressie naar afgeronde rounded-full tabs & afdwingen 3-tier radii
+        if rel_posix == 'src/components/matrix/MatrixTopNav.tsx':
+            if 'rounded-full font-semibold' in content:
+                violations.append("MatrixTopNav.tsx tabs mogen geen 'rounded-full' gebruiken; gebruik semantisch token 'rounded-control'.")
+            if 'rounded-container' not in content:
+                violations.append("MatrixTopNav.tsx moet het semantische 'rounded-container' token gebruiken voor containers/logo.")
+
+    except Exception as e:
+        print(f"[design_token_guard] [ERROR] Validating semantic tokens in {file_path}: {e}", file=sys.stderr)
+    return violations
+
 def check_stitch_sync(workspace_root: Path) -> bool:
     """Verifies that DESIGN.md is in perfect sync with globals.css."""
     sync_script = workspace_root / 'scripts' / 'sync_design_tokens.js'
@@ -214,6 +245,7 @@ def main() -> int:
 
     total_violations = 0
     emoji_violations_count = 0
+    semantic_violations_count = 0
 
     for target in target_files:
         rel_posix = target.relative_to(workspace_root).as_posix()
@@ -236,14 +268,24 @@ def main() -> int:
                     print(f"[EMOJI_VIOLATION] [INV-UI-EMOJI-BAN] {rel_posix}:{line_num} contains raw Unicode emoji '{emoji_char}' -> '{line_text}'")
                     print(f"  [HINT] Replace raw Unicode emojis with vector SVGs or lucide-react icons.")
 
+            # 2c. Semantic tokens and icons whitelist check
+            semantic_violations = scan_semantic_tokens_and_icons(target, rel_posix)
+            if semantic_violations:
+                for sem_err in semantic_violations:
+                    semantic_violations_count += 1
+                    total_violations += 1
+                    print(f"[SEMANTIC_TOKEN_VIOLATION] {rel_posix}: {sem_err}")
+
     if total_violations > 0:
         if emoji_violations_count > 0:
             print(f"\n[design_token_guard] [FAIL] {emoji_violations_count} raw Unicode emoji(s) detected in enforced component(s) (INV-UI-EMOJI-BAN).")
+        if semantic_violations_count > 0:
+            print(f"\n[design_token_guard] [FAIL] {semantic_violations_count} semantic token or icon set violation(s) detected.")
         print(f"\n[design_token_guard] [FAIL] Total {total_violations} violation(s) found in EasyM2M MVP components.")
         print("[HINT] Use semantic design tokens from globals.css and vector SVG icons.")
         return 1
 
-    print("[design_token_guard] [PASS] Zero hardcoded hex colors, zero raw Unicode emojis in enforced components, and zero Stitch drift.")
+    print("[design_token_guard] [PASS] Zero hardcoded hex colors, zero raw Unicode emojis in enforced components, zero semantic token drift, and zero Stitch drift.")
     return 0
 
 if __name__ == '__main__':
