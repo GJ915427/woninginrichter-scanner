@@ -7,39 +7,50 @@
   --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-
-  /* Custom Dark Blue Branding Colors */
+@theme {
+  /* EasyM2M Merkidentiteit */
   --color-brand: #0a3875;
   --color-brand-hover: #072b5c;
   --color-brand-muted: #ebf2fa;
+  --color-accent-blue: #2563eb;
 
-  /* Custom Neutrals */
+  /* Neutrale Typografie & Achtergronden */
   --color-neutral-dark: #222222;
   --color-neutral-medium: #555555;
   --color-neutral-light: #dddddd;
   --color-neutral-border: #b0b0b0;
   --color-neutral-bg: #f7f7f7;
 
-  /* Semantic Styling Tokens */
+  /* Semantische UI Oppervlaktes & Kaarten (Matrix & Configurator) */
+  --color-surface-canvas: #ffffff;
+  --color-surface-subtle: #f8fafc;
+  --color-surface-muted: #f1f5f9;
+  --color-surface-inverted: #020617;
+  --color-border-subtle: #e2e8f0;
+  --color-border-strong: #b0b0b0;
+
+  /* Primaire Acties */
+  --color-action-primary: #0a3875;
+  --color-action-primary-hover: #072b5c;
+
+  /* Domein Status Tokens (Matrix FSM & Configurator Validatie) */
   --color-error: #c13515;
   --color-error-bg: #fef2f2;
   --color-success: #10b981;
   --color-success-bg: #ecfdf5;
   --color-warning: #f59e0b;
-
-  /* Architectural Drawing & Floorplan Tokens */
-  --color-wall-outer: #1e293b;
-  --color-wall-shared: #dc2626;
-  --color-facade-front: #0284c7;
-  --color-nen-headroom: #f59e0b;
-  --color-dimension-line: #64748b;
+  --color-warning-bg: #fffbeb;
 }
 
+@theme inline {
+  /* Alleen voor externe :root variabelen */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Base Body Resets & Focus Indicators (Onaangeroerd behouden conform INV-GOV-13) */
 body {
   background-color: var(--background);
   color: var(--color-neutral-dark, #222222);

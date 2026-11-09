@@ -19,7 +19,9 @@
     "cap:sync": "cap sync android",
     "cap:copy": "cap copy android",
     "cap:open": "cap open android",
-    "test:offline": "pytest tests/test_android_scaffolding.py"
+    "test:offline": "pytest tests/test_android_scaffolding.py",
+    "sync-tokens": "node scripts/sync_design_tokens.js",
+    "guard:tokens": "python scripts/design_token_guard.py"
   },
   "dependencies": {
     "@capacitor/android": "^6.1.2",
