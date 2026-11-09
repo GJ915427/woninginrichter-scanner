@@ -10,15 +10,6 @@ export interface MatrixTopNavProps {
   onSearchClick?: () => void;
   userInitials?: string;
   userName?: string;
-  // Optionele compatibiliteitsprops
-  currentOrderIndex?: number;
-  totalOrders?: number;
-  onPreviousOrder?: () => void;
-  onNextOrder?: () => void;
-  customerName?: string;
-  projectName?: string;
-  fsmStage?: number;
-  onFsmStageChange?: (stage: number) => void;
 }
 
 const NAV_TABS = ['Home', 'Klant', 'Object', 'Project', 'Ruimte', 'Product'] as const;

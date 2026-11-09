@@ -21,7 +21,7 @@ import { attachMatrixDockingListener } from '../../utils/matrix-docking';
  */
 export default function MatrixOrdersPage() {
   const {
-    orders, currentOrderIndex, selectedOrder, fsmStage, setFsmStage,
+    orders, currentOrderIndex, selectedOrder, fsmStage,
     selectedColumnIds, activeOverlay, openOverlay, closeOverlay,
     highlightedCellKey, setHighlightedCellKey, activeMediaTab, setActiveMediaTab,
     sidebarOpen, setSidebarOpen, visibleLevels, toggleLevelVisibility,
@@ -108,20 +108,7 @@ export default function MatrixOrdersPage() {
       />
 
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
-        <MatrixTopNav
-          currentOrderIndex={currentOrderIndex} totalOrders={orders.length}
-          onPreviousOrder={goToPreviousOrder} onNextOrder={goToNextOrder}
-          customerName={selectedOrder.klant} projectName={selectedOrder.plaats}
-          activeTab="Project" fsmStage={fsmStage}
-          onFsmStageChange={(stage) => {
-            setFsmStage(stage);
-            const foundStep = FSM_STAGES.find((s) => s.step === stage);
-            openOverlay({
-              type: 'fsm_modal',
-              step: foundStep ?? { step: stage, label: `FSM Fase ${stage}`, status: 'actueel' },
-            });
-          }}
-        />
+        <MatrixTopNav activeTab="Project" />
 
         <div id="order-meta-card">
           <MatrixOrderMetaCard
