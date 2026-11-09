@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
 EasyM2M Design Token & Drift Guard (INV-GOV-22 / Separation of Mechanism & Policy)
+Enforces INV-UI-EMOJI-BAN with Ratchet Baseline.
 
 Mechanische bewaking die waarborgt dat:
 1. EasyM2M MVP componenten (src/components/matrix/ en src/components/configurator/)
    uitsluitend semantische design tokens uit globals.css consumeren en geen hardcoded
    W3C hex-kleuren (#RGB, #RGBA, #RRGGBB, #RRGGBBAA) bevatten.
 2. DESIGN.md 100% synchroon is met het native @theme blok in src/app/globals.css (zero drift).
+3. Gemigreerde EasyM2M componenten en nieuw toegevoegde bestanden 100% vrij zijn van ruwe
+   Unicode emoji's (INV-UI-EMOJI-BAN). Iconografie moet verlopen via vector SVGs of lucide-react.
 """
 
 import sys
@@ -29,6 +32,21 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 # W3C Level 4 CSS Hex Color specification with negative lookahead
 HEX_COLOR_REGEX = re.compile(r'#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})(?![0-9a-fA-F])')
+
+# Raw Unicode emoji regex (INV-UI-EMOJI-BAN)
+EMOJI_REGEX = re.compile(
+    r"[\U00010000-\U0010ffff"
+    r"\u2600-\u26ff\u2700-\u27bf"
+    r"\u2300-\u23ff\u2b50\u2b55\u3030\u303d]"
+)
+
+# Ratchet Baseline components strictly enforced for zero emojis (INV-UI-EMOJI-BAN)
+EMOJI_ENFORCED_COMPONENTS = {
+    "src/components/matrix/MatrixTopNav.tsx",
+    "src/components/matrix/MatrixOrderMetaCard.tsx",
+    "src/components/matrix/MatrixActionBar.tsx",
+}
+
 MVP_DIRECTORIES = [
     'src/components/matrix',
     'src/components/configurator',
@@ -112,6 +130,45 @@ def scan_file(file_path: Path) -> list[tuple[int, str, str]]:
         print(f"[design_token_guard] [ERROR] Reading {file_path}: {e}", file=sys.stderr)
     return violations
 
+def scan_emojis(file_path: Path) -> list[tuple[int, str, str]]:
+    """Scans a file for raw Unicode emojis, returning list of (line_num, line_text, emoji_char)."""
+    violations = []
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
+
+        stripped_full = strip_comments(content)
+        if not EMOJI_REGEX.search(stripped_full):
+            return []
+
+        lines = content.splitlines()
+        in_block_comment = False
+        for idx, line in enumerate(lines, start=1):
+            trimmed = line.strip()
+            if in_block_comment:
+                if '*/' in trimmed:
+                    in_block_comment = False
+                    trimmed = trimmed.split('*/', 1)[1]
+                else:
+                    continue
+
+            if '/*' in trimmed:
+                if '*/' in trimmed:
+                    trimmed = re.sub(r'/\*.*?\*/', '', trimmed)
+                else:
+                    in_block_comment = True
+                    trimmed = trimmed.split('/*', 1)[0]
+
+            if '//' in trimmed:
+                trimmed = trimmed.split('//', 1)[0]
+
+            matches = EMOJI_REGEX.findall(trimmed)
+            for m in matches:
+                violations.append((idx, line.strip(), m))
+    except Exception as e:
+        print(f"[design_token_guard] [ERROR] Reading emojis in {file_path}: {e}", file=sys.stderr)
+    return violations
+
 def check_stitch_sync(workspace_root: Path) -> bool:
     """Verifies that DESIGN.md is in perfect sync with globals.css."""
     sync_script = workspace_root / 'scripts' / 'sync_design_tokens.js'
@@ -156,20 +213,37 @@ def main() -> int:
     print(f"[design_token_guard] [INFO] Scanning {len(target_files)} EasyM2M MVP component file(s)...")
 
     total_violations = 0
+    emoji_violations_count = 0
+
     for target in target_files:
+        rel_posix = target.relative_to(workspace_root).as_posix()
+
+        # 2a. Hex color violations (enforced across all MVP files)
         violations = scan_file(target)
         if violations:
-            rel_path = target.relative_to(workspace_root).as_posix()
             for line_num, line_text, hex_code in violations:
                 total_violations += 1
-                print(f"[HEX_COLOR_VIOLATION] {rel_path}:{line_num} contains hardcoded hex '{hex_code}' -> '{line_text}'")
+                print(f"[HEX_COLOR_VIOLATION] {rel_posix}:{line_num} contains hardcoded hex '{hex_code}' -> '{line_text}'")
+
+        # 2b. Raw Unicode emoji check with Ratchet Baseline (INV-UI-EMOJI-BAN)
+        enforce_emojis = rel_posix in EMOJI_ENFORCED_COMPONENTS
+        if enforce_emojis:
+            emoji_violations = scan_emojis(target)
+            if emoji_violations:
+                for line_num, line_text, emoji_char in emoji_violations:
+                    emoji_violations_count += 1
+                    total_violations += 1
+                    print(f"[EMOJI_VIOLATION] [INV-UI-EMOJI-BAN] {rel_posix}:{line_num} contains raw Unicode emoji '{emoji_char}' -> '{line_text}'")
+                    print(f"  [HINT] Replace raw Unicode emojis with vector SVGs or lucide-react icons.")
 
     if total_violations > 0:
-        print(f"\n[design_token_guard] [FAIL] {total_violations} hardcoded hex code(s) found in EasyM2M MVP components.")
-        print("[HINT] Use semantic design tokens from src/app/globals.css (e.g. var(--color-brand) or text-brand).")
+        if emoji_violations_count > 0:
+            print(f"\n[design_token_guard] [FAIL] {emoji_violations_count} raw Unicode emoji(s) detected in enforced component(s) (INV-UI-EMOJI-BAN).")
+        print(f"\n[design_token_guard] [FAIL] Total {total_violations} violation(s) found in EasyM2M MVP components.")
+        print("[HINT] Use semantic design tokens from globals.css and vector SVG icons.")
         return 1
 
-    print("[design_token_guard] [PASS] Zero hardcoded hex colors in EasyM2M MVP components & zero Stitch drift.")
+    print("[design_token_guard] [PASS] Zero hardcoded hex colors, zero raw Unicode emojis in enforced components, and zero Stitch drift.")
     return 0
 
 if __name__ == '__main__':

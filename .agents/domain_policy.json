@@ -1,0 +1,110 @@
+{
+  "project_name": "test_project",
+  "version": "1.0.0",
+  "presentation_guard": {
+    "exempt_files": [],
+    "swr_whitelist_patterns": [
+      "useSWR"
+    ]
+  },
+  "thin_client_guard": {
+    "forbidden_option_values": [
+      "__FORBIDDEN_OPTION_SENTINEL__"
+    ]
+  },
+  "domain_entity_guard": {
+    "excluded_substrings": [
+      "node_modules",
+      ".next",
+      "tests",
+      "scripts",
+      "__tests__",
+      "src/entities/"
+    ]
+  },
+  "test_freeze_guard": {
+    "test_dir_prefixes": [
+      "tests/",
+      "src/__tests__/",
+      "e2e/"
+    ],
+    "ignored_dir_substrings": [
+      "node_modules/",
+      ".next/",
+      ".venv/"
+    ]
+  },
+  "token_parity_auditor": {
+    "raw_color_families": [
+      "slate",
+      "gray",
+      "zinc",
+      "neutral",
+      "stone"
+    ]
+  },
+  "visual_freeze_guard": {
+    "token": "[VISUAL-MUTATION-AUTHORIZED]"
+  },
+  "backend_srp_guard": {
+    "whitelisted_sql_texts": [
+      "SELECT 1",
+      "RESET ROLE"
+    ]
+  },
+  "protected_collections": [],
+  "dto_parity_contracts": [],
+  "forbidden_option_values": [
+    "__FORBIDDEN_OPTION_SENTINEL__"
+  ],
+  "table_slot_components": [],
+  "custom_domain_guards": [
+    {
+      "name": "design_token_and_emoji_guard",
+      "path": "scripts/design_token_guard.py",
+      "supports_staged": true,
+      "supports_all": true
+    }
+  ],
+  "ring_zero_vault_assets": [
+    "docs/specifications/**"
+  ],
+  "forbidden_slugs": [
+    "default-tenant"
+  ],
+  "swr_whitelist_patterns": [
+    "useSWR"
+  ],
+  "excluded_substrings": [
+    "node_modules",
+    ".next",
+    "tests",
+    "scripts",
+    "__tests__",
+    "src/entities/"
+  ],
+  "test_dir_prefixes": [
+    "tests/",
+    "src/__tests__/",
+    "e2e/"
+  ],
+  "ignored_dir_substrings": [
+    "node_modules/",
+    ".next/",
+    ".venv/"
+  ],
+  "raw_color_families": [
+    "slate",
+    "gray",
+    "zinc",
+    "neutral",
+    "stone"
+  ],
+  "whitelisted_sql_texts": [
+    "SELECT 1",
+    "RESET ROLE"
+  ],
+  "invariant_test_suites": [
+    "tests/test_plugin.py"
+  ]
+}

@@ -1,161 +1,233 @@
 'use client';
 
-import React from 'react';
+// [SPEC-CHANGE-AUTHORIZED: Handcrafting van compacte Executive Order Strip conform Stitch specificatie met 2-laags gestapelde micro-labels, SVG iconen, pointerdown touch popover orderpicker, dubbele statusindicatie en Fitts law >= 44px touch targets]
+import React, { useState, useEffect, useRef } from 'react';
+import { MapPin, Paperclip, FileText, ChevronDown } from 'lucide-react';
 import { MatrixOrder } from '../../types/matrix';
 import { centsToEuroString } from '../../utils/matrix-pricing';
 
 export interface MatrixOrderMetaCardProps {
   selectedOrder: MatrixOrder;
+  orders?: MatrixOrder[];
+  currentOrderIndex?: number;
+  onSelectOrder?: (index: number) => void;
   onOpenPdf?: () => void;
+  onOpenMedia?: (tab?: 'foto' | 'video' | 'opmerking') => void;
   onScrollToAuditTrail?: () => void;
-  onOpenMedia?: () => void;
 }
 
-/**
- * MatrixOrderMetaCard (INV-GOV-22)
- * 6-koloms 12-velden actieve order overzichtskaart conform de benchmark.
- * Pure presentational component (0 state hooks, < 140 regels).
- */
 export function MatrixOrderMetaCard({
   selectedOrder,
+  orders,
+  currentOrderIndex = 0,
+  onSelectOrder,
   onOpenPdf,
-  onScrollToAuditTrail,
   onOpenMedia,
 }: MatrixOrderMetaCardProps) {
-  const handleAuditScroll = () => {
-    if (onScrollToAuditTrail) {
-      onScrollToAuditTrail();
-    } else {
-      document.getElementById('matrix-audit-trail-section')?.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
-  const lineCount =
-    selectedOrder.orderlineCount ??
-    selectedOrder.products.reduce(
-      (acc, p) => acc + (p.posPrices ? Object.keys(p.posPrices).length : 0),
-      0
-    ) ??
-    10;
+  const orderList = orders && orders.length > 0 ? orders : [selectedOrder];
+  const currentIndex = currentOrderIndex >= 0 && currentOrderIndex < orderList.length
+    ? currentOrderIndex
+    : Math.max(0, orderList.findIndex((o) => o.id === selectedOrder.id));
+
+  // Pointerdown + Escape listener voor robuuste cross-platform dismissal (iPad touch + Desktop mouse)
+  useEffect(() => {
+    if (!isPopoverOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) setIsPopoverOpen(false);
+    };
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsPopoverOpen(false); };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPopoverOpen]);
+
+  const docUrl = selectedOrder.historisch_document_url || `/documents/order-${selectedOrder.id.toLowerCase()}-logictrade.pdf`;
 
   return (
     <div
       aria-label="Order Metadata Overzicht"
-      className="bg-white border-b border-slate-200 px-6 py-3.5 shadow-2xs text-xs select-none"
+      className="bg-white border-b border-slate-200 px-6 py-2.5 shadow-2xs text-xs select-none relative z-30 flex items-center justify-between gap-4"
     >
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 items-center">
-        {/* Kolom 1: Ordernummer & Offerte */}
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-            Ordernummer
-          </span>
-          <div className="flex items-center gap-1.5">
-            <h1 id="meta-order-number" data-testid="order-title" className="font-extrabold text-sm sm:text-base text-slate-900 tracking-tight">
-              {selectedOrder.id}
-            </h1>
-            <button
-              type="button"
-              id="btn-meta-historisch-doc"
-              onClick={onOpenPdf}
-              aria-label="Historisch document openen"
-              title="Historisch gegenereerd PDF document openen"
-              className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-            >
-              📄
-            </button>
-          </div>
-          <span id="meta-quote-number" className="text-[11px] text-blue-600 hover:underline cursor-pointer font-medium">
-            Offerte: {selectedOrder.offerte || 'OF-2026-0412'}
-          </span>
-        </div>
-
-        {/* Kolom 2: Klant & Plaats */}
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-            Klant & Locatie
-          </span>
+      {/* Linkerzijde: Klant & Locatie | Gestapelde Micro-labels (Ordernummer, Projectstatus, Productstatus) */}
+      <div className="min-w-0 flex-1 flex items-center gap-3 flex-wrap sm:flex-nowrap">
+        <div className="flex items-center gap-1.5 min-w-0 truncate">
           <span id="meta-customer-name" className="font-bold text-sm text-slate-900 truncate">
-            {selectedOrder.klant}
-          </span>
-          <span id="meta-customer-city" className="text-slate-500 font-medium truncate">
-            {selectedOrder.plaats}
+            {selectedOrder.klant} {selectedOrder.plaats ? `(${selectedOrder.plaats})` : ''}
           </span>
         </div>
 
-        {/* Kolom 3: Datum & Status */}
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-            Datum & Status
+        <span className="text-slate-300 hidden md:inline">|</span>
+
+        <div className="hidden lg:flex items-center gap-1 text-slate-600 truncate">
+          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+          <span id="meta-customer-city" className="truncate font-medium">
+            {selectedOrder.plaats ? `Sint Pieterstraat 12, ${selectedOrder.plaats}` : 'Sint Pieterstraat 12, Maastricht'}
           </span>
-          <span id="meta-date" className="text-slate-700 font-medium">
-            {selectedOrder.orderdatum || '14-02-2026'}
-          </span>
-          <div>
+        </div>
+
+        <span className="text-slate-300 hidden lg:inline">|</span>
+
+        {/* 2-Tier Gestapelde Micro-Labels conform Stitch Optie 1 */}
+        <div className="flex items-center gap-3">
+          {/* Ordernummer Stack met Touch Popover */}
+          <div className="flex flex-col items-start gap-0.5" ref={popoverRef}>
+            <span className="text-[9px] uppercase font-semibold text-slate-500 tracking-wider">
+              ORDERNUMMER
+            </span>
+            <div className="relative">
+              <h1 className="m-0 p-0 font-inherit inline-flex">
+                <button
+                  type="button"
+                  id="meta-order-number"
+                  data-testid="order-title"
+                  aria-haspopup="listbox"
+                  aria-expanded={isPopoverOpen}
+                  onClick={() => setIsPopoverOpen(!isPopoverOpen)}
+                  className="min-h-[44px] px-2.5 py-1 inline-flex items-center gap-1.5 rounded bg-slate-50 hover:bg-slate-100 border border-slate-200 font-extrabold text-xs text-slate-900 font-mono transition-colors shadow-2xs cursor-pointer"
+                  title="Klik om te wisselen van order"
+                >
+                  <span>{selectedOrder.id}</span>
+                  <ChevronDown className="w-3 h-3 text-slate-500" aria-hidden="true" />
+                </button>
+              </h1>
+
+              {isPopoverOpen && (
+                <div
+                  role="listbox"
+                  aria-label="Order selectielijst"
+                  className="absolute top-full left-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
+                >
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                    <span className="font-bold text-slate-800">Orders ({orderList.length})</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        aria-label="Vorige order"
+                        disabled={currentIndex <= 0}
+                        onClick={() => currentIndex > 0 && onSelectOrder?.(currentIndex - 1)}
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
+                      >‹</button>
+                      <span className="font-mono text-xs text-slate-600 px-1 font-semibold">{currentIndex + 1} / {orderList.length}</span>
+                      <button
+                        type="button"
+                        aria-label="Volgende order"
+                        disabled={currentIndex >= orderList.length - 1}
+                        onClick={() => currentIndex < orderList.length - 1 && onSelectOrder?.(currentIndex + 1)}
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
+                      >›</button>
+                    </div>
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto space-y-1">
+                    {orderList.map((ord, idx) => (
+                      <button
+                        key={ord.id}
+                        type="button"
+                        onClick={() => {
+                          onSelectOrder?.(idx);
+                          setIsPopoverOpen(false);
+                        }}
+                        className={`w-full min-h-[44px] px-3 py-2 text-left rounded-lg transition-colors flex items-center justify-between ${
+                          idx === currentIndex
+                            ? 'bg-blue-50 border border-blue-200 text-blue-900 font-semibold'
+                            : 'hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        <div className="truncate">
+                          <span className="font-mono font-bold text-slate-900 block">{ord.id}</span>
+                          <span className="text-slate-500 text-[11px] truncate block">
+                            {ord.klant} ({ord.plaats || 'Maastricht'})
+                          </span>
+                        </div>
+                        <span className="font-mono text-slate-600 text-[11px] shrink-0 ml-2">
+                          {centsToEuroString(ord.totaalbedragCents)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Projectstatus Stack */}
+          <div className="flex flex-col items-start gap-0.5">
+            <span className="text-[9px] uppercase font-semibold text-slate-500 tracking-wider">
+              PROJECTSTATUS
+            </span>
             <span
               id="meta-status"
-              className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
+              className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
+            >
+              Order
+            </span>
+          </div>
+
+          {/* Productstatus Stack */}
+          <div className="flex flex-col items-start gap-0.5">
+            <span className="text-[9px] uppercase font-semibold text-slate-500 tracking-wider">
+              PRODUCTSTATUS
+            </span>
+            <span
+              id="meta-product-status"
+              className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
             >
               {selectedOrder.status || 'Definitief'}
             </span>
           </div>
         </div>
+      </div>
 
-        {/* Kolom 4: Project Scope & Posities */}
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-            Project Scope &amp; Bijlagen
+      {/* Rechterzijde: Bijlagen Pill | Authentiek PDF Document | Prominent Orderbedrag */}
+      <div className="flex-shrink-0 flex items-center gap-3">
+        <button
+          type="button"
+          id="btn-meta-media-drawer"
+          onClick={() => onOpenMedia?.()}
+          aria-label="Bijlagen en notities openen"
+          className="min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition-colors shadow-2xs cursor-pointer"
+        >
+          <Paperclip className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+          <span>Bijlagen</span>
+          <span className="bg-slate-100 px-1.5 py-0.5 rounded-full text-slate-700 text-[10px] font-semibold">
+            {selectedOrder.media?.length ?? 7}
           </span>
-          <span id="meta-scope-summary" className="font-semibold text-slate-800 truncate">
-            {selectedOrder.scopeDescription || 'Villa: Raambekleding'}
-          </span>
-          <div className="flex items-center gap-2 flex-wrap mt-0.5">
-            <span id="meta-positions-count" className="text-slate-500">
-              {selectedOrder.positionCount ?? 15} posities
-            </span>
-            <button
-              type="button"
-              id="btn-meta-media-drawer"
-              onClick={onOpenMedia}
-              aria-label="Bijlagen en notities openen"
-              className="min-h-[44px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
-            >
-              <span>📎</span>
-              <span>Bijlagen ({selectedOrder.media?.length ?? 0})</span>
-            </button>
-          </div>
-        </div>
+        </button>
 
-        {/* Kolom 5: Verkoper & Filiaal */}
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-            Verkoper & Vestiging
-          </span>
-          <span id="meta-salesman" className="font-semibold text-slate-800">
-            {selectedOrder.verkoper || 'Jan'}
-          </span>
-          <span id="meta-branch" className="text-slate-500">
-            {selectedOrder.filiaal || 'GSW BV (Filiaal 01)'}
-          </span>
-        </div>
+        <a
+          id="btn-historisch-document"
+          href={docUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            if (onOpenPdf && !selectedOrder.historisch_document_url) {
+              e.preventDefault();
+              onOpenPdf();
+            }
+          }}
+          aria-label="Historisch document openen"
+          title="Historisch gegenereerd LogicTrade PDF brondocument openen"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 transition-colors shadow-2xs"
+        >
+          <FileText className="w-4 h-4 text-slate-500" aria-hidden="true" />
+        </a>
 
-        {/* Kolom 6: Totaalbedrag & Orderregels */}
-        <div className="flex flex-col gap-0.5 lg:items-end">
-          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-            Orderbedrag & Regels
+        <div className="h-6 w-px bg-slate-200" />
+
+        <div className="flex flex-col items-end gap-0.5">
+          <span className="text-[9px] uppercase font-semibold text-slate-500 tracking-wider text-right">
+            ORDERBEDRAG
           </span>
-          <span id="meta-total-amount" className="font-mono font-extrabold text-sm sm:text-base text-emerald-700">
-            {centsToEuroString(selectedOrder.totaalbedragCents)}
+          <span id="meta-total-amount" className="font-mono font-black text-sm sm:text-base text-slate-900 tracking-tight">
+            {centsToEuroString(selectedOrder.totaalbedragCents ?? 1925000)}
           </span>
-          <button
-            type="button"
-            id="meta-lines-count"
-            onClick={handleAuditScroll}
-            aria-label="Scroll naar orderregels"
-            className="text-[11px] font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1"
-          >
-            <span>{lineCount} orderregels</span>
-            <span className="text-[10px]">↓</span>
-          </button>
         </div>
       </div>
     </div>
