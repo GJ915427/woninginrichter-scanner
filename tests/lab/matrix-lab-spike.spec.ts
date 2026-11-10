@@ -1,4 +1,5 @@
-// [VISUAL-MUTATION-AUTHORIZED: Geïsoleerde /lab/matrix-orders UX Spike route conform HITL verzoek]
+// [VISUAL-MUTATION-AUTHORIZED: UX verfijning Hoofdscherm 4: banner eliminatie, sidebar verwijdering en semantische navigatie-interactie]
+// [SPEC-CHANGE-AUTHORIZED: Aanpassen van /lab/matrix-orders spike tests naar nieuwe klantnaam popover en ordernummer audit toggle interactie conform HITL verzoek]
 import { test, expect } from '@playwright/test';
 
 test.describe('Matrix Orders Lab Spike E2E Suite', () => {
@@ -6,61 +7,87 @@ test.describe('Matrix Orders Lab Spike E2E Suite', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
   });
 
-  test('TC-LAB-01: Lab Spike route renders banner, return link and view mode toggle', async ({ page }) => {
-    await page.goto('/lab/matrix-orders');
-    await page.waitForSelector('#lab-spike-banner');
-
-    const banner = page.locator('#lab-spike-banner');
-    await expect(banner).toBeVisible();
-    await expect(banner).toHaveAttribute('role', 'status');
-
-    // Return link naar /matrix-orders
-    const returnLink = banner.locator('a[href="/matrix-orders"]');
-    await expect(returnLink).toBeVisible();
-
-    // Segmented control buttons
-    const btnMatrix = banner.locator('button[data-view="matrix"]');
-    const btnAudit = banner.locator('button[data-view="audit"]');
-    await expect(btnMatrix).toBeVisible();
-    await expect(btnAudit).toBeVisible();
-
-    // Fitts' Law touch targets >= 44x44px
-    const boxMatrix = await btnMatrix.boundingBox();
-    expect(boxMatrix).not.toBeNull();
-    if (boxMatrix) {
-      expect(boxMatrix.height).toBeGreaterThanOrEqual(40);
-    }
-  });
-
-  test('TC-LAB-02: Default view shows matrix viewport and hides audit trail section', async ({ page }) => {
+  test('TC-LAB-01: Default layout grants 100% horizontal width: banner and left sidebar are completely eliminated', async ({ page }) => {
     await page.goto('/lab/matrix-orders');
     await page.waitForSelector('#matrix-viewport');
 
+    // Lab spike banner is eliminated completely from the DOM
+    const banner = page.locator('#lab-spike-banner');
+    await expect(banner).toHaveCount(0);
+
+    // Left sidebar (aside / Orders Explorer) is eliminated completely from the DOM
+    const sidebar = page.locator('aside');
+    await expect(sidebar).toHaveCount(0);
+    const sidebarExplorer = page.locator('#sidebar-order-V26001761');
+    await expect(sidebarExplorer).toHaveCount(0);
+
+    // Matrix viewport is visible and expands across the full workspace
     const viewport = page.locator('#matrix-viewport');
     await expect(viewport).toBeVisible();
-
-    const auditSection = page.locator('#matrix-audit-trail-section');
-    await expect(auditSection).toBeHidden();
   });
 
-  test('TC-LAB-03: Segmented control toggles cleanly between matrix and audit trail views', async ({ page }) => {
+  test('TC-LAB-02: Customer name (#meta-customer-name) acts as first-class order-picker popover trigger', async ({ page }) => {
     await page.goto('/lab/matrix-orders');
-    await page.waitForSelector('#lab-spike-banner');
+    await page.waitForSelector('#matrix-viewport');
 
-    const btnAudit = page.locator('#lab-spike-banner button[data-view="audit"]');
-    await btnAudit.click();
+    const customerBtn = page.locator('#meta-customer-name');
+    await expect(customerBtn).toBeVisible();
+    await expect(customerBtn).toContainText('Jaspers');
+    await expect(customerBtn).toHaveAttribute('aria-haspopup', 'listbox');
+    await expect(customerBtn).toHaveAttribute('aria-expanded', 'false');
 
-    // Audit section must now be visible, matrix viewport hidden
-    const auditSection = page.locator('#matrix-audit-trail-section');
-    await expect(auditSection).toBeVisible();
+    // Fitts' Law touch target >= 44px
+    const box = await customerBtn.boundingBox();
+    expect(box).not.toBeNull();
+    if (box) {
+      expect(box.height).toBeGreaterThanOrEqual(40);
+    }
+
+    // Click customer name to open popover listbox
+    await customerBtn.click();
+    await expect(customerBtn).toHaveAttribute('aria-expanded', 'true');
+
+    const listbox = page.locator('div[role=\"listbox\"][aria-label=\"Order selectielijst\"]');
+    await expect(listbox).toBeVisible();
+
+    // Click previous order inside listbox
+    const prevBtn = listbox.locator('button[aria-label=\"Vorige order\"]');
+    await expect(prevBtn).toBeVisible();
+    await prevBtn.click();
+
+    // Customer name switches cleanly to DA.AN interior design & living
+    await expect(customerBtn).toContainText('DA.AN interior design & living');
+
+    // Escape closes popover
+    await page.keyboard.press('Escape');
+    await expect(listbox).not.toBeVisible();
+    await expect(customerBtn).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('TC-LAB-03: Order number (#meta-order-number) toggles quotation and order lines (audit trail) with active visual feedback', async ({ page }) => {
+    await page.goto('/lab/matrix-orders');
+    await page.waitForSelector('#matrix-viewport');
+
+    const orderBtn = page.locator('#meta-order-number');
+    await expect(orderBtn).toBeVisible();
+    await expect(orderBtn).toHaveAttribute('aria-pressed', 'false');
 
     const viewport = page.locator('#matrix-viewport');
+    const auditSection = page.locator('#matrix-audit-trail-section');
+
+    // Initial state: matrix viewport visible, audit trail hidden
+    await expect(viewport).toBeVisible();
+    await expect(auditSection).toBeHidden();
+
+    // Click order number to toggle to audit trail
+    await orderBtn.click();
+    await expect(orderBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(auditSection).toBeVisible();
     await expect(viewport).toBeHidden();
 
-    // Switch back to matrix
-    const btnMatrix = page.locator('#lab-spike-banner button[data-view="matrix"]');
-    await btnMatrix.click();
-
+    // Click order number again to toggle back to matrix raster
+    await orderBtn.click();
+    await expect(orderBtn).toHaveAttribute('aria-pressed', 'false');
     await expect(viewport).toBeVisible();
     await expect(auditSection).toBeHidden();
   });
