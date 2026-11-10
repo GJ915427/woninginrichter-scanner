@@ -53,22 +53,6 @@
         "tests/e2e/matrix-contextmenus-crud.spec.ts",
         "tests/e2e/matrix-niveaus-docking.spec.ts"
       ]
-    },
-    "src/app/lab": {
-      "e2e_command": [
-        "npx",
-        "playwright",
-        "test",
-        "tests/lab/matrix-lab-spike.spec.ts"
-      ]
-    },
-    "tests/lab": {
-      "e2e_command": [
-        "npx",
-        "playwright",
-        "test",
-        "tests/lab/matrix-lab-spike.spec.ts"
-      ]
     }
   }
 }
