@@ -25,12 +25,28 @@ export interface ActiveStepperState {
   positionId: string;
 }
 
+export interface UseMatrixStateOptions {
+  initialOrders?: MatrixOrder[];
+  persistToDb?: boolean;
+}
+
 /**
  * State orchestration hook voor de Matrix Orders Browser.
  * Enforces Single-Active Overlay Coordinator conform INV-GOV-21.
  * Biedt CRUD cascading opschoning en deterministische CPQ herberekening.
  */
-export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK_DATA) {
+export function useMatrixState(
+  optionsOrOrders: UseMatrixStateOptions | MatrixOrder[] = MATRIX_ORDERS_MOCK_DATA,
+  explicitOptions?: { persistToDb?: boolean }
+) {
+  const isArray = Array.isArray(optionsOrOrders);
+  const initialOrders = isArray
+    ? optionsOrOrders
+    : (optionsOrOrders as UseMatrixStateOptions)?.initialOrders ?? MATRIX_ORDERS_MOCK_DATA;
+  const persistToDb = isArray
+    ? explicitOptions?.persistToDb ?? true
+    : (optionsOrOrders as UseMatrixStateOptions)?.persistToDb ?? true;
+
   const [orders, setOrders] = useState<MatrixOrder[]>(initialOrders);
   const [currentOrderIndex, setCurrentOrderIndex] = useState<number>(2); // Jaspers (V26001376)
   const [fsmStage, setFsmStage] = useState<number>(5); // Bestellen (Actueel)
@@ -207,8 +223,8 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
         );
       }
 
-      // 2. Database persistentie indien live order
-      if (targetOrder.isLive && targetProduct && targetCell?.line) {
+      // 2. Database persistentie indien live order en niet afgeschermd
+      if (persistToDb && targetOrder.isLive && targetProduct && targetCell?.line) {
         const lineNum = targetCell.line;
         const subLineNum = normalizeSubLine(subPos);
 
@@ -235,9 +251,15 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
           }
           setStatusAlert({ message: `Netwerkfout bij opslaan: ${err instanceof Error ? err.message : String(err)}`, type: 'error' });
         });
+      } else if (!persistToDb) {
+        setStatusAlert({
+          message: 'Lab In-Memory Shield: Wijziging uitsluitend in-memory toegepast (DB-writes geblokkeerd).',
+          type: 'info',
+        });
+        setTimeout(() => setStatusAlert(null), 3000);
       }
     },
-    [currentOrderIndex, orders]
+    [currentOrderIndex, orders, persistToDb]
   );
 
   // CRUD: Product toewijzen aan lege cel

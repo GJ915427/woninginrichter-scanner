@@ -85,4 +85,35 @@ test.describe('Matrix Orders Production & Lab Parity Suite', () => {
     await expect(page.locator('#matrix-viewport')).toBeVisible();
     await expect(page.locator('#matrix-audit-trail-section')).toHaveClass(/hidden/);
   });
+
+  // TC-PARITY-05: Lab In-Memory Shield prevents database persistence and displays shield alert
+  test('TC-PARITY-05: Lab In-Memory Shield prevents database persistence and displays shield alert', async ({ page }) => {
+    let rpcCalled = false;
+    await page.route('**/rest/v1/rpc/update_matrix_cell_v1', (route) => {
+      rpcCalled = true;
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
+    });
+
+    await page.goto('/lab/matrix-orders');
+    await page.waitForSelector('#matrix-viewport');
+
+    // Click interactive cell to open product edit drawer
+    const firstCell = page.locator('#matrix-table tbody tr:first-child td').first();
+    await expect(firstCell).toBeVisible();
+    await firstCell.click();
+
+    const drawer = page.locator('div[role="dialog"][aria-labelledby="product-edit-title"]');
+    await expect(drawer).toBeVisible();
+
+    // Submit modification
+    const saveBtn = drawer.locator('button:has-text("Opslaan & Toepassen")');
+    await expect(saveBtn).toBeVisible();
+    await saveBtn.click();
+
+    // Verify In-Memory Shield alert appears
+    const alert = page.getByRole('alert').filter({ hasText: 'Lab In-Memory Shield' });
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText('Lab In-Memory Shield');
+    expect(rpcCalled).toBe(false);
+  });
 });

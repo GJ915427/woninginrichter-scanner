@@ -35,7 +35,7 @@ export default function MatrixOrdersLabPage() {
     toggleColumnSelection, clearColumnSelection,
     addMediaItem, deletePosition, updateCell, assignProductToCell, assignVlakToPosition,
     mergePositionsToCluster, dissolveCluster, hydrateOrderBundle,
-  } = useMatrixState();
+  } = useMatrixState({ persistToDb: false });
 
   const { orders: liveOrders } = useLiveOrderList();
   const orderList = liveOrders.length > 0 ? liveOrders : orders;

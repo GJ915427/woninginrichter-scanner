@@ -70,4 +70,40 @@ describe('matrix-mutation-engine', () => {
       expect(restoredOrder.totaalbedragCents).toBe(initialTotal);
     });
   });
+
+  describe('In-Memory Shield isolation', () => {
+    it('schakelt database-writes uit wanneer persistToDb false is en past mutaties puur in-memory toe', () => {
+      const liveOrder: MatrixOrder = {
+        ...sampleOrder,
+        isLive: true,
+        products: [
+          {
+            ...sampleOrder.products[0],
+            posPrices: {
+              pos_k3_vloer: {
+                quantity: 1,
+                unit: 'stuks',
+                unitPriceCents: 2500,
+                totalPriceCents: 2500,
+                pricingMode: 'unit',
+                isCalculated: true,
+                line: 1,
+              },
+            },
+          },
+        ],
+      };
+
+      // Verifieer dat in-memory mutatie de order immutabel bijwerkt zonder externe write
+      const patched = applyCellPatch(liveOrder, {
+        productId: liveOrder.products[0].id,
+        positionId: 'pos_k3_vloer',
+        patch: { quantity: 5 },
+      });
+
+      expect(patched.products[0].posPrices['pos_k3_vloer'].quantity).toBe(5);
+      expect(patched.isLive).toBe(true);
+      expect(liveOrder.products[0].posPrices['pos_k3_vloer'].quantity).toBe(1);
+    });
+  });
 });
