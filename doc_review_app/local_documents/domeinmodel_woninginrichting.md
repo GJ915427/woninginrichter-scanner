@@ -1759,8 +1759,49 @@ export interface Vlak {
 export interface PositieCluster {
   id: string;
   ruimte_id: string;
-  naam: string; // bijv. "Erker voorgevel" of "Raampartij links"
-  positie_ids: string[];
+  naam: string;
+  // Genormaliseerd: Positie.cluster_id fungeert als de 1:N foreign key
+}
+
+// ============================================================================
+// 3. Meetwaardenstructuur & Genormaliseerde Positie (1NF)
+// ============================================================================
+export type MeetAs = 'breedte' | 'hoogte' | 'diepte' | 'diagonaal' | 'omtrek';
+export type MeetwaardeType = 
+  | 'dagmaat' 
+  | 'kozijnmaat' 
+  | 'borstweringhoogte' 
+  | 'latei_plafondhoogte' 
+  | 'dagkant_diepte' 
+  | 'pakkethoogte' 
+  | 'vloervrijloop' 
+  | 'deurspeling' 
+  | 'rasterpunt_50cm';
+
+export interface PositieMeting {
+  id: string; // UUID v4
+  positie_id: string;
+  meetwaarde_type: MeetwaardeType;
+  as: MeetAs;
+  volgorde_index: number; // 1, 2, 3...
+  waarde_mm: number;
+  label?: string; // bijv. "B1 (boven)", "B2 (midden)", "H1 (links)", "Diagonaal"
+  handmatige_override: boolean;
+  override_reden?: string;
+  created_at: string;
+}
+
+export interface Traptrede {
+  id: string;
+  positie_id: string;
+  trede_nummer: number; // 1 t/m N (van onder naar boven)
+  vorm: 'recht' | 'verdreven_links' | 'verdreven_rechts' | 'bordes';
+  breedte_mm?: number;
+  aantrede_diepte_mm?: number;
+  optrede_hoogte_mm?: number;
+  heeft_stootbord: boolean;
+  led_profiel: boolean;
+  mal_aangemaakt: boolean;
 }
 
 export interface Positie {
@@ -1770,38 +1811,62 @@ export interface Positie {
   volgnummer: number;
   naam: string; // "Raam links", "Vloer zithoek"
   maatstatus: 'concept' | 'definitief';
-  handmatige_override: boolean;
-  dagmaat_b1_mm?: number;
-  dagmaat_b2_mm?: number;
-  dagmaat_b3_mm?: number;
-  dagmaat_h1_mm?: number;
-  dagmaat_h2_mm?: number;
-  dagmaat_h3_mm?: number;
-  productiemaat_breedte_mm?: number;
-  productiemaat_hoogte_mm?: number;
-  montagehoogte_mm?: number; // Universal Mounting Height t.b.v. EN 13120
+  frozen_at?: string; // Tijdstip van definitieve bevriezing conform INV-STATE-01
   doorlopend_vanuit_positie_id?: string; // Vloerdoorloop
+  metingen?: PositieMeting[]; // 1:N Flexibele metingen
+  traptreden?: Traptrede[]; // 1:N Tredenspecificatie indien vlak_type === 'trap'
   inspectie_resultaten?: InspectieResultaat[];
   product_toewijzingen?: ProductToewijzing[];
   version_id: number;
 }
 
+// ============================================================================
+// 4. Product, Stuklijst & Opties (Niveau 7 & CPQ Laag)
+// ============================================================================
 export type ProductStatus = 'draft' | 'definitief' | 'geleverd' | 'gereed';
+
+export interface BOMItem {
+  id: string;
+  parent_toewijzing_id: string;
+  artikel_code_erp: string;
+  artikel_omschrijving: string;
+  aantal: number;
+  eenheid: 'stuks' | 'pak' | 'koker' | 'set' | 'm1' | 'm2';
+  is_hulpstof: boolean;
+  berekend_door_formule?: string;
+}
+
+export interface GeselecteerdeOptie {
+  id: string;
+  product_toewijzing_id: string;
+  optie_code: string;
+  optie_groep: string;
+  geselecteerde_waarde: string | number;
+  eenheid?: string;
+  meerprijs_incl_btw: number;
+}
 
 export interface ProductToewijzing {
   id: string;
   positie_id: string;
-  laag_suffix?: string; // 'a', 'b', 'c' bij ≥ 2 lagen
+  laag_suffix?: string; // 'a', 'b', 'c' bij ≥ 2 lagen op 1 positie
   artikel_code_erp: string;
   artikel_omschrijving: string;
   productgroep: 'gordijnen' | 'raamdecoratie' | 'vloeren' | 'trappen' | 'buitenzonwering' | 'diensten';
-  montagewijze: 'in_de_dag' | 'op_de_dag' | 'in_het_kozijn' | 'op_het_kozijn' | 'tussen_twee_muren' | 'plafond' | 'wand' | 'verlijmd' | 'zwevend' | 'n.v.t.';
+  montagewijze: 'in_de_dag' | 'op_de_dag' | 'in_het_kozijn' | 'op_het_kozijn' | 'op_raamvleugel' | 'tussen_twee_muren' | 'plafond' | 'wand' | 'verlijmd' | 'zwevend' | 'n.v.t.';
   eenheid: 'm2' | 'm1' | 'stuks' | 'pak' | 'set' | 'dagdeel' | 'forfait' | 'stuks_knelpunten';
   tariefeenheid_diensten?: 'uur' | 'm1' | 'm2' | 'stuk' | 'forfait';
   aantal_besteld: number;
+  productiemaat_breedte_mm?: number; // Fabricagemaat na aftrek specifiek voor DEZE laag
+  productiemaat_hoogte_mm?: number; // Fabricagemaat na aftrek specifiek voor DEZE laag
+  montagehoogte_mm?: number; // Specifieke montagesteun-hoogte t.b.v. EN 13120
+  handmatige_override: boolean;
+  override_reden?: string;
   status: ProductStatus;
   rekenformule?: string;
   dimension_spec?: DimensionSpec;
+  opties?: GeselecteerdeOptie[];
+  bom_items?: BOMItem[];
   prijs_incl_btw: number;
   opmerkingen?: Opmerking[];
   issues?: Issue[];
@@ -1831,15 +1896,9 @@ export interface CurtainDimensionSpec {
 export interface BlindDimensionSpec {
   type: 'raamdecoratie';
   montagewijze: 'in_de_dag' | 'op_de_dag' | 'op_raamvleugel';
-  b1_mm: number;
-  b2_mm: number;
-  b3_mm: number;
-  h1_mm: number;
-  h2_mm: number;
-  h3_mm: number;
-  strakste_dagmaat_b_mm: number;
-  strakste_dagmaat_h_mm: number;
-  productiemaat_b_mm: number;
+  strakste_dagmaat_b_mm: number; // Afgeleid minimum uit PositieMeting[]
+  strakste_dagmaat_h_mm: number; // Afgeleid minimum uit PositieMeting[]
+  productiemaat_b_mm: number; // Definitieve fabricagemaat na aftrek
   productiemaat_h_mm: number;
   bediening: 'ketting_links' | 'ketting_rechts' | 'motor_24v' | 'motor_solar' | 'handgreep';
   pakkethoogte_mm?: number;
@@ -1851,13 +1910,12 @@ export interface FloorDimensionSpec {
   legpatroon: 'wildverband' | 'diagonaal' | 'visgraat' | 'hongaarse_punt';
   snijverlies_percentage: number;
   bruto_oppervlakte_m2: number;
-  pakinhoud_m2?: number; // Bij harde vloeren (laminaat, PVC)
+  pakinhoud_m2?: number; // Uit artikelmasterdata
   aantal_pakken?: number;
-  rolbreedte_cm?: 400 | 500; // Bij tapijt/vinyl op rol
-  strekkende_meters_m1?: number;
+  strekkende_meters_m1?: number; // Bij tapijt/vinyl op rol
   vleugrichting_graden: number;
-  plintlengte_m1: number;
-  deurspeling_status: 'akkoord' | 'advies_inkorten';
+  plintlengte_m1: number; // Onverkort behoud t.b.v. CPQ
+  deurspeling_status: 'akkoord' | 'advies_inkorten'; // Onverkort behoud conform testsuite
   advies_inkorten_aantal?: number;
 }
 
@@ -1865,17 +1923,13 @@ export interface StairDimensionSpec {
   type: 'trappen';
   trapvorm: 'recht' | 'onderkwart' | 'bovenkwart' | 'tweekwart' | 'bordes';
   bekledingstype: 'tapijt_volledig' | 'traploper' | 'overzettreden_pvc' | 'overzettreden_composiet';
-  aantal_rechte_treden: number;
-  aantal_verdreven_treden: number;
-  totaal_treden: number;
-  aantal_stootborden: number;
+  aantal_rechte_treden?: number; // Afgeleide optionele aggregatie uit Traptrede[]
+  aantal_verdreven_treden?: number;
+  totaal_treden?: number;
+  aantal_stootborden?: number;
   heeft_wangen: boolean;
   loperbreedte_mm?: number;
   roedes_aantal?: number;
-  pvc_rechte_dozen_a_4?: number;
-  pvc_verdreven_kits_a_2?: number;
-  kokers_mammoetlijm?: number;
-  led_traptreden_aantal?: number;
 }
 
 export interface OutdoorDimensionSpec {
@@ -1884,11 +1938,11 @@ export interface OutdoorDimensionSpec {
   montagewijze: 'gevel_op_de_dag' | 'in_de_dag' | 'plafond_uitval';
   breedte_mm: number;
   uitval_of_hoogte_mm: number;
-  windklasse: 'klasse_1' | 'klasse_2' | 'klasse_3' | 'klasse_4' | 'klasse_5' | 'klasse_6'; // NEN-EN 13561 windklassen 1..6
-  kastmaat_mm?: 137 | 150 | 165 | 180 | 205; // Gestandaardiseerde kastmaten rolluiken
-  kastvorm?: '45_graden' | 'rond' | 'half_rond'; // Kastvormprofiel
-  inbraakwerendheid_rc?: 'geen' | 'RC2' | 'RC3'; // NEN-EN 1627 met optilbeveiliging
-  valbeveiliging_nen2608?: boolean; // NEN 2608 / NEN-EN 1991-1-1 doorvalbeveiliging
+  windklasse: 'klasse_1' | 'klasse_2' | 'klasse_3' | 'klasse_4' | 'klasse_5' | 'klasse_6';
+  kastmaat_mm?: number; // Generiek numeriek; opties via GeselecteerdeOptie
+  kastvorm?: '45_graden' | 'rond' | 'half_rond'; // Onverkort behoud conform NEN
+  inbraakwerendheid_rc?: 'geen' | 'RC2' | 'RC3'; // NEN-EN 1627
+  valbeveiliging_nen2608?: boolean; // NEN 2608
   gevelconstructie: 'spouwmuur_baksteen' | 'beton' | 'kalkzandsteen' | 'gevelisolatie_etics';
   verankeringstype: 'keilbout' | 'chemisch_anker_m10' | 'chemisch_anker_m12' | 'afstandsbussen_staal';
   bediening: 'somfy_io_230v' | 'solar_accu' | 'handmatig_oogwindwerk';
@@ -1923,18 +1977,34 @@ export interface ServiceDimensionSpec {
   opmerkingen_montagelogistiek?: string;
 }
 
-// 3. Documentair, Inspectie & Kwaliteit
+// ============================================================================
+// 6. Kwaliteit, Inspectie & Documentair (Checklist & Media Relaties)
+// ============================================================================
+export interface ChecklistVraag {
+  id: string;
+  productgroep: 'algemeen' | 'gordijnen' | 'raamdecoratie' | 'vloeren' | 'trappen' | 'buitenzonwering' | 'diensten';
+  fase: 'bestaande_situatie' | 'uitvoeringscondities' | 'nieuwe_situatie';
+  volgorde: number;
+  vraag_tekst: string;
+  invoertype: 'boolean' | 'nummer' | 'keuzelijst' | 'foto_verplicht';
+  norm_grenswaarde?: string | number;
+  is_verplicht: boolean;
+}
+
 export interface InspectieResultaat {
   id: string;
-  positie_id?: string;
+  checklist_vraag_id: string; // Strikte FK naar ChecklistVraag
+  project_id?: string;
+  object_id?: string;
+  verdieping_id?: string;
   ruimte_id?: string;
-  type: 'vocht' | 'vlakheid' | 'kinderveiligheid_en13120' | 'vloerverwarming' | 'leidingdetectie' | 'obstakel';
+  vlak_id?: string;
+  positie_id?: string;
   waarde_gemeten: string | number;
-  eenheid?: 'CM-%' | 'mm' | 'klasse';
-  norm_grenswaarde?: string | number;
+  eenheid?: 'CM-%' | 'mm' | 'klasse' | 'boolean';
   akkoord: boolean;
   toelichting?: string;
-  foto_ids?: string[];
+  created_at: string;
 }
 
 export interface RapportDossier {
@@ -1954,8 +2024,6 @@ export interface RapportDossier {
 
 export interface Media {
   id: string;
-  entiteit_type: 'object' | 'verdieping' | 'ruimte' | 'vlak' | 'positie' | 'product';
-  entiteit_id: string;
   media_type: 'foto' | 'video';
   uri: string;
   titel?: string;
@@ -1964,13 +2032,20 @@ export interface Media {
   created_at: string;
 }
 
+export interface EntiteitMediaKoppeling {
+  id: string;
+  entiteit_type: 'project' | 'object' | 'verdieping' | 'ruimte' | 'vlak' | 'positie' | 'product' | 'inspectie' | 'opmerking' | 'issue';
+  entiteit_id: string;
+  media_id: string;
+  volgorde_index: number;
+}
+
 export interface Opmerking {
   id: string;
-  entiteit_type: 'object' | 'verdieping' | 'ruimte' | 'vlak' | 'positie' | 'product';
+  entiteit_type: 'project' | 'object' | 'verdieping' | 'ruimte' | 'vlak' | 'positie' | 'product';
   entiteit_id: string;
   type: 'notitie' | 'instructie' | 'openstaande_actie';
   tekst: string;
-  foto_ids?: string[];
   opgelost?: boolean;
   auteur: string;
   created_at: string;
@@ -1981,7 +2056,7 @@ export interface Notitie {
   id: string;
   entiteit_type: 'object' | 'verdieping' | 'ruimte' | 'vlak' | 'positie' | 'product';
   entiteit_id: string;
-  media_id?: string; // Optionele binding aan foto
+  media_id?: string;
   tekst: string;
   auteur: string;
   created_at: string;
@@ -1991,7 +2066,7 @@ export interface Issue {
   id: string;
   product_toewijzing_id: string;
   project_id: string;
-  afspraak_id?: string; // Gekoppelde Afterservice-afspraak
+  afspraak_id?: string;
   titel: string;
   beschrijving: string;
   status: 'open' | 'in_behandeling' | 'ingepland' | 'opgelost';
@@ -2001,7 +2076,9 @@ export interface Issue {
   resolutie_notitie?: string;
 }
 
-// 4. Planning, Kalender & Inhoudelijke Afspraken (Scheiding der Machten)
+// ============================================================================
+// 7. Planning & Uitvoering (Junction Tables met Telemetrie)
+// ============================================================================
 export interface KalenderAfspraak {
   id: string;
   project_id: string;
@@ -2010,23 +2087,48 @@ export interface KalenderAfspraak {
   datum: string; // YYYY-MM-DD
   tijdvak_start: string; // HH:mm
   tijdvak_eind: string;
-  uitvoerder_ids: string[];
   voertuig_kenteken?: string;
   klimmaterieel_nodig: boolean;
-  stalen_meenemen?: string[];
+  stalen_meenemen?: string[]; // Onverkort behoud t.b.v. inmeter/adviseur
   sleutel_instructie?: string;
   parkeer_instructie?: string;
-  ruimte_ids?: string[];
-  positie_ids?: string[];
-  product_toewijzing_ids?: string[];
-  vertrokken_at?: string;
+  vertrokken_at?: string; // Telemetrie buitendienst
   aangekomen_at?: string;
   afgerond_at?: string;
   notities?: string;
   rapport_type?: 'Meetrapport' | 'Montagerapport' | 'Afterservicerapport';
+  uitvoerders?: AfspraakUitvoerder[];
+  ruimtes?: AfspraakRuimte[];
+  posities?: AfspraakPositie[];
+  producten?: AfspraakProduct[];
   version_id: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface AfspraakUitvoerder {
+  id: string;
+  afspraak_id: string;
+  medewerker_id: string;
+  rol: 'hoofduitvoerder' | 'assistent' | 'inmeter' | 'servicemonteur';
+}
+
+export interface AfspraakRuimte {
+  id: string;
+  afspraak_id: string;
+  ruimte_id: string;
+}
+
+export interface AfspraakPositie {
+  id: string;
+  afspraak_id: string;
+  positie_id: string;
+}
+
+export interface AfspraakProduct {
+  id: string;
+  afspraak_id: string;
+  product_toewijzing_id: string;
 }
 
 export interface WerkafspraakEnMontageconditie {
@@ -2048,7 +2150,23 @@ export interface WerkafspraakEnMontageconditie {
   updated_at: string;
 }
 
-export type InhoudelijkeAfspraak = WerkafspraakEnMontageconditie; // Backward-compatible type alias
+// ============================================================================
+// 8. Audit & Compliance (Module 6 Gouden Blueprint)
+// ============================================================================
+export interface AuditVeldMutatie {
+  id: string;
+  project_id: string;
+  entiteit_type: 'klant' | 'project' | 'ruimte' | 'positie' | 'positie_meting' | 'product_toewijzing' | 'afspraak' | 'conditie';
+  entiteit_id: string;
+  veld_naam: string;
+  oude_waarde: string | null;
+  nieuwe_waarde: string;
+  gewijzigd_door_id: string;
+  gewijzigd_door_naam: string;
+  gewijzigd_door_rol: string;
+  timestamp_iso: string;
+  reden?: string;
+}
 ```
 
 #### 4.9.2 Optimistic Concurrency Control (OCC) & Conflictresolutie
