@@ -1,3 +1,4 @@
+// [SPEC-CHANGE-AUTHORIZED: Chirurgische toepassing van Stitch Optie 1 MatrixCell cardificatie conform expliciete gebruikersscope]
 'use client';
 
 import React from 'react';
@@ -38,7 +39,7 @@ export interface MatrixCellProps {
  * - Stepper en box om aantal geëlimineerd; de gehele cel is klikbaar (min-h-[48px]).
  * - Lege cellen (—) zijn klikbaar en openen de drawer om een product toe te wijzen.
  * - Subpositie badge [a] alleen zichtbaar indien er daadwerkelijk meerdere subposities zijn.
- * - Regelnummer in rustige badge (#20) met WCAG AA contrast.
+ * - Regelnummer in rustige badge (#20) met WCAG AA contrast en solitaire ml-auto verankering.
  * - Long-press (500ms) en rechtermuisklik openen het contextmenu; synthetische click-bleed onderdrukt.
  * - Warm cream achtergrond voor pos_project_algemeen / Algemeen kolom.
  */
@@ -94,71 +95,75 @@ export function MatrixCell({
     );
   }
 
-  const isIncluded = cellData.isInbegrepen || cellData.unitPriceCents === 0;
+  const isIncluded = Boolean(cellData.isInbegrepen || cellData.unitPriceCents === 0);
 
   return (
     <td
       {...handlers}
       id={cellKey ? `matrix-cell-${productId}-${cellKey}` : undefined}
       onContextMenu={handleContextMenu}
-      className={`relative w-[160px] min-w-[160px] max-w-[160px] min-h-[48px] p-2 text-center border-r border-b border-slate-200 align-top cursor-pointer select-none transition-all duration-200 ${
+      className={`group/cell relative h-full w-[160px] min-w-[160px] max-w-[160px] min-h-[48px] p-1.5 text-center border-r border-b border-slate-200 align-top cursor-pointer select-none transition-all duration-200 ${
         isHighlighted
           ? 'ring-2 ring-blue-500 bg-blue-50/40 shadow-sm z-10'
           : isAlgemeen
-          ? 'bg-amber-50/30 hover:bg-amber-50/50'
-          : 'bg-white hover:bg-slate-50'
+          ? 'bg-amber-50/30'
+          : 'bg-slate-50/50'
       }`}
       title="Klik om maten en aantal te bewerken. Rechtsklik voor opties."
     >
-      {/* Sub-positie badge & regelnummer badge */}
-      <div className="flex items-center justify-between mb-1">
-        {hasMultipleSubPositions && cellData.subPos ? (
-          <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-100 px-1 rounded">
-            [{cellData.subPos}]
-          </span>
-        ) : (
-          <span />
-        )}
-        {cellData.line && (
-          <span className="text-[10px] font-mono font-semibold text-amber-800 bg-amber-50 border border-amber-200/60 px-1 py-0.2 rounded">
-            #{cellData.line}
-          </span>
-        )}
-      </div>
-
-      {/* Cel inhoud: aantal & prijs */}
-      <div className="flex items-center justify-between gap-1 mb-1">
-        <span className="text-xs font-semibold text-slate-700">
-          {cellData.quantity} {cellData.unit || 'st'}
-        </span>
-
-        <span className="font-mono text-xs font-bold text-slate-900">
-          {centsToEuroString(cellData.totalPriceCents)}
-        </span>
-      </div>
-
-      {/* Specificaties en dimensies */}
-      {isIncluded && (
-        <span className="inline-block text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-          Inbegrepen
-        </span>
-      )}
-      {cellData.dim && (
-        <div
-          className="text-[10px] text-slate-500 font-mono truncate max-w-[140px] tracking-tight"
-          title={cellData.dim}
-        >
-          {cellData.dim.replace('x', '×')}
+      <div className="w-full h-full min-h-[44px] flex flex-col justify-between p-2 rounded-control bg-white border border-slate-200/80 shadow-2xs group-hover/cell:border-blue-300 group-hover/cell:shadow-xs transition-all duration-150">
+        {/* Bovenlaag (Header met Solitaire ml-auto Verankering) */}
+        <div className="flex items-center justify-between mb-1 min-h-[16px]">
+          {hasMultipleSubPositions && cellData.subPos ? (
+            <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-100 px-1 rounded">
+              [{cellData.subPos}]
+            </span>
+          ) : null}
+          {cellData.line ? (
+            <span className="ml-auto text-[10px] font-mono font-semibold text-amber-800 bg-amber-50 border border-amber-200/60 px-1 py-0.5 rounded">
+              #{cellData.line}
+            </span>
+          ) : null}
         </div>
-      )}
-      {cellData.note && !isIncluded && (
-        <div
-          className="text-[9px] text-slate-400 truncate max-w-[140px]"
-          title={cellData.note}
-        >
-          {cellData.note}
+
+        {/* Midden (Body met WCAG 2.1 AA Contrast) */}
+        {(cellData.dim || (cellData.note && !isIncluded)) && (
+          <div className="my-auto py-0.5">
+            {cellData.dim && (
+              <div
+                className="text-xs font-mono font-bold text-slate-900 tracking-tight text-center truncate max-w-[130px] mx-auto"
+                title={cellData.dim}
+              >
+                {cellData.dim.replace(/x/gi, '×')}
+              </div>
+            )}
+            {cellData.note && !isIncluded && (
+              <div
+                className="text-[9px] text-slate-500 truncate max-w-[130px] mx-auto text-center mt-0.5"
+                title={cellData.note}
+              >
+                {cellData.note}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Onderzijde (Footer - SSOT Monetaire Weergave) */}
+        <div className="border-t border-slate-100 pt-1 mt-1 flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-700">
+            {cellData.quantity} {cellData.unit || 'st'}
+          </span>
+          {isIncluded ? (
+            <span className="text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+              Inbegrepen
+            </span>
+          ) : (
+            <span className="font-mono text-xs font-bold text-emerald-700">
+              {centsToEuroString(cellData.totalPriceCents)}
+            </span>
+          )}
         </div>
-      )}
+      </div>
     </td>
   );
 }
