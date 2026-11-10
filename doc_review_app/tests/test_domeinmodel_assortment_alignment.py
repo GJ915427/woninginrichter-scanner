@@ -3,7 +3,7 @@ Testsuite ter verificatie van de assortimentsharmonisatie en MVP-scope
 conform de 3.000 geanalyseerde GSW-orders (Groter in Wonen) en de
 integrale 1NF-normalisatie van het ERD in Versie 51 (V51).
 
-[SPEC-CHANGE-AUTHORIZED: Integrale migratie van alle 13 bestaande tests naar v51 fixtures en toevoeging van 3 nieuwe ERD 1NF validatietests (exact 16 tests totaal)]
+[SPEC-CHANGE-AUTHORIZED: Toevoeging van 5 nieuwe productgroep en configuratie integratietests (exact 21 tests totaal) conform Hoofdstuk 3 harmonisatie en Gaspard Jaspars review]
 
 Toetst:
 1. Sanering van Categorie 2 (verwijderen buitenscreens, behoud BB70/BB71 en Facette).
@@ -323,3 +323,104 @@ def test_erd_checklist_and_audit_entities(v51_content: str):
     avm_match = re.search(r'interface\s+AuditVeldMutatie\s*\{([^}]+)\}', v51_content)
     assert avm_match, "AuditVeldMutatie interface niet gevonden"
     assert "'positie_meting'" in avm_match.group(1)
+
+
+def test_curtain_dimension_spec_chapter_3_alignment(v51_content: str, master_content: str):
+    """Toetst of Categorie 1 Gordijnen & Rails (§3.2) volledig is geharmoniseerd in §4.9.1."""
+    for content in (v51_content, master_content):
+        match = re.search(r'interface\s+CurtainDimensionSpec\s*\{([^}]+)\}', content)
+        assert match, "CurtainDimensionSpec interface niet gevonden in §4.9.1"
+        body = match.group(1)
+        assert "'driedubbel_trio'" in body
+        assert "hangwijze?:" in body
+        assert "'onder_de_rail'" in body
+        assert "'voor_de_rail'" in body
+        assert "'meerdelig_stel'" in body
+        assert "voering_type?:" in body
+        assert "confectiehoogte_mm?:" in body
+        assert "rail_roede_type?:" in body
+        assert "'elektrisch'" in body
+
+
+def test_blind_dimension_spec_all_subgroups_and_shutters(v51_content: str, master_content: str):
+    """Toetst of Categorie 2 Raamdecoratie alle 12 subgroepen, Shutters en Horren bevat (§3.3)."""
+    for content in (v51_content, master_content):
+        subgroep_match = re.search(r'type\s+BlindProductSubgroep\s*=\s*([^;]+);', content)
+        assert subgroep_match, "BlindProductSubgroep type niet gevonden in §4.9.1"
+        subgroep_body = subgroep_match.group(1)
+        assert "'shutters'" in subgroep_body
+        assert "'duo_rolgordijn'" in subgroep_body
+        assert "'insectenwering_hor'" in subgroep_body
+
+        blind_match = re.search(r'interface\s+BlindDimensionSpec\s*\{([^}]+)\}', content)
+        assert blind_match, "BlindDimensionSpec interface niet gevonden in §4.9.1"
+        blind_body = blind_match.group(1)
+        assert "product_subgroep: BlindProductSubgroep" in blind_body
+        assert "70" in blind_body
+        assert "shutter_kader?:" in blind_body
+        assert "'l_kader'" in blind_body
+        assert "eos_model_code?:" in blind_body
+        assert "hor_type?:" in blind_body
+        assert "'oprolbare_hordeur'" in blind_body
+        assert "'clearview_ultra_transparant'" in blind_body
+        assert "bediening?:" in blind_body
+
+
+def test_floor_dimension_spec_chapter_3_alignment(v51_content: str, master_content: str):
+    """Toetst of Categorie 3 Vaste Vloerbekleding alle vloertypes en 3m vinyl bevat (§3.4)."""
+    for content in (v51_content, master_content):
+        ft_match = re.search(r'type\s+FloorType\s*=\s*([^;]+);', content)
+        assert ft_match, "FloorType type niet gevonden in §4.9.1"
+        ft_body = ft_match.group(1)
+        assert "'schoonloopzone'" in ft_body
+        assert "'dryback_pvc'" in ft_body
+
+        floor_match = re.search(r'interface\s+FloorDimensionSpec\s*\{([^}]+)\}', content)
+        assert floor_match, "FloorDimensionSpec interface niet gevonden in §4.9.1"
+        floor_body = floor_match.group(1)
+        assert "vloertype: FloorType" in floor_body
+        assert "3" in floor_body
+        assert "ondervloer_type?:" in floor_body
+        assert "'rechte_plank'" in floor_body
+        assert "matput_afmeting_mm" not in floor_body
+        assert "matput_lengte_mm" not in floor_body
+
+
+def test_stair_dimension_spec_chapter_3_alignment(v51_content: str, master_content: str):
+    """Toetst of Categorie 4 Trapbekleding & Traprenovatie laminaat overzettreden en open trap bevat (§3.5)."""
+    for content in (v51_content, master_content):
+        stair_match = re.search(r'interface\s+StairDimensionSpec\s*\{([^}]+)\}', content)
+        assert stair_match, "StairDimensionSpec interface niet gevonden in §4.9.1"
+        stair_body = stair_match.group(1)
+        assert "'overzettreden_laminaat'" in stair_body
+        assert "trap_type?:" in stair_body
+        assert "'open_rondom'" in stair_body
+        assert "heeft_wangen: boolean" in stair_body
+        assert "open_trap_afwerking" not in stair_body
+        assert "trapleuning_aantal" not in stair_body
+        assert "led_verlichting" not in stair_body
+
+
+def test_outdoor_dimension_spec_buitenleven_alignment(v51_content: str, master_content: str):
+    """Toetst of Categorie 5 Buitenleven en montagewijzen geharmoniseerd zijn (§3.6)."""
+    for content in (v51_content, master_content):
+        outdoor_match = re.search(r'interface\s+OutdoorDimensionSpec\s*\{([^}]+)\}', content)
+        assert outdoor_match, "OutdoorDimensionSpec interface niet gevonden in §4.9.1"
+        outdoor_body = outdoor_match.group(1)
+        assert "'lamellendak'" in outdoor_body
+        assert "'glazen_schuifwand'" in outdoor_body
+        assert "'terrasoverkapping'" in outdoor_body
+        assert "'vrijstaand'" in outdoor_body
+        assert "bediening?:" in outdoor_body
+        assert "'handmatig_schuiven'" in outdoor_body
+        assert "motorzijde?:" in outdoor_body
+        assert "terrasverwarming_watt" not in outdoor_body
+        assert "led_geintegreerd" not in outdoor_body
+
+        toewijzing_match = re.search(r'interface\s+ProductToewijzing\s*\{([^}]+)\}', content)
+        assert toewijzing_match, "ProductToewijzing interface niet gevonden in §4.9.1"
+        toewijzing_body = toewijzing_match.group(1)
+        assert "'vrijstaand'" in toewijzing_body
+        assert "'gevel_op_de_dag'" in toewijzing_body
+        assert "'plafond_uitval'" in toewijzing_body
+

@@ -1853,7 +1853,21 @@ export interface ProductToewijzing {
   artikel_code_erp: string;
   artikel_omschrijving: string;
   productgroep: 'gordijnen' | 'raamdecoratie' | 'vloeren' | 'trappen' | 'buitenzonwering' | 'diensten';
-  montagewijze: 'in_de_dag' | 'op_de_dag' | 'in_het_kozijn' | 'op_het_kozijn' | 'op_raamvleugel' | 'tussen_twee_muren' | 'plafond' | 'wand' | 'verlijmd' | 'zwevend' | 'n.v.t.';
+  montagewijze:
+    | 'in_de_dag'
+    | 'op_de_dag'
+    | 'in_het_kozijn'
+    | 'op_het_kozijn'
+    | 'op_raamvleugel'
+    | 'tussen_twee_muren'
+    | 'plafond'
+    | 'wand'
+    | 'verlijmd'
+    | 'zwevend'
+    | 'vrijstaand' // Buitenleven vrijstaande systemen (§3.6.1)
+    | 'gevel_op_de_dag' // Buitenzonwering gevelmontage (§3.6.1)
+    | 'plafond_uitval' // Buitenzonwering plafondmontage (§3.6.1)
+    | 'n.v.t.';
   eenheid: 'm2' | 'm1' | 'stuks' | 'pak' | 'set' | 'dagdeel' | 'forfait' | 'stuks_knelpunten';
   tariefeenheid_diensten?: 'uur' | 'm1' | 'm2' | 'stuk' | 'forfait';
   aantal_besteld: number;
@@ -1864,9 +1878,9 @@ export interface ProductToewijzing {
   override_reden?: string;
   status: ProductStatus;
   rekenformule?: string;
-  dimension_spec?: DimensionSpec;
-  opties?: GeselecteerdeOptie[];
-  bom_items?: BOMItem[];
+  dimension_spec?: DimensionSpec; // Zuivere wiskundige 2D rekenkern
+  opties?: GeselecteerdeOptie[]; // 1:N Flexibele configuratoropties conform Gaspard Jaspars review
+  bom_items?: BOMItem[]; // 1:N Genormaliseerde stuklijst en montagematerialen
   prijs_incl_btw: number;
   opmerkingen?: Opmerking[];
   issues?: Issue[];
@@ -1881,92 +1895,176 @@ export type DimensionSpec =
   | OutdoorDimensionSpec
   | ServiceDimensionSpec;
 
+// 5.1 Categorie 1: Gordijnen & Rails (§3.2)
 export interface CurtainDimensionSpec {
   type: 'gordijnen';
   referentie_type: 'blijvende_maat' | 'bruto_maat';
-  confectiehoogte_mm: number;
   railbreedte_mm: number;
-  plooitype: 'enkel' | 'dubbel_vlinder' | 'wave' | 'retourplooi';
-  stofbreedte_cm: number;
+  rail_roede_type?: 'rail' | 'roede' | 'railroede' | 'elektrisch'; // §3.2.3
+  bochten_aantal?: number;
+  stof_type?: 'baan' | 'kamerhoog'; // §3.2.2: Bepalend voor banenberekening vs kamerhoog stofverbruik
+  confectiehoogte_mm?: number; // Optioneel: pure railorders hebben geen confectiehoogte
+  plooitype?: 'enkel' | 'dubbel_vlinder' | 'driedubbel_trio' | 'wave' | 'retourplooi'; // §3.2.2 regel 612
+  hangwijze?: 'onder_de_rail' | 'voor_de_rail'; // §3.2.2 regel 625: Bepaalt haakhoogte en hoofdje
+  wave_diepte_mm?: 60 | 80; // §3.2.2: 60mm of 80mm wave-plooi
+  stofbreedte_cm?: number; // §3.2.2: 140/150 cm bij baan, 280/300/320 cm bij kamerhoog
   rapport_hoogte_cm?: number;
-  aantal_banen: number;
-  stofverbruik_m1: number;
+  rapport_breedte_cm?: number;
+  aantal_banen?: number; // 0 bij kamerhoog of rail
+  stofverbruik_m1?: number;
+  heeft_loodveter?: boolean; // §3.2.2: Loodveter i.p.v. onderzoom bij kamerhoog
+  voering_type?: 'ongevoerd' | 'lichtdicht_blackout' | 'interlining_molton' | 'akoestisch_molton'; // §3.2.1
+  vloervrijloop_type?: 'zwevend' | 'kussend' | 'slepend'; // §3.2.4
+  vloervrijloop_mm?: number; // bijv. 15mm zwevend, 0mm kussend, -50mm slepend
+  pakket_verdeling?: 'stel_midden' | 'links' | 'rechts' | 'ongelijk_stel' | 'meerdelig_stel'; // §3.2.5
+  paskamermodel?: boolean; // §3.2.1 regel 606
 }
+
+// 5.2 Categorie 2: Raamdecoratie & Horren (§3.3)
+export type BlindProductSubgroep =
+  | 'duette'
+  | 'plisse'
+  | 'rolgordijn'
+  | 'duo_rolgordijn' // §3.3.1 regel 791: Twist / duo-rolgordijnen
+  | 'jaloezie_hout'
+  | 'jaloezie_aluminium'
+  | 'verticale_lamellen'
+  | 'paneelgordijn'
+  | 'vouwgordijn'
+  | 'silhouette'
+  | 'shutters' // §3.3.1 regels 796-799: Basswood & Polywood shutters
+  | 'insectenwering_hor';
 
 export interface BlindDimensionSpec {
   type: 'raamdecoratie';
-  montagewijze: 'in_de_dag' | 'op_de_dag' | 'op_raamvleugel';
+  product_subgroep: BlindProductSubgroep; // §3.3.1: Alle 12 canonieke productgroepen
+  montagewijze: 'in_de_dag' | 'op_de_dag' | 'op_raamvleugel' | 'in_het_kozijn' | 'op_het_kozijn'; // Inclusief klemveer-montage voor inzethorren
   strakste_dagmaat_b_mm: number; // Afgeleid minimum uit PositieMeting[]
   strakste_dagmaat_h_mm: number; // Afgeleid minimum uit PositieMeting[]
-  productiemaat_b_mm: number; // Definitieve fabricagemaat na aftrek
+  productiemaat_b_mm: number; // Definitieve fabricagemaat na aftrek (§3.3.9)
   productiemaat_h_mm: number;
-  bediening: 'ketting_links' | 'ketting_rechts' | 'motor_24v' | 'motor_solar' | 'handgreep';
-  pakkethoogte_mm?: number;
+  bediening?: 'ketting_links' | 'ketting_rechts' | 'motor_24v' | 'motor_solar' | 'handgreep' | 'smartcord' | 'literise'; // Optioneel: horren hebben geen bediening
+  lamel_cel_breedte_mm?: 16 | 25 | 32 | 35 | 50 | 63 | 64 | 65 | 70 | 76 | 89 | 114 | 127; // Inclusief 70mm XXL (§3.3.1) en shuttermaten 63, 76, 114 mm
+  ladderband_of_koord?: 'ladderkoord' | 'ladderband_10mm' | 'ladderband_25mm' | 'ladderband_38mm'; // §3.3.2
+  montagesysteem?: 'standaard_steunen' | 'easyclick_frame' | 'trufit_plakprofiel' | 'framefix_magneet' | 'klemsteun_draaikiep'; // §3.3.2
+  heeft_montageprofiel?: boolean; // §3.3.2 regel 848 (default: true)
+  top_down_bottom_up?: boolean; // §3.3.1 regels 830 & 862
+  eos_model_code?: 'standaard' | 'bb60_trapezium' | 'bb70_bb71_driehoek' | 'bb80_vijfhoek' | 'pb70_serre'; // §3.3.1 regels 832-835
+  shutter_kader?: 'l_kader' | 'z_kader'; // §3.3.1 regels 796-799
+  shutter_materiaal?: 'basswood_hout' | 'polywood_kunststof'; // §3.3.1
+  hor_type?: 'inzethor' | 'klemhor' | 'rolhor' | 'plisse_hordeur' | 'oprolbare_hordeur' | 'vaste_hordeur' | 'voorzethor'; // §3.3.4 regels 914-919
+  gaas_type?: 'standaard_grijs' | 'standaard_zwart' | 'poll_tex_anti_pollen' | 'petscreen_huisdieren' | 'clearview_ultra_transparant'; // §3.3.4 regels 910-913
+  kindveiligheid_bedieningslengte_mm?: number; // §3.3.3: NEN-EN 13120 kettingstopper min 1500mm boven vloer
+  pakkethoogte_mm?: number; // §3.3.6: Doorgangscontrole
+  zijgeleiding?: 'geen' | 'staaldraad' | 'u_profielen';
 }
+
+// 5.3 Categorie 3: Vaste Vloerbekleding & Dekvloertechniek (§3.4)
+export type FloorType =
+  | 'dryback_pvc'
+  | 'click_pvc'
+  | 'laminaat'
+  | 'lamelparket_multiplank'
+  | 'marmoleum_linoleum'
+  | 'tapijt_rol'
+  | 'vinyl_rol'
+  | 'gietvloer_pu_mineraal'
+  | 'schoonloopzone'; // Inloopmatten/matputten worden als zelfstandige schoonloopzone gemodelleerd
 
 export interface FloorDimensionSpec {
   type: 'vloeren';
+  vloertype: FloorType; // §3.4.1
   netto_oppervlakte_m2: number;
-  legpatroon: 'wildverband' | 'diagonaal' | 'visgraat' | 'hongaarse_punt';
-  snijverlies_percentage: number;
+  legpatroon?: 'rechte_plank' | 'wildverband' | 'diagonaal' | 'visgraat' | 'hongaarse_punt' | 'weense_punt' | 'tegel' | 'blokverband'; // §3.4.1 regel 1079
+  bies_en_band?: boolean; // §3.4.1: Bies en band bij visgraat
+  snijverlies_percentage: number; // §3.4.4: 5% recht t/m 15% visgraat
   bruto_oppervlakte_m2: number;
-  pakinhoud_m2?: number; // Uit artikelmasterdata
+  pakinhoud_m2?: number; // §3.4.4A: Pakgrootte-afronding
   aantal_pakken?: number;
-  strekkende_meters_m1?: number; // Bij tapijt/vinyl op rol
-  vleugrichting_graden: number;
-  plintlengte_m1: number; // Onverkort behoud t.b.v. CPQ
-  deurspeling_status: 'akkoord' | 'advies_inkorten'; // Onverkort behoud conform testsuite
+  rolbreedte_m1?: 2 | 3 | 4 | 5; // §3.4.1 regel 1070 & §3.4.4B: Inclusief 3m vinyl
+  strekkende_meters_m1?: number; // §3.4.4B: m1 bij rollen
+  ondervloer_type?: 'quickstep_folie' | 'rubber_ondertapijt' | 'spaanplaat_jumpax' | 'geen_verlijmd'; // §3.4.2 regel 1092
+  vleugrichting_graden: number; // §3.4.3
+  plinttype?: 'geen' | 'mdf_hoog_68mm' | 'mdf_hoog_90mm' | 'mdf_hoog_120mm' | 'plakplint' | 'systeemplint_kunststof'; // §3.4.5
+  plintlengte_m1: number;
+  deurspeling_status: 'akkoord' | 'advies_inkorten'; // §3.4.5
   advies_inkorten_aantal?: number;
+  dilatatieprofiel_lengte_m1?: number; // §3.4.5: Bij >40m2 of >8m lengte
 }
 
+// 5.4 Categorie 4: Trapbekleding & Traprenovatie (§3.5)
 export interface StairDimensionSpec {
   type: 'trappen';
   trapvorm: 'recht' | 'onderkwart' | 'bovenkwart' | 'tweekwart' | 'bordes';
-  bekledingstype: 'tapijt_volledig' | 'traploper' | 'overzettreden_pvc' | 'overzettreden_composiet';
-  aantal_rechte_treden?: number; // Afgeleide optionele aggregatie uit Traptrede[]
+  trap_type?: 'dicht' | 'open_rondom' | 'open_alleen_bovenzijde'; // §3.5.1 & §3.5.5 regel 1305
+  bekledingstype:
+    | 'tapijt_volledig'
+    | 'traploper'
+    | 'overzettreden_pvc'
+    | 'overzettreden_composiet'
+    | 'overzettreden_hout'
+    | 'overzettreden_laminaat'; // §3.5.4 regel 1287: CPL / HPL laminaat
+  aantal_rechte_treden?: number; // Afgeleid uit Traptrede[]
   aantal_verdreven_treden?: number;
   totaal_treden?: number;
   aantal_stootborden?: number;
-  heeft_wangen: boolean;
-  loperbreedte_mm?: number;
-  roedes_aantal?: number;
+  heeft_wangen: boolean; // Onverkort behoud conform V50/V51 baseline
+  wangen_bekleden?: 'geen' | '1_zijde' | '2_zijden'; // §3.5.1 & §3.5.3B
+  loperbreedte_mm?: number; // §3.5.3A: bijv. 700mm
+  berekende_loperlengte_m1?: number; // §3.5.3A: 5-stapsformule
+  bandering_lengte_m1?: number; // §3.5.3A: 2x loperlengte
+  roedes_aantal?: number; // §3.5.3A
+  // Trapleuningen, balustrades en LED-profielen vloeien conform Gaspard Jaspars via GeselecteerdeOptie / BOMItem
 }
 
+// 5.5 Categorie 5: Buitenzonwering & Gevelsystemen (§3.6)
 export interface OutdoorDimensionSpec {
   type: 'buitenzonwering';
-  systeemtype: 'knikarmscherm' | 'ritsscreen' | 'rolluik' | 'markies';
-  montagewijze: 'gevel_op_de_dag' | 'in_de_dag' | 'plafond_uitval';
+  systeemtype:
+    | 'knikarmscherm'
+    | 'ritsscreen'
+    | 'rolluik'
+    | 'markies'
+    | 'lamellendak'
+    | 'glazen_schuifwand'
+    | 'terrasoverkapping'; // §3.6.1: Inclusief Groep 3 Buitenleven
+  montagewijze: 'gevel_op_de_dag' | 'in_de_dag' | 'plafond_uitval' | 'vrijstaand';
   breedte_mm: number;
   uitval_of_hoogte_mm: number;
-  windklasse: 'klasse_1' | 'klasse_2' | 'klasse_3' | 'klasse_4' | 'klasse_5' | 'klasse_6';
-  kastmaat_mm?: number; // Generiek numeriek; opties via GeselecteerdeOptie
-  kastvorm?: '45_graden' | 'rond' | 'half_rond'; // Onverkort behoud conform NEN
+  windklasse?: 'klasse_1' | 'klasse_2' | 'klasse_3' | 'klasse_4' | 'klasse_5' | 'klasse_6'; // NEN-EN 13561 (optioneel voor glazen wanden)
+  kastmaat_mm?: number;
+  kastvorm?: '45_graden' | 'rond' | 'half_rond';
   inbraakwerendheid_rc?: 'geen' | 'RC2' | 'RC3'; // NEN-EN 1627
   valbeveiliging_nen2608?: boolean; // NEN 2608
-  gevelconstructie: 'spouwmuur_baksteen' | 'beton' | 'kalkzandsteen' | 'gevelisolatie_etics';
-  verankeringstype: 'keilbout' | 'chemisch_anker_m10' | 'chemisch_anker_m12' | 'afstandsbussen_staal';
-  bediening: 'somfy_io_230v' | 'solar_accu' | 'handmatig_oogwindwerk';
-  motorzijde: 'links' | 'rechts';
+  gevelconstructie?: 'spouwmuur_baksteen' | 'beton' | 'kalkzandsteen' | 'gevelisolatie_etics'; // Optioneel voor vrijstaande constructies
+  verankeringstype?: 'keilbout' | 'chemisch_anker_m10' | 'chemisch_anker_m12' | 'afstandsbussen_staal'; // Optioneel voor vrijstaande systemen
+  bediening?: 'somfy_io_230v' | 'solar_accu' | 'handmatig_oogwindwerk' | 'handmatig_schuiven' | 'n.v.t.'; // Optioneel / passieve schuifwanden
+  motorzijde?: 'links' | 'rechts'; // Optioneel voor niet-gemotoriseerde systemen
   sensor_type?: 'geen' | 'zon_wind_automaat' | 'trillingssensor_eolis';
+  aantal_sporen?: number; // §3.6.1: Bij glazen schuifwanden (3..6 sporen)
+  glasdikte_esg_mm?: 8 | 10 | 12; // §3.6.1: Gehard veiligheidsglas
+  // Terrasverwarming, LED-strips en audio vloeien conform Gaspard Jaspars review via GeselecteerdeOptie / BOMItem
 }
 
+// 5.6 Categorie 6: Diensten, Montage & Montagelogistiek (§3.7)
 export interface ServiceDimensionSpec {
   type: 'diensten';
   dienst_type:
-    | 'gordijn_rail_montage'
-    | 'binnenzonwering_montage'
-    | 'vloer_legservice'
-    | 'trap_stoffering_montage'
-    | 'buitenzonwering_montage'
-    | 'inmeet_schouw_service'
-    | 'sloop_egalisatie_service'
-    | 'logistiek_materieel_service'
-    | 'overige_diensten'
-    | 'sloop_ondergrond'
-    | 'egalisatie'
-    | 'deuradvies'
-    | 'verticaal_transport'
-    | 'montage_algemeen';
+    | 'gordijn_rail_montage' // 6.1
+    | 'binnenzonwering_montage' // 6.2
+    | 'vloer_legservice' // 6.3
+    | 'trap_stoffering_montage' // 6.4
+    | 'buitenzonwering_montage' // 6.5
+    | 'inmeet_schouw_service' // 6.6
+    | 'sloop_egalisatie_service' // 6.7
+    | 'logistiek_materieel_service' // 6.8
+    | 'service_garantie_nazorg' // 6.9
+    | 'sloop_ondergrond' // Onverkort behoud V51 baseline
+    | 'egalisatie' // Onverkort behoud V51 baseline
+    | 'deuradvies' // Onverkort behoud V51 baseline
+    | 'verticaal_transport' // Onverkort behoud V51 baseline
+    | 'montage_algemeen' // Onverkort behoud V51 baseline
+    | 'overige_diensten';
   tariefeenheid?: 'uur' | 'm1' | 'm2' | 'stuk' | 'forfait';
   ondergrond_sanering_m2?: number;
   egalisatie_laagdikte_mm?: number;
