@@ -53,6 +53,19 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     }));
   }, []);
 
+  const hydrateOrderBundle = useCallback((orderBundle: MatrixOrder) => {
+    setOrders((prev) => {
+      const idx = prev.findIndex((o) => o.id === orderBundle.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = orderBundle;
+        return next;
+      }
+      return [orderBundle, ...prev];
+    });
+    setCurrentOrderIndex(0);
+  }, []);
+
   const selectedOrder = useMemo(() => {
     return orders[currentOrderIndex] ?? orders[0];
   }, [orders, currentOrderIndex]);
@@ -356,5 +369,7 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     assignVlakToPosition,
     mergePositionsToCluster,
     dissolveCluster,
+    setOrders,
+    hydrateOrderBundle,
   };
 }

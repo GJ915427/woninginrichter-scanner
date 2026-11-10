@@ -13,6 +13,7 @@ import { MatrixOverlayCoordinator } from '@/components/matrix/MatrixOverlayCoord
 import { Position, FSM_STAGES } from '@/types/matrix';
 import { buildCellKey, findCellKeyByOrderLine, findOrderLineByCompoundKey } from '@/utils/matrix-overlay-state';
 import { attachMatrixDockingListener, syncStickyGroupHeaders } from '@/utils/matrix-docking';
+import { useMatrixOrderBundle } from '@/hooks/useMatrixOrderBundle';
 import { LabMatrixOrderMetaCard } from './LabMatrixOrderMetaCard';
 import { useLabKeyboardShortcuts } from './useLabKeyboardShortcuts';
 
@@ -32,8 +33,12 @@ export default function MatrixOrdersLabPage() {
     selectOrder, goToNextOrder, goToPreviousOrder,
     toggleColumnSelection, clearColumnSelection,
     addMediaItem, deletePosition, updateCell, assignProductToCell, assignVlakToPosition,
-    mergePositionsToCluster, dissolveCluster,
+    mergePositionsToCluster, dissolveCluster, hydrateOrderBundle,
   } = useMatrixState();
+
+  const orderId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('orderId') : null;
+  const { order: liveOrder, isLoading: isOrderLoading } = useMatrixOrderBundle(orderId);
+  useEffect(() => { if (liveOrder) hydrateOrderBundle(liveOrder); }, [liveOrder, hydrateOrderBundle]);
 
   const spatialPositions: Position[] = useMemo(
     () => selectedOrder.etages.flatMap((e) => e.rooms.flatMap((r) => r.positions)),
@@ -105,6 +110,14 @@ export default function MatrixOrdersLabPage() {
       document.getElementById(`audit-row-${line}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   };
+
+  if (orderId && isOrderLoading) {
+    return (
+      <div id="matrix-loading-skeleton" className="flex items-center justify-center min-h-[400px] text-slate-500 animate-pulse font-medium">
+        Order data inladen...
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50 font-sans text-slate-800 flex-col">
