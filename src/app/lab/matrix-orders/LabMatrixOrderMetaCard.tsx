@@ -3,14 +3,15 @@
 // [VISUAL-MUTATION-AUTHORIZED: UX verfijning Hoofdscherm 4: klantnaam popover trigger en ordernummer audit toggle interactie conform HITL verzoek]
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Paperclip, ChevronDown } from 'lucide-react';
-import { MatrixOrder } from '@/types/matrix';
+import { MatrixOrder, OrderSummaryItem } from '@/types/matrix';
 import { centsToEuroString } from '@/utils/matrix-pricing';
 
 export interface LabMatrixOrderMetaCardProps {
   selectedOrder: MatrixOrder;
-  orders?: MatrixOrder[];
+  orders?: (MatrixOrder | OrderSummaryItem)[];
   currentOrderIndex?: number;
   onSelectOrder?: (index: number) => void;
+  onSelectOrderId?: (orderId: string) => void;
   onOpenPdf?: () => void;
   onOpenMedia?: (tab?: 'foto' | 'video' | 'opmerking') => void;
   onToggleAuditTrail?: () => void;
@@ -18,17 +19,15 @@ export interface LabMatrixOrderMetaCardProps {
 }
 
 /**
- * LabMatrixOrderMetaCard
- * Geoptimaliseerde executive strip voor /lab/matrix-orders met:
- * 1. #meta-customer-name als orderpicker popover trigger
- * 2. #meta-order-number als toggleknop voor offerte- en orderregels (audit trail)
- * Voldoet strikt aan INV-GOV-22 (<250 regels, 1x useState, Fitts' Law >= 44px).
+ * LabMatrixOrderMetaCard (INV-GOV-22, Fitts' Law >= 44px)
+ * Executive strip voor /lab/matrix-orders met orderpicker en audit toggle (<235 LOC).
  */
 export function LabMatrixOrderMetaCard({
   selectedOrder,
   orders,
   currentOrderIndex = 0,
   onSelectOrder,
+  onSelectOrderId,
   onOpenMedia,
   onToggleAuditTrail,
   isAuditTrailActive = false,
@@ -44,14 +43,11 @@ export function LabMatrixOrderMetaCard({
   useEffect(() => {
     if (!isPopoverOpen) return;
     const handlePointerDown = (e: PointerEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        setIsPopoverOpen(false);
-      }
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) setIsPopoverOpen(false);
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsPopoverOpen(false);
     };
-
     window.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('keydown', handleKeyDown);
     return () => {
@@ -97,17 +93,21 @@ export function LabMatrixOrderMetaCard({
                     type="button"
                     aria-label="Vorige order"
                     disabled={currentIndex <= 0}
-                    onClick={() => currentIndex > 0 && onSelectOrder?.(currentIndex - 1)}
+                    onClick={() => {
+                      const prev = orderList[currentIndex - 1];
+                      if (prev) onSelectOrderId ? onSelectOrderId(prev.id) : onSelectOrder?.(currentIndex - 1);
+                    }}
                     className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
                   >‹</button>
-                  <span className="font-mono text-xs text-slate-600 px-1 font-semibold">
-                    {currentIndex + 1} / {orderList.length}
-                  </span>
+                  <span className="font-mono text-xs text-slate-600 px-1 font-semibold">{currentIndex + 1} / {orderList.length}</span>
                   <button
                     type="button"
                     aria-label="Volgende order"
                     disabled={currentIndex >= orderList.length - 1}
-                    onClick={() => currentIndex < orderList.length - 1 && onSelectOrder?.(currentIndex + 1)}
+                    onClick={() => {
+                      const next = orderList[currentIndex + 1];
+                      if (next) onSelectOrderId ? onSelectOrderId(next.id) : onSelectOrder?.(currentIndex + 1);
+                    }}
                     className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
                   >›</button>
                 </div>
@@ -119,7 +119,8 @@ export function LabMatrixOrderMetaCard({
                     key={ord.id}
                     type="button"
                     onClick={() => {
-                      onSelectOrder?.(idx);
+                      if (onSelectOrderId) onSelectOrderId(ord.id);
+                      else onSelectOrder?.(idx);
                       setIsPopoverOpen(false);
                     }}
                     className={`w-full min-h-[44px] px-3 py-2 text-left rounded-control transition-colors flex items-center justify-between ${
@@ -145,14 +146,12 @@ export function LabMatrixOrderMetaCard({
         </div>
 
         <span className="text-slate-300 hidden md:inline">|</span>
-
         <div className="hidden lg:flex items-center gap-1 text-slate-600 truncate">
           <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
           <span id="meta-customer-city" className="truncate font-medium">
             {selectedOrder.plaats ? `Sint Pieterstraat 12, ${selectedOrder.plaats}` : 'Sint Pieterstraat 12, Maastricht'}
           </span>
         </div>
-
         <span className="text-slate-300 hidden lg:inline">|</span>
 
         {/* 2-Tier Gestapelde Micro-Labels */}
@@ -188,28 +187,15 @@ export function LabMatrixOrderMetaCard({
             </div>
           </div>
 
-          {/* Projectstatus Stack */}
           <div className="flex flex-col items-start gap-0.5">
-            <span className="text-[9px] uppercase font-semibold text-slate-500 tracking-wider">
-              PROJECTSTATUS
-            </span>
-            <span
-              id="meta-status"
-              className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded-control text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
-            >
+            <span className="text-[9px] uppercase font-semibold text-slate-500 tracking-wider">PROJECTSTATUS</span>
+            <span id="meta-status" className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded-control text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60">
               Order
             </span>
           </div>
-
-          {/* Productstatus Stack */}
           <div className="flex flex-col items-start gap-0.5">
-            <span className="text-[9px] uppercase font-semibold text-slate-500 tracking-wider">
-              PRODUCTSTATUS
-            </span>
-            <span
-              id="meta-product-status"
-              className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded-control text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
-            >
+            <span className="text-[9px] uppercase font-semibold text-slate-500 tracking-wider">PRODUCTSTATUS</span>
+            <span id="meta-product-status" className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded-control text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60">
               {selectedOrder.status || 'Definitief'}
             </span>
           </div>

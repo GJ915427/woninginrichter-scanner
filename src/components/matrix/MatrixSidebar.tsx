@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { MatrixOrder } from '../../types/matrix';
+import { MatrixOrder, OrderSummaryItem } from '../../types/matrix';
 import { centsToEuroString } from '../../utils/matrix-pricing';
 
 interface MatrixSidebarProps {
-  orders: MatrixOrder[];
+  orders: (MatrixOrder | OrderSummaryItem)[];
   currentIndex: number;
-  onSelectOrder: (index: number) => void;
+  onSelectOrder?: (index: number) => void;
+  onSelectOrderId?: (orderId: string) => void;
   isOpen: boolean;
   onToggleOpen: () => void;
 }
@@ -16,6 +17,7 @@ export function MatrixSidebar({
   orders,
   currentIndex,
   onSelectOrder,
+  onSelectOrderId,
   isOpen,
   onToggleOpen,
 }: MatrixSidebarProps) {
@@ -27,6 +29,7 @@ export function MatrixSidebar({
     return orders.filter(
       (o) =>
         o.id.toLowerCase().includes(q) ||
+        ('orderNumber' in o && o.orderNumber ? String(o.orderNumber).toLowerCase().includes(q) : false) ||
         o.klant.toLowerCase().includes(q) ||
         o.plaats.toLowerCase().includes(q)
     );
@@ -77,8 +80,15 @@ export function MatrixSidebar({
         <button
           type="button"
           disabled={currentIndex <= 0}
-          onClick={() => onSelectOrder(currentIndex - 1)}
-          className="px-2.5 py-1 rounded text-xs bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-2xs font-medium"
+          onClick={() => {
+            const nextIdx = currentIndex - 1;
+            if (onSelectOrderId && orders[nextIdx]) {
+              onSelectOrderId(orders[nextIdx].id);
+            } else if (onSelectOrder) {
+              onSelectOrder(nextIdx);
+            }
+          }}
+          className="px-2.5 py-1 min-h-[44px] rounded text-xs bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-2xs font-medium"
         >
           &lt; Vorige
         </button>
@@ -88,8 +98,15 @@ export function MatrixSidebar({
         <button
           type="button"
           disabled={currentIndex >= orders.length - 1}
-          onClick={() => onSelectOrder(currentIndex + 1)}
-          className="px-2.5 py-1 rounded text-xs bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-2xs font-medium"
+          onClick={() => {
+            const nextIdx = currentIndex + 1;
+            if (onSelectOrderId && orders[nextIdx]) {
+              onSelectOrderId(orders[nextIdx].id);
+            } else if (onSelectOrder) {
+              onSelectOrder(nextIdx);
+            }
+          }}
+          className="px-2.5 py-1 min-h-[44px] rounded text-xs bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-2xs font-medium"
         >
           Volgende &gt;
         </button>
@@ -116,8 +133,14 @@ export function MatrixSidebar({
             <div
               key={order.id}
               id={`sidebar-order-${order.id}`}
-              onClick={() => onSelectOrder(originalIndex)}
-              className={`p-3 transition-colors cursor-pointer border-l-4 ${
+              onClick={() => {
+                if (onSelectOrderId) {
+                  onSelectOrderId(order.id);
+                } else if (onSelectOrder) {
+                  onSelectOrder(originalIndex);
+                }
+              }}
+              className={`p-3 min-h-[44px] transition-colors cursor-pointer border-l-4 ${
                 isSelected
                   ? 'border-blue-600 bg-blue-50/70 font-semibold shadow-2xs'
                   : 'border-transparent hover:bg-slate-50 text-slate-700'

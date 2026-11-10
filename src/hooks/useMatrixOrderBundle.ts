@@ -145,8 +145,23 @@ export function bundleMatrixOrder(dto: OrderMatrixBundleDto): MatrixOrder {
     });
   }
 
+  // Bouw rawLines voor de audit trail
+  const rawLines = lines.map((l) => ({
+    line: l.line_number,
+    productCode: l.product_code,
+    description: l.description,
+    quantity: Number(l.quantity) || 1,
+    unit: l.unit,
+    priceCents: Number(l.unit_price_cents) || 0,
+    totalCents: Number(l.total_price_cents) || 0,
+    positionName: l.window_name || l.position_id,
+    roomName: l.room_name,
+    etageName: l.etage_name,
+  }));
+
   return {
     id: order.id,
+    isLive: true,
     klant: order.customer_name || 'Klant',
     plaats: order.city || 'Nederland',
     offerte: order.quotation_number || '',
@@ -160,6 +175,7 @@ export function bundleMatrixOrder(dto: OrderMatrixBundleDto): MatrixOrder {
     scopeDescription: order.scope_description,
     etages,
     products: Array.from(productMap.values()),
+    rawLines,
   };
 }
 

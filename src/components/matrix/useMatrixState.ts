@@ -11,6 +11,14 @@ import {
   mergePositionsIntoCluster,
 } from '../../utils/matrix-overlay-state';
 import { calculateOrderTotalCents } from '../../utils/matrix-pricing';
+import {
+  applyCellPatch,
+  createCellSnapshot,
+  rollbackCellPatch,
+  normalizeSubLine,
+} from '../../lib/matrix/matrix-mutation-engine';
+import { updateMatrixCellRpc } from '../../lib/supabase/order-mutation-client';
+import { fetchMatrixOrderBundle } from '../../hooks/useMatrixOrderBundle';
 
 export interface ActiveStepperState {
   productId: string;
@@ -37,6 +45,8 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
   const [mediaContextFilter, setMediaContextFilter] = useState<'position' | 'room' | 'project'>('project');
   const [rollupLevel, setRollupLevel] = useState<RollupLevel>('positie');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [isOrderLoading, setIsOrderLoading] = useState<boolean>(false);
+  const [statusAlert, setStatusAlert] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // Niveau-Zichtbaarheid State (V5)
   const [visibleLevels, setVisibleLevels] = useState<HeaderLevelVisibility>({
@@ -172,48 +182,62 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     [selectedOrder, currentOrderIndex, activeOverlay]
   );
 
-  // CRUD: Cel bijwerken met automatische CPQ herberekening
+  // CRUD: Cel bijwerken met automatische CPQ herberekening en optionele persistentie
   const updateCell = useCallback(
     (cellKey: string, updates: Partial<CellPriceData>, productId?: string) => {
       const { positionId, subPos } = parseCellKey(cellKey);
+      const targetOrder = orders[currentOrderIndex];
+      if (!targetOrder) return;
 
-      setOrders((prev) =>
-        prev.map((order, idx) => {
-          if (idx !== currentOrderIndex) return order;
+      const targetProduct = targetOrder.products.find((p) => !productId || p.id === productId);
+      const targetCell = targetProduct ? resolveCellData(targetProduct, positionId, subPos) : undefined;
+      const snapshot = targetProduct ? createCellSnapshot(targetOrder, targetProduct.id, positionId, subPos) : null;
 
-          const updatedProducts = order.products.map((product) => {
-            if (productId && product.id !== productId) {
-              return product;
-            }
-            const currentCell = resolveCellData(product, positionId, subPos);
-            if (!currentCell) return product;
+      // 1. Optimistic Update in React state via pure mutation engine
+      if (targetProduct) {
+        const nextOrder = applyCellPatch(targetOrder, {
+          productId: targetProduct.id,
+          positionId,
+          subPos,
+          patch: updates,
+        });
 
-            const updatedCell: CellPriceData = {
-              ...currentCell,
-              ...updates,
-            };
+        setOrders((prev) =>
+          prev.map((ord, idx) => (idx === currentOrderIndex ? nextOrder : ord))
+        );
+      }
 
-            const key = buildCellKey(positionId, subPos);
-            return {
-              ...product,
-              posPrices: {
-                ...product.posPrices,
-                [key]: updatedCell,
-              },
-            };
-          });
+      // 2. Database persistentie indien live order
+      if (targetOrder.isLive && targetProduct && targetCell?.line) {
+        const lineNum = targetCell.line;
+        const subLineNum = normalizeSubLine(subPos);
 
-          const intermediateOrder = { ...order, products: updatedProducts };
-          const recalculatedTotal = calculateOrderTotalCents(intermediateOrder);
-
-          return {
-            ...intermediateOrder,
-            totaalbedragCents: recalculatedTotal,
-          };
-        })
-      );
+        updateMatrixCellRpc({
+          orderId: targetOrder.id,
+          lineNumber: lineNum,
+          subLine: subLineNum,
+          patch: updates,
+        }).then((res) => {
+          if (res.success) {
+            setStatusAlert({ message: 'Wijziging opgeslagen in database.', type: 'success' });
+            setTimeout(() => setStatusAlert(null), 3000);
+          } else if (snapshot) {
+            setOrders((prev) =>
+              prev.map((ord, idx) => (idx === currentOrderIndex ? rollbackCellPatch(ord, snapshot) : ord))
+            );
+            setStatusAlert({ message: `Opslaan mislukt: ${res.error || 'Databasefout'}`, type: 'error' });
+          }
+        }).catch((err) => {
+          if (snapshot) {
+            setOrders((prev) =>
+              prev.map((ord, idx) => (idx === currentOrderIndex ? rollbackCellPatch(ord, snapshot) : ord))
+            );
+          }
+          setStatusAlert({ message: `Netwerkfout bij opslaan: ${err instanceof Error ? err.message : String(err)}`, type: 'error' });
+        });
+      }
     },
-    [currentOrderIndex]
+    [currentOrderIndex, orders]
   );
 
   // CRUD: Product toewijzen aan lege cel
@@ -324,10 +348,49 @@ export function useMatrixState(initialOrders: MatrixOrder[] = MATRIX_ORDERS_MOCK
     setHighlightedCellKey(null);
   }, []);
 
+  const selectOrderById = useCallback(
+    async (orderId: string) => {
+      if (!orderId || !orderId.trim()) return;
+      const cleanId = orderId.trim();
+      const existingIdx = orders.findIndex((o) => o.id === cleanId);
+      if (existingIdx >= 0) {
+        setCurrentOrderIndex(existingIdx);
+        setActiveOverlay(null);
+        setSelectedColumnIds(new Set());
+        return;
+      }
+
+      setIsOrderLoading(true);
+      try {
+        const bundle = await fetchMatrixOrderBundle(cleanId);
+        if (bundle) {
+          setOrders((prev) => [bundle, ...prev]);
+          setCurrentOrderIndex(0);
+          setActiveOverlay(null);
+          setSelectedColumnIds(new Set());
+        } else {
+          setStatusAlert({ message: `Order ${cleanId} kon niet worden opgehaald.`, type: 'error' });
+        }
+      } catch (err) {
+        setStatusAlert({
+          message: `Fout bij laden van order ${cleanId}: ${err instanceof Error ? err.message : String(err)}`,
+          type: 'error',
+        });
+      } finally {
+        setIsOrderLoading(false);
+      }
+    },
+    [orders]
+  );
+
   return {
     orders,
     currentOrderIndex,
     selectedOrder,
+    selectOrderById,
+    isOrderLoading,
+    statusAlert,
+    setStatusAlert,
     fsmStage,
     setFsmStage,
     selectedColumnIds,

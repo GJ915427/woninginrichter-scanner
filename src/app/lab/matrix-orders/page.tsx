@@ -12,21 +12,22 @@ import { MatrixAuditTrailTable } from '@/components/matrix/MatrixAuditTrailTable
 import { MatrixOverlayCoordinator } from '@/components/matrix/MatrixOverlayCoordinator';
 import { Position, FSM_STAGES } from '@/types/matrix';
 import { buildCellKey, findCellKeyByOrderLine, findOrderLineByCompoundKey } from '@/utils/matrix-overlay-state';
-import { attachMatrixDockingListener, syncStickyGroupHeaders } from '@/utils/matrix-docking';
+import { syncStickyGroupHeaders } from '@/utils/matrix-docking';
 import { useMatrixOrderBundle } from '@/hooks/useMatrixOrderBundle';
+import { useLiveOrderList } from '@/hooks/useLiveOrderList';
 import { LabMatrixOrderMetaCard } from './LabMatrixOrderMetaCard';
 import { useLabKeyboardShortcuts } from './useLabKeyboardShortcuts';
 
 /**
  * Matrix Orders Lab Spike Page (Hoofdscherm 4)
- * Geïsoleerde route op /lab/matrix-orders voor wendbare UX iteraties.
- * Voldoet strikt aan INV-GOV-22 (<250 regels, max 4 hooks per component).
+ * Geïsoleerde route op /lab/matrix-orders conform INV-GOV-22 (<235 LOC).
  */
 export default function MatrixOrdersLabPage() {
   const [viewMode, setViewMode] = useState<'matrix' | 'audit'>('matrix');
 
   const {
     orders, currentOrderIndex, selectedOrder, fsmStage,
+    selectOrderById, statusAlert,
     selectedColumnIds, activeOverlay, openOverlay, closeOverlay,
     highlightedCellKey, setHighlightedCellKey, activeMediaTab, setActiveMediaTab,
     visibleLevels, toggleLevelVisibility,
@@ -36,13 +37,15 @@ export default function MatrixOrdersLabPage() {
     mergePositionsToCluster, dissolveCluster, hydrateOrderBundle,
   } = useMatrixState();
 
+  const { orders: liveOrders } = useLiveOrderList();
+  const orderList = liveOrders.length > 0 ? liveOrders : orders;
+
   const orderId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('orderId') : null;
   const { order: liveOrder, isLoading: isOrderLoading } = useMatrixOrderBundle(orderId);
   useEffect(() => { if (liveOrder) hydrateOrderBundle(liveOrder); }, [liveOrder, hydrateOrderBundle]);
 
   const spatialPositions: Position[] = useMemo(
-    () => selectedOrder.etages.flatMap((e) => e.rooms.flatMap((r) => r.positions)),
-    [selectedOrder]
+    () => selectedOrder.etages.flatMap((e) => e.rooms.flatMap((r) => r.positions)), [selectedOrder]
   );
 
   const isSingleRoom = useMemo(() => {
@@ -56,8 +59,7 @@ export default function MatrixOrdersLabPage() {
   }, [selectedColumnIds, selectedOrder]);
 
   const highlightedOrderLine = useMemo(
-    () => findOrderLineByCompoundKey(selectedOrder, highlightedCellKey),
-    [selectedOrder, highlightedCellKey]
+    () => findOrderLineByCompoundKey(selectedOrder, highlightedCellKey), [selectedOrder, highlightedCellKey]
   );
 
   const activeStep = FSM_STAGES.find((s) => s.step === fsmStage) ?? {
@@ -72,14 +74,6 @@ export default function MatrixOrdersLabPage() {
     activeOverlay,
     closeOverlay,
   });
-
-  useEffect(() => {
-    const viewport = document.getElementById('matrix-viewport');
-    const detachDocking = attachMatrixDockingListener(viewport);
-    return () => {
-      detachDocking();
-    };
-  }, []);
 
   useEffect(() => {
     if (viewMode === 'matrix') {
@@ -125,9 +119,10 @@ export default function MatrixOrdersLabPage() {
 
       <LabMatrixOrderMetaCard
         selectedOrder={selectedOrder}
-        orders={orders}
+        orders={orderList}
         currentOrderIndex={currentOrderIndex}
         onSelectOrder={selectOrder}
+        onSelectOrderId={selectOrderById}
         onOpenMedia={() => openOverlay({ type: 'media_drawer', positionId: 'pos_project_algemeen', title: `Werffoto's & Media (${selectedOrder.klant})` })}
         onToggleAuditTrail={() => setViewMode((prev) => (prev === 'matrix' ? 'audit' : 'matrix'))}
         isAuditTrailActive={viewMode === 'audit'}
@@ -135,12 +130,8 @@ export default function MatrixOrdersLabPage() {
 
       <MatrixActionBar
         workflowStage={activeStep.label}
+        statusAlert={statusAlert}
         onWorkflowStageClick={() => openOverlay({ type: 'fsm_modal', step: activeStep })}
-        onMakeAppointment={() => {}}
-        onMakeReport={() => {}}
-        onInmeten={() => {}}
-        onMonteren={() => {}}
-        onAfronden={() => {}}
       />
 
       <main className="flex-1 min-h-0 flex flex-col overflow-hidden p-4">
@@ -231,18 +222,16 @@ export default function MatrixOrdersLabPage() {
         }}
         onUpdateCell={(key, data, pId) => { updateCell(key, data, pId); closeOverlay(); }}
         onAssignProductToCell={(pId, posId, sPos, data) => { assignProductToCell(pId, posId, sPos, data); closeOverlay(); }}
-        onAddNote={(note) =>
-          addMediaItem({
-            id: `media-note-${Date.now()}`,
-            entityType: 'order',
-            entityId: selectedOrder.id,
-            type: 'note',
-            title: 'Werfnotitie',
-            description: note,
-            date: new Date().toLocaleDateString('nl-NL'),
-            author: 'Jan (GSW)',
-          })
-        }
+        onAddNote={(note) => addMediaItem({
+          id: `media-note-${Date.now()}`,
+          entityType: 'order',
+          entityId: selectedOrder.id,
+          type: 'note',
+          title: 'Werfnotitie',
+          description: note,
+          date: new Date().toLocaleDateString('nl-NL'),
+          author: 'Jan (GSW)',
+        })}
       />
     </div>
   );

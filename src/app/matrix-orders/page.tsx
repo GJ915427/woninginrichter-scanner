@@ -2,6 +2,7 @@
 
 import React, { useMemo, useEffect } from 'react';
 import { useMatrixState } from '../../components/matrix/useMatrixState';
+import { useLiveOrderList } from '../../hooks/useLiveOrderList';
 import { MatrixHeader } from '../../components/matrix/MatrixHeader';
 import { MatrixProductRow } from '../../components/matrix/MatrixProductRow';
 import { MatrixActionBar } from '../../components/matrix/MatrixActionBar';
@@ -22,6 +23,7 @@ import { attachMatrixDockingListener } from '../../utils/matrix-docking';
 export default function MatrixOrdersPage() {
   const {
     orders, currentOrderIndex, selectedOrder, fsmStage,
+    selectOrderById, isOrderLoading, statusAlert,
     selectedColumnIds, activeOverlay, openOverlay, closeOverlay,
     highlightedCellKey, setHighlightedCellKey, activeMediaTab, setActiveMediaTab,
     sidebarOpen, setSidebarOpen, visibleLevels, toggleLevelVisibility,
@@ -30,6 +32,9 @@ export default function MatrixOrdersPage() {
     addMediaItem, deletePosition, updateCell, assignProductToCell, assignVlakToPosition,
     mergePositionsToCluster, dissolveCluster,
   } = useMatrixState();
+
+  const { orders: liveOrders } = useLiveOrderList();
+  const orderList = liveOrders.length > 0 ? liveOrders : orders;
 
   const spatialPositions: Position[] = useMemo(
     () => selectedOrder.etages.flatMap((e) => e.rooms.flatMap((r) => r.positions)),
@@ -103,7 +108,8 @@ export default function MatrixOrdersPage() {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50 font-sans text-slate-800">
       <MatrixSidebar
-        orders={orders} currentIndex={currentOrderIndex} onSelectOrder={selectOrder}
+        orders={orderList} currentIndex={currentOrderIndex} onSelectOrder={selectOrder}
+        onSelectOrderId={selectOrderById}
         isOpen={sidebarOpen} onToggleOpen={() => setSidebarOpen(!sidebarOpen)}
       />
 
@@ -113,15 +119,17 @@ export default function MatrixOrdersPage() {
         <div id="order-meta-card">
           <MatrixOrderMetaCard
             selectedOrder={selectedOrder}
-            orders={orders}
+            orders={orderList}
             currentOrderIndex={currentOrderIndex}
             onSelectOrder={selectOrder}
+            onSelectOrderId={selectOrderById}
             onOpenMedia={() => openOverlay({ type: 'media_drawer', positionId: 'pos_project_algemeen', title: `Werffoto's & Media (${selectedOrder.klant})` })}
           />
         </div>
 
         <MatrixActionBar
           workflowStage={activeStep.label}
+          statusAlert={statusAlert}
           onWorkflowStageClick={() => openOverlay({ type: 'fsm_modal', step: activeStep })}
           onMakeAppointment={() => {}}
           onMakeReport={() => {}}

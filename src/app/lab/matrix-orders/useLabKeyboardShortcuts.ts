@@ -3,12 +3,14 @@
 // [VISUAL-MUTATION-AUTHORIZED: Geïsoleerde /lab/matrix-orders UX Spike route conform HITL verzoek]
 import { useEffect } from 'react';
 import { ActiveOverlay } from '@/types/matrix';
+import { attachMatrixDockingListener } from '@/utils/matrix-docking';
 
 export interface UseLabKeyboardShortcutsParams {
   goToNextOrder: () => void;
   goToPreviousOrder: () => void;
   activeOverlay: ActiveOverlay | null;
   closeOverlay: () => void;
+  viewportId?: string;
 }
 
 /**
@@ -22,6 +24,7 @@ export function useLabKeyboardShortcuts({
   goToPreviousOrder,
   activeOverlay,
   closeOverlay,
+  viewportId = 'matrix-viewport',
 }: UseLabKeyboardShortcutsParams): void {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -50,8 +53,12 @@ export function useLabKeyboardShortcuts({
     };
 
     window.addEventListener('keydown', handleKeyDown);
+    const viewport = document.getElementById(viewportId);
+    const detachDocking = attachMatrixDockingListener(viewport);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      detachDocking();
     };
-  }, [goToNextOrder, goToPreviousOrder, activeOverlay, closeOverlay]);
+  }, [goToNextOrder, goToPreviousOrder, activeOverlay, closeOverlay, viewportId]);
 }

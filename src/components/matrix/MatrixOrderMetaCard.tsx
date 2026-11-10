@@ -3,14 +3,15 @@
 // [SPEC-CHANGE-AUTHORIZED: Handcrafting van compacte Executive Order Strip conform Stitch specificatie met 2-laags gestapelde micro-labels, SVG iconen, pointerdown touch popover orderpicker, dubbele statusindicatie met rounded-control en Fitts law >= 44px touch targets]
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Paperclip, ChevronDown } from 'lucide-react';
-import { MatrixOrder } from '../../types/matrix';
+import { MatrixOrder, OrderSummaryItem } from '../../types/matrix';
 import { centsToEuroString } from '../../utils/matrix-pricing';
 
 export interface MatrixOrderMetaCardProps {
   selectedOrder: MatrixOrder;
-  orders?: MatrixOrder[];
+  orders?: (MatrixOrder | OrderSummaryItem)[];
   currentOrderIndex?: number;
   onSelectOrder?: (index: number) => void;
+  onSelectOrderId?: (orderId: string) => void;
   onOpenPdf?: () => void;
   onOpenMedia?: (tab?: 'foto' | 'video' | 'opmerking') => void;
   onScrollToAuditTrail?: () => void;
@@ -21,6 +22,7 @@ export function MatrixOrderMetaCard({
   orders,
   currentOrderIndex = 0,
   onSelectOrder,
+  onSelectOrderId,
   onOpenPdf,
   onOpenMedia,
 }: MatrixOrderMetaCardProps) {
@@ -111,7 +113,16 @@ export function MatrixOrderMetaCard({
                         type="button"
                         aria-label="Vorige order"
                         disabled={currentIndex <= 0}
-                        onClick={() => currentIndex > 0 && onSelectOrder?.(currentIndex - 1)}
+                        onClick={() => {
+                          if (currentIndex > 0) {
+                            const prevItem = orderList[currentIndex - 1];
+                            if (onSelectOrderId && prevItem?.id) {
+                              onSelectOrderId(prevItem.id);
+                            } else if (onSelectOrder) {
+                              onSelectOrder(currentIndex - 1);
+                            }
+                          }
+                        }}
                         className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
                       >‹</button>
                       <span className="font-mono text-xs text-slate-600 px-1 font-semibold">{currentIndex + 1} / {orderList.length}</span>
@@ -119,38 +130,54 @@ export function MatrixOrderMetaCard({
                         type="button"
                         aria-label="Volgende order"
                         disabled={currentIndex >= orderList.length - 1}
-                        onClick={() => currentIndex < orderList.length - 1 && onSelectOrder?.(currentIndex + 1)}
+                        onClick={() => {
+                          if (currentIndex < orderList.length - 1) {
+                            const nextItem = orderList[currentIndex + 1];
+                            if (onSelectOrderId && nextItem?.id) {
+                              onSelectOrderId(nextItem.id);
+                            } else if (onSelectOrder) {
+                              onSelectOrder(currentIndex + 1);
+                            }
+                          }
+                        }}
                         className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
                       >›</button>
                     </div>
                   </div>
 
                   <div className="max-h-56 overflow-y-auto space-y-1">
-                    {orderList.map((ord, idx) => (
-                      <button
-                        key={ord.id}
-                        type="button"
-                        onClick={() => {
-                          onSelectOrder?.(idx);
-                          setIsPopoverOpen(false);
-                        }}
-                        className={`w-full min-h-[44px] px-3 py-2 text-left rounded-control transition-colors flex items-center justify-between ${
-                          idx === currentIndex
-                            ? 'bg-blue-50 border border-blue-200 text-blue-900 font-semibold'
-                            : 'hover:bg-slate-50 text-slate-700'
-                        }`}
-                      >
-                        <div className="truncate">
-                          <span className="font-mono font-bold text-slate-900 block">{ord.id}</span>
-                          <span className="text-slate-500 text-[11px] truncate block">
-                            {ord.klant} ({ord.plaats || 'Maastricht'})
+                    {orderList.map((ord, idx) => {
+                      const displayNum = 'orderNumber' in ord && ord.orderNumber ? ord.orderNumber : ord.id;
+                      return (
+                        <button
+                          key={ord.id}
+                          type="button"
+                          onClick={() => {
+                            if (onSelectOrderId) {
+                              onSelectOrderId(ord.id);
+                            } else if (onSelectOrder) {
+                              onSelectOrder(idx);
+                            }
+                            setIsPopoverOpen(false);
+                          }}
+                          className={`w-full min-h-[44px] px-3 py-2 text-left rounded-control transition-colors flex items-center justify-between ${
+                            idx === currentIndex
+                              ? 'bg-blue-50 border border-blue-200 text-blue-900 font-semibold'
+                              : 'hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <div className="truncate">
+                            <span className="font-mono font-bold text-slate-900 block">{displayNum}</span>
+                            <span className="text-slate-500 text-[11px] truncate block">
+                              {ord.klant} ({ord.plaats || 'Maastricht'})
+                            </span>
+                          </div>
+                          <span className="font-mono text-slate-600 text-[11px] shrink-0 ml-2">
+                            {centsToEuroString(ord.totaalbedragCents)}
                           </span>
-                        </div>
-                        <span className="font-mono text-slate-600 text-[11px] shrink-0 ml-2">
-                          {centsToEuroString(ord.totaalbedragCents)}
-                        </span>
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -231,8 +231,30 @@ export type ActiveOverlay =
       anchorPosition: { x: number; y: number };
     };
 
+export interface OrderSummaryItem {
+  id: string;
+  orderNumber: string;
+  klant: string;
+  plaats: string;
+  offerte?: string;
+  orderdatum: string;
+  totaalbedragCents: number;
+  status: string;
+  positionCount?: number;
+}
+
+export interface OrderLinePatchDto {
+  quantity?: number;
+  unit_price_cents?: number;
+  total_price_cents?: number;
+  dim?: string;
+  notes?: string;
+  dimension_spec?: Record<string, unknown>;
+}
+
 export interface MatrixOrder {
   id: string;                   // e.g. "V26001376"
+  isLive?: boolean;             // True wanneer order gehydrateerd is uit Supabase database
   klant: string;                // e.g. "Jaspers"
   plaats: string;               // e.g. "Maastricht"
   offerte: string;              // e.g. "O26000865"
