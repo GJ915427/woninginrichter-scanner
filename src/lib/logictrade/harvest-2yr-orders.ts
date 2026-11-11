@@ -104,6 +104,45 @@ export interface Harvest2YrResult {
   checkpointSaved: boolean;
 }
 
+export interface LogicTradeQuoteHeader {
+  id: string | number;
+  number: string;
+  date?: string;
+  createdDate?: string;
+  status?: string;
+  totalAmount?: number;
+  customer?: any;
+  customerName?: string;
+  city?: string;
+  address?: any;
+  lines?: LogicTradeOrderLine[];
+  orderLines?: LogicTradeOrderLine[];
+  [key: string]: unknown;
+}
+
+export interface HarvestQuotesOptions {
+  years?: number | null;
+  dateFrom?: string;
+  modifiedAfter?: string;
+  pageSize?: number;
+  maxPages?: number;
+  maxQuotes?: number;
+  statusFilter?: string[] | null;
+  dryRun?: boolean;
+  rateLimiter?: any;
+  baseUrl?: string;
+  apiKey?: string;
+  adminGuid?: string;
+  onQuote?: (quoteHeader: LogicTradeQuoteHeader, lines: LogicTradeOrderLine[]) => Promise<void>;
+}
+
+export interface HarvestQuotesResult {
+  totalQuotesScanned: number;
+  totalQuoteLinesProcessed: number;
+  quotesCountByYear?: Record<number, number>;
+  totalTurnoverCents?: number;
+}
+
 export function calculateDateFrom(years: number = 2, referenceDate?: Date): string {
   const ref = referenceDate || new Date();
   const ms = years * 365.25 * 24 * 60 * 60 * 1000;
@@ -666,5 +705,148 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
     turnoverByYearCents,
     ordersCountByYear,
     checkpointSaved: !options.dryRun && !!options.checkpointFilePath,
+  };
+}
+
+export async function harvestQuotes(options: HarvestQuotesOptions = {}): Promise<HarvestQuotesResult> {
+  const apiKey = options.apiKey || process.env.LOGICTRADE_API_KEY || '621dcae6617349d0896d3ca9ba96d4b6';
+  const baseUrl = (options.baseUrl || process.env.LOGICTRADE_BASE_URL || 'https://api.logictrade.cloud/rest/v1').replace(/\/+$/, '');
+  const adminGuid = options.adminGuid || process.env.LOGICTRADE_ADMIN_GUID;
+  const pageSize = options.pageSize || 100;
+  const limiter = options.rateLimiter || defaultRateLimiter;
+
+  const hasDateLimit = options.dateFrom !== undefined || (options.years !== undefined && options.years !== null);
+  const years = typeof options.years === 'number' && options.years > 0 ? options.years : 2;
+  const dateFrom = options.dateFrom || (hasDateLimit ? calculateDateFrom(years) : '');
+  const dateFromTime = dateFrom ? new Date(dateFrom).getTime() : 0;
+
+  const isFilterExplicitlyDisabled = options.statusFilter === null || (Array.isArray(options.statusFilter) && options.statusFilter.length === 0);
+  const allowedStatuses = isFilterExplicitlyDisabled
+    ? []
+    : (options.statusFilter ?? ['OFFERTE', 'QUOTATION', 'PROPOSAL', 'CONCEPT']).map(s => s.toUpperCase());
+
+  const headers: Record<string, string> = {
+    'api-key': apiKey,
+    Accept: 'application/json',
+  };
+  if (adminGuid) {
+    headers['administration-guid'] = adminGuid;
+  }
+
+  let totalQuotesScanned = 0;
+  let totalQuoteLinesProcessed = 0;
+  let totalTurnoverCents = 0;
+  const quotesCountByYear: Record<number, number> = {};
+
+  let currentPage = 1;
+  let hasMorePages = true;
+
+  while (hasMorePages) {
+    const params: string[] = [`pageSize=${pageSize}`, `pageNumber=${currentPage}`];
+    if (options.modifiedAfter) {
+      params.push(`modifiedAfter=${encodeURIComponent(options.modifiedAfter)}`);
+    } else if (dateFrom) {
+      params.push(`createdAfter=${encodeURIComponent(dateFrom)}`);
+    }
+
+    const quotesUrl = `${baseUrl}/quotes?${params.join('&')}`;
+    const res = await limiter.fetchWithAdaptiveBackoff(quotesUrl, { headers, cache: 'no-store' });
+
+    let envelope: any;
+    if (res && typeof res.json === 'function') {
+      if (!res.ok) {
+        console.error(`[HarvestQuotes] Fout bij ophalen pagina ${currentPage} (HTTP ${res.status}).`);
+        break;
+      }
+      envelope = await res.json();
+    } else {
+      envelope = res;
+    }
+
+    const quotes: LogicTradeQuoteHeader[] = Array.isArray(envelope)
+      ? envelope
+      : envelope?.results || envelope?.data || [];
+
+    if (!quotes || quotes.length === 0) {
+      hasMorePages = false;
+      break;
+    }
+
+    totalQuotesScanned += quotes.length;
+
+    for (const quote of quotes) {
+      const rawDate = quote.date || quote.createdDate;
+      const quoteTime = rawDate ? new Date(rawDate).getTime() : 0;
+
+      // Client-side datumfilter
+      if (hasDateLimit && quoteTime > 0 && dateFromTime > 0 && quoteTime < dateFromTime) {
+        continue;
+      }
+
+      // Status filter (indien actief)
+      if (allowedStatuses.length > 0) {
+        const statusUpper = (quote.status || '').toUpperCase();
+        if (!allowedStatuses.includes(statusUpper)) {
+          continue;
+        }
+      }
+
+      let quoteYear = 0;
+      if (quoteTime > 0) {
+        const d = new Date(quoteTime);
+        if (!isNaN(d.getFullYear())) quoteYear = d.getFullYear();
+      }
+      if (quoteYear > 0) {
+        quotesCountByYear[quoteYear] = (quotesCountByYear[quoteYear] || 0) + 1;
+      }
+
+      // Regels zijn embedded in lines (of fallback orderLines)
+      const lines: LogicTradeOrderLine[] = Array.isArray(quote.lines)
+        ? quote.lines
+        : Array.isArray(quote.orderLines)
+        ? quote.orderLines
+        : [];
+
+      totalQuoteLinesProcessed += lines.length;
+
+      for (const line of lines) {
+        totalTurnoverCents += calculateLineTurnoverCents(line);
+      }
+
+      if (options.onQuote) {
+        await options.onQuote(quote, lines);
+      }
+    }
+
+    const totalPages =
+      typeof envelope?.pagination?.totalPages === 'number'
+        ? envelope.pagination.totalPages
+        : typeof envelope?.totalPages === 'number'
+        ? envelope.totalPages
+        : typeof envelope?.pagination?.totalResults === 'number'
+        ? Math.ceil(envelope.pagination.totalResults / pageSize)
+        : quotes.length >= pageSize
+        ? currentPage + 1
+        : currentPage;
+
+    if (options.maxQuotes && totalQuotesScanned >= options.maxQuotes) {
+      hasMorePages = false;
+    }
+    if (options.maxPages && currentPage >= options.maxPages) {
+      hasMorePages = false;
+    }
+
+    if (currentPage >= totalPages || quotes.length < pageSize) {
+      hasMorePages = false;
+    } else {
+      currentPage++;
+    }
+  }
+
+  return {
+    totalQuotesScanned,
+    totalQuoteLinesProcessed,
+    quotesCountByYear,
+    totalTurnoverCents,
   };
 }

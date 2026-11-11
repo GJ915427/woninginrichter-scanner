@@ -1,15 +1,18 @@
-// [SPEC-CHANGE-AUTHORIZED: 3-jaars horizon, samengestelde verkoopvectoren en CPQ omzetcalculatie]
+// [SPEC-CHANGE-AUTHORIZED: Nieuwe testsuite voor harvestQuotes endpoint integratie, paginerings-parsing en streaming callbacks]
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   harvest2YearOrders,
+  harvestQuotes,
   DEFAULT_HARVEST_STATUSES,
   calculateDateFrom,
   calculateLineTurnoverCents,
   extractCompositeKey,
   type Harvest2YrOptions,
   type LogicTradeOrderHeader,
+  type LogicTradeQuoteHeader,
   type LogicTradeOrderLine,
   type HarvestedOrderVector,
+  type HarvestQuotesOptions,
 } from '@/lib/logictrade/harvest-2yr-orders';
 
 describe('Harvest2YrOrders Service (TDD Suite)', () => {
@@ -1009,6 +1012,136 @@ describe('Harvest2YrOrders Service (TDD Suite)', () => {
       });
 
       expect(streamedOrders).toContain('O-2026-001');
+    });
+  });
+
+  describe('harvestQuotes Service (TDD Suite)', () => {
+    it('fetches quotes from /quotes with pageSize=100 and reads nested pagination', async () => {
+      const mockQuotes: LogicTradeQuoteHeader[] = [
+        {
+          id: 117238,
+          number: 'O26001433',
+          date: '2026-05-14T10:00:00Z',
+          status: 'OFFERTE',
+          totalAmount: 1450.50,
+          customer: { id: 4001, name: 'Klant De Vries', address: { city: 'Amersfoort' } },
+          lines: [
+            {
+              id: 9001,
+              code: 'A00034988',
+              description: 'Duette Shade 32mm',
+              quantity: 2,
+              partPrice: 350.00,
+              linePrice: 700.00,
+            },
+            {
+              id: 9002,
+              description: 'Plaatsing en montage',
+              quantity: 1,
+              partPrice: 750.50,
+              linePrice: 750.50,
+            },
+          ],
+        },
+      ];
+
+      const mockFetcher = vi.fn().mockImplementation(async (endpoint: string) => {
+        if (endpoint.includes('/quotes?')) {
+          return {
+            results: mockQuotes,
+            pagination: {
+              totalResults: 1,
+              pageNumber: 1,
+              pageSize: 100,
+              totalPages: 1,
+            },
+          };
+        }
+        return { results: [], pagination: { totalResults: 0, totalPages: 0 } };
+      });
+
+      const streamedQuotes: Array<{ header: LogicTradeQuoteHeader; lines: LogicTradeOrderLine[] }> = [];
+
+      const result = await harvestQuotes({
+        dryRun: true,
+        pageSize: 100,
+        rateLimiter: {
+          fetchWithAdaptiveBackoff: mockFetcher,
+        },
+        onQuote: async (header, lines) => {
+          streamedQuotes.push({ header, lines });
+        },
+      });
+
+      expect(mockFetcher).toHaveBeenCalledWith(
+        expect.stringContaining('/quotes?pageSize=100&pageNumber=1'),
+        expect.any(Object)
+      );
+      expect(result.totalQuotesScanned).toBe(1);
+      expect(result.totalQuoteLinesProcessed).toBe(2);
+      expect(streamedQuotes).toHaveLength(1);
+      expect(streamedQuotes[0].header.number).toBe('O26001433');
+      expect(streamedQuotes[0].lines).toHaveLength(2);
+      expect(streamedQuotes[0].lines[0].code).toBe('A00034988');
+    });
+
+    it('passes embedded lines directly to onQuote without extra HTTP line calls', async () => {
+      const mockQuotes: LogicTradeQuoteHeader[] = [
+        {
+          id: 117239,
+          number: 'O26001434',
+          date: '2026-06-01T12:00:00Z',
+          status: 'Concept',
+          totalAmount: 500.00,
+          lines: [
+            { id: 9101, code: 'PVC_AMB_01', description: 'Ambiant PVC Vloer', quantity: 10, linePrice: 500.00 },
+          ],
+        },
+      ];
+
+      const mockFetcher = vi.fn().mockResolvedValue({
+        results: mockQuotes,
+        pagination: { totalResults: 1, totalPages: 1 },
+      });
+
+      let receivedLinesCount = 0;
+      await harvestQuotes({
+        dryRun: true,
+        rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+        onQuote: async (_q, lines) => {
+          receivedLinesCount = lines.length;
+        },
+      });
+
+      expect(mockFetcher).toHaveBeenCalledTimes(1); // Uitsluitend 1 call naar /quotes, 0 naar orderlines
+      expect(receivedLinesCount).toBe(1);
+    });
+
+    it('respects client-side dateFrom filtering and statusFilter', async () => {
+      const mockQuotes: LogicTradeQuoteHeader[] = [
+        { id: 1, number: 'O23-OLD', date: '2023-01-01T00:00:00Z', status: 'OFFERTE', lines: [] },
+        { id: 2, number: 'O25-NEW', date: '2025-06-01T00:00:00Z', status: 'AFGEKEURD', lines: [] },
+        { id: 3, number: 'O26-VALID', date: '2026-01-15T00:00:00Z', status: 'OFFERTE', lines: [] },
+      ];
+
+      const mockFetcher = vi.fn().mockResolvedValue({
+        results: mockQuotes,
+        pagination: { totalResults: 3, totalPages: 1 },
+      });
+
+      const processedNumbers: string[] = [];
+      await harvestQuotes({
+        dryRun: true,
+        dateFrom: '2025-01-01T00:00:00Z',
+        statusFilter: ['OFFERTE'],
+        rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+        onQuote: async (q) => {
+          processedNumbers.push(q.number);
+        },
+      });
+
+      // O23-OLD valt af door datumgrens; O25-NEW valt af door statusfilter; O26-VALID blijft over
+      expect(processedNumbers).toEqual(['O26-VALID']);
     });
   });
 });

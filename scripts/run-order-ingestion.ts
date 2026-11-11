@@ -7,15 +7,31 @@
  * OrderIntakeService en persisteert ze streaming en atomair in Supabase via PostgREST RPC ingest_logictrade_order.
  */
 
-import { harvest2YearOrders, type LogicTradeOrderHeader, type LogicTradeOrderLine } from '../src/lib/logictrade/harvest-2yr-orders';
+import {
+  harvest2YearOrders,
+  harvestQuotes,
+  type LogicTradeOrderHeader,
+  type LogicTradeQuoteHeader,
+  type LogicTradeOrderLine,
+} from '../src/lib/logictrade/harvest-2yr-orders';
 import { OrderIntakeService, mapLogicTradeOrderToRawInput } from '../src/domain/orders/order-intake-service';
 import { getSupabaseConfig } from '../src/lib/supabase/client';
 
 async function main() {
   const args = process.argv.slice(2);
   const isFull = args.includes('--full');
+
+  // Type parsing met fail-closed validatie
+  const typeIndex = args.indexOf('--type');
+  const ingestionType = typeIndex !== -1 && args[typeIndex + 1] ? args[typeIndex + 1].toLowerCase() : 'all';
+  if (!['orders', 'quotes', 'all'].includes(ingestionType)) {
+    console.error(`❌ Ongeldig type argument: "${ingestionType}". Toegestane waarden: orders, quotes, all.`);
+    console.error('Gebruik: npx tsx scripts/run-order-ingestion.ts [--type orders|quotes|all] [--max <N>] [--years <N> | --full]');
+    process.exit(1);
+  }
+
   const maxIndex = args.indexOf('--max');
-  const maxOrders = maxIndex !== -1 && args[maxIndex + 1] ? parseInt(args[maxIndex + 1], 10) : undefined;
+  const maxCount = maxIndex !== -1 && args[maxIndex + 1] ? parseInt(args[maxIndex + 1], 10) : undefined;
   const yearsIndex = args.indexOf('--years');
   const yearsArg = yearsIndex !== -1 && args[yearsIndex + 1] ? parseFloat(args[yearsIndex + 1]) : (isFull ? null : 2);
 
@@ -31,10 +47,11 @@ async function main() {
   console.log('================================================================');
   console.log('🚀 Start Integrale Order- & Offerte-Intake Pipeline (LogicTrade -> Supabase)');
   console.log(`📍 Supabase Instantie: ${url}`);
-  console.log(`📅 Horizon: ${isFull ? 'ONBEPERKT (alle historische data)' : `${yearsArg} jaar`}`);
-  console.log(`🎯 Statusfilter: UITGESCHAKELD (zowel orders als offertes worden ingeladen)`);
-  if (maxOrders) {
-    console.log(`⏹️  Max Orders: ${maxOrders}`);
+  console.log(`🎯 Pipeline Type:      ${ingestionType.toUpperCase()}`);
+  console.log(`📅 Horizon:            ${isFull ? 'ONBEPERKT (alle historische data)' : `${yearsArg} jaar`}`);
+  console.log(`🎯 Statusfilter:       UITGESCHAKELD (alle statussen worden ingeladen)`);
+  if (maxCount) {
+    console.log(`⏹️  Max Items:          ${maxCount}`);
   }
   console.log('================================================================\n');
 
@@ -55,66 +72,91 @@ async function main() {
 
   const startTime = Date.now();
 
+  async function ingestItem(
+    header: LogicTradeOrderHeader | LogicTradeQuoteHeader,
+    lines: LogicTradeOrderLine[],
+    isQuote: boolean
+  ) {
+    totalScanned++;
+
+    try {
+      // 1. SSOT Transformatie
+      const rawInput = mapLogicTradeOrderToRawInput(header, lines, { isQuote });
+
+      // 2. CPQ Validering & Hybride Regelsplitsing
+      const bundle = await intakeService.processOrderIntake(rawInput);
+
+      // 3. Atomaire RPC persistence in Supabase
+      const res = await fetch(`${url}/rest/v1/rpc/ingest_logictrade_order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({ p_order: bundle }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`HTTP ${res.status}: ${errText}`);
+      }
+
+      totalIngested++;
+      if (bundle.order.fsm_step === 2) {
+        totalQuotes++;
+      } else {
+        totalOrders++;
+      }
+      totalLines += bundle.lines.length;
+      totalAmountCents += bundle.order.total_amount_cents;
+
+      const isOfferte = bundle.order.fsm_step === 2;
+      const badge = isOfferte ? '📄 [OFFERTE]' : '📦 [ORDER]  ';
+      const formattedAmount = (bundle.order.total_amount_cents / 100).toLocaleString('nl-NL', {
+        style: 'currency',
+        currency: 'EUR',
+      });
+
+      console.log(
+        ` ${badge} #${totalIngested} | Nr: ${bundle.order.order_number.padEnd(12)} | ` +
+        `Klant: ${(bundle.order.customer_name || '').slice(0, 20).padEnd(20)} | ` +
+        `Regels: ${String(bundle.lines.length).padStart(2)} | Bedrag: ${formattedAmount.padStart(10)}`
+      );
+    } catch (err: any) {
+      const itemNum = (header as any).orderNumber || (header as any).number || header.id;
+      const errMsg = `Fout bij ${isQuote ? 'offerte' : 'order'} ${itemNum}: ${err.message}`;
+      console.error(` ❌ ${errMsg}`);
+      errors.push(errMsg);
+    }
+  }
+
   try {
-    await harvest2YearOrders({
-      years: yearsArg,
-      statusFilter: [], // Lege array = accepteer ALLE statussen (incl. OFFERTE, QUOTATION, etc.)
-      maxOrders,
-      pageSize: 50,
-      onOrder: async (orderHeader: LogicTradeOrderHeader, orderLines: LogicTradeOrderLine[]) => {
-        totalScanned++;
+    if (ingestionType === 'orders' || ingestionType === 'all') {
+      console.log('--- 📦 Fase A: Ophalen & Verwerken van Verkooporders (/orders) ---');
+      await harvest2YearOrders({
+        years: yearsArg,
+        statusFilter: [], // Lege array = accepteer ALLE statussen
+        maxOrders: maxCount,
+        pageSize: 50,
+        onOrder: async (orderHeader: LogicTradeOrderHeader, orderLines: LogicTradeOrderLine[]) => {
+          await ingestItem(orderHeader, orderLines, false);
+        },
+      });
+    }
 
-        try {
-          // 1. SSOT Transformatie
-          const rawInput = mapLogicTradeOrderToRawInput(orderHeader, orderLines);
-
-          // 2. CPQ Validering & Hybride Regelsplitsing
-          const bundle = await intakeService.processOrderIntake(rawInput);
-
-          // 3. Atomaire RPC persistence in Supabase
-          const res = await fetch(`${url}/rest/v1/rpc/ingest_logictrade_order`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: key,
-              Authorization: `Bearer ${key}`,
-            },
-            body: JSON.stringify({ p_order: bundle }),
-          });
-
-          if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`HTTP ${res.status}: ${errText}`);
-          }
-
-          totalIngested++;
-          if (bundle.order.fsm_step === 2) {
-            totalQuotes++;
-          } else {
-            totalOrders++;
-          }
-          totalLines += bundle.lines.length;
-          totalAmountCents += bundle.order.total_amount_cents;
-
-          const isOfferte = bundle.order.fsm_step === 2;
-          const badge = isOfferte ? '📄 [OFFERTE]' : '📦 [ORDER]  ';
-          const formattedAmount = (bundle.order.total_amount_cents / 100).toLocaleString('nl-NL', {
-            style: 'currency',
-            currency: 'EUR',
-          });
-
-          console.log(
-            ` ${badge} #${totalIngested} | Nr: ${bundle.order.order_number.padEnd(12)} | ` +
-            `Klant: ${(bundle.order.customer_name || '').slice(0, 20).padEnd(20)} | ` +
-            `Regels: ${String(bundle.lines.length).padStart(2)} | Bedrag: ${formattedAmount.padStart(10)}`
-          );
-        } catch (err: any) {
-          const errMsg = `Fout bij order ${orderHeader.orderNumber || orderHeader.id}: ${err.message}`;
-          console.error(` ❌ ${errMsg}`);
-          errors.push(errMsg);
-        }
-      },
-    });
+    if (ingestionType === 'quotes' || ingestionType === 'all') {
+      console.log('\n--- 📄 Fase B: Ophalen & Verwerken van Offertes (/quotes) ---');
+      await harvestQuotes({
+        years: yearsArg,
+        statusFilter: [], // Lege array = accepteer ALLE statussen
+        maxQuotes: maxCount,
+        pageSize: 100,
+        onQuote: async (quoteHeader: LogicTradeQuoteHeader, quoteLines: LogicTradeOrderLine[]) => {
+          await ingestItem(quoteHeader, quoteLines, true);
+        },
+      });
+    }
 
     const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
 
@@ -133,7 +175,7 @@ async function main() {
       })}`
     );
     if (errors.length > 0) {
-      console.log(`⚠️  Aantal mislukte orders: ${errors.length}`);
+      console.log(`⚠️  Aantal mislukte records: ${errors.length}`);
     }
     console.log('================================================================\n');
   } catch (err: any) {

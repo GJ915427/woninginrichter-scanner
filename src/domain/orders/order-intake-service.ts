@@ -228,16 +228,31 @@ export class OrderIntakeService {
  */
 export function mapLogicTradeOrderToRawInput(
   header: any,
-  lines: any[]
+  lines: any[],
+  options?: { isQuote?: boolean }
 ): RawLogicTradeOrderInput {
-  const ordNumber = String(header.orderNumber || header.id || '').trim();
   const statusStr = String(header.status || '').trim();
   const statusUpper = statusStr.toUpperCase();
+  const rawOrdNumber = String(header.orderNumber || header.id || '').trim();
+
   const isOfferte =
+    Boolean(options?.isQuote) ||
     statusUpper === 'OFFERTE' ||
     statusUpper === 'QUOTATION' ||
     statusUpper === 'PROPOSAL' ||
-    ordNumber.toUpperCase().startsWith('O');
+    rawOrdNumber.toUpperCase().startsWith('O') ||
+    Boolean(header.number && !header.orderNumber);
+
+  const ordNumber = isOfferte
+    ? String(header.number || header.quotationNumber || rawOrdNumber).trim()
+    : rawOrdNumber;
+
+  const quoteId = header.number
+    ? String(header.number).trim()
+    : (header.id ? 'quote_' + header.id : (ordNumber ? 'quote_' + ordNumber : 'quote_unknown'));
+
+  const finalId = isOfferte ? quoteId : String(header.id || ordNumber);
+  const finalOrderNumber = isOfferte ? (header.number ? String(header.number).trim() : ordNumber) : ordNumber;
 
   const fsm_step = isOfferte ? 2 : 5;
   const fsm_phase = isOfferte ? '2. Offerte' : '5. Bestellen (Actueel)';
@@ -290,16 +305,31 @@ export function mapLogicTradeOrderToRawInput(
       ? Math.round(header.totalAmount * 100)
       : rawLines.reduce((acc, l) => acc + (l.total_price_cents || 0), 0);
 
+  const quotationNumber = header.number
+    ? String(header.number).trim()
+    : (header.quotationNumber || (isOfferte ? ordNumber : header.quote?.number));
+
+  const rawDate = header.date || header.createdDate;
+  const orderDate = rawDate ? String(rawDate).slice(0, 10) : undefined;
+
+  const city =
+    header.city ||
+    header.customer?.address?.city ||
+    header.customer?.city ||
+    (typeof header.address === 'object' ? header.address?.city : undefined);
+
+  const customerName =
+    header.customerName ||
+    (typeof header.customer === 'string' ? header.customer : header.customer?.name) ||
+    'Onbekende Klant';
+
   return {
-    id: String(header.id || ordNumber),
-    order_number: ordNumber,
-    customer_name:
-      header.customerName ||
-      (typeof header.customer === 'string' ? header.customer : header.customer?.name) ||
-      'Onbekende Klant',
-    city: header.city || (typeof header.address === 'object' ? header.address?.city : undefined),
-    quotation_number: header.quotationNumber,
-    order_date: header.createdDate ? String(header.createdDate).slice(0, 10) : undefined,
+    id: finalId,
+    order_number: finalOrderNumber,
+    customer_name: customerName,
+    city,
+    quotation_number: quotationNumber,
+    order_date: orderDate,
     sales_rep: header.salesRep,
     branch: typeof header.branch === 'string' ? header.branch : header.branch?.name,
     fsm_phase,

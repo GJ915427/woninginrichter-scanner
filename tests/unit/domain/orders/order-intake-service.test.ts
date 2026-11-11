@@ -1,4 +1,4 @@
-// [SPEC-CHANGE-AUTHORIZED: Integrale order- en offerte-intake, mapLogicTradeOrderToRawInput en skipClientLookup]
+// [SPEC-CHANGE-AUTHORIZED: Pariteitstest voor transformatie van LogicTrade /quotes payloads naar FSM stap 2 en ID namespace isolatie]
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   OrderIntakeService,
@@ -240,6 +240,86 @@ describe('OrderIntakeService & Hybrid Line Ingest SSOT', () => {
       expect(rawInput.order_number).toBe('V26001999');
       expect(rawInput.fsm_step).toBe(5);
       expect(rawInput.fsm_phase).toBe('5. Bestellen (Actueel)');
+    });
+  });
+
+  describe('Quote to Order Mapping Parity', () => {
+    it('maps quote header from /quotes with number, date, and customer.address.city to FSM step 2', () => {
+      const quotePayload = {
+        id: 117238,
+        number: 'O26001433',
+        date: '2026-05-14T10:00:00Z',
+        status: 'OFFERTE',
+        totalAmount: 1450.50,
+        customer: {
+          id: 4001,
+          name: 'Klant De Vries',
+          address: { city: 'Amersfoort' },
+        },
+      };
+
+      const quoteLines = [
+        {
+          id: 9001,
+          code: 'A00034988',
+          description: 'Duette Shade 32mm',
+          quantity: 2,
+          partPrice: 350.00,
+          linePrice: 700.00,
+        },
+      ];
+
+      const rawInput = mapLogicTradeOrderToRawInput(quotePayload, quoteLines, { isQuote: true });
+
+      expect(rawInput.id).toBe('O26001433'); // ID namespace isolatie
+      expect(rawInput.order_number).toBe('O26001433');
+      expect(rawInput.quotation_number).toBe('O26001433');
+      expect(rawInput.order_date).toBe('2026-05-14');
+      expect(rawInput.city).toBe('Amersfoort');
+      expect(rawInput.customer_name).toBe('Klant De Vries');
+      expect(rawInput.fsm_step).toBe(2);
+      expect(rawInput.fsm_phase).toBe('2. Offerte');
+      expect(rawInput.total_amount_cents).toBe(145050);
+      expect(rawInput.lines).toHaveLength(1);
+      expect(rawInput.lines[0].product_code).toBe('A00034988');
+    });
+
+    it('isolates quote ID namespace so that an order and quote with identical numeric id (e.g. 117238) never collide', () => {
+      const orderPayload = {
+        id: 117238,
+        orderNumber: '117238',
+        status: 'ORDER',
+        createdDate: '2026-05-10T12:00:00Z',
+      };
+
+      const quotePayload = {
+        id: 117238,
+        number: 'O26001433',
+        date: '2026-05-14T10:00:00Z',
+        status: 'OFFERTE',
+      };
+
+      const orderInput = mapLogicTradeOrderToRawInput(orderPayload, []);
+      const quoteInput = mapLogicTradeOrderToRawInput(quotePayload, [], { isQuote: true });
+
+      // Verifieer dat de IDs in Supabase nooit met elkaar botsen:
+      expect(orderInput.id).toBe('117238');
+      expect(quoteInput.id).toBe('O26001433');
+      expect(orderInput.id).not.toBe(quoteInput.id);
+      expect(orderInput.order_number).not.toBe(quoteInput.order_number);
+    });
+
+    it('correctly assigns fsm_step 2 even when status is Concept and number lacks O prefix when isQuote: true', () => {
+      const quotePayload = {
+        id: 9999,
+        number: '10442', // Numeriek nummer zonder O prefix
+        status: 'Concept',
+      };
+
+      const rawInput = mapLogicTradeOrderToRawInput(quotePayload, [], { isQuote: true });
+      expect(rawInput.fsm_step).toBe(2);
+      expect(rawInput.fsm_phase).toBe('2. Offerte');
+      expect(rawInput.id).toBe('10442');
     });
   });
 });
