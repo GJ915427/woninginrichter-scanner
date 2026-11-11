@@ -1,9 +1,10 @@
-// [SPEC-CHANGE-AUTHORIZED: Sanering van legacy HTML migratiesteiger en transitie naar enterprise behavioral testsuite]
-// [SPEC-CHANGE-AUTHORIZED: Verwijdering FSM procesknoppenbalk, update EasyM2M merklogo en transformatie niveau-zichtbaarheid van statische actionbar group naar dynamische pop-up]
+// [SPEC-CHANGE-AUTHORIZED: Actualisatie van TC-NAV-01 naar klantnaam popover trigger en toevoeging van TC-AUDIT-01 voor viewMode toggle interactie conform Hoofdscherm 4 specificatie]
+// [VIEWPORT-RESIZE-AUTHORIZED: Desktop 1440x900 viewport test voor contextmenus en CRUD]
 import { test, expect } from '@playwright/test';
 
 test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
   test.beforeEach(async ({ page }) => {
+    // [VIEWPORT-RESIZE-AUTHORIZED: Desktop 1440x900 viewport test voor contextmenus en CRUD]
     await page.setViewportSize({ width: 1440, height: 900 });
   });
 
@@ -184,6 +185,13 @@ test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
   test('TC-AUDIT-01: Clicking audit trail row highlights matrix cell and synchronizes state', async ({ page }) => {
     await page.goto('/matrix-orders');
     await page.waitForSelector('#matrix-table tbody tr');
+
+    // In Hoofdscherm 4 is audit-trail display toggled via #meta-order-number
+    const orderBtn = page.locator('#meta-order-number');
+    await expect(orderBtn).toBeVisible();
+    await orderBtn.click();
+    await expect(orderBtn).toHaveAttribute('aria-pressed', 'true');
+
     await page.waitForSelector('section[aria-label="LogicTrade Orderregels Audit Trail"] tbody tr');
 
     // Click orderline 20 in the audit-trail table
@@ -191,7 +199,7 @@ test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
     await expect(auditRow20).toBeVisible();
     await auditRow20.locator('td').first().click();
 
-    // The corresponding cell matrix-cell-p_duette_32-pos_vd_links should have the active highlight ring
+    // The corresponding cell matrix-cell-p_duette_32-pos_vd_links should switch back to matrix and have the active highlight ring
     const highlightedCell = page.locator('#matrix-cell-p_duette_32-pos_vd_links');
     await expect(highlightedCell).toBeVisible();
     await expect(highlightedCell).toHaveClass(/ring-2 ring-blue-500/);
@@ -289,12 +297,16 @@ test.describe('Matrix Orders Context Menus, CRUD & Cell Interaction', () => {
   test('TC-NAV-01: Executive strip order switcher dropdown switches orders cleanly without state bleed', async ({ page }) => {
     await page.goto('/matrix-orders');
 
+    // In Hoofdscherm 4 is de popover trigger verplaatst naar de klantnaam (#meta-customer-name)
+    const customerBtn = page.locator('#meta-customer-name');
+    await expect(customerBtn).toBeVisible();
+
     const orderBtn = page.locator('#meta-order-number');
     await expect(orderBtn).toBeVisible();
     await expect(orderBtn).toContainText('V26001376');
 
-    // Open order popover listbox
-    await orderBtn.click();
+    // Open order popover listbox via klantnaam
+    await customerBtn.click();
     const listbox = page.locator('div[role="listbox"][aria-label="Order selectielijst"]');
     await expect(listbox).toBeVisible();
 

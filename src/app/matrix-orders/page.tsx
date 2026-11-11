@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useMatrixState } from '../../components/matrix/useMatrixState';
 import { useLiveOrderList } from '../../hooks/useLiveOrderList';
 import { MatrixHeader } from '../../components/matrix/MatrixHeader';
 import { MatrixProductRow } from '../../components/matrix/MatrixProductRow';
 import { MatrixActionBar } from '../../components/matrix/MatrixActionBar';
-import { MatrixSidebar } from '../../components/matrix/MatrixSidebar';
 import { MatrixTopNav } from '../../components/matrix/MatrixTopNav';
 import { MatrixOrderMetaCard } from '../../components/matrix/MatrixOrderMetaCard';
 import { MatrixClusterFloatingBar } from '../../components/matrix/MatrixClusterFloatingBar';
@@ -15,10 +14,11 @@ import { MatrixOverlayCoordinator } from '../../components/matrix/MatrixOverlayC
 import { Position, FSM_STAGES } from '../../types/matrix';
 import { buildCellKey, findCellKeyByOrderLine, findOrderLineByCompoundKey } from '../../utils/matrix-overlay-state';
 import { attachMatrixDockingListener } from '../../utils/matrix-docking';
+import { useMatrixKeyboardShortcuts } from '../../components/matrix/useMatrixKeyboardShortcuts';
 
 /**
- * Matrix Orders Browser Page (v5 Pariteit)
- * Voldoet strikt aan INV-GOV-22 (<250 regels, exact 4 primitieve hooks: 3x useMemo, 1x useEffect).
+ * Matrix Orders Browser Page (Hoofdscherm 4 Pariteit)
+ * Voldoet strikt aan INV-GOV-22 (<250 regels, macro-canvas 100% breedte zonder MatrixSidebar).
  */
 export default function MatrixOrdersPage() {
   const {
@@ -26,7 +26,7 @@ export default function MatrixOrdersPage() {
     selectOrderById, isOrderLoading, statusAlert,
     selectedColumnIds, activeOverlay, openOverlay, closeOverlay,
     highlightedCellKey, setHighlightedCellKey, activeMediaTab, setActiveMediaTab,
-    sidebarOpen, setSidebarOpen, visibleLevels, toggleLevelVisibility,
+    visibleLevels, toggleLevelVisibility,
     selectOrder, goToNextOrder, goToPreviousOrder,
     toggleColumnSelection, clearColumnSelection,
     addMediaItem, deletePosition, updateCell, assignProductToCell, assignVlakToPosition,
@@ -35,6 +35,7 @@ export default function MatrixOrdersPage() {
 
   const { orders: liveOrders } = useLiveOrderList();
   const orderList = liveOrders.length > 0 ? liveOrders : orders;
+  const [viewMode, setViewMode] = useState<'matrix' | 'audit'>('matrix');
 
   const spatialPositions: Position[] = useMemo(
     () => selectedOrder.etages.flatMap((e) => e.rooms.flatMap((r) => r.positions)),
@@ -62,40 +63,32 @@ export default function MatrixOrdersPage() {
     status: 'actueel' as const,
   };
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-        const target = e.target as HTMLElement | null;
-        if (target?.matches?.('input, textarea, select, [contenteditable="true"]') || activeOverlay !== null) {
-          return;
-        }
-        if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          goToNextOrder();
-        } else if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          goToPreviousOrder();
-        }
-      }
-    };
+  useMatrixKeyboardShortcuts({
+    onNextOrder: goToNextOrder,
+    onPrevOrder: goToPreviousOrder,
+    onCloseOverlays: closeOverlay,
+    activeOverlay,
+    isEnabled: true,
+  });
 
-    window.addEventListener('keydown', handleKeyDown);
+  useEffect(() => {
     const viewport = document.getElementById('matrix-viewport');
     const detachDocking = attachMatrixDockingListener(viewport);
-
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
       detachDocking();
     };
-  }, [goToNextOrder, goToPreviousOrder, activeOverlay]);
+  }, []);
 
   const handleSelectAuditLine = (line: number) => {
-    const match = findCellKeyByOrderLine(selectedOrder, line);
-    if (match) {
-      const fullKey = `${match.productId}-${match.cellKey}`;
-      setHighlightedCellKey(fullKey);
-      document.getElementById(`matrix-cell-${fullKey}`)?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-    }
+    setViewMode('matrix');
+    requestAnimationFrame(() => {
+      const match = findCellKeyByOrderLine(selectedOrder, line);
+      if (match) {
+        const fullKey = `${match.productId}-${match.cellKey}`;
+        setHighlightedCellKey(fullKey);
+        document.getElementById(`matrix-cell-${fullKey}`)?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      }
+    });
   };
 
   const handleCellAuditHighlight = (productId: string, positionId: string, subPos?: string) => {
@@ -107,12 +100,6 @@ export default function MatrixOrdersPage() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50 font-sans text-slate-800">
-      <MatrixSidebar
-        orders={orderList} currentIndex={currentOrderIndex} onSelectOrder={selectOrder}
-        onSelectOrderId={selectOrderById}
-        isOpen={sidebarOpen} onToggleOpen={() => setSidebarOpen(!sidebarOpen)}
-      />
-
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <MatrixTopNav activeTab="Project" />
 
@@ -123,6 +110,8 @@ export default function MatrixOrdersPage() {
             currentOrderIndex={currentOrderIndex}
             onSelectOrder={selectOrder}
             onSelectOrderId={selectOrderById}
+            isAuditTrailActive={viewMode === 'audit'}
+            onToggleAuditTrail={() => setViewMode((prev) => (prev === 'matrix' ? 'audit' : 'matrix'))}
             onOpenMedia={() => openOverlay({ type: 'media_drawer', positionId: 'pos_project_algemeen', title: `Werffoto's & Media (${selectedOrder.klant})` })}
           />
         </div>
@@ -141,7 +130,9 @@ export default function MatrixOrdersPage() {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <div
             id="matrix-viewport"
-            className="overflow-auto bg-white rounded-xl shadow-xs border border-slate-200 scroll-pt-[130px] transition-all duration-200"
+            className={`overflow-auto bg-white rounded-xl shadow-xs border border-slate-200 scroll-pt-[130px] transition-all duration-200 ${
+              viewMode === 'audit' ? 'hidden' : 'block'
+            }`}
             style={{
               height: 'calc(100vh - 200px)',
               minHeight: '340px',
@@ -183,7 +174,10 @@ export default function MatrixOrdersPage() {
             </table>
           </div>
 
-          <div id="matrix-audit-trail-section">
+          <div
+            id="matrix-audit-trail-section"
+            className={viewMode === 'audit' ? 'block' : 'hidden'}
+          >
             <MatrixAuditTrailTable
               lines={selectedOrder.rawLines || []} highlightedLine={highlightedOrderLine}
               onSelectLine={handleSelectAuditLine}

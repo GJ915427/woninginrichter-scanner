@@ -1,9 +1,10 @@
 // [SPEC-CHANGE-AUTHORIZED: Sanering van legacy HTML migratiesteiger en transitie naar enterprise behavioral testsuite conform Stitch Optie 1 macro-canvas, permanente compacte meta-strip, directe kolomselectie en off-canvas explorer]
+// [SPEC-CHANGE-AUTHORIZED: Actualisatie van TC-PAR-08 van sidebar explorer naar Hoofdscherm 4 klantnaam popover orderpicker conform HITL scope]
 import { test, expect } from '@playwright/test';
 
 test.describe('Matrix Orders Enterprise Behavioral Suite', () => {
   test.beforeEach(async ({ page }) => {
-    // Set viewport to standard 1440x900 desktop
+    // [VIEWPORT-RESIZE-AUTHORIZED: Desktop baseline 1440x900 conform Stitch Optie 1 macro-canvas]
     await page.setViewportSize({ width: 1440, height: 900 });
   });
 
@@ -165,26 +166,79 @@ test.describe('Matrix Orders Enterprise Behavioral Suite', () => {
     await expect(drawer).not.toBeVisible();
   });
 
-  // TC-PAR-08: Order Switching via Orders Explorer Drawer
-  test('TC-PAR-08: Instant order switching updates matrix and header', async ({ page }) => {
+  // TC-PAR-08: Order Switching via Klantnaam Popover Orderpicker
+  test('TC-PAR-08: Instant order switching via customer popover updates matrix and header', async ({ page }) => {
     await page.goto('/matrix-orders');
 
     // Currently on Jaspers V26001376
     await expect(page.locator('#meta-order-number')).toContainText('V26001376');
+    await expect(page.locator('#meta-customer-name')).toContainText('Jaspers');
 
-    // Open Orders Explorer drawer via trigger button
-    const openSidebarBtn = page.locator('button[aria-label="Open Orders Explorer"]');
-    if (await openSidebarBtn.isVisible()) {
-      await openSidebarBtn.click();
-    }
+    // Open Orderpicker popover via customer name trigger
+    const customerBtn = page.locator('#meta-customer-name');
+    await customerBtn.click();
 
-    // Click first order in sidebar (DrHaack V26001761) using explicit ID
-    const drHaackItem = page.locator('#sidebar-order-V26001761');
+    const listbox = page.locator('div[role="listbox"][aria-label="Order selectielijst"]');
+    await expect(listbox).toBeVisible();
+
+    // Select DrHaack V26001761 from popover list
+    const drHaackItem = listbox.locator('button:has-text("V26001761")');
     await expect(drHaackItem).toBeVisible();
     await drHaackItem.click();
 
-    // Header updates to V26001761
+    // Popover closes and header updates to V26001761
+    await expect(listbox).not.toBeVisible();
     await expect(page.locator('#meta-order-number')).toContainText('V26001761');
-    await expect(page.locator('body')).toContainText('DrHaack holding b.v.');
+    await expect(page.locator('#meta-customer-name')).toContainText('DrHaack');
+  });
+
+  // TC-PAR-09: Alt+Arrow Keyboard Navigation & Popover Auto-Close
+  test('TC-PAR-09: Alt+Arrow keyboard navigation updates order and closes order popover', async ({ page }) => {
+    await page.goto('/matrix-orders');
+    await page.waitForSelector('#matrix-viewport');
+
+    // Default order is Jaspers (V26001376)
+    await expect(page.locator('#meta-order-number')).toContainText('V26001376');
+
+    // Open popover by clicking #meta-customer-name
+    await page.locator('#meta-customer-name').click();
+    const popover = page.locator('div[role="listbox"][aria-label="Order selectielijst"]');
+    await expect(popover).toBeVisible();
+
+    // Navigate to next order with Alt+ArrowRight
+    await page.keyboard.press('Alt+ArrowRight');
+
+    // Popover must auto-close upon order change
+    await expect(popover).not.toBeVisible();
+
+    // Order number should now update to next order (V26001584)
+    await expect(page.locator('#meta-order-number')).toContainText('V26001584');
+  });
+
+  // TC-PAR-10: Form Input Suppression of Alt+Arrow Navigation
+  test('TC-PAR-10: Form inputs suppress Alt+Arrow keyboard navigation', async ({ page }) => {
+    await page.goto('/matrix-orders');
+    await page.waitForSelector('#matrix-viewport');
+
+    // Open cell edit drawer by clicking first cell
+    const firstCell = page.locator('#matrix-table tbody tr:first-child td').first();
+    await firstCell.click();
+
+    const drawer = page.locator('div[role="dialog"][aria-labelledby="product-edit-title"]');
+    await expect(drawer).toBeVisible();
+
+    // Focus input inside drawer
+    const numberInput = drawer.locator('input[type="number"]').first();
+    await numberInput.focus();
+
+    // Press Alt+ArrowRight
+    await page.keyboard.press('Alt+ArrowRight');
+
+    // Order must remain unchanged (V26001376)
+    await expect(page.locator('#meta-order-number')).toContainText('V26001376');
+
+    // Escape closes drawer even when input is focused
+    await page.keyboard.press('Escape');
+    await expect(drawer).not.toBeVisible();
   });
 });

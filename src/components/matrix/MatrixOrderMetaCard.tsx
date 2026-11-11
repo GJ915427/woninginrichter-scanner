@@ -1,6 +1,6 @@
 'use client';
 
-// [SPEC-CHANGE-AUTHORIZED: Handcrafting van compacte Executive Order Strip conform Stitch specificatie met 2-laags gestapelde micro-labels, SVG iconen, pointerdown touch popover orderpicker, dubbele statusindicatie met rounded-control en Fitts law >= 44px touch targets]
+// [SPEC-CHANGE-AUTHORIZED: Handcrafting van compacte Executive Order Strip conform Stitch specificatie met 2-laags gestapelde micro-labels, SVG iconen, pointerdown touch popover orderpicker op klantnaam, dubbele statusindicatie met rounded-control en Fitts law >= 44px touch targets]
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Paperclip, ChevronDown } from 'lucide-react';
 import { MatrixOrder, OrderSummaryItem } from '../../types/matrix';
@@ -15,6 +15,8 @@ export interface MatrixOrderMetaCardProps {
   onOpenPdf?: () => void;
   onOpenMedia?: (tab?: 'foto' | 'video' | 'opmerking') => void;
   onScrollToAuditTrail?: () => void;
+  isAuditTrailActive?: boolean;
+  onToggleAuditTrail?: () => void;
 }
 
 export function MatrixOrderMetaCard({
@@ -25,6 +27,8 @@ export function MatrixOrderMetaCard({
   onSelectOrderId,
   onOpenPdf,
   onOpenMedia,
+  isAuditTrailActive = false,
+  onToggleAuditTrail,
 }: MatrixOrderMetaCardProps) {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -50,19 +54,93 @@ export function MatrixOrderMetaCard({
     };
   }, [isPopoverOpen]);
 
-  const docUrl = selectedOrder.historisch_document_url || `/documents/order-${selectedOrder.id.toLowerCase()}-logictrade.pdf`;
+  // Reactieve popover sluiting bij orderwissel
+  useEffect(() => {
+    setIsPopoverOpen(false);
+  }, [selectedOrder.id, currentOrderIndex]);
+
+  const switchOrder = (idx: number, id: string) => {
+    if (onSelectOrderId && id) onSelectOrderId(id);
+    else if (onSelectOrder) onSelectOrder(idx);
+    setIsPopoverOpen(false);
+  };
 
   return (
     <div
       aria-label="Order Metadata Overzicht"
-      className="bg-white border-b border-slate-200 px-6 py-2.5 shadow-2xs text-xs select-none relative z-30 flex items-center justify-between gap-4"
+      className="bg-white border-b border-slate-200 px-6 py-2.5 shadow-2xs text-xs select-none relative z-50 flex items-center justify-between gap-4"
     >
-      {/* Linkerzijde: Klant & Locatie | Gestapelde Micro-labels (Ordernummer, Projectstatus, Productstatus) */}
+      {/* Linkerzijde: Klant & Locatie | Gestapelde Micro-labels */}
       <div className="min-w-0 flex-1 flex items-center gap-3 flex-wrap sm:flex-nowrap">
-        <div className="flex items-center gap-1.5 min-w-0 truncate">
-          <span id="meta-customer-name" className="font-bold text-sm text-slate-900 truncate">
-            {selectedOrder.klant} {selectedOrder.plaats ? `(${selectedOrder.plaats})` : ''}
-          </span>
+        {/* Klantnaam Container met Popover Order Switcher Trigger */}
+        <div className="flex items-center gap-1.5 min-w-0 relative" ref={popoverRef}>
+          <button
+            type="button"
+            id="meta-customer-name"
+            aria-haspopup="listbox"
+            aria-expanded={isPopoverOpen}
+            onClick={() => setIsPopoverOpen(!isPopoverOpen)}
+            className="font-bold text-sm text-slate-900 truncate min-h-[44px] inline-flex items-center gap-1.5 hover:text-slate-700 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded-control px-1 -mx-1"
+            title="Klik om een order te selecteren"
+          >
+            <span className="truncate">{selectedOrder.klant} {selectedOrder.plaats ? `(${selectedOrder.plaats})` : ''}</span>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" aria-hidden="true" />
+          </button>
+
+          {isPopoverOpen && (
+            <div
+              role="listbox"
+              aria-label="Order selectielijst"
+              className="absolute top-full left-0 mt-1 w-80 bg-white rounded-container shadow-xl border border-slate-200 p-3 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
+            >
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                <span className="font-bold text-slate-800">Orders ({orderList.length})</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label="Vorige order"
+                    disabled={currentIndex <= 0}
+                    onClick={() => currentIndex > 0 && switchOrder(currentIndex - 1, orderList[currentIndex - 1]?.id)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
+                  >‹</button>
+                  <span className="font-mono text-xs text-slate-600 px-1 font-semibold">{currentIndex + 1} / {orderList.length}</span>
+                  <button
+                    type="button"
+                    aria-label="Volgende order"
+                    disabled={currentIndex >= orderList.length - 1}
+                    onClick={() => currentIndex < orderList.length - 1 && switchOrder(currentIndex + 1, orderList[currentIndex + 1]?.id)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
+                  >›</button>
+                </div>
+              </div>
+
+              <div className="max-h-60 overflow-y-auto space-y-1">
+                {orderList.map((ord, idx) => {
+                  const isSelected = idx === currentIndex || ord.id === selectedOrder.id;
+                  return (
+                    <button
+                      key={ord.id}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => switchOrder(idx, ord.id)}
+                      className={`w-full text-left px-2.5 py-2 rounded-control flex items-center justify-between transition-colors min-h-[44px] ${
+                        isSelected ? 'bg-sky-50 text-sky-900 font-semibold border border-sky-200' : 'hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="font-mono font-bold text-xs">{ord.id}</div>
+                        <div className="truncate text-[11px] text-slate-500">{ord.klant} {ord.plaats ? `(${ord.plaats})` : ''}</div>
+                      </div>
+                      <span className="font-mono text-xs font-semibold text-slate-800 shrink-0">
+                        {centsToEuroString(ord.totaalbedragCents ?? 0)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <span className="text-slate-300 hidden md:inline">|</span>
@@ -76,10 +154,10 @@ export function MatrixOrderMetaCard({
 
         <span className="text-slate-300 hidden lg:inline">|</span>
 
-        {/* 2-Tier Gestapelde Micro-Labels conform Stitch Optie 1 */}
+        {/* 2-Tier Gestapelde Micro-Labels met Uniforme 30px Hoogte */}
         <div className="flex items-center gap-3">
-          {/* Ordernummer Stack met Touch Popover */}
-          <div className="flex flex-col items-start gap-0.5" ref={popoverRef}>
+          {/* Ordernummer Stack met Audit Trail Toggle Knop */}
+          <div className="flex flex-col items-start gap-0.5">
             <span className="text-[9px] uppercase font-semibold text-slate-500 tracking-wider">
               ORDERNUMMER
             </span>
@@ -89,98 +167,18 @@ export function MatrixOrderMetaCard({
                   type="button"
                   id="meta-order-number"
                   data-testid="order-title"
-                  aria-haspopup="listbox"
-                  aria-expanded={isPopoverOpen}
-                  onClick={() => setIsPopoverOpen(!isPopoverOpen)}
-                  className="min-h-[44px] px-2.5 py-1 inline-flex items-center gap-1.5 rounded-control bg-slate-50 hover:bg-slate-100 border border-slate-200 font-extrabold text-xs text-slate-900 font-mono transition-colors shadow-2xs cursor-pointer"
-                  title="Klik om te wisselen van order"
+                  aria-pressed={isAuditTrailActive}
+                  onClick={onToggleAuditTrail}
+                  className={`h-[30px] px-2.5 py-1 inline-flex items-center gap-1.5 rounded-control border font-extrabold text-xs font-mono transition-colors shadow-2xs cursor-pointer relative before:content-[''] before:absolute before:-inset-y-1.5 before:inset-x-0 before:min-h-[44px] ${
+                    isAuditTrailActive
+                      ? 'bg-sky-100 border-sky-300 text-sky-900 ring-1 ring-sky-300'
+                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-900'
+                  }`}
+                  title={isAuditTrailActive ? 'Klik om terug te keren naar matrix' : 'Klik om offerte-/orderregels te bekijken'}
                 >
                   <span>{selectedOrder.id}</span>
-                  <ChevronDown className="w-3 h-3 text-slate-500" aria-hidden="true" />
                 </button>
               </h1>
-
-              {isPopoverOpen && (
-                <div
-                  role="listbox"
-                  aria-label="Order selectielijst"
-                  className="absolute top-full left-0 mt-2 w-80 bg-white rounded-container shadow-xl border border-slate-200 p-3 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
-                >
-                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-                    <span className="font-bold text-slate-800">Orders ({orderList.length})</span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        aria-label="Vorige order"
-                        disabled={currentIndex <= 0}
-                        onClick={() => {
-                          if (currentIndex > 0) {
-                            const prevItem = orderList[currentIndex - 1];
-                            if (onSelectOrderId && prevItem?.id) {
-                              onSelectOrderId(prevItem.id);
-                            } else if (onSelectOrder) {
-                              onSelectOrder(currentIndex - 1);
-                            }
-                          }
-                        }}
-                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
-                      >‹</button>
-                      <span className="font-mono text-xs text-slate-600 px-1 font-semibold">{currentIndex + 1} / {orderList.length}</span>
-                      <button
-                        type="button"
-                        aria-label="Volgende order"
-                        disabled={currentIndex >= orderList.length - 1}
-                        onClick={() => {
-                          if (currentIndex < orderList.length - 1) {
-                            const nextItem = orderList[currentIndex + 1];
-                            if (onSelectOrderId && nextItem?.id) {
-                              onSelectOrderId(nextItem.id);
-                            } else if (onSelectOrder) {
-                              onSelectOrder(currentIndex + 1);
-                            }
-                          }
-                        }}
-                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
-                      >›</button>
-                    </div>
-                  </div>
-
-                  <div className="max-h-56 overflow-y-auto space-y-1">
-                    {orderList.map((ord, idx) => {
-                      const displayNum = 'orderNumber' in ord && ord.orderNumber ? ord.orderNumber : ord.id;
-                      return (
-                        <button
-                          key={ord.id}
-                          type="button"
-                          onClick={() => {
-                            if (onSelectOrderId) {
-                              onSelectOrderId(ord.id);
-                            } else if (onSelectOrder) {
-                              onSelectOrder(idx);
-                            }
-                            setIsPopoverOpen(false);
-                          }}
-                          className={`w-full min-h-[44px] px-3 py-2 text-left rounded-control transition-colors flex items-center justify-between ${
-                            idx === currentIndex
-                              ? 'bg-blue-50 border border-blue-200 text-blue-900 font-semibold'
-                              : 'hover:bg-slate-50 text-slate-700'
-                          }`}
-                        >
-                          <div className="truncate">
-                            <span className="font-mono font-bold text-slate-900 block">{displayNum}</span>
-                            <span className="text-slate-500 text-[11px] truncate block">
-                              {ord.klant} ({ord.plaats || 'Maastricht'})
-                            </span>
-                          </div>
-                          <span className="font-mono text-slate-600 text-[11px] shrink-0 ml-2">
-                            {centsToEuroString(ord.totaalbedragCents)}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -191,7 +189,7 @@ export function MatrixOrderMetaCard({
             </span>
             <span
               id="meta-status"
-              className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded-control text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
+              className="inline-flex items-center h-[30px] px-2.5 py-1 rounded-control text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
             >
               Order
             </span>
@@ -204,7 +202,7 @@ export function MatrixOrderMetaCard({
             </span>
             <span
               id="meta-product-status"
-              className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded-control text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
+              className="inline-flex items-center h-[30px] px-2.5 py-1 rounded-control text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
             >
               {selectedOrder.status || 'Definitief'}
             </span>
@@ -212,7 +210,7 @@ export function MatrixOrderMetaCard({
         </div>
       </div>
 
-      {/* Rechterzijde: Bijlagen Pill & Prominent Orderbedrag conform Stitch Optie 1 */}
+      {/* Rechterzijde: Bijlagen Pill & Prominent Orderbedrag */}
       <div className="flex-shrink-0 flex items-center gap-4">
         <button
           type="button"

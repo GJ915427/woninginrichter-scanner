@@ -39,6 +39,24 @@ export function MatrixHeader({
   const topCluster = (levels.etage ? 36 : 0) + (levels.ruimte ? 34 : 0);
   const topPosities = (levels.etage ? 36 : 0) + (levels.ruimte ? 34 : 0) + (levels.cluster ? 28 : 0);
 
+  const visibleLevelsCount = (levels.etage ? 1 : 0) + (levels.ruimte ? 1 : 0) + (levels.cluster ? 1 : 0) + 1;
+  const firstVisibleLevelId = levels.etage ? 'etage' : levels.ruimte ? 'ruimte' : levels.cluster ? 'cluster' : 'positie';
+
+  const renderTowerCell = (levelId: string, topOffset: number) => {
+    if (levelId !== firstVisibleLevelId) return null;
+    return (
+      <th
+        rowSpan={visibleLevelsCount}
+        data-testid="header-tower-col1"
+        style={{ top: `${topOffset}px` }}
+        className="sticky z-30 w-[160px] min-w-[160px] max-w-[160px] bg-amber-50 px-3 py-2 text-center text-amber-950 border-r border-b border-amber-200 align-middle shadow-2xs select-none"
+      >
+        <div className="font-bold text-xs text-amber-900">Algemeen</div>
+        <div className="text-[10px] text-amber-800 font-normal">Projectscope Diensten</div>
+      </th>
+    );
+  };
+
   const allPositions: FlattenedPosition[] = etages.flatMap((e) =>
     e.rooms.flatMap((r) => r.positions.map((pos) => ({ position: pos, roomId: r.id, roomName: r.name, etageId: e.id, etageName: e.name })))
   );
@@ -70,7 +88,7 @@ export function MatrixHeader({
           >
             Etage
           </th>
-          <th style={{ top: `${topEtage}px` }} className="sticky z-30 w-[160px] min-w-[160px] max-w-[160px] bg-amber-50/80 px-3 py-1 text-center text-amber-900 border-r border-b border-amber-200 font-bold h-[36px]">Algemeen</th>
+          {renderTowerCell('etage', topEtage)}
           {etages.map((etage) => {
             const totalPos = etage.rooms.reduce((acc, r) => acc + r.positions.length, 0);
             if (totalPos === 0) return null;
@@ -94,7 +112,7 @@ export function MatrixHeader({
           >
             Ruimte
           </th>
-          <th style={{ top: `${topRuimte}px` }} className="sticky z-30 w-[160px] min-w-[160px] max-w-[160px] bg-amber-50/50 px-3 py-1 text-center text-amber-800 border-r border-b border-amber-200 text-[11px] h-[34px]">Project</th>
+          {renderTowerCell('ruimte', topRuimte)}
           {etages.flatMap((etage) =>
             etage.rooms.map((room) => (
               <th key={room.id} colSpan={Math.max(1, room.positions.length)} style={{ top: `${topRuimte}px` }} onContextMenu={(e) => handleCtx('room', room.name, room.id, e)} className="sticky z-30 bg-slate-50 px-3 py-1 text-left overflow-hidden text-slate-700 border-r border-b border-slate-200 text-xs cursor-context-menu select-none h-[34px]">
@@ -119,7 +137,7 @@ export function MatrixHeader({
           >
             Cluster
           </th>
-          <th style={{ top: `${topCluster}px` }} className="sticky z-30 w-[160px] min-w-[160px] max-w-[160px] bg-amber-50/30 px-3 py-0.5 text-center text-amber-700 border-r border-b border-amber-200 h-[28px]">—</th>
+          {renderTowerCell('cluster', topCluster)}
           {etages.flatMap((etage) =>
             etage.rooms.flatMap((room) => {
               if (room.clusters && room.clusters.length > 0) {
@@ -155,10 +173,7 @@ export function MatrixHeader({
         >
           Artikelen & Diensten
         </th>
-        <th style={{ top: `${topPosities}px` }} className="sticky z-30 w-[160px] min-w-[160px] max-w-[160px] bg-amber-50 px-3 py-2 text-center text-amber-950 border-r border-b border-amber-200 h-[54px]">
-          <div className="font-bold">Algemeen</div>
-          <div className="text-[10px] text-amber-800 font-normal">Projectscope Diensten</div>
-        </th>
+        {renderTowerCell('positie', topPosities)}
         {allPositions.map(({ position }) => {
           const isSelected = selectedColumnIds.has(position.id);
           return (
