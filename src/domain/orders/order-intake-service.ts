@@ -316,11 +316,22 @@ export function mapLogicTradeOrderToRawInput(
     header.city ||
     header.customer?.address?.city ||
     header.customer?.city ||
-    (typeof header.address === 'object' ? header.address?.city : undefined);
+    (typeof header.address === 'object' ? header.address?.city : undefined) ||
+    header.delivery?.address?.city;
 
+  const rawCustomer = header.customer;
+  const combinedName = rawCustomer && typeof rawCustomer === 'object'
+    ? [rawCustomer.firstName, rawCustomer.lastName].filter(Boolean).join(' ').trim()
+    : '';
   const customerName =
     header.customerName ||
-    (typeof header.customer === 'string' ? header.customer : header.customer?.name) ||
+    (typeof header.customer === 'string' ? header.customer : (
+      header.customer?.companyName ||
+      header.customer?.name ||
+      combinedName ||
+      header.delivery?.address?.name ||
+      header.address?.name
+    )) ||
     'Onbekende Klant';
 
   return {
