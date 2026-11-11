@@ -83,6 +83,8 @@ CREATE TABLE IF NOT EXISTS comments (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     author_initials TEXT NOT NULL,
     content TEXT NOT NULL,
+    audio_file_id TEXT,
+    audio_duration REAL,
     is_edited INTEGER NOT NULL DEFAULT 0 CHECK(is_edited IN (0, 1)),
     is_deleted INTEGER NOT NULL DEFAULT 0 CHECK(is_deleted IN (0, 1)),
     deleted_at TEXT,
@@ -225,6 +227,10 @@ def _migrate_db(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE comments ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
         if comment_cols and "deleted_at" not in comment_cols:
             conn.execute("ALTER TABLE comments ADD COLUMN deleted_at TEXT")
+        if comment_cols and "audio_file_id" not in comment_cols:
+            conn.execute("ALTER TABLE comments ADD COLUMN audio_file_id TEXT")
+        if comment_cols and "audio_duration" not in comment_cols:
+            conn.execute("ALTER TABLE comments ADD COLUMN audio_duration REAL")
 
         # Check annotations table
         ann_cols = [r[1] for r in conn.execute("PRAGMA table_info(annotations)").fetchall()]

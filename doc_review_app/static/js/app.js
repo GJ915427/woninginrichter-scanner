@@ -18,7 +18,11 @@
     pendingSelection: null,
     pendingDeleteDoc: null,
     searchQuery: '',
-    tocObserver: null
+    tocObserver: null,
+    pendingInputAudio: null,
+    pendingReplyAudio: null,
+    recorderInput: null,
+    recorderReply: null
   };
 
   // DOM Elements Cache
@@ -51,6 +55,9 @@
     popoverInputTextarea: document.getElementById('popover-input-textarea'),
     btnCancelInputPopover: document.getElementById('btn-cancel-input-popover'),
     btnSubmitInputPopover: document.getElementById('btn-submit-input-popover'),
+    voiceContainerInput: document.getElementById('voice-recorder-container-input'),
+    voiceBannerInput: document.getElementById('voice-recorder-banner-input'),
+    voicePreviewInput: document.getElementById('voice-recorder-preview-input'),
 
     // View Popover (Balloon)
     commentViewPopover: document.getElementById('comment-view-popover'),
@@ -63,6 +70,9 @@
     popoverViewReplyBox: document.getElementById('popover-view-reply-box'),
     popoverViewTextarea: document.getElementById('popover-view-textarea'),
     btnSubmitViewReply: document.getElementById('btn-submit-view-reply'),
+    voiceContainerReply: document.getElementById('voice-recorder-container-reply'),
+    voiceBannerReply: document.getElementById('voice-recorder-banner-reply'),
+    voicePreviewReply: document.getElementById('voice-recorder-preview-reply'),
 
     // Delete Confirmation Dialog Modal
     deleteDocDialog: document.getElementById('delete-doc-dialog'),
@@ -1397,11 +1407,17 @@
     }
   }
 
-  async function handleAddReply(annotationId, content, parentCommentId = null) {
+  async function handleAddReply(annotationId, content, parentCommentId = null, audioFileId = null, audioDuration = null) {
     const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
     const payload = { content: content };
     if (parentCommentId !== null) {
       payload.parent_comment_id = parentCommentId;
+    }
+    if (audioFileId) {
+      payload.audio_file_id = audioFileId;
+    }
+    if (audioDuration) {
+      payload.audio_duration = audioDuration;
     }
 
     await api(`/api/annotations/${annotationId}/comments`, {
@@ -1464,6 +1480,10 @@
     if (window.SelectionManager && typeof window.SelectionManager.hidePill === 'function') {
       window.SelectionManager.hidePill();
     }
+    if (state.recorderInput) {
+      state.recorderInput.clearAttachment();
+      state.pendingInputAudio = null;
+    }
     if (els.commentInputPopover) {
       els.commentInputPopover.classList.remove('visible');
       setTimeout(function () {
@@ -1500,7 +1520,9 @@
         comment_content: content,
         badge_color: '#FF6D00',
         ast_path: state.pendingSelection.ast_path || null,
-        node_type: state.pendingSelection.node_type || null
+        node_type: state.pendingSelection.node_type || null,
+        audio_file_id: state.pendingInputAudio ? state.pendingInputAudio.audio_file_id : null,
+        audio_duration: state.pendingInputAudio ? state.pendingInputAudio.audio_duration : null
       };
 
       await api(`/api/documents/${state.currentDoc.id}/annotations`, {
@@ -1543,9 +1565,15 @@
     if (els.btnSubmitViewReply) els.btnSubmitViewReply.disabled = true;
 
     try {
-      await handleAddReply(state.activeAnnotation.id, content, null);
+      const audioFileId = state.pendingReplyAudio ? state.pendingReplyAudio.audio_file_id : null;
+      const audioDuration = state.pendingReplyAudio ? state.pendingReplyAudio.audio_duration : null;
+      await handleAddReply(state.activeAnnotation.id, content, null, audioFileId, audioDuration);
       if (els.popoverViewTextarea) els.popoverViewTextarea.value = '';
       if (els.popoverViewReplyBox) els.popoverViewReplyBox.style.display = 'none';
+      if (state.recorderReply) {
+        state.recorderReply.clearAttachment();
+        state.pendingReplyAudio = null;
+      }
     } catch (err) {
       showToast('Fout: ' + err.message, 'error');
     } finally {
@@ -1618,6 +1646,39 @@
    * Wire Event Listeners & Initialize
    */
   function initListeners() {
+    // Initialize Voice Recorder Widgets (Tablet-First / iPad Safari & Windows)
+    if (window.VoiceRecorderWidget) {
+      if (els.voiceContainerInput) {
+        state.recorderInput = new window.VoiceRecorderWidget({
+          buttonContainer: els.voiceContainerInput,
+          bannerContainer: els.voiceBannerInput,
+          previewContainer: els.voicePreviewInput,
+          textarea: els.popoverInputTextarea,
+          onComplete: function (audioData) {
+            state.pendingInputAudio = audioData;
+          },
+          onError: function (msg) {
+            showToast(msg, 'error');
+          }
+        });
+      }
+
+      if (els.voiceContainerReply) {
+        state.recorderReply = new window.VoiceRecorderWidget({
+          buttonContainer: els.voiceContainerReply,
+          bannerContainer: els.voiceBannerReply,
+          previewContainer: els.voicePreviewReply,
+          textarea: els.popoverViewTextarea,
+          onComplete: function (audioData) {
+            state.pendingReplyAudio = audioData;
+          },
+          onError: function (msg) {
+            showToast(msg, 'error');
+          }
+        });
+      }
+    }
+
     // Initialize File Explorer & focus auto-sync
     initFolderExplorer();
 

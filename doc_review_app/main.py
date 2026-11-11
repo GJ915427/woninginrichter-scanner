@@ -22,6 +22,7 @@ from doc_review_app.database import get_db, init_db
 from doc_review_app.models import User
 from doc_review_app.routers import (
     admin_router,
+    audio_router,
     auth_router,
     comment_router,
     document_router,
@@ -252,6 +253,7 @@ app.include_router(auth_router.router)
 app.include_router(admin_router.router)
 app.include_router(comment_router.router, prefix="/api")
 app.include_router(document_router.router)
+app.include_router(audio_router.router)
 
 
 # Health Check Endpoints

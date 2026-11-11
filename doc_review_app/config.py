@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     documents_dir: Path = Field(
         default_factory=lambda: Path(__file__).resolve().parent / "local_documents"
     )
+    audio_dir: Path = Field(
+        default_factory=lambda: Path(__file__).resolve().parent / "storage" / "audio"
+    )
+    domain_terms_file: Path = Field(
+        default_factory=lambda: Path(__file__).resolve().parent / "local_documents" / "domeinmodel_woninginrichting_v51.md"
+    )
 
     # Security & Session Authentication
     session_secret: str = "doc-review-session-secret-change-in-production-random-token-32"
@@ -82,6 +88,7 @@ class Settings(BaseSettings):
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.static_dir.mkdir(parents=True, exist_ok=True)
         self.documents_dir.mkdir(parents=True, exist_ok=True)
+        self.audio_dir.mkdir(parents=True, exist_ok=True)
 
 
 @lru_cache()

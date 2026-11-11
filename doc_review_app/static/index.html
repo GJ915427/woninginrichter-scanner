@@ -14,6 +14,7 @@
 
   <!-- Material Design 3 Theme Stylesheet -->
   <link rel="stylesheet" href="/static/css/m3_theme.css?v=20261006_v9">
+  <link rel="stylesheet" href="/static/css/voice_recorder.css?v=20261111_v1">
 
   <style>
     /* Material Symbols default presentation */
@@ -138,7 +139,12 @@
 
     <!-- Floating Comment Input Popover (Antigravity Balloon Style) -->
     <div id="comment-input-popover" class="m3-comment-popover" role="dialog" aria-label="Nieuwe opmerking">
-      <textarea id="popover-input-textarea" class="m3-textarea" placeholder="Laat een opmerking achter..." rows="2"></textarea>
+      <div id="voice-recorder-banner-input" style="display: none; width: 100%;"></div>
+      <div style="display: flex; align-items: flex-start; gap: 0.5rem; width: 100%;">
+        <textarea id="popover-input-textarea" class="m3-textarea" placeholder="Laat een opmerking achter of spreek in..." rows="2" style="flex: 1;"></textarea>
+        <div id="voice-recorder-container-input"></div>
+      </div>
+      <div id="voice-recorder-preview-input" style="display: none; width: 100%;"></div>
       <div class="m3-comment-popover__actions">
         <button id="btn-cancel-input-popover" type="button" class="m3-button m3-button--text">Annuleren</button>
         <button id="btn-submit-input-popover" type="button" class="m3-button m3-button--filled">
@@ -154,7 +160,12 @@
         <!-- Threads rendered dynamically -->
       </div>
       <div class="m3-comment-popover__reply-box" id="popover-view-reply-box" style="display: none;">
-        <textarea id="popover-view-textarea" class="m3-textarea" placeholder="Antwoord toevoegen..." rows="2"></textarea>
+        <div id="voice-recorder-banner-reply" style="display: none; width: 100%;"></div>
+        <div style="display: flex; align-items: flex-start; gap: 0.5rem; width: 100%;">
+          <textarea id="popover-view-textarea" class="m3-textarea" placeholder="Antwoord toevoegen of inspreken..." rows="2" style="flex: 1;"></textarea>
+          <div id="voice-recorder-container-reply"></div>
+        </div>
+        <div id="voice-recorder-preview-reply" style="display: none; width: 100%;"></div>
         <div class="m3-comment-popover__actions">
           <button id="btn-close-view-popover" type="button" class="m3-button m3-button--text">Annuleren</button>
           <button id="btn-submit-view-reply" type="button" class="m3-button m3-button--filled">
@@ -264,6 +275,7 @@
   <!-- Client JavaScript Modules -->
   <script src="/static/js/markdown.js?v=20261006_v9"></script>
   <script src="/static/js/selection.js?v=20261006_v9"></script>
+  <script src="/static/js/voice_recorder.js?v=20261111_v1"></script>
   <script src="/static/js/comments.js?v=20261006_v9"></script>
   <script src="/static/js/app.js?v=20261006_v9"></script>
 </body>

@@ -75,6 +75,11 @@ def clean_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pyt
     test_docs_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(settings, "documents_dir", test_docs_dir)
 
+    # [SPEC-CHANGE-AUTHORIZED: Isolatie van settings.audio_dir en domain_terms_file via tmp_path fixture om disk residue te voorkomen]
+    test_audio_dir = tmp_path / "test_audio"
+    test_audio_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(settings, "audio_dir", test_audio_dir)
+
     # Initialize schema
     init_db(test_db_path)
 

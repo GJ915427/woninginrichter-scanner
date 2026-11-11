@@ -182,6 +182,8 @@ class CommentCreate(BaseModel):
 
     content: str
     parent_comment_id: Optional[int] = None
+    audio_file_id: Optional[str] = None
+    audio_duration: Optional[float] = None
 
     @model_validator(mode="after")
     def validate_content(self) -> "CommentCreate":
@@ -222,6 +224,8 @@ class CommentResponse(BaseModel):
     author_name: Optional[str] = None
     author_username: Optional[str] = None
     content: str
+    audio_file_id: Optional[str] = None
+    audio_duration: Optional[float] = None
     is_edited: bool = False
     is_deleted: bool = False
     deleted_at: Optional[str] = None
@@ -245,6 +249,8 @@ class AnnotationCreate(BaseModel):
     badge_color: str = "#FF6D00"
     ast_path: Optional[str] = None
     node_type: Optional[str] = None
+    audio_file_id: Optional[str] = None
+    audio_duration: Optional[float] = None
 
     @model_validator(mode="after")
     def validate_offsets(self) -> "AnnotationCreate":
@@ -376,6 +382,8 @@ def build_comment_tree(
             user_id=data["user_id"],
             author_initials=data.get("author_initials") or "??",
             content=data["content"],
+            audio_file_id=data.get("audio_file_id"),
+            audio_duration=data.get("audio_duration"),
             is_edited=bool(data.get("is_edited", False)),
             created_at=str(data["created_at"]),
             updated_at=str(data["updated_at"]),

@@ -293,6 +293,29 @@
       }
       card.appendChild(contentEl);
 
+      // Audio Player Badge (Voice note)
+      if (node.audio_file_id && !node.is_deleted) {
+        const audioContainer = document.createElement('div');
+        audioContainer.className = 'comment-card__audio-player';
+
+        const audioEl = document.createElement('audio');
+        audioEl.controls = true;
+        audioEl.preload = 'metadata';
+        audioEl.src = `/api/audio/recordings/${encodeURIComponent(node.audio_file_id)}`;
+
+        if (node.audio_duration) {
+          const durBadge = document.createElement('span');
+          durBadge.className = 'comment-card__audio-duration';
+          const mins = Math.floor(node.audio_duration / 60);
+          const secs = Math.floor(node.audio_duration % 60);
+          durBadge.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+          audioContainer.appendChild(durBadge);
+        }
+
+        audioContainer.appendChild(audioEl);
+        card.appendChild(audioContainer);
+      }
+
       // Inline Edit Mode Container (initially hidden)
       const editContainer = document.createElement('div');
       editContainer.style.display = 'none';

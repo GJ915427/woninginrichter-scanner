@@ -61,6 +61,8 @@ def create_annotation(
     badge_color: str = "#FF6D00",
     ast_path: Optional[str] = None,
     node_type: Optional[str] = None,
+    audio_file_id: Optional[str] = None,
+    audio_duration: Optional[float] = None,
     db: Optional[sqlite3.Connection] = None,
 ) -> Dict[str, Any]:
     """Create a new annotation anchored to document text offsets with optional initial comment."""
@@ -156,8 +158,8 @@ def create_annotation(
             c_cursor = conn.execute(
                 """
                 INSERT INTO comments (
-                    annotation_id, parent_comment_id, user_id, author_initials, content, is_edited, is_deleted, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
+                    annotation_id, parent_comment_id, user_id, author_initials, content, audio_file_id, audio_duration, is_edited, is_deleted, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
                 """,
                 (
                     ann_id,
@@ -165,7 +167,8 @@ def create_annotation(
                     user_id,
                     user_initials,
                     stripped_comment,
-                    0,
+                    audio_file_id,
+                    audio_duration,
                     now_iso,
                     now_iso,
                 ),
@@ -193,6 +196,8 @@ def create_annotation(
                 "author_name": user_name,
                 "author_username": user_username,
                 "content": stripped_comment,
+                "audio_file_id": audio_file_id,
+                "audio_duration": audio_duration,
                 "is_edited": False,
                 "is_deleted": False,
                 "deleted_at": None,
@@ -295,6 +300,8 @@ def list_annotations(
                                 "author_name": c.get("author_name"),
                                 "author_username": c.get("author_username"),
                                 "content": "[Opmerking verwijderd]" if c.get("is_deleted") else c.get("content"),
+                                "audio_file_id": c.get("audio_file_id"),
+                                "audio_duration": c.get("audio_duration"),
                                 "is_edited": bool(c.get("is_edited", False)),
                                 "is_deleted": bool(c.get("is_deleted", False)),
                                 "deleted_at": c.get("deleted_at"),
@@ -337,7 +344,7 @@ def list_annotations(
         for ann in ann_rows:
             com_cursor = conn.execute(
                 """
-                SELECT c.id, c.annotation_id, c.parent_comment_id, c.user_id, c.author_initials, c.content, c.is_edited, c.is_deleted, c.deleted_at, c.created_at, c.updated_at,
+                SELECT c.id, c.annotation_id, c.parent_comment_id, c.user_id, c.author_initials, c.content, c.audio_file_id, c.audio_duration, c.is_edited, c.is_deleted, c.deleted_at, c.created_at, c.updated_at,
                        u.full_name AS author_name, u.username AS author_username
                 FROM comments c
                 LEFT JOIN users u ON c.user_id = u.id
@@ -357,6 +364,8 @@ def list_annotations(
                     "author_name": c["author_name"],
                     "author_username": c["author_username"],
                     "content": "[Opmerking verwijderd]" if c["is_deleted"] else c["content"],
+                    "audio_file_id": c["audio_file_id"] if "audio_file_id" in c.keys() else None,
+                    "audio_duration": c["audio_duration"] if "audio_duration" in c.keys() else None,
                     "is_edited": bool(c["is_edited"]),
                     "is_deleted": bool(c["is_deleted"]),
                     "deleted_at": c["deleted_at"],
@@ -415,7 +424,7 @@ def get_annotation_by_id(
 
         com_cursor = conn.execute(
             """
-            SELECT c.id, c.annotation_id, c.parent_comment_id, c.user_id, c.author_initials, c.content, c.is_edited, c.is_deleted, c.deleted_at, c.created_at, c.updated_at,
+            SELECT c.id, c.annotation_id, c.parent_comment_id, c.user_id, c.author_initials, c.content, c.audio_file_id, c.audio_duration, c.is_edited, c.is_deleted, c.deleted_at, c.created_at, c.updated_at,
                    u.full_name AS author_name, u.username AS author_username
             FROM comments c
             LEFT JOIN users u ON c.user_id = u.id
@@ -435,6 +444,8 @@ def get_annotation_by_id(
                 "author_name": c["author_name"],
                 "author_username": c["author_username"],
                 "content": "[Opmerking verwijderd]" if c["is_deleted"] else c["content"],
+                "audio_file_id": c["audio_file_id"] if "audio_file_id" in c.keys() else None,
+                "audio_duration": c["audio_duration"] if "audio_duration" in c.keys() else None,
                 "is_edited": bool(c["is_edited"]),
                 "is_deleted": bool(c["is_deleted"]),
                 "deleted_at": c["deleted_at"],
@@ -471,6 +482,8 @@ def add_comment_reply(
     content: str,
     user: Any,
     parent_comment_id: Optional[int] = None,
+    audio_file_id: Optional[str] = None,
+    audio_duration: Optional[float] = None,
     db: Optional[sqlite3.Connection] = None,
 ) -> Dict[str, Any]:
     """Add a threaded reply to an annotation comment."""
@@ -526,8 +539,8 @@ def add_comment_reply(
         cursor = conn.execute(
             """
             INSERT INTO comments (
-                annotation_id, parent_comment_id, user_id, author_initials, content, is_edited, is_deleted, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
+                annotation_id, parent_comment_id, user_id, author_initials, content, audio_file_id, audio_duration, is_edited, is_deleted, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
             """,
             (
                 annotation_id,
@@ -535,7 +548,8 @@ def add_comment_reply(
                 user_id,
                 user_initials,
                 clean_content,
-                0,
+                audio_file_id,
+                audio_duration,
                 now_iso,
                 now_iso,
             ),
@@ -569,6 +583,8 @@ def add_comment_reply(
                     "author_name": user_name,
                     "author_username": user_username,
                     "content": clean_content,
+                    "audio_file_id": audio_file_id,
+                    "audio_duration": audio_duration,
                     "is_edited": False,
                     "is_deleted": False,
                     "deleted_at": None,
@@ -601,6 +617,8 @@ def add_comment_reply(
             "author_name": user_name,
             "author_username": user_username,
             "content": clean_content,
+            "audio_file_id": audio_file_id,
+            "audio_duration": audio_duration,
             "is_edited": False,
             "is_deleted": False,
             "deleted_at": None,
@@ -625,7 +643,7 @@ def get_comment_by_id(
     def _execute(conn: sqlite3.Connection) -> Optional[Dict[str, Any]]:
         row = conn.execute(
             """
-            SELECT c.id, c.annotation_id, c.parent_comment_id, c.user_id, c.author_initials, c.content, c.is_edited, c.is_deleted, c.deleted_at, c.created_at, c.updated_at,
+            SELECT c.id, c.annotation_id, c.parent_comment_id, c.user_id, c.author_initials, c.content, c.audio_file_id, c.audio_duration, c.is_edited, c.is_deleted, c.deleted_at, c.created_at, c.updated_at,
                    u.full_name AS author_name, u.username AS author_username
             FROM comments c
             LEFT JOIN users u ON c.user_id = u.id
@@ -645,6 +663,8 @@ def get_comment_by_id(
             "author_name": row["author_name"],
             "author_username": row["author_username"],
             "content": "[Opmerking verwijderd]" if row["is_deleted"] else row["content"],
+            "audio_file_id": row["audio_file_id"] if "audio_file_id" in row.keys() else None,
+            "audio_duration": row["audio_duration"] if "audio_duration" in row.keys() else None,
             "is_edited": bool(row["is_edited"]),
             "is_deleted": bool(row["is_deleted"]),
             "deleted_at": row["deleted_at"],

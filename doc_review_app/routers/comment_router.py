@@ -93,6 +93,9 @@ def create_document_annotation(
             detail="comment_content cannot be empty or whitespace only",
         )
 
+    audio_file_id = payload.get("audio_file_id")
+    audio_duration = payload.get("audio_duration")
+
     return comment_service.create_annotation(
         document_id=doc_id,
         start_offset=start_offset,
@@ -103,6 +106,8 @@ def create_document_annotation(
         badge_color=str(badge_color),
         ast_path=payload.get("ast_path"),
         node_type=payload.get("node_type"),
+        audio_file_id=str(audio_file_id) if audio_file_id else None,
+        audio_duration=float(audio_duration) if audio_duration is not None else None,
         db=db,
     )
 
@@ -222,11 +227,16 @@ def create_comment_reply(
                 detail="parent_comment_id must be an integer",
             )
 
+    audio_file_id = payload.get("audio_file_id")
+    audio_duration = payload.get("audio_duration")
+
     return comment_service.add_comment_reply(
         annotation_id=annotation_id,
         content=str(content),
         user=current_user,
         parent_comment_id=parent_comment_id,
+        audio_file_id=str(audio_file_id) if audio_file_id else None,
+        audio_duration=float(audio_duration) if audio_duration is not None else None,
         db=db,
     )
 

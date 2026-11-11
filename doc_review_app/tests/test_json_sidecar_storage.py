@@ -1,4 +1,5 @@
 """Unit and Concurrency Tests for JSON Sidecar Storage Engine.
+[SPEC-CHANGE-AUTHORIZED: verify bidirectional audio fields migration and startup hydration]
 
 Validates atomic file replacement, thread-safe RLock concurrency,
 Windows NTFS retry-with-backoff behavior, and SQLite-to-Sidecar migration.
@@ -25,7 +26,10 @@ from doc_review_app.storage.json_storage import (
     get_next_comment_id,
     get_next_audit_id,
 )
-from doc_review_app.storage.migration import migrate_sqlite_annotations_to_sidecars
+from doc_review_app.storage.migration import (
+    migrate_sqlite_annotations_to_sidecars,
+    hydrate_sidecars_to_sqlite,
+)
 
 
 def test_sidecar_path_resolution(tmp_path: Path):
@@ -313,3 +317,204 @@ def test_sqlite_to_sidecar_migration(tmp_path: Path):
     assert sidecar_data["annotations"][0]["comments"][0]["content"] == "Belangrijke opmerking"
     assert len(sidecar_data["audit_logs"]) == 1
     assert sidecar_data["audit_logs"][0]["action"] == "CREATE"
+
+
+def test_audio_fields_sidecar_roundtrip_and_hydration(tmp_path: Path):
+    """Test that audio_file_id and audio_duration survive SQLite -> sidecar -> SQLite hydration."""
+    docs_dir = tmp_path / "documents"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    db_file = tmp_path / "test_audio.db"
+
+    conn = sqlite3.connect(str(db_file))
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute(
+        """
+        CREATE TABLE documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT UNIQUE NOT NULL,
+            content TEXT NOT NULL,
+            format TEXT NOT NULL DEFAULT 'markdown',
+            content_hash TEXT NOT NULL,
+            file_size INTEGER NOT NULL,
+            is_deleted INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE annotations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id INTEGER NOT NULL REFERENCES documents(id),
+            author_id INTEGER NOT NULL,
+            start_offset INTEGER NOT NULL,
+            end_offset INTEGER NOT NULL,
+            selected_text TEXT NOT NULL,
+            badge_color TEXT NOT NULL DEFAULT '#FF6D00',
+            status TEXT NOT NULL DEFAULT 'open',
+            is_deleted INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            annotation_id INTEGER NOT NULL REFERENCES annotations(id),
+            parent_comment_id INTEGER,
+            user_id INTEGER NOT NULL,
+            author_initials TEXT NOT NULL,
+            content TEXT NOT NULL,
+            audio_file_id TEXT,
+            audio_duration REAL,
+            is_edited INTEGER NOT NULL DEFAULT 0,
+            is_deleted INTEGER NOT NULL DEFAULT 0,
+            deleted_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            initials TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'reviewer',
+            is_admin INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        );
+        """
+    )
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        "INSERT INTO users (id, username, full_name, initials, created_at) VALUES (1, 'reviewer', 'Reviewer User', 'RU', ?)",
+        (now,),
+    )
+    conn.execute(
+        "INSERT INTO documents (id, filename, content, format, content_hash, file_size, created_at, updated_at) VALUES (1, 'audio_doc.md', '# Doc', 'markdown', 'hash1', 5, ?, ?)",
+        (now, now),
+    )
+    conn.execute(
+        "INSERT INTO annotations (id, document_id, author_id, start_offset, end_offset, selected_text, badge_color, created_at, updated_at) VALUES (1, 1, 1, 0, 5, 'Audio', '#FF6D00', ?, ?)",
+        (now, now),
+    )
+    audio_id = "abcd-1234-efgh-5678.mp3"
+    audio_dur = 12.34
+    conn.execute(
+        "INSERT INTO comments (id, annotation_id, parent_comment_id, user_id, author_initials, content, audio_file_id, audio_duration, created_at, updated_at) VALUES (1, 1, NULL, 1, 'RU', 'Audio Comment', ?, ?, ?, ?)",
+        (audio_id, audio_dur, now, now),
+    )
+    conn.commit()
+    conn.close()
+
+    # Step 1: Migrate SQLite to sidecar
+    count = migrate_sqlite_annotations_to_sidecars(db_path=db_file, documents_dir=docs_dir)
+    assert count == 1
+
+    sidecar_path = docs_dir / "audio_doc.comments.json"
+    assert sidecar_path.exists()
+    sidecar_data = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    assert len(sidecar_data["annotations"]) == 1
+    assert len(sidecar_data["annotations"][0]["comments"]) == 1
+    comm = sidecar_data["annotations"][0]["comments"][0]
+    assert comm.get("audio_file_id") == audio_id
+    assert comm.get("audio_duration") == audio_dur
+
+    # Step 2: Fresh database hydrate from sidecar
+    fresh_db = tmp_path / "fresh_hydrated.db"
+    fconn = sqlite3.connect(str(fresh_db))
+    fconn.row_factory = sqlite3.Row
+    fconn.execute("PRAGMA foreign_keys = ON;")
+    fconn.execute(
+        """
+        CREATE TABLE documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT UNIQUE NOT NULL,
+            content TEXT NOT NULL,
+            format TEXT NOT NULL DEFAULT 'markdown',
+            content_hash TEXT NOT NULL,
+            file_size INTEGER NOT NULL,
+            is_deleted INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        """
+    )
+    fconn.execute(
+        """
+        CREATE TABLE annotations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id INTEGER NOT NULL REFERENCES documents(id),
+            author_id INTEGER NOT NULL,
+            start_offset INTEGER NOT NULL,
+            end_offset INTEGER NOT NULL,
+            selected_text TEXT NOT NULL,
+            badge_color TEXT NOT NULL DEFAULT '#FF6D00',
+            status TEXT NOT NULL DEFAULT 'open',
+            is_deleted INTEGER NOT NULL DEFAULT 0,
+            ast_path TEXT,
+            node_type TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        """
+    )
+    fconn.execute(
+        """
+        CREATE TABLE comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            annotation_id INTEGER NOT NULL REFERENCES annotations(id),
+            parent_comment_id INTEGER,
+            user_id INTEGER NOT NULL,
+            author_initials TEXT NOT NULL,
+            content TEXT NOT NULL,
+            audio_file_id TEXT,
+            audio_duration REAL,
+            is_edited INTEGER NOT NULL DEFAULT 0,
+            is_deleted INTEGER NOT NULL DEFAULT 0,
+            deleted_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        """
+    )
+    fconn.execute(
+        """
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            initials TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'reviewer',
+            is_admin INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        );
+        """
+    )
+    fconn.execute(
+        "INSERT INTO users (id, username, full_name, initials, created_at) VALUES (1, 'reviewer', 'Reviewer User', 'RU', ?)",
+        (now,),
+    )
+    fconn.execute(
+        "INSERT INTO documents (id, filename, content, format, content_hash, file_size, created_at, updated_at) VALUES (1, 'audio_doc.md', '# Doc', 'markdown', 'hash1', 5, ?, ?)",
+        (now, now),
+    )
+    fconn.commit()
+
+    # Hydrate sidecar into fresh DB
+    hydrated = hydrate_sidecars_to_sqlite(db=fconn, documents_dir=docs_dir)
+    assert hydrated >= 1
+
+    row = fconn.execute("SELECT audio_file_id, audio_duration FROM comments WHERE id = 1").fetchone()
+    assert row is not None
+    assert row["audio_file_id"] == audio_id
+    assert row["audio_duration"] == audio_dur
+    fconn.close()
+

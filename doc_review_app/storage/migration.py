@@ -98,10 +98,13 @@ def migrate_sqlite_annotations_to_sidecars(
                 user_name_col = "user_name" if "user_name" in com_cols else "NULL"
                 user_initials_col = "author_initials" if "author_initials" in com_cols else ("user_initials" if "user_initials" in com_cols else "NULL")
                 updated_at_col = "updated_at" if "updated_at" in com_cols else "created_at"
+                audio_file_id_col = "audio_file_id" if "audio_file_id" in com_cols else "NULL"
+                audio_dur_col = "audio_duration" if "audio_duration" in com_cols else "NULL"
                 comments_rows = conn.execute(
                     f"""
                     SELECT id, parent_comment_id, user_id, {user_initials_col} AS user_initials, {user_name_col} AS user_name,
-                           content, is_deleted, created_at, {updated_at_col} AS updated_at
+                           content, {audio_file_id_col} AS audio_file_id, {audio_dur_col} AS audio_duration,
+                           is_deleted, created_at, {updated_at_col} AS updated_at
                     FROM comments WHERE annotation_id = ? ORDER BY id ASC
                     """,
                     (ann_id,),
@@ -118,6 +121,8 @@ def migrate_sqlite_annotations_to_sidecars(
                             "author_initials": c["user_initials"] or "??",
                             "author_name": c["user_name"] or "Reviewer",
                             "content": c["content"],
+                            "audio_file_id": c["audio_file_id"] if "audio_file_id" in c.keys() else None,
+                            "audio_duration": c["audio_duration"] if "audio_duration" in c.keys() else None,
                             "is_deleted": bool(c["is_deleted"]),
                             "created_at": c["created_at"],
                             "updated_at": c["updated_at"] or c["created_at"],
@@ -326,9 +331,9 @@ def hydrate_sidecars_to_sqlite(
                             """
                             INSERT INTO comments (
                                 id, annotation_id, parent_comment_id, user_id,
-                                author_initials, content, is_edited, is_deleted,
-                                deleted_at, created_at, updated_at
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                author_initials, content, audio_file_id, audio_duration,
+                                is_edited, is_deleted, deleted_at, created_at, updated_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             """,
                             (
                                 c_id,
@@ -337,6 +342,8 @@ def hydrate_sidecars_to_sqlite(
                                 c_author_id,
                                 c.get("author_initials", "??"),
                                 c.get("content", ""),
+                                c.get("audio_file_id"),
+                                c.get("audio_duration"),
                                 1 if c.get("is_edited") else 0,
                                 1 if c.get("is_deleted") else 0,
                                 c.get("deleted_at"),
