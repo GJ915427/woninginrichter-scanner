@@ -602,23 +602,38 @@
         const badge = createBadgeElement(ann);
         lastMark.parentNode.insertBefore(badge, lastMark.nextSibling);
 
-        // Bind click event to badge and mark
-        const clickHandler = function (e) {
+        // Bind decoupled click events to badge and mark
+        const markClickHandler = function (e) {
+          const sel = window.getSelection();
+          if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) {
+            return; // Reviewer selecteert tekst dwars door highlight; kaap het event niet af
+          }
           e.preventDefault();
           e.stopPropagation();
           if (typeof onBadgeClick === 'function') {
             onBadgeClick(ann, badge, e);
           }
         };
+        lastMark.addEventListener('click', markClickHandler);
 
-        badge.addEventListener('click', clickHandler);
-        lastMark.addEventListener('click', clickHandler);
+        const badgeClickHandler = function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          const sel = window.getSelection();
+          if (sel && !sel.isCollapsed) {
+            sel.removeAllRanges(); // Klap eventuele selectie in ten gunste van badge-focus
+          }
+          if (typeof onBadgeClick === 'function') {
+            onBadgeClick(ann, badge, e);
+          }
+        };
+        badge.addEventListener('click', badgeClickHandler);
 
         // Enter key accessibility
         badge.addEventListener('keydown', function (e) {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            clickHandler(e);
+            badgeClickHandler(e);
           }
         });
 

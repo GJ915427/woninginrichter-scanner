@@ -1438,6 +1438,13 @@
    * New Annotation Creation from Selection (Floating Input Popover)
    */
   function handleSelectionForNewComment(selectionData, targetRect) {
+    if (els.commentInputPopover) {
+      els.commentInputPopover.dataset.startOffset = String(selectionData.start_offset);
+      els.commentInputPopover.dataset.endOffset = String(selectionData.end_offset);
+      els.commentInputPopover.dataset.selectedText = selectionData.selected_text || '';
+      els.commentInputPopover.dataset.astPath = selectionData.ast_path || '';
+      els.commentInputPopover.dataset.nodeType = selectionData.node_type || '';
+    }
     state.pendingSelection = selectionData;
     state.activeAnnotation = null;
     hideViewPopover();
@@ -1466,6 +1473,12 @@
     }
     if (els.commentInputPopover) {
       els.commentInputPopover.classList.remove('visible');
+      const ds = els.commentInputPopover.dataset;
+      delete ds.startOffset;
+      delete ds.endOffset;
+      delete ds.selectedText;
+      delete ds.astPath;
+      delete ds.nodeType;
       setTimeout(function () {
         if (!els.commentInputPopover.classList.contains('visible')) {
           els.commentInputPopover.style.display = 'none';
@@ -1482,7 +1495,10 @@
       return;
     }
 
-    if (!state.pendingSelection || !state.currentDoc) {
+    const ds = els.commentInputPopover ? els.commentInputPopover.dataset : {};
+    const startOffset = parseInt(ds.startOffset, 10);
+    const endOffset = parseInt(ds.endOffset, 10);
+    if (isNaN(startOffset) || isNaN(endOffset) || !state.currentDoc) {
       hideInputPopover();
       return;
     }
@@ -1494,13 +1510,13 @@
 
     try {
       const payload = {
-        start_offset: state.pendingSelection.start_offset,
-        end_offset: state.pendingSelection.end_offset,
-        selected_text: state.pendingSelection.selected_text,
+        start_offset: startOffset,
+        end_offset: endOffset,
+        selected_text: ds.selectedText || '',
         comment_content: content,
         badge_color: '#FF6D00',
-        ast_path: state.pendingSelection.ast_path || null,
-        node_type: state.pendingSelection.node_type || null
+        ast_path: ds.astPath ? ds.astPath : null,
+        node_type: ds.nodeType ? ds.nodeType : null
       };
 
       await api(`/api/documents/${state.currentDoc.id}/annotations`, {
