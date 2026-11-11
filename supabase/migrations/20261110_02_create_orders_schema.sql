@@ -169,9 +169,9 @@ BEGIN
             v_order_id,
             (l->>'line_number')::int,
             COALESCE((l->>'sub_line')::int, 0),
-            NULLIF(l->>'product_id', '')::bigint,
+            COALESCE(NULLIF(l->>'product_id', '')::bigint, lp.id),
             COALESCE(l->>'product_code', 'TEKST'),
-            COALESCE(l->>'product_group_code', '9.9'),
+            COALESCE(NULLIF(l->>'product_group_code', ''), lp.product_group_code, '9.9'),
             l->>'description',
             COALESCE((l->>'quantity')::numeric, 1),
             COALESCE(l->>'unit', 'stuks'),
@@ -188,10 +188,20 @@ BEGIN
             l->'dimension_spec',
             now()
         FROM jsonb_array_elements(p_order->'lines') AS l
+        LEFT JOIN LATERAL (
+            SELECT p.id, p.product_group_code
+            FROM public.logictrade_products p
+            WHERE p.code = l->>'product_code'
+            ORDER BY p.modified_at DESC NULLS LAST
+            LIMIT 1
+        ) lp ON (COALESCE(l->>'product_code', '') NOT IN ('', 'TEKST') AND NULLIF(l->>'product_id', '') IS NULL)
         ON CONFLICT (order_id, line_number, sub_line) DO UPDATE SET
-            product_id = EXCLUDED.product_id,
+            product_id = COALESCE(EXCLUDED.product_id, order_lines.product_id),
             product_code = EXCLUDED.product_code,
-            product_group_code = EXCLUDED.product_group_code,
+            product_group_code = CASE
+                WHEN order_lines.product_code = EXCLUDED.product_code THEN COALESCE(NULLIF(order_lines.product_group_code, '9.9'), EXCLUDED.product_group_code)
+                ELSE EXCLUDED.product_group_code
+            END,
             description = EXCLUDED.description,
             quantity = EXCLUDED.quantity,
             unit = EXCLUDED.unit,

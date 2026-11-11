@@ -74,13 +74,13 @@ export interface HarvestedOrderVector {
 
 export interface Harvest2YrOptions {
   dateFrom?: string; // ISO date string, defaults to 2 years before now
-  years?: number; // Horizon in years (defaults to 2)
+  years?: number | null; // Horizon in years (defaults to 2, null/undefined = onbeperkt)
   extractOrderVectors?: boolean; // When true, aggregates lines into unique HarvestedOrderVector records
   pageSize?: number;
   maxPages?: number;
   maxOrders?: number;
   checkpointFilePath?: string;
-  statusFilter?: string[];
+  statusFilter?: string[] | null;
   originFilter?: string | string[];
   dryRun?: boolean;
   rateLimiter?: any;
@@ -88,6 +88,8 @@ export interface Harvest2YrOptions {
   apiKey?: string;
   adminGuid?: string;
   initialCheckpoint?: HarvestCheckpoint;
+  onOrder?: (order: LogicTradeOrderHeader, lines: LogicTradeOrderLine[]) => Promise<void>;
+  modifiedAfter?: string;
 }
 
 export interface Harvest2YrResult {
@@ -233,13 +235,20 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
   const pageSize = options.pageSize || 50;
   const limiter = options.rateLimiter || defaultRateLimiter;
 
-  // Bereken standaard datum conform gewenste horizon (standaard 2 jaar)
+  // Bereken standaard datum conform gewenste horizon (standaard 2 jaar, null/undefined = onbeperkt)
+  const hasDateLimit = options.dateFrom !== undefined || (options.years !== undefined && options.years !== null);
   const years = typeof options.years === 'number' && options.years > 0 ? options.years : 2;
-  const dateFrom = options.dateFrom || calculateDateFrom(years);
-  const dateFromTime = new Date(dateFrom).getTime();
+  const dateFrom = options.dateFrom || (hasDateLimit ? calculateDateFrom(years) : '');
+  const dateFromTime = dateFrom ? new Date(dateFrom).getTime() : 0;
 
-  // Status whitelist
-  const allowedStatuses = (options.statusFilter || DEFAULT_HARVEST_STATUSES).map(s => s.toUpperCase());
+  // Status whitelist:
+  // - undefined: gebruik DEFAULT_HARVEST_STATUSES (standaard gedrag)
+  // - [] (lege array) of null: schakel statusfilter uit (accepteer alle statussen incl. offertes)
+  // - niet-lege array: filter op gespecificeerde statussen
+  const isFilterExplicitlyDisabled = options.statusFilter === null || (Array.isArray(options.statusFilter) && options.statusFilter.length === 0);
+  const allowedStatuses = isFilterExplicitlyDisabled
+    ? []
+    : (options.statusFilter ?? (DEFAULT_HARVEST_STATUSES as readonly string[])).map(s => s.toUpperCase());
 
   // Checkpoint administratie
   const checkpoint: HarvestCheckpoint = options.initialCheckpoint || {
@@ -277,7 +286,12 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
   let hasMorePages = true;
 
   while (hasMorePages) {
-    const ordersUrl = `${baseUrl}/orders?pageSize=${pageSize}&pageNumber=${currentPage}&createdAfter=${encodeURIComponent(dateFrom)}`;
+    const dateParam = options.modifiedAfter
+      ? `modifiedAfter=${encodeURIComponent(options.modifiedAfter)}`
+      : dateFrom
+        ? `createdAfter=${encodeURIComponent(dateFrom)}`
+        : '';
+    const ordersUrl = `${baseUrl}/orders?pageSize=${pageSize}&pageNumber=${currentPage}${dateParam ? `&${dateParam}` : ''}`;
     const res = await limiter.fetchWithAdaptiveBackoff(ordersUrl, { headers, cache: 'no-store' });
 
     let envelope: any;
@@ -305,18 +319,20 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
     for (const order of orders) {
       const orderIdStr = String(order.id);
 
-      // Check datumgrens
-      if (order.createdDate) {
+      // Check datumgrens (indien van toepassing)
+      if (hasDateLimit && order.createdDate && dateFromTime > 0) {
         const orderTime = new Date(order.createdDate).getTime();
         if (!isNaN(orderTime) && orderTime < dateFromTime) {
           continue;
         }
       }
 
-      // Check status filter
-      const statusUpper = (order.status || '').toUpperCase();
-      if (!allowedStatuses.includes(statusUpper)) {
-        continue;
+      // Check status filter (indien actief)
+      if (allowedStatuses.length > 0) {
+        const statusUpper = (order.status || '').toUpperCase();
+        if (!allowedStatuses.includes(statusUpper)) {
+          continue;
+        }
       }
 
       // Check origin / herkomst filter (indien geconfigureerd)
@@ -341,7 +357,7 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
           const ordNum = String(order.orderNumber || '').trim().toUpperCase();
           const normOrigin = rawOrigin.trim().toUpperCase();
           const matchesOrigin = normOrigin ? filters.some(f => normOrigin === f || normOrigin.includes(f)) : false;
-          const matchesOrderPrefix = !normOrigin && ordNum.startsWith('V');
+          const matchesOrderPrefix = !normOrigin && (ordNum.startsWith('V') || ordNum.startsWith('O') || /^\d+$/.test(ordNum));
 
           if (!matchesOrigin && !matchesOrderPrefix) {
             continue;
@@ -393,20 +409,21 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
       totalOrderLinesProcessed += lines.length;
 
       for (const line of lines) {
-        // Ondersteun zowel articleCode als code alias
-        const rawCode = (line.articleCode || line.code || '').trim();
-        // Skip lege regels of commentaarregels zonder code
-        if (!rawCode) {
-          continue;
-        }
+        // Ondersteun zowel articleCode als code alias; behoud vrije tekstregels als 'TEKST'
+        const rawCode = (line.articleCode || line.code || '').trim() || 'TEKST';
 
         // Ondersteun articleDescription of description alias
-        const rawDescription = (line.articleDescription || line.description || rawCode).trim();
+        const rawDescription = (line.articleDescription || line.description || (rawCode !== 'TEKST' ? rawCode : 'Vrije tekstregel')).trim();
 
         const lineTurnoverCents = calculateLineTurnoverCents(line);
         totalTurnoverCents += lineTurnoverCents;
         if (orderYear > 0) {
           turnoverByYearCents[orderYear] = (turnoverByYearCents[orderYear] || 0) + lineTurnoverCents;
+        }
+
+        if (rawCode === 'TEKST') {
+          // Vrije tekstregels tellen mee in de orderomzet, maar vormen geen catalogusartikel
+          continue;
         }
 
         if (options.extractOrderVectors) {
@@ -587,6 +604,11 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
       }
 
       processedOrderSet.add(orderIdStr);
+
+      // Streaming callback voor downstream order intake (INV-SYS-11)
+      if (options.onOrder) {
+        await options.onOrder(order, lines);
+      }
     }
 
     checkpoint.lastPage = currentPage;

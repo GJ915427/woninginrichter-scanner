@@ -21,18 +21,31 @@ import type {
 } from '@/types/order-intake';
 import { resolveProductByCode as defaultResolveProductByCode } from '@/lib/supabase/order-client';
 
+// Expliciete Re-exports voor downstream consumenten en testsuites
+export type {
+  RawLogicTradeOrderInput,
+  RawOrderLineInput,
+  IngestedOrderBundle,
+  IngestedOrderLine,
+  IngestedOrderHeader,
+  ResolvedProductEntity,
+} from '@/types/order-intake';
+
 export interface OrderIntakeServiceOptions {
   classificationService?: ClassificationService;
   resolveProductByCode?: (code: string, supplierName?: string) => Promise<ResolvedProductEntity | null>;
+  skipClientLookup?: boolean;
 }
 
 export class OrderIntakeService {
   private classificationService: ClassificationService;
   private resolveProductByCode: (code: string, supplierName?: string) => Promise<ResolvedProductEntity | null>;
+  private skipClientLookup: boolean;
 
   constructor(options: OrderIntakeServiceOptions = {}) {
     this.classificationService = options.classificationService || new ClassificationService();
     this.resolveProductByCode = options.resolveProductByCode || defaultResolveProductByCode;
+    this.skipClientLookup = !!options.skipClientLookup;
   }
 
   public async processOrderIntake(rawOrder: RawLogicTradeOrderInput): Promise<IngestedOrderBundle> {
@@ -150,9 +163,9 @@ export class OrderIntakeService {
   private async processSingleLine(rawLine: RawOrderLineInput): Promise<IngestedOrderLine[]> {
     const code = (rawLine.product_code || '').trim();
 
-    // JIT SKU Resolutie
+    // JIT SKU Resolutie (wordt overgeslagen bij bulk intake via PostgreSQL LATERAL)
     let resolvedProduct: ResolvedProductEntity | null = null;
-    if (code && code.toUpperCase() !== 'TEKST') {
+    if (!this.skipClientLookup && code && code.toUpperCase() !== 'TEKST') {
       resolvedProduct = await this.resolveProductByCode(code);
     }
 
@@ -203,4 +216,98 @@ export class OrderIntakeService {
 
     return [singleLine];
   }
+}
+
+/**
+ * Pure SSOT Transformatie van ruwe LogicTrade Order + Orderregels naar RawLogicTradeOrderInput.
+ * Garandeert:
+ * 1. FSM Stage toewijzing (Offerte -> Stadium 2, Order -> Stadium 5)
+ * 2. Prijsconversie naar gehele CPQ centen (zero float drift)
+ * 3. Behoud van vrije tekstregels met product_code: 'TEKST'
+ * 4. Veilige regelnummering met fallback (index + 1) * 10
+ */
+export function mapLogicTradeOrderToRawInput(
+  header: any,
+  lines: any[]
+): RawLogicTradeOrderInput {
+  const ordNumber = String(header.orderNumber || header.id || '').trim();
+  const statusStr = String(header.status || '').trim();
+  const statusUpper = statusStr.toUpperCase();
+  const isOfferte =
+    statusUpper === 'OFFERTE' ||
+    statusUpper === 'QUOTATION' ||
+    statusUpper === 'PROPOSAL' ||
+    ordNumber.toUpperCase().startsWith('O');
+
+  const fsm_step = isOfferte ? 2 : 5;
+  const fsm_phase = isOfferte ? '2. Offerte' : '5. Bestellen (Actueel)';
+
+  const rawLines: RawOrderLineInput[] = (lines || []).map((l, index) => {
+    const rawCode = String(l.articleCode || l.code || '').trim();
+    const code = rawCode || 'TEKST';
+    const description = String(l.articleDescription || l.description || (code !== 'TEKST' ? code : 'Vrije tekstregel')).trim();
+    const qty = typeof l.quantity === 'number' && Number.isFinite(l.quantity) ? l.quantity : 1;
+
+    let unitPriceCents = 0;
+    if (typeof l.partPrice === 'number' && Number.isFinite(l.partPrice)) {
+      unitPriceCents = Math.round(l.partPrice * 100);
+    } else if (typeof l.linePrice === 'number' && Number.isFinite(l.linePrice) && qty > 0) {
+      unitPriceCents = Math.round((l.linePrice / qty) * 100);
+    }
+
+    let totalPriceCents = 0;
+    if (typeof l.linePrice === 'number' && Number.isFinite(l.linePrice)) {
+      totalPriceCents = Math.round(l.linePrice * 100);
+    } else {
+      totalPriceCents = unitPriceCents * qty;
+    }
+
+    const lineNumber = typeof l.lineNumber === 'number' && Number.isFinite(l.lineNumber)
+      ? l.lineNumber
+      : (index + 1) * 10;
+
+    return {
+      line_number: lineNumber,
+      product_code: code,
+      description,
+      quantity: qty,
+      unit: l.unit || 'stuks',
+      unit_price_cents: unitPriceCents,
+      total_price_cents: totalPriceCents,
+      etage_name: l.etage_name || 'Begane grond',
+      room_name: l.room_name,
+      window_name: l.window_name,
+      position_id: l.position_id,
+      dim: l.dim || null,
+      notes: typeof l.comment === 'string' ? l.comment : (l.comment?.intern || l.comment?.extern || null),
+      dimension_spec: l.dimension_spec || null,
+      is_hybrid: l.is_hybrid,
+    };
+  });
+
+  const totalAmountCents =
+    typeof header.totalAmount === 'number' && Number.isFinite(header.totalAmount)
+      ? Math.round(header.totalAmount * 100)
+      : rawLines.reduce((acc, l) => acc + (l.total_price_cents || 0), 0);
+
+  return {
+    id: String(header.id || ordNumber),
+    order_number: ordNumber,
+    customer_name:
+      header.customerName ||
+      (typeof header.customer === 'string' ? header.customer : header.customer?.name) ||
+      'Onbekende Klant',
+    city: header.city || (typeof header.address === 'object' ? header.address?.city : undefined),
+    quotation_number: header.quotationNumber,
+    order_date: header.createdDate ? String(header.createdDate).slice(0, 10) : undefined,
+    sales_rep: header.salesRep,
+    branch: typeof header.branch === 'string' ? header.branch : header.branch?.name,
+    fsm_phase,
+    fsm_step,
+    scope_description: header.scopeDescription || header.description,
+    total_amount_cents: totalAmountCents,
+    status: statusStr || (isOfferte ? 'OFFERTE' : 'ORDER'),
+    raw_data: header,
+    lines: rawLines,
+  };
 }

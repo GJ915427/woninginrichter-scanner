@@ -1,6 +1,8 @@
+// [SPEC-CHANGE-AUTHORIZED: Integrale order- en offerte-intake, mapLogicTradeOrderToRawInput en skipClientLookup]
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   OrderIntakeService,
+  mapLogicTradeOrderToRawInput,
   type RawLogicTradeOrderInput,
   type IngestedOrderBundle,
 } from '@/domain/orders/order-intake-service';
@@ -89,6 +91,35 @@ describe('OrderIntakeService & Hybrid Line Ingest SSOT', () => {
       expect(result.lines[0].product_id).toBeNull();
       expect(result.lines[0].product_group_code).toBe('9.9');
     });
+
+    it('respects skipClientLookup option to delegate SKU resolution to PostgreSQL LATERAL join', async () => {
+      const resolveMock = vi.fn().mockResolvedValue({ id: 9999, code: 'A00034988', supplier_name: 'Ambiant' });
+      const bulkService = new OrderIntakeService({
+        classificationService,
+        resolveProductByCode: resolveMock,
+        skipClientLookup: true,
+      });
+
+      const rawOrder: RawLogicTradeOrderInput = {
+        id: 'V26001009',
+        order_number: 'V26001009',
+        customer_name: 'Bulk Klant',
+        lines: [
+          {
+            line_number: 1,
+            product_code: 'A00034988',
+            description: 'Duette 32mm Smartcord',
+            quantity: 1,
+            unit_price_cents: 35000,
+            total_price_cents: 35000,
+          },
+        ],
+      };
+
+      const result = await bulkService.processOrderIntake(rawOrder);
+      expect(resolveMock).not.toHaveBeenCalled();
+      expect(result.lines[0].product_id).toBeNull(); // Client laat product_id over aan SQL LATERAL
+    });
   });
 
   describe('CPQ Hybride Regelsplitsing (Omzetbescherming)', () => {
@@ -133,6 +164,82 @@ describe('OrderIntakeService & Hybrid Line Ingest SSOT', () => {
       const calculatedSum = result.lines.reduce((acc, l) => acc + l.total_price_cents, 0);
       expect(calculatedSum).toBe(250000);
       expect(result.order.total_amount_cents).toBe(250000);
+    });
+  });
+
+  describe('SSOT Transformation & FSM Stage Assignment (mapLogicTradeOrderToRawInput)', () => {
+    it('maps an OFFERTE to FSM stage 2 (2. Offerte) and preserves free-text lines as TEKST', () => {
+      const ltHeader = {
+        id: '10999',
+        orderNumber: 'O2026-0042',
+        status: 'OFFERTE',
+        createdDate: '2026-11-10T14:30:00Z',
+        totalAmount: 1250.50,
+      };
+
+      const ltLines = [
+        {
+          id: 501,
+          articleCode: 'A00034988',
+          articleDescription: 'Duette gordijn',
+          quantity: 2,
+          partPrice: 300.25,
+          linePrice: 600.50,
+        },
+        {
+          id: 502,
+          // Geen articleCode -> vrije tekst
+          articleDescription: 'Inmeten en bezorgen ter plaatse',
+          quantity: 1,
+          partPrice: 650.00,
+          linePrice: 650.00,
+        },
+      ];
+
+      const rawInput = mapLogicTradeOrderToRawInput(ltHeader, ltLines);
+
+      expect(rawInput.order_number).toBe('O2026-0042');
+      expect(rawInput.status).toBe('OFFERTE');
+      expect(rawInput.fsm_step).toBe(2);
+      expect(rawInput.fsm_phase).toBe('2. Offerte');
+      expect(rawInput.total_amount_cents).toBe(125050);
+
+      expect(rawInput.lines).toHaveLength(2);
+      expect(rawInput.lines[0].product_code).toBe('A00034988');
+      expect(rawInput.lines[0].unit_price_cents).toBe(30025);
+      expect(rawInput.lines[0].total_price_cents).toBe(60050);
+
+      // Tweede regel is vrije tekst:
+      expect(rawInput.lines[1].product_code).toBe('TEKST');
+      expect(rawInput.lines[1].description).toBe('Inmeten en bezorgen ter plaatse');
+      expect(rawInput.lines[1].unit_price_cents).toBe(65000);
+      expect(rawInput.lines[1].total_price_cents).toBe(65000);
+      expect(rawInput.lines[1].line_number).toBe(20);
+    });
+
+    it('maps a confirmed ORDER to FSM stage 5 (5. Bestellen / Besteld)', () => {
+      const ltHeader = {
+        id: '20001',
+        orderNumber: 'V26001999',
+        status: 'ORDER',
+        createdDate: '2026-11-10T15:00:00Z',
+        totalAmount: 500.00,
+      };
+
+      const ltLines = [
+        {
+          id: 601,
+          articleCode: 'PVC_AMB_01',
+          articleDescription: 'PVC Ambiant',
+          quantity: 1,
+          linePrice: 500.00,
+        },
+      ];
+
+      const rawInput = mapLogicTradeOrderToRawInput(ltHeader, ltLines);
+      expect(rawInput.order_number).toBe('V26001999');
+      expect(rawInput.fsm_step).toBe(5);
+      expect(rawInput.fsm_phase).toBe('5. Bestellen (Actueel)');
     });
   });
 });

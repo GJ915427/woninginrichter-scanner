@@ -937,4 +937,78 @@ describe('Harvest2YrOrders Service (TDD Suite)', () => {
       expect(hybVector?.isHybrid).toBe(true);
     });
   });
+
+  describe('Integrale Order- & Offerte-Intake Streaming & Filterverruiming', () => {
+    it('streams each scanned order and its lines via onOrder callback without losing free-text lines', async () => {
+      const mockOrders: LogicTradeOrderHeader[] = [
+        {
+          id: 'ORD-STREAM-1',
+          orderNumber: 'O2026-999',
+          status: 'OFFERTE',
+          createdDate: '2026-11-10T12:00:00Z',
+          lines: [
+            {
+              id: 'L-1',
+              articleCode: 'A00034988',
+              articleDescription: 'Duette gordijn',
+              quantity: 1,
+            },
+            {
+              id: 'L-2',
+              // Geen articleCode -> vrije tekst regel
+              articleDescription: 'Bezorg- en montagekosten',
+              quantity: 1,
+            },
+          ],
+        },
+      ];
+
+      const streamedOrders: Array<{ header: LogicTradeOrderHeader; lines: LogicTradeOrderLine[] }> = [];
+
+      await harvest2YearOrders({
+        dryRun: true,
+        statusFilter: [], // Leeg filter = accepteer alle statussen inclusief offertes
+        rateLimiter: {
+          fetchWithAdaptiveBackoff: vi.fn().mockResolvedValue({ data: mockOrders, totalPages: 1 }),
+        },
+        onOrder: async (header, lines) => {
+          streamedOrders.push({ header, lines });
+        },
+      });
+
+      expect(streamedOrders).toHaveLength(1);
+      expect(streamedOrders[0].header.orderNumber).toBe('O2026-999');
+      expect(streamedOrders[0].lines).toHaveLength(2);
+      expect(streamedOrders[0].lines[0].articleCode).toBe('A00034988');
+      expect(streamedOrders[0].lines[1].articleDescription).toBe('Bezorg- en montagekosten');
+    });
+
+    it('accepts offertes with O prefix even when originFilter is active', async () => {
+      const mockOrders: LogicTradeOrderHeader[] = [
+        {
+          id: 'ORD-O-PREF',
+          orderNumber: 'O-2026-001',
+          status: 'OFFERTE',
+          createdDate: '2026-11-10T12:00:00Z',
+          lines: [{ id: 'L-3', articleCode: 'ART-1', quantity: 1 }],
+        },
+      ];
+
+      const streamedOrders: string[] = [];
+
+      await harvest2YearOrders({
+        dryRun: true,
+        statusFilter: [],
+        originFilter: 'Winkel GSW BV',
+        rateLimiter: {
+          fetchWithAdaptiveBackoff: vi.fn().mockResolvedValue({ data: mockOrders, totalPages: 1 }),
+        },
+        onOrder: async (order) => {
+          streamedOrders.push(order.orderNumber);
+        },
+      });
+
+      expect(streamedOrders).toContain('O-2026-001');
+    });
+  });
 });
