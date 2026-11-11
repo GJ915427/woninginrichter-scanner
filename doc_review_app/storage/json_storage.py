@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from doc_review_app.config import settings
 
@@ -60,6 +60,32 @@ def default_sidecar_data(filename: str) -> Dict[str, Any]:
     }
 
 
+def deduplicate_audit_logs(sidecar_data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
+    """Saneert redundante audit-log duplicaten met behoud van chronologische volgorde.
+    Gebruikt de canonieke composite key van de domeinentiteiten."""
+    seen_keys: Set[Tuple[Any, ...]] = set()
+    unique_logs: List[Dict[str, Any]] = []
+    removed_count = 0
+    raw_logs = sidecar_data.get("audit_logs") or []
+    for log in raw_logs:
+        if not isinstance(log, dict):
+            continue
+        comp_key = (
+            log.get("entity_type"),
+            log.get("entity_id"),
+            log.get("action"),
+            log.get("actor_id") or log.get("user_id"),
+            log.get("timestamp") or log.get("created_at"),
+        )
+        if comp_key in seen_keys:
+            removed_count += 1
+            continue
+        seen_keys.add(comp_key)
+        unique_logs.append(log)
+    sidecar_data["audit_logs"] = unique_logs
+    return sidecar_data, removed_count
+
+
 def read_sidecar(sidecar_path: Path, filename_hint: str = "") -> Dict[str, Any]:
     """Read sidecar JSON file or return default empty schema if non-existent."""
     if not sidecar_path.exists():
@@ -76,6 +102,7 @@ def read_sidecar(sidecar_path: Path, filename_hint: str = "") -> Dict[str, Any]:
             data.setdefault("annotations", [])
             data.setdefault("audit_logs", [])
             data.setdefault("schema_version", 1)
+            deduplicate_audit_logs(data)
             return data
         except (json.JSONDecodeError, OSError):
             return default_sidecar_data(filename_hint)

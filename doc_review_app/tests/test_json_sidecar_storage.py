@@ -313,3 +313,94 @@ def test_sqlite_to_sidecar_migration(tmp_path: Path):
     assert sidecar_data["annotations"][0]["comments"][0]["content"] == "Belangrijke opmerking"
     assert len(sidecar_data["audit_logs"]) == 1
     assert sidecar_data["audit_logs"][0]["action"] == "CREATE"
+
+
+def test_deduplicate_audit_logs():
+    """Test that deduplicate_audit_logs eliminates duplicate audit entries preserving canonical identity and order."""
+    from doc_review_app.storage.json_storage import deduplicate_audit_logs
+
+    sidecar = {
+        "document_filename": "test.md",
+        "audit_logs": [
+            {
+                "id": 1,
+                "entity_type": "annotation",
+                "entity_id": 10,
+                "action": "CREATE",
+                "actor_id": 1229,
+                "actor_initials": "GJ",
+                "timestamp": "2026-11-11T12:00:00Z",
+                "details": "Eerste",
+            },
+            {
+                "id": 2,
+                "entity_type": "annotation",
+                "entity_id": 10,
+                "action": "CREATE",
+                "user_id": 1229,
+                "user_initials": "GJ",
+                "created_at": "2026-11-11T12:00:00Z",
+                "metadata": "Duplicaat via legacy velden",
+            },
+            {
+                "id": 3,
+                "entity_type": "comment",
+                "entity_id": 20,
+                "action": "CREATE",
+                "actor_id": 1229,
+                "actor_initials": "GJ",
+                "timestamp": "2026-11-11T12:05:00Z",
+                "details": "Commentaar",
+            },
+            "corrupt_non_dict_entry",
+        ],
+    }
+
+    sanitized, removed = deduplicate_audit_logs(sidecar)
+    assert removed == 1
+    assert len(sanitized["audit_logs"]) == 2
+    assert sanitized["audit_logs"][0]["id"] == 1
+    assert sanitized["audit_logs"][1]["id"] == 3
+
+
+def test_read_sidecar_pure_cqs(tmp_path):
+    """Test that read_sidecar normalizes audit logs in-memory without mutating the file on disk."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    sidecar_file = docs_dir / "test.comments.json"
+
+    raw_data = {
+        "document_filename": "test.md",
+        "annotations": [],
+        "audit_logs": [
+            {
+                "id": 1,
+                "entity_type": "annotation",
+                "entity_id": 10,
+                "action": "CREATE",
+                "actor_id": 1229,
+                "timestamp": "2026-11-11T12:00:00Z",
+            },
+            {
+                "id": 2,
+                "entity_type": "annotation",
+                "entity_id": 10,
+                "action": "CREATE",
+                "actor_id": 1229,
+                "timestamp": "2026-11-11T12:00:00Z",
+            },
+        ],
+    }
+    sidecar_file.write_text(json.dumps(raw_data, indent=2), encoding="utf-8")
+    original_mtime = sidecar_file.stat().st_mtime_ns
+    original_raw_content = sidecar_file.read_text(encoding="utf-8")
+
+    # Read through read_sidecar
+    loaded = read_sidecar(sidecar_file, filename_hint="test.md")
+    assert len(loaded["audit_logs"]) == 1
+
+    # Verify pure CQS: disk file MUST remain completely untouched
+    assert sidecar_file.stat().st_mtime_ns == original_mtime
+    assert sidecar_file.read_text(encoding="utf-8") == original_raw_content
+    raw_on_disk = json.loads(sidecar_file.read_text(encoding="utf-8"))
+    assert len(raw_on_disk["audit_logs"]) == 2

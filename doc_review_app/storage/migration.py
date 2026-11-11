@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from doc_review_app.config import settings
 from doc_review_app.storage.json_storage import (
+    deduplicate_audit_logs,
     get_sidecar_path,
     read_sidecar,
     write_sidecar_atomic,
@@ -176,6 +177,7 @@ def migrate_sqlite_annotations_to_sidecars(
 
             # Write sidecar if any annotations or audit logs exist
             if existing_data["annotations"] or existing_data.get("audit_logs"):
+                deduplicate_audit_logs(existing_data)
                 write_sidecar_atomic(sidecar_path, existing_data)
 
     finally:
@@ -365,13 +367,15 @@ def hydrate_sidecars_to_sqlite(
                     continue
                 raw_action = log_entry.get("action", "UPDATE")
                 action = raw_action if raw_action in ("CREATE", "UPDATE", "SOFT_DELETE", "RESTORE") else "UPDATE"
-                created_at = log_entry.get("created_at") or datetime.now(timezone.utc).isoformat()
+                created_at = log_entry.get("timestamp") or log_entry.get("created_at") or datetime.now(timezone.utc).isoformat()
                 exists = conn.execute(
                     "SELECT 1 FROM audit_logs WHERE document_id = ? AND action = ? AND created_at = ?",
                     (doc_id, action, created_at),
                 ).fetchone()
                 if not exists:
-                    u_id = log_entry.get("user_id") or default_user_id
+                    u_id = log_entry.get("actor_id") or log_entry.get("user_id") or default_user_id
+                    u_initials = log_entry.get("actor_initials") or log_entry.get("user_initials") or "??"
+                    metadata = log_entry.get("details") or log_entry.get("metadata")
                     conn.execute(
                         """
                         INSERT INTO audit_logs (
@@ -385,10 +389,10 @@ def hydrate_sidecars_to_sqlite(
                             doc_id,
                             action,
                             u_id,
-                            log_entry.get("user_initials", "??"),
+                            u_initials,
                             log_entry.get("old_value"),
                             log_entry.get("new_value"),
-                            log_entry.get("metadata"),
+                            metadata,
                             created_at,
                         ),
                     )

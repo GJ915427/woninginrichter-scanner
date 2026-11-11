@@ -296,3 +296,63 @@ def test_toggle_and_batch_access_dual_write(isolated_env, monkeypatch):
         # Check Sidecar
         perms = json_storage.read_sidecar_access_permissions(doc_filename, documents_dir=docs_dir)
         assert perms == ["kelly.schreurs"]
+
+
+def test_hydration_dual_dialect_parity(isolated_env):
+    """Test that hydrate_sidecars_to_sqlite accurately maps both modern (timestamp/actor_id) and legacy (created_at/user_id) dialects into SQLite audit_logs."""
+    db_path = isolated_env["db_path"]
+    docs_dir = isolated_env["docs_dir"]
+    doc_filename = "domeinmodel_woninginrichting.md"
+    sidecar_path = docs_dir / "domeinmodel_woninginrichting.comments.json"
+
+    # Seed sidecar with modern comment_service dialect
+    sidecar_payload = {
+        "document_filename": doc_filename,
+        "annotations": [],
+        "audit_logs": [
+            {
+                "id": 101,
+                "entity_type": "annotation",
+                "entity_id": 50,
+                "action": "CREATE",
+                "actor_id": 1,
+                "actor_initials": "GW",
+                "timestamp": "2026-11-11T14:30:00Z",
+                "details": "Aangemaakt via Document Review",
+                "new_value": "Geselecteerde tekst",
+            }
+        ],
+    }
+    json_storage.write_sidecar_atomic(sidecar_path, sidecar_payload)
+
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        now_iso = datetime.now(timezone.utc).isoformat()
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO documents (id, filename, title, content, format, content_hash, file_size, created_at, updated_at)
+            VALUES (1, ?, 'Domeinmodel', 'Inhoud', 'markdown', 'hash123', 100, ?, ?)
+            """,
+            (doc_filename, now_iso, now_iso),
+        )
+        conn.commit()
+
+        # Run hydration
+        migration.hydrate_sidecars_to_sqlite(db=conn, documents_dir=docs_dir)
+
+        # Check that SQLite audit_logs contains the mapped fields accurately
+        row = conn.execute(
+            "SELECT * FROM audit_logs WHERE document_id = 1 AND action = 'CREATE'"
+        ).fetchone()
+        assert row is not None
+        assert row["user_id"] == 1
+        assert row["user_initials"] == "GW"
+        assert row["created_at"] == "2026-11-11T14:30:00Z"
+        assert row["metadata"] == "Aangemaakt via Document Review"
+
+        # Re-running hydration must be idempotent
+        migration.hydrate_sidecars_to_sqlite(db=conn, documents_dir=docs_dir)
+        count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM audit_logs WHERE document_id = 1 AND action = 'CREATE'"
+        ).fetchone()["cnt"]
+        assert count == 1

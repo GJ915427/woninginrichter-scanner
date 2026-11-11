@@ -5,6 +5,7 @@ enforcing author initials derivation, and strict comment self-editing access con
 """
 
 from datetime import datetime, timezone
+import logging
 import sqlite3
 from typing import Any, Dict, List, Optional, Union
 
@@ -12,6 +13,8 @@ from fastapi import HTTPException, status
 
 from doc_review_app.database import get_db
 from doc_review_app.models import User
+
+logger = logging.getLogger(__name__)
 
 
 def log_audit_entry(
@@ -236,8 +239,8 @@ def create_annotation(
                     "timestamp": now_iso,
                 }
                 save_annotation_to_sidecar(filename, ann_dict, audit_entry)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.error(f"Failed to save annotation to sidecar: {exc}", exc_info=True)
 
         return ann_dict
 
@@ -588,8 +591,8 @@ def add_comment_reply(
                     "timestamp": now_iso,
                 }
                 save_comment_reply_to_sidecar(filename, annotation_id, comment_dict, audit_entry)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.error(f"Failed to save comment reply to sidecar: {exc}", exc_info=True)
 
         return {
             "id": comment_id,
@@ -756,8 +759,8 @@ def edit_comment(
                     "timestamp": now_iso,
                 }
                 save_comment_edit_to_sidecar(filename, comment_id, clean_content, True, now_iso, audit_entry)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.error(f"Failed to save comment edit to sidecar: {exc}", exc_info=True)
 
         return {
             "id": comment_id,
@@ -910,8 +913,8 @@ def delete_comment(
                     "timestamp": now_iso,
                 }
                 save_comment_delete_to_sidecar(filename, comment_id, now_iso, audit_entry)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.error(f"Failed to save comment deletion to sidecar: {exc}", exc_info=True)
 
         return {
             "id": comment_id,
