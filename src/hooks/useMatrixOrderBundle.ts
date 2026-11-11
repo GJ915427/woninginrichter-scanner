@@ -15,7 +15,6 @@ import type {
   CellPriceData,
   DimensionSpec,
 } from '@/types/matrix';
-import { getSupabaseConfig } from '@/lib/supabase/client';
 
 export interface OrderLineDto {
   line_number: number;
@@ -181,31 +180,24 @@ export function bundleMatrixOrder(dto: OrderMatrixBundleDto): MatrixOrder {
 
 export async function fetchMatrixOrderBundle(
   orderId: string,
-  options?: { url?: string; anonKey?: string; fetchImpl?: typeof fetch }
+  options?: { url?: string; fetchImpl?: typeof fetch }
 ): Promise<MatrixOrder | null> {
   if (!orderId || !orderId.trim()) {
     return null;
   }
 
-  const config = getSupabaseConfig();
-  const baseUrl = options?.url || config.url;
-  const key = options?.anonKey || config.anonKey;
   const customFetch = options?.fetchImpl || fetch;
 
-  if (!baseUrl || !key) {
-    console.warn('Supabase URL of Key ontbreekt voor fetchMatrixOrderBundle');
-    return null;
-  }
-
   try {
-    const res = await customFetch(`${baseUrl}/rest/v1/rpc/get_order_matrix_bundle`, {
-      method: 'POST',
+    const cleanId = encodeURIComponent(orderId.trim());
+    const baseUrl = options?.url || '';
+    const endpoint = baseUrl ? `${baseUrl}/api/orders/${cleanId}` : `/api/orders/${cleanId}`;
+
+    const res = await customFetch(endpoint, {
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        apikey: key,
-        Authorization: `Bearer ${key}`,
+        Accept: 'application/json',
       },
-      body: JSON.stringify({ p_order_id: orderId.trim() }),
     });
 
     if (!res.ok) {

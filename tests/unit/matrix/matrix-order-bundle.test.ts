@@ -4,6 +4,7 @@ import {
   fetchMatrixOrderBundle,
   type OrderMatrixBundleDto,
 } from '@/hooks/useMatrixOrderBundle';
+import { fetchLiveOrderList } from '@/hooks/useLiveOrderList';
 import type { MatrixOrder } from '@/types/matrix';
 
 describe('Matrix Order Bundle Engine (Pure Node Vitest)', () => {
@@ -119,15 +120,15 @@ describe('Matrix Order Bundle Engine (Pure Node Vitest)', () => {
   });
 
   describe('fetchMatrixOrderBundle', () => {
-    it('calls get_order_matrix_bundle RPC and returns structured MatrixOrder', async () => {
+    // [SPEC-CHANGE-AUTHORIZED: Migratie van cloud RPC naar same-origin /api/orders/[id] conform goedgekeurd implementatieplan]
+    it('calls /api/orders/[id] endpoint and returns structured MatrixOrder', async () => {
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => sampleDto,
       });
 
       const order = await fetchMatrixOrderBundle('V26001376', {
-        url: 'https://mock.supabase.co',
-        anonKey: 'mock-key',
+        url: 'http://localhost:8088',
         fetchImpl: mockFetch as any,
       });
 
@@ -135,10 +136,12 @@ describe('Matrix Order Bundle Engine (Pure Node Vitest)', () => {
       expect(order!.id).toBe('V26001376');
       expect(order!.klant).toBe('Jaspers');
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://mock.supabase.co/rest/v1/rpc/get_order_matrix_bundle',
+        'http://localhost:8088/api/orders/V26001376',
         expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ p_order_id: 'V26001376' }),
+          method: 'GET',
+          headers: expect.objectContaining({
+            Accept: 'application/json',
+          }),
         })
       );
     });
@@ -151,12 +154,59 @@ describe('Matrix Order Bundle Engine (Pure Node Vitest)', () => {
       });
 
       const order = await fetchMatrixOrderBundle('NON_EXISTING', {
-        url: 'https://mock.supabase.co',
-        anonKey: 'mock-key',
+        url: 'http://localhost:8088',
         fetchImpl: mockFetch as any,
       });
 
       expect(order).toBeNull();
+    });
+  });
+
+  describe('fetchLiveOrderList (Same-Origin BFF Client)', () => {
+    it('haalt live orders op via /api/orders met query parameters', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          items: [{ id: 'ord-1', orderNumber: 'V26001001', klant: 'Pinkaarts' }],
+          total: 1,
+          filteredCount: 1,
+          limit: 20,
+          offset: 0,
+          catalogTotals: { all: 22000, orders: 16400, quotes: 5600 },
+        }),
+      });
+
+      const res = await fetchLiveOrderList({
+        q: 'Pinkaarts',
+        type: 'orders',
+        limit: 20,
+        fetchImpl: mockFetch as any,
+      });
+
+      expect(res).not.toBeNull();
+      expect(res?.items).toHaveLength(1);
+      expect(res?.catalogTotals.all).toBe(22000);
+      expect(res?.filteredCount).toBe(1);
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/orders?q=Pinkaarts&type=orders&limit=20',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({ Accept: 'application/json' }),
+        })
+      );
+    });
+
+    it('retourneert null bij HTTP netwerkfout zonder mock vervuiling', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+      });
+
+      const res = await fetchLiveOrderList({
+        fetchImpl: mockFetch as any,
+      });
+
+      expect(res).toBeNull();
     });
   });
 });
