@@ -69,13 +69,23 @@ def check_connection() -> bool:
         return False
 
 
+def _parse_iso_ts(ts: Optional[str]) -> float:
+    if not ts or not isinstance(ts, str):
+        return 0.0
+    try:
+        clean = ts.replace("Z", "+00:00")
+        return datetime.fromisoformat(clean).timestamp()
+    except (ValueError, TypeError):
+        return 0.0
+
+
 def _execute_push(filename: str, sidecar_data: Dict[str, Any]) -> bool:
     """Execute raw HTTP POST upsert to Supabase document_sidecars."""
     global cloud_sync_degraded
     if not settings.supabase_url or not settings.supabase_anon_key:
         return False
 
-    url = f"{settings.supabase_url.rstrip('/')}/rest/v1/document_sidecars"
+    url = f"{settings.supabase_url.rstrip('/')}/rest/v1/document_sidecars?on_conflict=filename"
     headers = _get_cloud_headers()
 
     # Basename sanitization & target doc resolution
@@ -354,7 +364,12 @@ def pull_sidecars_from_cloud(
         return 0
 
     pulled_count = 0
-    from doc_review_app.storage.json_storage import get_sidecar_path, read_sidecar
+    from doc_review_app.storage.json_storage import (
+        get_sidecar_path,
+        read_sidecar,
+        write_sidecar_atomic,
+        atomic_modify_sidecar,
+    )
 
     for row in rows:
         doc_filename = row.get("filename")
@@ -373,30 +388,54 @@ def pull_sidecars_from_cloud(
             continue
 
         sidecar_path = get_sidecar_path(doc_filename, target_dir)
-        should_write = False
-
-        if not sidecar_path.exists():
-            should_write = True
-        else:
+        local_data = None
+        if sidecar_path.exists():
             try:
                 local_data = read_sidecar(sidecar_path, filename_hint=doc_filename)
-                local_anns = local_data.get("annotations", [])
-                cloud_anns = sidecar_data.get("annotations", [])
-                if len(cloud_anns) > len(local_anns):
-                    should_write = True
-                elif len(cloud_anns) == len(local_anns) and len(cloud_anns) > 0:
-                    cloud_total_comments = sum(len(a.get("comments", [])) for a in cloud_anns)
-                    local_total_comments = sum(len(a.get("comments", [])) for a in local_anns)
-                    if cloud_total_comments > local_total_comments:
-                        should_write = True
             except Exception:
-                should_write = True
+                local_data = None
 
-        if should_write:
+        cloud_allowed = sidecar_data.get("allowed_usernames")
+        local_allowed = local_data.get("allowed_usernames") if local_data else None
+
+        cloud_ts = _parse_iso_ts(sidecar_data.get("updated_at") or row.get("updated_at"))
+        local_ts = _parse_iso_ts(local_data.get("updated_at")) if local_data else 0.0
+
+        should_full_write = False
+
+        if local_data is None:
+            should_full_write = True
+        else:
+            local_anns = local_data.get("annotations", [])
+            cloud_anns = sidecar_data.get("annotations", [])
+            cloud_total_comments = sum(len(a.get("comments", [])) for a in cloud_anns)
+            local_total_comments = sum(len(a.get("comments", [])) for a in local_anns)
+
+            if len(cloud_anns) > len(local_anns) or (len(cloud_anns) == len(local_anns) and cloud_total_comments > local_total_comments):
+                # Cloud has more annotations or replies -> Full replacement with field preservation
+                should_full_write = True
+                if cloud_allowed is None and local_allowed is not None:
+                    sidecar_data["allowed_usernames"] = list(local_allowed)
+                elif cloud_allowed is not None and local_allowed is not None:
+                    if local_ts > cloud_ts:
+                        sidecar_data["allowed_usernames"] = list(local_allowed)
+            else:
+                # Local comments are equal or newer -> NEVER do full replacement!
+                # In-place permission patch if cloud has permissions and cloud is newer
+                if cloud_allowed is not None and isinstance(cloud_allowed, list) and cloud_ts > local_ts:
+                    def patch_perms(d: Dict[str, Any]) -> None:
+                        d["allowed_usernames"] = list(cloud_allowed)
+                        d["updated_at"] = row.get("updated_at") or datetime.now(timezone.utc).isoformat()
+                    try:
+                        atomic_modify_sidecar(sidecar_path, patch_perms, filename_hint=doc_filename)
+                        pulled_count += 1
+                        logger.info("Patched allowed_usernames in-place from cloud for '%s'.", doc_filename)
+                    except Exception as e:
+                        logger.error("Failed in-place permission patch for '%s': %s", doc_filename, e)
+
+        if should_full_write:
             try:
-                temp_file = sidecar_path.with_suffix(".tmp.json")
-                temp_file.write_text(json.dumps(sidecar_data, indent=2, ensure_ascii=False), encoding="utf-8")
-                temp_file.replace(sidecar_path)
+                write_sidecar_atomic(sidecar_path, sidecar_data)
                 pulled_count += 1
                 logger.info("Restored sidecar from cloud for '%s' (%d annotations).", doc_filename, len(sidecar_data.get("annotations", [])))
             except Exception as e:

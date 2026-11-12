@@ -186,3 +186,112 @@ def test_all_seeded_users_can_authenticate_by_username_and_email():
             data = resp.json()
             assert "token" in data
             assert data["user"]["is_active"] is True
+
+
+# [SPEC-CHANGE-AUTHORIZED: Toevoegen TDD regressietests voor cloud pull met lege permissies en comment preservation met local permissie-behoud]
+def test_pull_sidecars_preserves_local_permissions_when_cloud_none(tmp_path: Path, monkeypatch: Any) -> None:
+    """When cloud has newer comments but allowed_usernames is None, local permissions are preserved."""
+    from doc_review_app.storage.json_storage import get_sidecar_path, write_sidecar_atomic, read_sidecar
+
+    doc_filename = "contract.md"
+    sc_path = get_sidecar_path(doc_filename, tmp_path)
+
+    # Local sidecar: 1 annotation, allowed_usernames = ["guy.wolters"]
+    local_data = {
+        "document_name": doc_filename,
+        "allowed_usernames": ["guy.wolters"],
+        "annotations": [
+            {
+                "id": 1,
+                "comments": [{"id": 1, "text": "Local comment"}],
+            }
+        ],
+        "updated_at": "2026-11-01T10:00:00Z",
+    }
+    write_sidecar_atomic(sc_path, local_data)
+
+    # Cloud sidecar: 2 annotations, allowed_usernames is None
+    cloud_data = {
+        "document_name": doc_filename,
+        "allowed_usernames": None,
+        "annotations": [
+            {
+                "id": 1,
+                "comments": [{"id": 1, "text": "Local comment"}],
+            },
+            {
+                "id": 2,
+                "comments": [{"id": 2, "text": "Cloud comment"}],
+            },
+        ],
+        "updated_at": "2026-11-02T10:00:00Z",
+    }
+
+    mock_resp = MagicMock()
+    mock_resp.status = 200
+    mock_resp.read.return_value = json.dumps([
+        {
+            "filename": doc_filename,
+            "sidecar_json": cloud_data,
+            "updated_at": "2026-11-02T10:00:00Z",
+        }
+    ]).encode("utf-8")
+    mock_resp.__enter__.return_value = mock_resp
+
+    monkeypatch.setattr("urllib.request.urlopen", lambda req, timeout=10: mock_resp)
+    monkeypatch.setattr(settings, "supabase_url", "https://mock-supabase.test")
+    monkeypatch.setattr(settings, "supabase_anon_key", "mock-anon-key")
+
+    updated = pull_sidecars_from_cloud(documents_dir=tmp_path)
+    assert updated == 1
+
+    final_data = read_sidecar(sc_path, filename_hint=doc_filename)
+    assert len(final_data["annotations"]) == 2
+    assert final_data["allowed_usernames"] == ["guy.wolters"]
+
+
+def test_pull_sidecars_patches_empty_allowed_usernames(tmp_path: Path, monkeypatch: Any) -> None:
+    """When cloud revokes all permissions (allowed_usernames=[]), in-place patch applies [] without dropping comments."""
+    from doc_review_app.storage.json_storage import get_sidecar_path, write_sidecar_atomic, read_sidecar
+
+    doc_filename = "revocation.md"
+    sc_path = get_sidecar_path(doc_filename, tmp_path)
+
+    # Local sidecar: 1 comment, allowed_usernames = ["guy.wolters"]
+    local_data = {
+        "document_name": doc_filename,
+        "allowed_usernames": ["guy.wolters"],
+        "comments": [{"id": "c1", "text": "Local comment", "replies": []}],
+        "updated_at": "2026-11-01T10:00:00Z",
+    }
+    write_sidecar_atomic(sc_path, local_data)
+
+    # Cloud sidecar: same comments, allowed_usernames = [] with newer timestamp
+    cloud_data = {
+        "document_name": doc_filename,
+        "allowed_usernames": [],
+        "comments": [{"id": "c1", "text": "Local comment", "replies": []}],
+        "updated_at": "2026-11-02T12:00:00Z",
+    }
+
+    mock_resp = MagicMock()
+    mock_resp.status = 200
+    mock_resp.read.return_value = json.dumps([
+        {
+            "filename": doc_filename,
+            "sidecar_json": cloud_data,
+            "updated_at": "2026-11-02T12:00:00Z",
+        }
+    ]).encode("utf-8")
+    mock_resp.__enter__.return_value = mock_resp
+
+    monkeypatch.setattr("urllib.request.urlopen", lambda req, timeout=10: mock_resp)
+    monkeypatch.setattr(settings, "supabase_url", "https://mock-supabase.test")
+    monkeypatch.setattr(settings, "supabase_anon_key", "mock-anon-key")
+
+    updated = pull_sidecars_from_cloud(documents_dir=tmp_path)
+    assert updated == 1
+
+    final_data = read_sidecar(sc_path, filename_hint=doc_filename)
+    assert len(final_data["comments"]) == 1
+    assert final_data["allowed_usernames"] == []

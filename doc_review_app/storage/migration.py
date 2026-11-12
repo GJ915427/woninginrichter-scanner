@@ -246,6 +246,7 @@ def hydrate_sidecars_to_sqlite(
         user_rows = conn.execute("SELECT id, username, initials FROM users").fetchall()
         user_by_username = {u["username"].lower(): u["id"] for u in user_rows if u["username"]}
         user_by_initials = {u["initials"].upper(): u["id"] for u in user_rows if u["initials"]}
+        valid_user_ids = {u["id"] for u in user_rows}
         default_user_id = user_rows[0]["id"] if user_rows else 1
 
         for doc in doc_rows:
@@ -373,29 +374,48 @@ def hydrate_sidecars_to_sqlite(
                     (doc_id, action, created_at),
                 ).fetchone()
                 if not exists:
-                    u_id = log_entry.get("actor_id") or log_entry.get("user_id") or default_user_id
-                    u_initials = log_entry.get("actor_initials") or log_entry.get("user_initials") or "??"
+                    # 1. Resolve initials first
+                    u_initials = str(log_entry.get("actor_initials") or log_entry.get("user_initials") or "??").strip()
+
+                    # 2. Coerce raw_uid safely to int
+                    raw_uid = log_entry.get("actor_id") or log_entry.get("user_id")
+                    try:
+                        parsed_uid = int(raw_uid) if raw_uid is not None else None
+                    except (ValueError, TypeError):
+                        parsed_uid = None
+
+                    # 3. Match via ID, fallback to initials, fallback to default_user_id
+                    if parsed_uid in valid_user_ids:
+                        u_id = parsed_uid
+                    elif u_initials and u_initials.upper() in user_by_initials:
+                        u_id = user_by_initials[u_initials.upper()]
+                    else:
+                        u_id = default_user_id
+
                     metadata = log_entry.get("details") or log_entry.get("metadata")
-                    conn.execute(
-                        """
-                        INSERT INTO audit_logs (
-                            entity_type, entity_id, document_id, action, user_id,
-                            user_initials, old_value, new_value, metadata, created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            log_entry.get("entity_type", "document"),
-                            log_entry.get("entity_id", doc_id),
-                            doc_id,
-                            action,
-                            u_id,
-                            u_initials,
-                            log_entry.get("old_value"),
-                            log_entry.get("new_value"),
-                            metadata,
-                            created_at,
-                        ),
-                    )
+                    try:
+                        conn.execute(
+                            """
+                            INSERT INTO audit_logs (
+                                entity_type, entity_id, document_id, action, user_id,
+                                user_initials, old_value, new_value, metadata, created_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                log_entry.get("entity_type", "document"),
+                                log_entry.get("entity_id", doc_id),
+                                doc_id,
+                                action,
+                                u_id,
+                                u_initials,
+                                log_entry.get("old_value"),
+                                log_entry.get("new_value"),
+                                metadata,
+                                created_at,
+                            ),
+                        )
+                    except Exception as log_exc:
+                        logger.warning(f"Could not hydrate audit log entry for doc {doc_id}: {log_exc}")
         conn.commit()
         return hydrated_count
 

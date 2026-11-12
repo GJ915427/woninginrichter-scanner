@@ -167,6 +167,16 @@ def upsert_document(
             doc_id = cursor.lastrowid
             action = "created"
 
+        if action == "created":
+            try:
+                inherit_or_default_document_access(
+                    filename=clean_filename,
+                    doc_id=doc_id,
+                    conn=conn,
+                )
+            except Exception as inh_exc:
+                logger.warning(f"Could not inherit access permissions for {clean_filename}: {inh_exc}")
+
         if user_id is not None and not is_admin:
             conn.execute(
                 "INSERT OR IGNORE INTO document_access (document_id, user_id, granted_at) VALUES (?, ?, ?)",
@@ -917,6 +927,132 @@ def batch_update_document_access(
         return _execute(conn)
 
 
+def inherit_or_default_document_access(
+    filename: str,
+    doc_id: int,
+    conn: sqlite3.Connection,
+    documents_dir: Optional[Path] = None,
+) -> List[str]:
+    """Inherit document access permissions from previous version or enforce default-deny.
+    
+    Performs atomic dual-write to sidecar JSON and SQLite document_access table.
+    """
+    import re
+    from doc_review_app.config import settings
+    from doc_review_app.storage.json_storage import (
+        get_sidecar_path,
+        read_sidecar,
+        write_sidecar_atomic,
+        default_sidecar_data,
+        LockManager,
+    )
+
+    clean_name = Path(filename).name
+    m = re.match(r"^(.*?)_v(\d+)(\.[^.]+)$", clean_name)
+    inherited_users: List[str] = []
+
+    target_dir = documents_dir or settings.documents_dir
+
+    if m:
+        prefix = m.group(1)
+        current_v = int(m.group(2))
+        ext = m.group(3)
+
+        candidate_filenames = set()
+        # 1. From database
+        try:
+            rows = conn.execute(
+                "SELECT filename FROM documents WHERE filename LIKE ? AND is_deleted = 0",
+                (f"{prefix}_v%{ext}",),
+            ).fetchall()
+            for r in rows:
+                candidate_filenames.add(r["filename"])
+        except Exception:
+            pass
+
+        # 2. From disk (markdown files or sidecars)
+        if target_dir.exists():
+            for p in target_dir.glob(f"{prefix}_v*"):
+                name = p.name
+                if name.endswith(".comments.json"):
+                    base = name[:-14]
+                    if not base.endswith(ext):
+                        base = f"{base}{ext}"
+                    candidate_filenames.add(base)
+                elif name.endswith(ext):
+                    candidate_filenames.add(name)
+
+        candidates = []
+        for fn in candidate_filenames:
+            pm = re.match(rf"^{re.escape(prefix)}_v(\d+){re.escape(ext)}$", fn)
+            if pm:
+                pv = int(pm.group(1))
+                if pv < current_v:
+                    candidates.append((pv, fn))
+
+        candidates.sort(key=lambda x: x[0], reverse=True)
+
+        for _, prev_filename in candidates:
+            found = False
+            prev_sc_path = get_sidecar_path(prev_filename, target_dir)
+            if prev_sc_path.exists():
+                try:
+                    prev_data = read_sidecar(prev_sc_path, filename_hint=prev_filename)
+                    if "allowed_usernames" in prev_data and isinstance(prev_data["allowed_usernames"], list):
+                        inherited_users = list(prev_data["allowed_usernames"])
+                        found = True
+                        break
+                except Exception:
+                    pass
+
+            if not found:
+                try:
+                    prev_row = conn.execute("SELECT id FROM documents WHERE filename = ?", (prev_filename,)).fetchone()
+                    if prev_row:
+                        acc_rows = conn.execute(
+                            "SELECT u.username FROM document_access da JOIN users u ON da.user_id = u.id WHERE da.document_id = ? ORDER BY u.username",
+                            (prev_row["id"],),
+                        ).fetchall()
+                        if acc_rows:
+                            inherited_users = [r["username"] for r in acc_rows]
+                            break
+                except Exception:
+                    pass
+
+    # Dual-write 1: Write/update on-disk sidecar
+    sidecar_path = get_sidecar_path(clean_name, target_dir)
+    lock = LockManager.get_lock(sidecar_path)
+    with lock:
+        if sidecar_path.exists():
+            try:
+                sc_data = read_sidecar(sidecar_path, filename_hint=clean_name)
+            except Exception:
+                sc_data = default_sidecar_data(clean_name)
+        else:
+            sc_data = default_sidecar_data(clean_name)
+
+        # Reboot guard: if sidecar already had allowed_usernames (e.g. pulled from cloud), don't overwrite!
+        if sc_data.get("allowed_usernames") is None:
+            sc_data["allowed_usernames"] = list(inherited_users)
+            sc_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+            write_sidecar_atomic(sidecar_path, sc_data)
+        else:
+            inherited_users = list(sc_data["allowed_usernames"])
+
+    # Dual-write 2: Insert into SQLite document_access table
+    now_iso = datetime.now(timezone.utc).isoformat()
+    conn.execute("DELETE FROM document_access WHERE document_id = ?", (doc_id,))
+    for username in inherited_users:
+        u_row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+        if u_row:
+            conn.execute(
+                "INSERT OR IGNORE INTO document_access (document_id, user_id, granted_at) VALUES (?, ?, ?)",
+                (doc_id, u_row["id"], now_iso),
+            )
+
+    return inherited_users
+
+
 def save_uploaded_file(
     filename: str,
     content_bytes: bytes,
@@ -983,6 +1119,22 @@ def save_uploaded_file(
         db=db,
         restore_deleted=True,
     )
+
+    # Dual-write access inheritance for newly uploaded document
+    doc_id = res.get("id")
+    if doc_id:
+        def _inherit(conn: sqlite3.Connection):
+            inherit_or_default_document_access(
+                filename=clean_name,
+                doc_id=doc_id,
+                conn=conn,
+                documents_dir=settings.documents_dir,
+            )
+        if db is not None:
+            _inherit(db)
+        else:
+            with get_db() as conn:
+                _inherit(conn)
     return res
 
 
@@ -1268,13 +1420,23 @@ def sync_local_directory_with_db(
             computed_hash = compute_sha256(content_str)
 
             if clean_name not in existing_docs:
-                upsert_document(
+                doc_res = upsert_document(
                     filename=clean_name,
                     content=content_str,
                     format=fmt,
                     db=conn,
                 )
                 added.append(clean_name)
+                if doc_res and doc_res.get("id"):
+                    try:
+                        inherit_or_default_document_access(
+                            filename=clean_name,
+                            doc_id=doc_res["id"],
+                            conn=conn,
+                            documents_dir=target_folder,
+                        )
+                    except Exception as inh_exc:
+                        logger.warning(f"Access inheritance for '{clean_name}' failed: {inh_exc}")
             else:
                 existing_hash = existing_docs[clean_name]["hash"]
                 if existing_hash != computed_hash:

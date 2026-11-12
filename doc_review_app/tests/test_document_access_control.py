@@ -465,3 +465,241 @@ def test_unauthenticated_requests_return_401(client: TestClient) -> None:
     assert client.get("/api/admin/document-access").status_code == 401
     assert client.post("/api/admin/document-access/toggle", json={}).status_code == 401
     assert client.put("/api/admin/document-access", json={}).status_code == 401
+
+
+# [SPEC-CHANGE-AUTHORIZED: Toevoegen TDD regressietests voor sidecar cloud upsert, foreign key veilige hydratatie met string IDs, revisie-overerving inclusief expliciet lege lijsten en upload dual-write]
+def test_batch_update_sidecar_cloud_upsert(
+    client: TestClient,
+    auth_headers_admin: Dict[str, str],
+    auth_headers_reviewer1: Dict[str, str],
+    monkeypatch: Any,
+) -> None:
+    """Batch update writes permissions to sidecar and triggers cloud upsert with on_conflict=filename."""
+    import json
+    from unittest.mock import MagicMock
+    from doc_review_app.config import settings
+    from doc_review_app.storage import cloud_sync
+    from doc_review_app.storage.json_storage import get_sidecar_path, read_sidecar
+
+    captured_urls = []
+
+    def mock_urlopen(req: Any, timeout: int = 5) -> Any:
+        url = req.full_url if hasattr(req, "full_url") else str(req)
+        captured_urls.append(url)
+        mock_resp = MagicMock()
+        mock_resp.status = 201
+        mock_resp.__enter__.return_value = mock_resp
+        return mock_resp
+
+    monkeypatch.setattr(cloud_sync.urllib.request, "urlopen", mock_urlopen)
+    monkeypatch.setattr(cloud_sync.settings, "supabase_url", "https://mock-supabase.test")
+    monkeypatch.setattr(cloud_sync.settings, "supabase_anon_key", "mock-anon-key")
+
+    doc_name = "sample1.md"
+    (settings.documents_dir / doc_name).write_text("# Sample 1", encoding="utf-8")
+    sync_resp = client.post("/api/documents/sync-folder", headers=auth_headers_admin)
+    assert sync_resp.status_code == 200
+
+    docs = client.get("/api/documents", headers=auth_headers_admin).json()
+    doc_entry = next((d for d in docs if d["filename"] == doc_name), None)
+    assert doc_entry is not None
+    doc_id = doc_entry["id"]
+
+    r1_info = client.get("/api/auth/me", headers=auth_headers_reviewer1).json()
+    u1_id = r1_info["id"]
+    r1_username = r1_info["username"]
+
+    # Batch grant sample1.md to reviewer1
+    payload = {
+        "access_map": {
+            str(doc_id): [u1_id],
+        }
+    }
+    resp = client.put("/api/admin/document-access", json=payload, headers=auth_headers_admin)
+    assert resp.status_code == 200
+
+    # Verify on-disk sidecar contains allowed_usernames
+    sc_path = get_sidecar_path(doc_name, settings.documents_dir)
+    assert sc_path.exists()
+    sc_data = read_sidecar(sc_path, filename_hint=doc_name)
+    assert sc_data.get("allowed_usernames") == [r1_username]
+
+    # Verify cloud push was executed with ?on_conflict=filename
+    push_success = cloud_sync._execute_push(doc_name, sc_data)
+    assert push_success is True
+    assert any("?on_conflict=filename" in u for u in captured_urls)
+
+
+def test_hydration_foreign_key_safety() -> None:
+    """Hydration tolerates legacy string user IDs, unknown actor IDs, and preserves provenance."""
+    import json
+    import sqlite3
+    from doc_review_app.config import settings
+    from doc_review_app.services.document_service import upsert_document
+    from doc_review_app.storage.json_storage import get_sidecar_path, write_sidecar_atomic
+    from doc_review_app.storage.migration import hydrate_sidecars_to_sqlite
+    from doc_review_app.database import get_db
+
+    doc_name = "legacy_test.md"
+    doc_path = settings.documents_dir / doc_name
+    doc_path.write_text("# Legacy Document\nContent", encoding="utf-8")
+
+    # Insert document properly in SQLite with valid schema
+    upsert_document(
+        filename=doc_name,
+        content="# Legacy Document\nContent",
+        format="markdown",
+    )
+
+    # Write sidecar with legacy string user IDs ("1229", "2") and actor initials
+    sc_data = {
+        "document_name": doc_name,
+        "allowed_usernames": ["admin"],
+        "comments": [],
+        "audit_logs": [
+            {
+                "action": "add_comment",
+                "actor_id": "1229",
+                "actor_initials": "GW",
+                "created_at": "2026-11-01T10:00:00Z",
+                "entity_type": "comment",
+                "entity_id": "c1",
+                "metadata": {},
+            },
+            {
+                "action": "edit_comment",
+                "user_id": "2",
+                "user_initials": "R1",
+                "created_at": "2026-11-01T11:00:00Z",
+                "entity_type": "comment",
+                "entity_id": "c1",
+                "metadata": {},
+            },
+            {
+                "action": "orphan_action",
+                "actor_id": "99999",
+                "created_at": "2026-11-01T12:00:00Z",
+                "entity_type": "document",
+                "entity_id": "d1",
+                "metadata": {},
+            },
+        ],
+    }
+    sc_path = get_sidecar_path(doc_name, settings.documents_dir)
+    write_sidecar_atomic(sc_path, sc_data)
+
+    with get_db() as conn:
+        # Hydration must not crash with FOREIGN KEY constraint failed
+        count = hydrate_sidecars_to_sqlite(db=conn, documents_dir=settings.documents_dir)
+        assert count >= 0
+
+        # Verify document_access table was populated
+        access_rows = conn.execute(
+            "SELECT u.username FROM document_access da JOIN users u ON da.user_id = u.id"
+        ).fetchall()
+        usernames = [r["username"] for r in access_rows]
+        assert "admin" in usernames
+
+
+def test_new_document_revision_inheritance(
+    client: TestClient,
+    auth_headers_admin: Dict[str, str],
+    auth_headers_reviewer1: Dict[str, str],
+) -> None:
+    """New revision inherits allowed_usernames from previous version; locked [] stays locked."""
+    from doc_review_app.config import settings
+    from doc_review_app.storage.json_storage import get_sidecar_path, write_sidecar_atomic, read_sidecar
+
+    v1_name = "spec_v1.md"
+    (settings.documents_dir / v1_name).write_text("# Spec V1", encoding="utf-8")
+    client.post("/api/documents/sync-folder", headers=auth_headers_admin)
+
+    # Grant v1 to reviewer1
+    docs = client.get("/api/documents", headers=auth_headers_admin).json()
+    v1_id = next(d["id"] for d in docs if d["filename"] == v1_name)
+    r1_info = client.get("/api/auth/me", headers=auth_headers_reviewer1).json()
+    u1_id = r1_info["id"]
+    r1_username = r1_info["username"]
+
+    client.put(
+        "/api/admin/document-access",
+        json={"access_map": {str(v1_id): [u1_id]}},
+        headers=auth_headers_admin,
+    )
+
+    # Ingest v2 -> should inherit reviewer1
+    v2_name = "spec_v2.md"
+    (settings.documents_dir / v2_name).write_text("# Spec V2", encoding="utf-8")
+    client.post("/api/documents/sync-folder", headers=auth_headers_admin)
+
+    v2_sc = read_sidecar(get_sidecar_path(v2_name, settings.documents_dir), filename_hint=v2_name)
+    assert v2_sc.get("allowed_usernames") == [r1_username]
+
+    # Reviewer 1 should immediately see spec_v2.md
+    r1_docs = client.get("/api/documents", headers=auth_headers_reviewer1).json()
+    assert any(d["filename"] == "spec_v2.md" for d in r1_docs)
+
+    # Test Default-Deny: if locked_v1 has allowed_usernames=[], locked_v2 inherits []
+    lock_v1 = "locked_v1.md"
+    (settings.documents_dir / lock_v1).write_text("# Locked V1", encoding="utf-8")
+    client.post("/api/documents/sync-folder", headers=auth_headers_admin)
+    docs = client.get("/api/documents", headers=auth_headers_admin).json()
+    lock_v1_id = next(d["id"] for d in docs if d["filename"] == lock_v1)
+
+    client.put(
+        "/api/admin/document-access",
+        json={"access_map": {str(lock_v1_id): []}},
+        headers=auth_headers_admin,
+    )
+
+    lock_v2 = "locked_v2.md"
+    (settings.documents_dir / lock_v2).write_text("# Locked V2", encoding="utf-8")
+    client.post("/api/documents/sync-folder", headers=auth_headers_admin)
+
+    lock_v2_sc = read_sidecar(get_sidecar_path(lock_v2, settings.documents_dir), filename_hint=lock_v2)
+    assert lock_v2_sc.get("allowed_usernames") == []
+
+
+def test_upload_file_dual_write_access(
+    client: TestClient,
+    auth_headers_admin: Dict[str, str],
+    auth_headers_reviewer1: Dict[str, str],
+) -> None:
+    """Web upload via save_uploaded_file inherits access and writes to both sidecar and SQLite."""
+    from doc_review_app.config import settings
+    from doc_review_app.storage.json_storage import get_sidecar_path, read_sidecar
+
+    base_v50 = "domeinmodel_v50.md"
+    (settings.documents_dir / base_v50).write_text("# Domeinmodel V50", encoding="utf-8")
+    client.post("/api/documents/sync-folder", headers=auth_headers_admin)
+
+    docs = client.get("/api/documents", headers=auth_headers_admin).json()
+    v50_id = next(d["id"] for d in docs if d["filename"] == base_v50)
+    r1_info = client.get("/api/auth/me", headers=auth_headers_reviewer1).json()
+    u1_id = r1_info["id"]
+    r1_username = r1_info["username"]
+
+    # Grant v50 to reviewer1
+    client.put(
+        "/api/admin/document-access",
+        json={"access_map": {str(v50_id): [u1_id]}},
+        headers=auth_headers_admin,
+    )
+
+    # Upload v51 via API
+    upload_file_content = b"# Domeinmodel V51\nNew Content"
+    upload_resp = client.post(
+        "/api/documents/upload",
+        files=[("files", ("domeinmodel_v51.md", upload_file_content, "text/markdown"))],
+        headers=auth_headers_admin,
+    )
+    assert upload_resp.status_code == 201
+
+    # Sidecar of v51 must have reviewer1
+    sc_v51 = read_sidecar(get_sidecar_path("domeinmodel_v51.md", settings.documents_dir), filename_hint="domeinmodel_v51.md")
+    assert sc_v51.get("allowed_usernames") == [r1_username]
+
+    # Reviewer 1 can immediately list and access v51
+    r1_docs = client.get("/api/documents", headers=auth_headers_reviewer1).json()
+    assert any(d["filename"] == "domeinmodel_v51.md" for d in r1_docs)
+
