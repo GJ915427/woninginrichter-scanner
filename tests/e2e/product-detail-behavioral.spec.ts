@@ -37,7 +37,7 @@ test.describe('Product Detail E2E Behavioral Suite', () => {
     await page.waitForLoadState('networkidle');
 
     // Click on Project capsule tab in TopNav
-    const projectTab = page.getByRole('button', { name: 'Project' });
+    const projectTab = page.getByRole('link', { name: 'Project' });
     await expect(projectTab).toBeVisible();
     await projectTab.click();
 

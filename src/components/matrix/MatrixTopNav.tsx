@@ -14,6 +14,12 @@ export interface MatrixTopNavProps {
 
 const NAV_TABS = ['Home', 'Klant', 'Object', 'Project', 'Ruimte', 'Product'] as const;
 
+export const TAB_ROUTES: Record<string, string> = {
+  Home: '/',
+  Project: '/matrix-orders',
+  Product: '/product-detail',
+};
+
 /**
  * MatrixTopNav (INV-GOV-22)
  * Rustige, ademende 56px capsule topbalk conform Google Stitch Optie 1.
@@ -50,17 +56,44 @@ export function MatrixTopNav({
         <div className="flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-container border border-slate-200/80">
           {NAV_TABS.map((tab) => {
             const isActive = tab === activeTab;
+            const route = TAB_ROUTES[tab];
+            const tabClasses = `min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-3.5 py-1.5 rounded-control font-semibold transition-all ${
+              isActive
+                ? 'bg-white text-blue-600 font-bold shadow-2xs border border-slate-200/50'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
+            }`;
+
+            if (route) {
+              return (
+                <Link
+                  key={tab}
+                  href={route}
+                  onClick={(e) => {
+                    if (isActive) {
+                      e.preventDefault();
+                      return;
+                    }
+                    onTabClick?.(tab);
+                  }}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={tabClasses}
+                >
+                  {tab}
+                </Link>
+              );
+            }
+
             return (
               <button
                 key={tab}
                 type="button"
-                onClick={() => onTabClick?.(tab)}
+                title="Binnenkort beschikbaar"
+                onClick={() => {
+                  if (isActive) return;
+                  onTabClick?.(tab);
+                }}
                 aria-current={isActive ? 'page' : undefined}
-                className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-3.5 py-1.5 rounded-control font-semibold transition-all ${
-                  isActive
-                    ? 'bg-white text-blue-600 font-bold shadow-2xs border border-slate-200/50'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
-                }`}
+                className={tabClasses}
               >
                 {tab}
               </button>

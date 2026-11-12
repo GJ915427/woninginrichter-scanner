@@ -6,6 +6,9 @@
  */
 
 import { getSupabaseConfig } from './client';
+import type { DimensionSpec, OrderLinePatchDto } from '../../types/matrix';
+
+export type { OrderLinePatchDto };
 
 export interface OrderCellPatchInput {
   quantity?: number;
@@ -18,33 +21,26 @@ export interface OrderCellPatchInput {
   dim?: string;
   note?: string;
   notes?: string;
-  dimensionSpec?: Record<string, unknown>;
-  dimension_spec?: Record<string, unknown>;
-  measuredDimensionSpec?: Record<string, unknown>;
-  measured_dimension_spec?: Record<string, unknown>;
+  dimensionSpec?: Record<string, unknown> | DimensionSpec | null;
+  dimension_spec?: Record<string, unknown> | DimensionSpec | null;
+  measuredDimensionSpec?: Record<string, unknown> | DimensionSpec | null;
+  measured_dimension_spec?: Record<string, unknown> | DimensionSpec | null;
   spatialUpdatedAt?: string;
   spatial_updated_at?: string;
 }
 
-export interface OrderLinePatchDto {
-  quantity?: number;
-  unit_price_cents?: number;
-  total_price_cents?: number;
-  base_total_price_cents?: number;
-  is_inbegrepen?: boolean;
-  dim?: string;
-  notes?: string;
-  dimension_spec?: Record<string, unknown>;
-  measured_dimension_spec?: Record<string, unknown>;
-  spatial_updated_at?: string;
-}
-
-export interface OrderMutationRpcPayload {
-  p_order_id: string;
-  p_line_number: number;
-  p_sub_line: number;
-  p_patch: OrderLinePatchDto;
-}
+export type OrderMutationRpcPayload =
+  | {
+      p_order_id: string;
+      p_line_number: number;
+      p_sub_line: number;
+      p_patch: OrderLinePatchDto;
+    }
+  | {
+      p_order_id: string;
+      p_line_id: number;
+      p_patch: OrderLinePatchDto;
+    };
 
 export interface OrderMutationResult {
   success: boolean;
@@ -93,12 +89,12 @@ export function toOrderLinePatchDto(input: OrderCellPatchInput): OrderLinePatchD
 
   const dimSpecVal = input.dimension_spec !== undefined ? input.dimension_spec : input.dimensionSpec;
   if (dimSpecVal !== undefined) {
-    dto.dimension_spec = dimSpecVal;
+    dto.dimension_spec = dimSpecVal as Record<string, unknown> | null;
   }
 
   const measDimSpecVal = input.measured_dimension_spec !== undefined ? input.measured_dimension_spec : input.measuredDimensionSpec;
   if (measDimSpecVal !== undefined) {
-    dto.measured_dimension_spec = measDimSpecVal;
+    dto.measured_dimension_spec = measDimSpecVal as Record<string, unknown> | null;
   }
 
   const spatialUpdatedVal = input.spatial_updated_at !== undefined ? input.spatial_updated_at : input.spatialUpdatedAt;
@@ -111,14 +107,15 @@ export function toOrderLinePatchDto(input: OrderCellPatchInput): OrderLinePatchD
 
 export async function updateMatrixCellRpc(options: {
   orderId: string;
-  lineNumber: number;
-  subLine: number;
+  lineNumber?: number;
+  subLine?: number;
+  lineId?: number;
   patch: OrderCellPatchInput;
   fetchImpl?: typeof fetch;
   url?: string;
   anonKey?: string;
 }): Promise<OrderMutationResult> {
-  const { orderId, lineNumber, subLine, patch, fetchImpl, url, anonKey } = options;
+  const { orderId, lineNumber, subLine, lineId, patch, fetchImpl, url, anonKey } = options;
 
   const config = getSupabaseConfig();
   const baseUrl = url || config.url;
@@ -133,12 +130,18 @@ export async function updateMatrixCellRpc(options: {
   }
 
   const patchDto = toOrderLinePatchDto(patch);
-  const payload: OrderMutationRpcPayload = {
-    p_order_id: orderId.trim(),
-    p_line_number: Math.floor(lineNumber),
-    p_sub_line: Math.floor(subLine),
-    p_patch: patchDto,
-  };
+  const payload: OrderMutationRpcPayload = lineId !== undefined
+    ? {
+        p_order_id: orderId.trim(),
+        p_line_id: Math.floor(lineId),
+        p_patch: patchDto,
+      }
+    : {
+        p_order_id: orderId.trim(),
+        p_line_number: Math.floor(lineNumber ?? 1),
+        p_sub_line: Math.floor(subLine ?? 0),
+        p_patch: patchDto,
+      };
 
   try {
     const res = await customFetch(`${baseUrl}/rest/v1/rpc/update_matrix_cell`, {

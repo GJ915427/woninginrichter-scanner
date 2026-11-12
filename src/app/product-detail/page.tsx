@@ -1,7 +1,6 @@
 'use client';
 
 import React, { Suspense, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { MatrixTopNav } from '../../components/matrix/MatrixTopNav';
 import { ProductDetailMetaHeader } from '../../components/product-detail/ProductDetailMetaHeader';
 import { ProductDetailStageBar } from '../../components/product-detail/ProductDetailStageBar';
@@ -13,19 +12,8 @@ import { ProductChecklistSafetyCard } from '../../components/product-detail/Prod
 import { MOCK_PRODUCT_DETAIL_DATA } from '../../fixtures/product-detail-fixtures';
 
 function ProductDetailContent() {
-  const router = useRouter();
   const [data] = useState(MOCK_PRODUCT_DETAIL_DATA);
   const [checklists, setChecklists] = useState(data.checklists);
-
-  // Return navigation to Matrix Orders when clicking 'Project'
-  const handleTabClick = useCallback(
-    (tab: string) => {
-      if (tab === 'Project') {
-        router.push('/matrix-orders');
-      }
-    },
-    [router]
-  );
 
   const handleToggleChecklist = useCallback((id: string) => {
     setChecklists((prev) =>
@@ -38,7 +26,7 @@ function ProductDetailContent() {
       {/* 1. Viewport-Isolated Top Navigation Header (INV-UX-01 mobile isolation) */}
       <header className="w-full overflow-x-auto no-scrollbar border-b border-slate-200 bg-white sticky top-0 z-30 shadow-2xs">
         <div className="min-w-[612px] sm:min-w-full">
-          <MatrixTopNav activeTab="Product" onTabClick={handleTabClick} />
+          <MatrixTopNav activeTab="Product" />
         </div>
       </header>
 

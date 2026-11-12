@@ -121,7 +121,7 @@ test.describe('Matrix Orders Enterprise Behavioral Suite', () => {
     // TopNav contains 6 capsule tabs conform Stitch Optie 1
     const topNav = page.locator('nav[aria-label="Hoofdnavigatie"]');
     await expect(topNav).toBeVisible();
-    await expect(topNav.locator('button:has-text("Project")')).toBeVisible();
+    await expect(topNav.getByRole('link', { name: 'Project' })).toBeVisible();
 
     // ActionBar displays active workflow stage tag
     const stageTag = page.locator('#workflowStageTag');
@@ -240,5 +240,19 @@ test.describe('Matrix Orders Enterprise Behavioral Suite', () => {
     // Escape closes drawer even when input is focused
     await page.keyboard.press('Escape');
     await expect(drawer).not.toBeVisible();
+  });
+
+  // TC-NAV-01: TopNav Link Navigation to Product Detail
+  test('TC-NAV-01: clicking Product capsule link in TopNav navigates to /product-detail', async ({ page }) => {
+    await page.goto('/matrix-orders');
+    await page.waitForLoadState('networkidle');
+
+    const topNav = page.locator('nav[aria-label="Hoofdnavigatie"]');
+    const productLink = topNav.getByRole('link', { name: 'Product' });
+    await expect(productLink).toBeVisible();
+    await productLink.click();
+
+    await page.waitForURL('**/product-detail');
+    expect(page.url()).toContain('/product-detail');
   });
 });
