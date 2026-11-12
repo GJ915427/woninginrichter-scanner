@@ -197,7 +197,15 @@ BEGIN
             COALESCE(l->>'unit', 'stuks'),
             COALESCE((l->>'unit_price_cents')::bigint, 0),
             COALESCE((l->>'total_price_cents')::bigint, 0),
-            COALESCE((l->>'total_price_cents')::bigint, 0),
+            COALESCE(
+                NULLIF(l->>'base_total_price_cents', '')::bigint,
+                CASE 
+                    WHEN COALESCE((l->>'is_inbegrepen')::boolean, false) AND NULLIF(l->>'unit_price_cents', '') IS NOT NULL AND NULLIF(l->>'quantity', '') IS NOT NULL
+                    THEN ROUND((l->>'unit_price_cents')::numeric * (l->>'quantity')::numeric)::bigint
+                    ELSE NULLIF(l->>'total_price_cents', '')::bigint
+                END,
+                0
+            ),
             COALESCE((l->>'is_hybrid')::boolean, false),
             COALESCE((l->>'is_inbegrepen')::boolean, false),
             COALESCE(l->>'etage_name', 'Begane grond'),
@@ -231,6 +239,7 @@ BEGIN
             total_price_cents = EXCLUDED.total_price_cents,
             base_total_price_cents = CASE 
                 WHEN EXCLUDED.is_inbegrepen AND order_lines.base_total_price_cents > 0 THEN order_lines.base_total_price_cents
+                WHEN NULLIF(EXCLUDED.base_total_price_cents, 0) IS NOT NULL THEN EXCLUDED.base_total_price_cents
                 ELSE EXCLUDED.total_price_cents 
             END,
             is_hybrid = EXCLUDED.is_hybrid,
@@ -247,8 +256,10 @@ BEGIN
         GET DIAGNOSTICS v_lines_count = ROW_COUNT;
 
         -- 3. Sanering van vervallen regels binnen dezelfde order op basis van parent external_line_id
+        -- Behoudt regels die lokaal zijn ingemeten (measured_dimension_spec IS NOT NULL)
         DELETE FROM public.order_lines
         WHERE order_id = v_order_id
+          AND measured_dimension_spec IS NULL
           AND external_line_id NOT IN (
             SELECT 
                 COALESCE(
@@ -293,6 +304,8 @@ BEGIN
     END IF;
 
     -- 1. Normaliseer JSONB null scalars ('null'::jsonb) en SQL NULLs defensief
+    IF NEW.erp_dimension_spec = 'null'::jsonb THEN NEW.erp_dimension_spec := NULL; END IF;
+    IF NEW.measured_dimension_spec = 'null'::jsonb THEN NEW.measured_dimension_spec := NULL; END IF;
     IF NEW.erp_dimension_spec IS NULL OR jsonb_typeof(NEW.erp_dimension_spec) != 'object' THEN
         v_erp := NULL;
     ELSE
@@ -483,7 +496,7 @@ BEGIN
         total_price_cents = CASE 
             WHEN v_is_inbegrepen THEN 0 
             WHEN NULLIF(p_patch->>'total_price_cents', '') IS NOT NULL THEN (p_patch->>'total_price_cents')::bigint
-            WHEN NOT v_is_dimensional THEN ROUND(
+            WHEN NOT v_is_dimensional AND (NULLIF(p_patch->>'unit_price_cents', '') IS NOT NULL OR NULLIF(p_patch->>'quantity', '') IS NOT NULL) THEN ROUND(
                 COALESCE(NULLIF(p_patch->>'unit_price_cents', '')::bigint, unit_price_cents) * 
                 COALESCE(NULLIF(p_patch->>'quantity', '')::numeric, quantity)
             ) 
@@ -496,6 +509,10 @@ BEGIN
             WHEN p_patch ? 'dimension_spec' THEN p_patch->'dimension_spec'
             ELSE measured_dimension_spec
         END,
+        spatial_updated_at = COALESCE(
+            NULLIF(p_patch->>'spatial_updated_at', '')::timestamptz,
+            CASE WHEN p_patch ? 'measured_dimension_spec' OR p_patch ? 'dimension_spec' THEN now() ELSE spatial_updated_at END
+        ),
         updated_at = now()
     WHERE id = p_line_id AND order_id = v_actual_order_id
     RETURNING to_jsonb(public.order_lines.*) INTO v_updated_line;
@@ -547,6 +564,9 @@ BEGIN
     IF v_actual_order_id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'error', 'Order niet gevonden');
     END IF;
+
+    -- Concurrency lock op order_id (Uniforme Lock Hiërarchie: Lock First!)
+    PERFORM pg_advisory_xact_lock(hashtext(v_actual_order_id));
 
     SELECT id INTO v_target_line_id
     FROM public.order_lines

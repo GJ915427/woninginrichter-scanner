@@ -75,6 +75,16 @@ describe('order-mutation-client', () => {
       expect(dto.measured_dimension_spec).toEqual({ type: 'window_2d', widthMm: 1250, heightMm: 2100 });
       expect(dto.spatial_updated_at).toBe(timestamp);
     });
+
+    it('herstelt base_total_price_cents bij untoggle van isInbegrepen', () => {
+      const dto = toOrderLinePatchDto({
+        baseTotalPriceCents: 8500,
+        isInbegrepen: false,
+      });
+
+      expect(dto.is_inbegrepen).toBe(false);
+      expect(dto.base_total_price_cents).toBe(8500);
+    });
   });
 
   describe('updateMatrixCellRpc', () => {
@@ -123,6 +133,40 @@ describe('order-mutation-client', () => {
       expect(result.success).toBe(true);
       expect(result.totalAmountCents).toBe(150000);
       expect(result.updatedLine).toBeDefined();
+    });
+
+    it('verstuurt geoptimaliseerde 3-argument payload naar update_matrix_cell indien lineId aanwezig is', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          updated_line: { id: 101, line_number: 10, sub_line: 0, quantity: 2 },
+          total_amount_cents: 150000,
+        }),
+      });
+
+      const result = await updateMatrixCellRpc({
+        orderId: 'V26001376',
+        lineId: 101,
+        patch: { quantity: 2, unitPriceCents: 75000 },
+        fetchImpl: mockFetch as unknown as typeof fetch,
+        url: 'https://test-supabase.co',
+        anonKey: 'test-anon-key',
+      });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [, calledOptions] = mockFetch.mock.calls[0];
+      const body = JSON.parse(calledOptions.body);
+      expect(body).toEqual({
+        p_order_id: 'V26001376',
+        p_line_id: 101,
+        p_patch: {
+          quantity: 2,
+          unit_price_cents: 75000,
+          total_price_cents: 150000,
+        },
+      });
+      expect(result.success).toBe(true);
     });
 
     it('handelt non-ok responses fail-closed af zonder unhandled crash', async () => {

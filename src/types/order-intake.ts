@@ -16,6 +16,7 @@ export interface RawOrderLineInput {
   total_price_cents?: number;
   base_total_price_cents?: number;
   is_hybrid?: boolean;
+  is_inbegrepen?: boolean;
   etage_name?: string;
   room_name?: string;
   window_name?: string;

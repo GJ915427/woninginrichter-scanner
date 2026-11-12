@@ -262,8 +262,8 @@ export interface OrderLinePatchDto {
   is_inbegrepen?: boolean;
   dim?: string;
   notes?: string;
-  dimension_spec?: Record<string, unknown>;
-  measured_dimension_spec?: Record<string, unknown>;
+  dimension_spec?: Record<string, unknown> | null;
+  measured_dimension_spec?: Record<string, unknown> | null;
   spatial_updated_at?: string;
 }
 
