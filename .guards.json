@@ -44,6 +44,22 @@
         "tests/e2e/matrix-niveaus-docking.spec.ts"
       ]
     },
+    "src/components/product-detail": {
+      "e2e_command": [
+        "npx",
+        "playwright",
+        "test",
+        "tests/e2e/product-detail-behavioral.spec.ts"
+      ]
+    },
+    "src/app/product-detail": {
+      "e2e_command": [
+        "npx",
+        "playwright",
+        "test",
+        "tests/e2e/product-detail-behavioral.spec.ts"
+      ]
+    },
     "tests/e2e": {
       "e2e_command": [
         "npx",

@@ -54,9 +54,14 @@ EMOJI_ENFORCED_COMPONENTS = {
     "src/components/matrix/MatrixProductRow.tsx",
 }
 
+EMOJI_ENFORCED_DIRS = {
+    'src/components/product-detail',
+}
+
 MVP_DIRECTORIES = [
     'src/components/matrix',
     'src/components/configurator',
+    'src/components/product-detail',
 ]
 
 def strip_comments(text: str) -> str:
@@ -261,7 +266,7 @@ def main() -> int:
                 print(f"[HEX_COLOR_VIOLATION] {rel_posix}:{line_num} contains hardcoded hex '{hex_code}' -> '{line_text}'")
 
         # 2b. Raw Unicode emoji check with Ratchet Baseline (INV-UI-EMOJI-BAN)
-        enforce_emojis = rel_posix in EMOJI_ENFORCED_COMPONENTS
+        enforce_emojis = rel_posix in EMOJI_ENFORCED_COMPONENTS or any(rel_posix.startswith(d + '/') for d in EMOJI_ENFORCED_DIRS)
         if enforce_emojis:
             emoji_violations = scan_emojis(target)
             if emoji_violations:

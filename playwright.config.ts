@@ -21,11 +21,19 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      name: 'tablet',
+      use: { viewport: { width: 870, height: 900 } },
+    },
+    {
+      name: 'mobile',
+      use: { ...devices['Pixel 5'], viewport: { width: 375, height: 667 } },
     },
   ],
   webServer: {
-    command: 'npx next dev -p 8088 -H 127.0.0.1',
+    command: 'npx next dev --webpack -p 8088 -H 127.0.0.1',
     url: 'http://127.0.0.1:8088',
     reuseExistingServer: true,
     timeout: 120000,

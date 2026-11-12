@@ -4,7 +4,7 @@
   "description": "Woninginrichter 3D Mobile Scanner & Plattegrond Engine",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 8088",
+    "dev": "next dev --webpack -p 8088",
     "build": "next build",
     "start": "next start -p 8088",
     "test": "vitest run",
