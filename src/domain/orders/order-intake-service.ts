@@ -97,6 +97,7 @@ export class OrderIntakeService {
     const mainLine: IngestedOrderLine = {
       line_number: line.line_number,
       sub_line: 0,
+      external_line_id: line.external_line_id,
       product_id: productId,
       product_code: line.product_code || 'TEKST',
       product_group_code: materialGroupCode,
@@ -105,6 +106,7 @@ export class OrderIntakeService {
       unit: line.unit || 'stuks',
       unit_price_cents: unitPrice,
       total_price_cents: totalPrice,
+      base_total_price_cents: line.base_total_price_cents ?? totalPrice,
       is_hybrid: true,
       is_inbegrepen: false,
       etage_name: etage,
@@ -114,6 +116,8 @@ export class OrderIntakeService {
       dim: line.dim || null,
       notes: line.notes || null,
       dimension_spec: line.dimension_spec || null,
+      erp_dimension_spec: line.erp_dimension_spec || line.dimension_spec || null,
+      measured_dimension_spec: line.measured_dimension_spec || null,
     };
 
     // 2. Bepaal afgeleide service discipline
@@ -135,9 +139,11 @@ export class OrderIntakeService {
     }
 
     // 3. Afgeleide Serviceregel: sub_line = 1 (verplicht 0€ & isInbegrepen = true)
+    // Erft external_line_id van parent hoofdregel ter reconciliatiebehoud
     const serviceLine: IngestedOrderLine = {
       line_number: line.line_number,
       sub_line: 1,
+      external_line_id: line.external_line_id,
       product_id: null,
       product_code: 'SERVICE',
       product_group_code: serviceGroupCode,
@@ -146,6 +152,7 @@ export class OrderIntakeService {
       unit: 'stuks',
       unit_price_cents: 0,
       total_price_cents: 0,
+      base_total_price_cents: 0,
       is_hybrid: true,
       is_inbegrepen: true,
       etage_name: etage,
@@ -154,7 +161,9 @@ export class OrderIntakeService {
       position_id: line.position_id,
       dim: line.dim || null,
       notes: line.notes || null,
-      dimension_spec: line.dimension_spec || null,
+      dimension_spec: null,
+      erp_dimension_spec: null,
+      measured_dimension_spec: null,
     };
 
     return [mainLine, serviceLine];
@@ -195,6 +204,7 @@ export class OrderIntakeService {
     const singleLine: IngestedOrderLine = {
       line_number: rawLine.line_number,
       sub_line: 0,
+      external_line_id: rawLine.external_line_id,
       product_id: resolvedProduct ? resolvedProduct.id : null,
       product_code: rawLine.product_code || 'TEKST',
       product_group_code: groupCode,
@@ -203,8 +213,9 @@ export class OrderIntakeService {
       unit: rawLine.unit || 'stuks',
       unit_price_cents: unitPrice,
       total_price_cents: totalPrice,
+      base_total_price_cents: rawLine.base_total_price_cents ?? totalPrice,
       is_hybrid: false,
-      is_inbegrepen: false,
+      is_inbegrepen: Boolean(rawLine.is_inbegrepen),
       etage_name: rawLine.etage_name || 'Begane grond',
       room_name: rawLine.room_name,
       window_name: rawLine.window_name,
@@ -212,6 +223,8 @@ export class OrderIntakeService {
       dim: rawLine.dim || null,
       notes: rawLine.notes || null,
       dimension_spec: rawLine.dimension_spec || null,
+      erp_dimension_spec: rawLine.erp_dimension_spec || rawLine.dimension_spec || null,
+      measured_dimension_spec: rawLine.measured_dimension_spec || null,
     };
 
     return [singleLine];
@@ -281,14 +294,22 @@ export function mapLogicTradeOrderToRawInput(
       ? l.lineNumber
       : (index + 1) * 10;
 
+    const externalLineId = l.id !== undefined && l.id !== null ? String(l.id) : (l.external_line_id ? String(l.external_line_id) : undefined);
+    const baseTotalPriceCents = typeof l.base_total_price_cents === 'number'
+      ? l.base_total_price_cents
+      : totalPriceCents;
+
     return {
       line_number: lineNumber,
+      external_line_id: externalLineId,
       product_code: code,
       description,
       quantity: qty,
       unit: l.unit || 'stuks',
       unit_price_cents: unitPriceCents,
       total_price_cents: totalPriceCents,
+      base_total_price_cents: baseTotalPriceCents,
+      is_inbegrepen: Boolean(l.is_inbegrepen),
       etage_name: l.etage_name || 'Begane grond',
       room_name: l.room_name,
       window_name: l.window_name,
@@ -296,6 +317,8 @@ export function mapLogicTradeOrderToRawInput(
       dim: l.dim || null,
       notes: typeof l.comment === 'string' ? l.comment : (l.comment?.intern || l.comment?.extern || null),
       dimension_spec: l.dimension_spec || null,
+      erp_dimension_spec: l.erp_dimension_spec || l.dimension_spec || null,
+      measured_dimension_spec: l.measured_dimension_spec || null,
       is_hybrid: l.is_hybrid,
     };
   });

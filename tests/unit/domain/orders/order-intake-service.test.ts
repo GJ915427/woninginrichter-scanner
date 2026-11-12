@@ -321,5 +321,65 @@ describe('OrderIntakeService & Hybrid Line Ingest SSOT', () => {
       expect(rawInput.fsm_phase).toBe('2. Offerte');
       expect(rawInput.id).toBe('10442');
     });
+
+    it('maps external_line_id, base_total_price_cents, and dual-state dimension specs in mapLogicTradeOrderToRawInput', () => {
+      const orderPayload = {
+        id: 'V26001005',
+        orderNumber: 'V26001005',
+      };
+      const linesPayload = [
+        {
+          id: 554433,
+          code: 'A00034988',
+          description: 'Duette Shade',
+          quantity: 1,
+          partPrice: 120.00,
+          linePrice: 120.00,
+          base_total_price_cents: 12000,
+          is_inbegrepen: false,
+          erp_dimension_spec: { type: 'window_2d', widthMm: 1200, heightMm: 2000 },
+        },
+      ];
+
+      const rawInput = mapLogicTradeOrderToRawInput(orderPayload, linesPayload);
+      expect(rawInput.lines).toHaveLength(1);
+      expect(rawInput.lines[0].external_line_id).toBe('554433');
+      expect(rawInput.lines[0].base_total_price_cents).toBe(12000);
+      expect(rawInput.lines[0].is_inbegrepen).toBe(false);
+      expect(rawInput.lines[0].erp_dimension_spec).toEqual({ type: 'window_2d', widthMm: 1200, heightMm: 2000 });
+    });
+
+    it('propagates external_line_id and base_total_price_cents across splitHybridOrderLine', async () => {
+      const hybridLine = {
+        line_number: 10,
+        external_line_id: 'EXT_7788',
+        product_code: 'A00034988',
+        description: 'Duette inclusief montage',
+        quantity: 2,
+        unit: 'stuks',
+        unit_price_cents: 25000,
+        total_price_cents: 50000,
+        base_total_price_cents: 50000,
+        dimension_spec: { type: 'window_2d', widthMm: 1000, heightMm: 1500 },
+      };
+
+      const result = await service.splitHybridOrderLine(hybridLine, 1002, '2.4');
+      expect(result).toHaveLength(2);
+
+      // Subline 0 (Hoofdregel):
+      expect(result[0].sub_line).toBe(0);
+      expect(result[0].external_line_id).toBe('EXT_7788');
+      expect(result[0].base_total_price_cents).toBe(50000);
+      expect(result[0].total_price_cents).toBe(50000);
+      expect(result[0].is_inbegrepen).toBe(false);
+      expect(result[0].erp_dimension_spec).toEqual({ type: 'window_2d', widthMm: 1000, heightMm: 1500 });
+
+      // Subline 1 (Afgeleide Serviceregel):
+      expect(result[1].sub_line).toBe(1);
+      expect(result[1].external_line_id).toBe('EXT_7788'); // Behoudt parent id ter reconciliatie
+      expect(result[1].base_total_price_cents).toBe(0);
+      expect(result[1].total_price_cents).toBe(0);
+      expect(result[1].is_inbegrepen).toBe(true);
+    });
   });
 });
