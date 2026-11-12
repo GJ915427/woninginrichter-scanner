@@ -16,6 +16,12 @@ export interface LogicTradeOrderLine {
   positionName?: string;
   roomName?: string;
   etageName?: string;
+  externalLineId?: string;
+  baseTotalPriceCents?: number;
+  erpDimensionSpec?: Record<string, unknown> | null;
+  measuredDimensionSpec?: Record<string, unknown> | null;
+  diffStatus?: string;
+  diffDetails?: Record<string, unknown> | null;
 }
 
 export type PricingMode = 'm2' | 'm1_width' | 'm1_height' | 'unit';
@@ -72,8 +78,10 @@ export interface CellPriceData {
   dim?: string;                 // Dimensie / maatvoering (e.g. "1100 × 2240")
   note?: string;                // Specificatie (e.g. "TruFit MA", "Waveplooi op rail")
   line?: number;                // Referentie naar LogicTrade orderregel
+  lineId?: number;              // Database primary key ID van order_lines
   subPos?: string;              // Sub-positie letter ("a" | "b" | "c")
   isInbegrepen?: boolean;       // True voor stelposten / inbegrepen diensten
+  baseTotalPriceCents?: number; // Invariante basisprijs voor CPQ herstel
   baseRateCents?: number;       // Tarief per m² of m¹ in integer centen
   pricingMode?: PricingMode;    // Modus voor dimensionale berekening
   breedte_mm?: number;          // Breedte in mm
@@ -82,6 +90,9 @@ export interface CellPriceData {
   opmerking?: string;           // Vrije montagenotitie
   isCalculated?: boolean;       // Vlag voor dynamische calculatie
   dimensionSpec?: DimensionSpec; // Polymorfe domein-specificatie (Zero Data Loss)
+  measuredDimensionSpec?: DimensionSpec | Record<string, unknown> | null;
+  erpDimensionSpec?: DimensionSpec | Record<string, unknown> | null;
+  diffStatus?: 'in_sync' | 'survey_diff' | 'specification_divergence' | 'price_divergence' | 'full_divergence';
 }
 
 export interface Position {
@@ -247,9 +258,13 @@ export interface OrderLinePatchDto {
   quantity?: number;
   unit_price_cents?: number;
   total_price_cents?: number;
+  base_total_price_cents?: number;
+  is_inbegrepen?: boolean;
   dim?: string;
   notes?: string;
   dimension_spec?: Record<string, unknown>;
+  measured_dimension_spec?: Record<string, unknown>;
+  spatial_updated_at?: string;
 }
 
 export interface MatrixOrder {

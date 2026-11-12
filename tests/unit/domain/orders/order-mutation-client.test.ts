@@ -49,6 +49,32 @@ describe('order-mutation-client', () => {
         notes: 'Alleen notitie bijwerken',
       });
     });
+
+    it('mapt isInbegrepen en zet total_price_cents op 0 bij inbegrepen regels indien niet expliciet overschreven', () => {
+      const dto = toOrderLinePatchDto({
+        quantity: 2,
+        unitPriceCents: 5000,
+        baseTotalPriceCents: 10000,
+        isInbegrepen: true,
+      });
+
+      expect(dto.is_inbegrepen).toBe(true);
+      expect(dto.base_total_price_cents).toBe(10000);
+      expect(dto.total_price_cents).toBe(0);
+    });
+
+    it('behoudt base_total_price_cents voor CPQ herstel en mapt measured_dimension_spec en spatial_updated_at', () => {
+      const timestamp = '2026-11-12T17:00:00.000Z';
+      const dto = toOrderLinePatchDto({
+        baseTotalPriceCents: 15400,
+        measuredDimensionSpec: { type: 'window_2d', widthMm: 1250, heightMm: 2100 },
+        spatialUpdatedAt: timestamp,
+      });
+
+      expect(dto.base_total_price_cents).toBe(15400);
+      expect(dto.measured_dimension_spec).toEqual({ type: 'window_2d', widthMm: 1250, heightMm: 2100 });
+      expect(dto.spatial_updated_at).toBe(timestamp);
+    });
   });
 
   describe('updateMatrixCellRpc', () => {

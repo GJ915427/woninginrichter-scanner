@@ -7,12 +7,14 @@
 
 export interface RawOrderLineInput {
   line_number: number;
+  external_line_id?: string;
   product_code?: string;
   description: string;
   quantity?: number;
   unit?: string;
   unit_price_cents?: number;
   total_price_cents?: number;
+  base_total_price_cents?: number;
   is_hybrid?: boolean;
   etage_name?: string;
   room_name?: string;
@@ -21,6 +23,8 @@ export interface RawOrderLineInput {
   dim?: string;
   notes?: string;
   dimension_spec?: Record<string, unknown> | null;
+  erp_dimension_spec?: Record<string, unknown> | null;
+  measured_dimension_spec?: Record<string, unknown> | null;
 }
 
 export interface RawLogicTradeOrderInput {
@@ -44,6 +48,7 @@ export interface RawLogicTradeOrderInput {
 export interface IngestedOrderLine {
   line_number: number;
   sub_line: number;
+  external_line_id?: string;
   product_id: number | null;
   product_code: string;
   product_group_code: string;
@@ -52,6 +57,7 @@ export interface IngestedOrderLine {
   unit: string;
   unit_price_cents: number;
   total_price_cents: number;
+  base_total_price_cents?: number;
   is_hybrid: boolean;
   is_inbegrepen: boolean;
   etage_name: string;
@@ -61,6 +67,10 @@ export interface IngestedOrderLine {
   dim?: string | null;
   notes?: string | null;
   dimension_spec?: Record<string, unknown> | null;
+  erp_dimension_spec?: Record<string, unknown> | null;
+  measured_dimension_spec?: Record<string, unknown> | null;
+  diff_status?: string;
+  diff_details?: Record<string, unknown> | null;
 }
 
 export interface IngestedOrderHeader {

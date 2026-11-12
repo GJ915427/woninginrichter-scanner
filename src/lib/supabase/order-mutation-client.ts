@@ -11,20 +11,32 @@ export interface OrderCellPatchInput {
   quantity?: number;
   unitPriceCents?: number;
   totalPriceCents?: number;
+  baseTotalPriceCents?: number;
+  base_total_price_cents?: number;
+  isInbegrepen?: boolean;
+  is_inbegrepen?: boolean;
   dim?: string;
   note?: string;
   notes?: string;
   dimensionSpec?: Record<string, unknown>;
   dimension_spec?: Record<string, unknown>;
+  measuredDimensionSpec?: Record<string, unknown>;
+  measured_dimension_spec?: Record<string, unknown>;
+  spatialUpdatedAt?: string;
+  spatial_updated_at?: string;
 }
 
 export interface OrderLinePatchDto {
   quantity?: number;
   unit_price_cents?: number;
   total_price_cents?: number;
+  base_total_price_cents?: number;
+  is_inbegrepen?: boolean;
   dim?: string;
   notes?: string;
   dimension_spec?: Record<string, unknown>;
+  measured_dimension_spec?: Record<string, unknown>;
+  spatial_updated_at?: string;
 }
 
 export interface OrderMutationRpcPayload {
@@ -52,8 +64,20 @@ export function toOrderLinePatchDto(input: OrderCellPatchInput): OrderLinePatchD
     dto.unit_price_cents = Number(input.unitPriceCents);
   }
 
+  const basePrice = input.baseTotalPriceCents !== undefined ? input.baseTotalPriceCents : input.base_total_price_cents;
+  if (basePrice !== undefined) {
+    dto.base_total_price_cents = Number(basePrice);
+  }
+
+  const inbegrepen = input.isInbegrepen !== undefined ? input.isInbegrepen : input.is_inbegrepen;
+  if (inbegrepen !== undefined) {
+    dto.is_inbegrepen = Boolean(inbegrepen);
+  }
+
   if (input.totalPriceCents !== undefined) {
     dto.total_price_cents = Number(input.totalPriceCents);
+  } else if (dto.is_inbegrepen) {
+    dto.total_price_cents = 0;
   } else if (dto.quantity !== undefined && dto.unit_price_cents !== undefined) {
     dto.total_price_cents = Math.round(dto.quantity * dto.unit_price_cents);
   }
@@ -70,6 +94,16 @@ export function toOrderLinePatchDto(input: OrderCellPatchInput): OrderLinePatchD
   const dimSpecVal = input.dimension_spec !== undefined ? input.dimension_spec : input.dimensionSpec;
   if (dimSpecVal !== undefined) {
     dto.dimension_spec = dimSpecVal;
+  }
+
+  const measDimSpecVal = input.measured_dimension_spec !== undefined ? input.measured_dimension_spec : input.measuredDimensionSpec;
+  if (measDimSpecVal !== undefined) {
+    dto.measured_dimension_spec = measDimSpecVal;
+  }
+
+  const spatialUpdatedVal = input.spatial_updated_at !== undefined ? input.spatial_updated_at : input.spatialUpdatedAt;
+  if (spatialUpdatedVal !== undefined) {
+    dto.spatial_updated_at = spatialUpdatedVal;
   }
 
   return dto;
