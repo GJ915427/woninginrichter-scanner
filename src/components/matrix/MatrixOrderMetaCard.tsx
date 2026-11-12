@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Paperclip, ChevronDown } from 'lucide-react';
 import { MatrixOrder, OrderSummaryItem } from '../../types/matrix';
 import { centsToEuroString } from '../../utils/matrix-pricing';
+import { MatrixOrderPickerPopover } from './MatrixOrderPickerPopover';
 
 export interface MatrixOrderMetaCardProps {
   selectedOrder: MatrixOrder;
@@ -87,60 +88,15 @@ export function MatrixOrderMetaCard({
             <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" aria-hidden="true" />
           </button>
 
-          {isPopoverOpen && (
-            <div
-              role="listbox"
-              aria-label="Order selectielijst"
-              className="absolute top-full left-0 mt-1 w-80 bg-white rounded-container shadow-xl border border-slate-200 p-3 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
-            >
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-                <span className="font-bold text-slate-800">Orders ({orderList.length})</span>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    aria-label="Vorige order"
-                    disabled={currentIndex <= 0}
-                    onClick={() => currentIndex > 0 && switchOrder(currentIndex - 1, orderList[currentIndex - 1]?.id)}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
-                  >‹</button>
-                  <span className="font-mono text-xs text-slate-600 px-1 font-semibold">{currentIndex + 1} / {orderList.length}</span>
-                  <button
-                    type="button"
-                    aria-label="Volgende order"
-                    disabled={currentIndex >= orderList.length - 1}
-                    onClick={() => currentIndex < orderList.length - 1 && switchOrder(currentIndex + 1, orderList[currentIndex + 1]?.id)}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-control hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 font-bold"
-                  >›</button>
-                </div>
-              </div>
-
-              <div className="max-h-60 overflow-y-auto space-y-1">
-                {orderList.map((ord, idx) => {
-                  const isSelected = idx === currentIndex || ord.id === selectedOrder.id;
-                  return (
-                    <button
-                      key={ord.id}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      onClick={() => switchOrder(idx, ord.id)}
-                      className={`w-full text-left px-2.5 py-2 rounded-control flex items-center justify-between transition-colors min-h-[44px] ${
-                        isSelected ? 'bg-sky-50 text-sky-900 font-semibold border border-sky-200' : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <div className="min-w-0 pr-2">
-                        <div className="font-mono font-bold text-xs">{ord.id}</div>
-                        <div className="truncate text-[11px] text-slate-500">{ord.klant} {ord.plaats ? `(${ord.plaats})` : ''}</div>
-                      </div>
-                      <span className="font-mono text-xs font-semibold text-slate-800 shrink-0">
-                        {centsToEuroString(ord.totaalbedragCents ?? 0)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <MatrixOrderPickerPopover
+            isOpen={isPopoverOpen}
+            onClose={() => setIsPopoverOpen(false)}
+            selectedOrder={selectedOrder}
+            orders={orderList}
+            currentOrderIndex={currentIndex}
+            onSelectOrder={onSelectOrder}
+            onSelectOrderId={onSelectOrderId}
+          />
         </div>
 
         <span className="text-slate-300 hidden md:inline">|</span>

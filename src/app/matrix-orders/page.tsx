@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useMatrixState } from '../../components/matrix/useMatrixState';
-import { useLiveOrderList } from '../../hooks/useLiveOrderList';
 import { MatrixHeader } from '../../components/matrix/MatrixHeader';
 import { MatrixProductRow } from '../../components/matrix/MatrixProductRow';
 import { MatrixActionBar } from '../../components/matrix/MatrixActionBar';
@@ -33,8 +32,16 @@ export default function MatrixOrdersPage() {
     mergePositionsToCluster, dissolveCluster,
   } = useMatrixState();
 
-  const { orders: liveOrders } = useLiveOrderList();
-  const orderList = liveOrders.length > 0 ? liveOrders : orders;
+  // URL query hydration voor directe linkbaarheid (?orderId=V26001376)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryOrderId = urlParams.get('orderId');
+      if (queryOrderId && queryOrderId !== selectedOrder.id) {
+        selectOrderById(queryOrderId);
+      }
+    }
+  }, [selectOrderById, selectedOrder.id]);
   const [viewMode, setViewMode] = useState<'matrix' | 'audit'>('matrix');
 
   const spatialPositions: Position[] = useMemo(
@@ -106,7 +113,7 @@ export default function MatrixOrdersPage() {
         <div id="order-meta-card">
           <MatrixOrderMetaCard
             selectedOrder={selectedOrder}
-            orders={orderList}
+            orders={orders}
             currentOrderIndex={currentOrderIndex}
             onSelectOrder={selectOrder}
             onSelectOrderId={selectOrderById}
