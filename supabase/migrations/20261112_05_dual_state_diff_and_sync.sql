@@ -26,7 +26,13 @@ SET
         (
             SELECT NULLIF(elem->>'id', '')
             FROM public.orders o,
-                 jsonb_array_elements(COALESCE(o.raw_data->'lines', o.raw_data->'order'->'lines', '[]'::jsonb)) AS elem
+                 jsonb_array_elements(
+                     CASE
+                         WHEN jsonb_typeof(NULLIF(COALESCE(o.raw_data->'lines', o.raw_data->'order'->'lines'), 'null'::jsonb)) = 'array'
+                         THEN COALESCE(o.raw_data->'lines', o.raw_data->'order'->'lines')
+                         ELSE '[]'::jsonb
+                     END
+                 ) AS elem
             WHERE o.id = ol.order_id 
               AND COALESCE(elem->>'line_number', elem->>'lineNumber')::int = ol.line_number
             LIMIT 1
@@ -63,24 +69,62 @@ AS $$
 DECLARE
     v_order_header jsonb;
     v_order_id text;
+    v_order_number text;
     v_lines_count integer := 0;
+    v_raw_lines jsonb;
     v_lines_payload jsonb;
-    l jsonb;
+    v_line_elem jsonb;
     v_ext_line_id text;
     v_line_num int;
     v_sub_line int;
+    v_legacy_order_id text;
+    v_rekeyed_ids text[] := ARRAY[]::text[];
+    v_incoming_ext_ids text[] := ARRAY[]::text[];
 BEGIN
     -- Polymorfe payload ondersteuning ({ order: {...}, lines: [...] } of plat orderobject)
     v_order_header := COALESCE(p_order->'order', p_order);
     v_order_id := v_order_header->>'id';
-    v_lines_payload := COALESCE(p_order->'lines', v_order_header->'lines', '[]'::jsonb);
+    v_raw_lines := COALESCE(NULLIF(p_order->'lines', 'null'::jsonb), NULLIF(v_order_header->'lines', 'null'::jsonb), '[]'::jsonb);
+    v_lines_payload := CASE WHEN jsonb_typeof(v_raw_lines) = 'array' THEN v_raw_lines ELSE '[]'::jsonb END;
 
     IF v_order_id IS NULL THEN
         RAISE EXCEPTION 'Order ID ontbreekt in payload';
     END IF;
 
-    -- Concurrency lock op order_id (Stap 1 in de Uniforme Lock Hiërarchie)
+    v_order_number := COALESCE(NULLIF(v_order_header->>'order_number', ''), v_order_id);
+
+    SELECT COALESCE(
+        ARRAY(
+            SELECT COALESCE(
+                NULLIF(e->>'id', ''),
+                NULLIF(e->>'external_line_id', ''),
+                NULLIF(COALESCE(e->>'line_number', e->>'lineNumber'), ''),
+                '0'
+            )
+            FROM jsonb_array_elements(v_lines_payload) AS e
+        ),
+        ARRAY[]::text[]
+    ) INTO v_incoming_ext_ids;
+
+    -- Deterministische Lock Hiërarchie: lock order_number eerst, daarna order_id(s)
+    PERFORM pg_advisory_xact_lock(hashtext('order_number:' || v_order_number));
     PERFORM pg_advisory_xact_lock(hashtext(v_order_id));
+
+    -- FK-veilige order_number re-keying voor eventuele legacy-rij met gelijk order_number
+    FOR v_legacy_order_id IN
+        SELECT id
+        FROM public.orders
+        WHERE order_number = v_order_number
+          AND id <> v_order_id
+        ORDER BY id ASC
+        FOR UPDATE
+    LOOP
+        PERFORM pg_advisory_xact_lock(hashtext(v_legacy_order_id));
+        v_rekeyed_ids := array_append(v_rekeyed_ids, v_legacy_order_id);
+        UPDATE public.orders
+        SET order_number = '__rekeying__' || v_legacy_order_id || '__' || substr(md5(random()::text), 1, 8)
+        WHERE id = v_legacy_order_id;
+    END LOOP;
 
     -- 1. Upsert Order Header conform HEAD schema
     INSERT INTO public.orders (
@@ -102,7 +146,7 @@ BEGIN
     )
     VALUES (
         v_order_id,
-        v_order_header->>'order_number',
+        v_order_number,
         v_order_header->>'customer_name',
         v_order_header->>'city',
         v_order_header->>'quotation_number',
@@ -133,25 +177,69 @@ BEGIN
         raw_data = EXCLUDED.raw_data,
         updated_at = now();
 
+    -- Merge en migreer order_lines van eventuele re-keyed legacy-orders voordat deze verwijderd worden
+    FOREACH v_legacy_order_id IN ARRAY v_rekeyed_ids
+    LOOP
+        UPDATE public.order_lines AS canon
+        SET
+            measured_dimension_spec = COALESCE(canon.measured_dimension_spec, leg.measured_dimension_spec),
+            spatial_updated_at = COALESCE(canon.spatial_updated_at, leg.spatial_updated_at),
+            notes = COALESCE(canon.notes, leg.notes),
+            dim = COALESCE(canon.dim, leg.dim),
+            erp_dimension_spec = COALESCE(canon.erp_dimension_spec, leg.erp_dimension_spec),
+            etage_name = COALESCE(canon.etage_name, leg.etage_name),
+            room_name = COALESCE(canon.room_name, leg.room_name),
+            window_name = COALESCE(canon.window_name, leg.window_name),
+            position_id = COALESCE(canon.position_id, leg.position_id)
+        FROM public.order_lines AS leg
+        WHERE canon.order_id = v_order_id
+          AND leg.order_id = v_legacy_order_id
+          AND canon.external_line_id = leg.external_line_id
+          AND canon.sub_line = leg.sub_line;
+
+        UPDATE public.order_lines AS leg
+        SET order_id = v_order_id
+        WHERE leg.order_id = v_legacy_order_id
+          AND NOT EXISTS (
+              SELECT 1 FROM public.order_lines AS canon
+              WHERE canon.order_id = v_order_id
+                AND canon.external_line_id = leg.external_line_id
+                AND canon.sub_line = leg.sub_line
+          );
+
+        DELETE FROM public.order_lines WHERE order_id = v_legacy_order_id;
+        DELETE FROM public.orders WHERE id = v_legacy_order_id;
+    END LOOP;
+
     -- 2. Upsert Order Lines met behoud van ruimtelijke annotaties en LATERAL product mapping
     IF jsonb_array_length(v_lines_payload) > 0 THEN
-        -- Reconciliatiestap voor legacy rijen: update external_line_id voor hoofdregel én kind-serviceregels
-        FOR l IN SELECT * FROM jsonb_array_elements(v_lines_payload)
+        -- Reconciliatiestap voor legacy rijen: update external_line_id strikt per (order_id, line_number, sub_line)
+        FOR v_line_elem IN SELECT * FROM jsonb_array_elements(v_lines_payload)
         LOOP
             v_ext_line_id := COALESCE(
-                NULLIF(l->>'id', ''),
-                NULLIF(l->>'external_line_id', ''),
-                COALESCE(l->>'line_number', l->>'lineNumber')::text,
+                NULLIF(v_line_elem->>'id', ''),
+                NULLIF(v_line_elem->>'external_line_id', ''),
+                COALESCE(v_line_elem->>'line_number', v_line_elem->>'lineNumber')::text,
                 '0'
             );
-            v_line_num := COALESCE((COALESCE(l->>'line_number', l->>'lineNumber'))::int, 1);
+            v_line_num := COALESCE((COALESCE(v_line_elem->>'line_number', v_line_elem->>'lineNumber'))::int, 1);
+            v_sub_line := COALESCE((v_line_elem->>'sub_line')::int, 0);
 
-            UPDATE public.order_lines
-            SET external_line_id = v_ext_line_id
-            WHERE order_id = v_order_id 
-              AND line_number = v_line_num 
-              AND external_line_id != v_ext_line_id
-              AND external_line_id ~ '^[0-9]+$';
+            IF v_ext_line_id IS DISTINCT FROM v_line_num::text THEN
+                UPDATE public.order_lines
+                SET external_line_id = v_ext_line_id
+                WHERE order_id = v_order_id
+                  AND line_number = v_line_num
+                  AND sub_line = v_sub_line
+                  AND public.order_lines.external_line_id = public.order_lines.line_number::text
+                  AND NOT (public.order_lines.external_line_id = ANY(v_incoming_ext_ids))
+                  AND NOT EXISTS (
+                      SELECT 1 FROM public.order_lines ex
+                      WHERE ex.order_id = v_order_id
+                        AND ex.external_line_id = v_ext_line_id
+                        AND ex.sub_line = v_sub_line
+                  );
+            END IF;
         END LOOP;
 
         INSERT INTO public.order_lines (
@@ -181,49 +269,49 @@ BEGIN
         )
         SELECT
             v_order_id,
-            COALESCE((COALESCE(l->>'line_number', l->>'lineNumber'))::int, 1),
-            COALESCE((l->>'sub_line')::int, 0),
+            COALESCE((COALESCE(line_elem->>'line_number', line_elem->>'lineNumber'))::int, 1),
+            COALESCE((line_elem->>'sub_line')::int, 0),
             COALESCE(
-                NULLIF(l->>'id', ''),
-                NULLIF(l->>'external_line_id', ''),
-                COALESCE(l->>'line_number', l->>'lineNumber')::text,
+                NULLIF(line_elem->>'id', ''),
+                NULLIF(line_elem->>'external_line_id', ''),
+                COALESCE(line_elem->>'line_number', line_elem->>'lineNumber')::text,
                 '0'
             ),
-            COALESCE(NULLIF(l->>'product_id', '')::bigint, lp.id),
-            COALESCE(l->>'product_code', 'TEKST'),
-            COALESCE(NULLIF(l->>'product_group_code', ''), lp.product_group_code, '9.9'),
-            l->>'description',
-            COALESCE((l->>'quantity')::numeric, 1),
-            COALESCE(l->>'unit', 'stuks'),
-            COALESCE((l->>'unit_price_cents')::bigint, 0),
-            COALESCE((l->>'total_price_cents')::bigint, 0),
+            COALESCE(NULLIF(line_elem->>'product_id', '')::bigint, lp.id),
+            COALESCE(line_elem->>'product_code', 'TEKST'),
+            COALESCE(NULLIF(NULLIF(line_elem->>'product_group_code', ''), '9.9'), lp.product_group_code, '9.9'),
+            line_elem->>'description',
+            COALESCE((line_elem->>'quantity')::numeric, 1),
+            COALESCE(line_elem->>'unit', 'stuks'),
+            COALESCE((line_elem->>'unit_price_cents')::bigint, 0),
+            COALESCE((line_elem->>'total_price_cents')::bigint, 0),
             COALESCE(
-                NULLIF(l->>'base_total_price_cents', '')::bigint,
-                CASE 
-                    WHEN COALESCE((l->>'is_inbegrepen')::boolean, false) AND NULLIF(l->>'unit_price_cents', '') IS NOT NULL AND NULLIF(l->>'quantity', '') IS NOT NULL
-                    THEN ROUND((l->>'unit_price_cents')::numeric * (l->>'quantity')::numeric)::bigint
-                    ELSE NULLIF(l->>'total_price_cents', '')::bigint
+                NULLIF(line_elem->>'base_total_price_cents', '')::bigint,
+                CASE
+                    WHEN COALESCE((line_elem->>'is_inbegrepen')::boolean, false) AND NULLIF(line_elem->>'unit_price_cents', '') IS NOT NULL AND NULLIF(line_elem->>'quantity', '') IS NOT NULL
+                    THEN ROUND((line_elem->>'unit_price_cents')::numeric * (line_elem->>'quantity')::numeric)::bigint
+                    ELSE NULLIF(line_elem->>'total_price_cents', '')::bigint
                 END,
                 0
             ),
-            COALESCE((l->>'is_hybrid')::boolean, false),
-            COALESCE((l->>'is_inbegrepen')::boolean, false),
-            COALESCE(l->>'etage_name', 'Begane grond'),
-            l->>'room_name',
-            l->>'window_name',
-            l->>'position_id',
-            l->>'dim',
-            l->>'notes',
-            COALESCE(l->'dimension_spec', l->'erp_dimension_spec'),
+            COALESCE((line_elem->>'is_hybrid')::boolean, false),
+            COALESCE((line_elem->>'is_inbegrepen')::boolean, false),
+            COALESCE(line_elem->>'etage_name', 'Begane grond'),
+            line_elem->>'room_name',
+            line_elem->>'window_name',
+            line_elem->>'position_id',
+            line_elem->>'dim',
+            line_elem->>'notes',
+            COALESCE(line_elem->'dimension_spec', line_elem->'erp_dimension_spec'),
             now()
-        FROM jsonb_array_elements(v_lines_payload) AS l
+        FROM jsonb_array_elements(v_lines_payload) AS line_elem
         LEFT JOIN LATERAL (
             SELECT p.id, p.product_group_code
             FROM public.logictrade_products p
-            WHERE p.code = l->>'product_code'
+            WHERE p.code = line_elem->>'product_code'
             ORDER BY p.modified_at DESC NULLS LAST
             LIMIT 1
-        ) lp ON (COALESCE(l->>'product_code', '') NOT IN ('', 'TEKST') AND NULLIF(l->>'product_id', '') IS NULL)
+        ) lp ON (COALESCE(line_elem->>'product_code', '') NOT IN ('', 'TEKST') AND NULLIF(line_elem->>'product_id', '') IS NULL)
         ON CONFLICT (order_id, external_line_id, sub_line) DO UPDATE SET
             line_number = EXCLUDED.line_number,
             product_id = COALESCE(EXCLUDED.product_id, order_lines.product_id),
@@ -280,6 +368,9 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.ingest_logictrade_order(jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ingest_logictrade_order(jsonb) TO service_role;
+
 -- ============================================================================
 -- Stap 5: Oude unieke constraint veilig verwijderen
 -- ============================================================================
@@ -306,6 +397,7 @@ BEGIN
     -- 1. Normaliseer JSONB null scalars ('null'::jsonb) en SQL NULLs defensief
     IF NEW.erp_dimension_spec = 'null'::jsonb THEN NEW.erp_dimension_spec := NULL; END IF;
     IF NEW.measured_dimension_spec = 'null'::jsonb THEN NEW.measured_dimension_spec := NULL; END IF;
+
     IF NEW.erp_dimension_spec IS NULL OR jsonb_typeof(NEW.erp_dimension_spec) != 'object' THEN
         v_erp := NULL;
     ELSE
@@ -435,13 +527,17 @@ DECLARE
     v_current_line record;
     v_is_inbegrepen boolean;
     v_is_dimensional boolean;
+    v_effective_base_total bigint;
+    v_effective_unit_price_cents bigint;
     v_updated_line jsonb;
     v_total_amount_cents bigint;
 BEGIN
-    -- 1. Resolveer ID zónder exclusieve row-lock
-    SELECT id INTO v_actual_order_id 
-    FROM public.orders 
-    WHERE id = p_order_id OR order_number = p_order_id;
+    -- 1. Resolveer ID deterministisch zónder exclusieve row-lock
+    SELECT id INTO v_actual_order_id
+    FROM public.orders
+    WHERE id = p_order_id OR order_number = p_order_id
+    ORDER BY CASE WHEN id = p_order_id THEN 0 ELSE 1 END, id ASC
+    LIMIT 1;
 
     IF v_actual_order_id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'error', 'Order niet gevonden');
@@ -475,32 +571,45 @@ BEGIN
         p_patch ? 'dimension_spec'
     );
 
-    -- 4. Update measured_dimension_spec EN beheer base_total_price_cents en total_price_cents
+    -- Los effectieve basisprijs & eenheidsprijs vooraf deterministisch op
+    v_effective_base_total := COALESCE(
+        NULLIF(p_patch->>'base_total_price_cents', '')::bigint,
+        NULLIF(v_current_line.base_total_price_cents, 0),
+        v_current_line.total_price_cents
+    );
+    v_effective_unit_price_cents := COALESCE(
+        NULLIF(p_patch->>'unit_price_cents', '')::bigint,
+        NULLIF(v_current_line.unit_price_cents, 0),
+        ROUND(v_effective_base_total::numeric / GREATEST(COALESCE(v_current_line.quantity, 1), 0.01))::bigint
+    );
+
+    -- 4. Update measured_dimension_spec EN beheer base_total_price_cents, unit_price_cents en total_price_cents
     UPDATE public.order_lines
     SET
         is_inbegrepen = v_is_inbegrepen,
         quantity = COALESCE(NULLIF(p_patch->>'quantity', '')::numeric, quantity),
-        unit_price_cents = CASE 
-            WHEN NULLIF(p_patch->>'unit_price_cents', '') IS NOT NULL THEN (p_patch->>'unit_price_cents')::bigint 
-            ELSE unit_price_cents 
+        unit = COALESCE(NULLIF(p_patch->>'unit', ''), unit),
+        unit_price_cents = CASE
+            WHEN NULLIF(p_patch->>'unit_price_cents', '') IS NOT NULL THEN (p_patch->>'unit_price_cents')::bigint
+            WHEN v_current_line.is_inbegrepen AND NOT v_is_inbegrepen AND COALESCE(v_current_line.unit_price_cents, 0) = 0 THEN v_effective_unit_price_cents
+            ELSE unit_price_cents
         END,
-        base_total_price_cents = CASE 
+        base_total_price_cents = CASE
             WHEN NULLIF(p_patch->>'base_total_price_cents', '') IS NOT NULL THEN (p_patch->>'base_total_price_cents')::bigint
             WHEN NULLIF(p_patch->>'total_price_cents', '') IS NOT NULL AND NOT v_is_inbegrepen THEN (p_patch->>'total_price_cents')::bigint
             WHEN NOT v_is_dimensional AND (NULLIF(p_patch->>'unit_price_cents', '') IS NOT NULL OR NULLIF(p_patch->>'quantity', '') IS NOT NULL) THEN ROUND(
-                COALESCE(NULLIF(p_patch->>'unit_price_cents', '')::bigint, unit_price_cents) * 
-                COALESCE(NULLIF(p_patch->>'quantity', '')::numeric, quantity)
+                v_effective_unit_price_cents * COALESCE(NULLIF(p_patch->>'quantity', '')::numeric, v_current_line.quantity)
             )
-            ELSE COALESCE(base_total_price_cents, total_price_cents)
+            ELSE COALESCE(NULLIF(base_total_price_cents, 0), total_price_cents)
         END,
-        total_price_cents = CASE 
-            WHEN v_is_inbegrepen THEN 0 
+        total_price_cents = CASE
+            WHEN v_is_inbegrepen THEN 0
             WHEN NULLIF(p_patch->>'total_price_cents', '') IS NOT NULL THEN (p_patch->>'total_price_cents')::bigint
             WHEN NOT v_is_dimensional AND (NULLIF(p_patch->>'unit_price_cents', '') IS NOT NULL OR NULLIF(p_patch->>'quantity', '') IS NOT NULL) THEN ROUND(
-                COALESCE(NULLIF(p_patch->>'unit_price_cents', '')::bigint, unit_price_cents) * 
-                COALESCE(NULLIF(p_patch->>'quantity', '')::numeric, quantity)
-            ) 
-            ELSE COALESCE(base_total_price_cents, total_price_cents)
+                v_effective_unit_price_cents * COALESCE(NULLIF(p_patch->>'quantity', '')::numeric, v_current_line.quantity)
+            )
+            WHEN v_current_line.is_inbegrepen AND NOT v_is_inbegrepen THEN v_effective_base_total
+            ELSE COALESCE(NULLIF(base_total_price_cents, 0), total_price_cents)
         END,
         dim = COALESCE(p_patch->>'dim', dim),
         notes = COALESCE(p_patch->>'notes', notes),
@@ -559,7 +668,9 @@ DECLARE
 BEGIN
     SELECT id INTO v_actual_order_id
     FROM public.orders
-    WHERE id = p_order_id OR order_number = p_order_id;
+    WHERE id = p_order_id OR order_number = p_order_id
+    ORDER BY CASE WHEN id = p_order_id THEN 0 ELSE 1 END, id ASC
+    LIMIT 1;
 
     IF v_actual_order_id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'error', 'Order niet gevonden');
@@ -570,14 +681,16 @@ BEGIN
 
     SELECT id INTO v_target_line_id
     FROM public.order_lines
-    WHERE order_id = v_actual_order_id 
-      AND line_number = p_line_number 
-      AND sub_line = p_sub_line;
-      
+    WHERE order_id = v_actual_order_id
+      AND line_number = p_line_number
+      AND sub_line = p_sub_line
+    ORDER BY id ASC
+    LIMIT 1;
+
     IF v_target_line_id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'error', 'Orderregel niet gevonden op line_number/sub_line');
     END IF;
-    
+
     RETURN public.update_matrix_cell(v_actual_order_id, v_target_line_id, p_patch);
 END;
 $$;

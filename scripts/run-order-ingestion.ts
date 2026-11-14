@@ -15,7 +15,26 @@ import {
   type LogicTradeOrderLine,
 } from '../src/lib/logictrade/harvest-2yr-orders';
 import { OrderIntakeService, mapLogicTradeOrderToRawInput } from '../src/domain/orders/order-intake-service';
-import { getSupabaseConfig } from '../src/lib/supabase/client';
+import { ingestOrderTransaction, requireServiceRoleKey } from '../src/lib/supabase/order-client';
+import type { IngestedOrderBundle } from '../src/types/order-intake';
+
+export function assertRunOrderIngestionConfig(): { url: string; serviceKey: string } {
+  return requireServiceRoleKey();
+}
+
+export async function ingestOrderRecord(
+  header: LogicTradeOrderHeader | LogicTradeQuoteHeader | Record<string, unknown>,
+  lines: LogicTradeOrderLine[] | Record<string, unknown>[],
+  options?: { isQuote?: boolean; intakeService?: OrderIntakeService }
+): Promise<IngestedOrderBundle> {
+  assertRunOrderIngestionConfig();
+  const intakeService =
+    options?.intakeService ?? new OrderIntakeService({ skipClientLookup: true });
+  const rawInput = mapLogicTradeOrderToRawInput(header, lines, { isQuote: options?.isQuote });
+  const bundle = await intakeService.processOrderIntake(rawInput);
+  await ingestOrderTransaction(bundle);
+  return bundle;
+}
 
 async function main() {
   const args = process.argv.slice(2);
@@ -35,13 +54,13 @@ async function main() {
   const yearsIndex = args.indexOf('--years');
   const yearsArg = yearsIndex !== -1 && args[yearsIndex + 1] ? parseFloat(args[yearsIndex + 1]) : (isFull ? null : 2);
 
-  const config = getSupabaseConfig();
-  const url = config.url;
-  const key = config.serviceKey || config.anonKey;
-
-  if (!url || !key) {
-    console.error('❌ Supabase configuratie ontbreekt (URL of sleutel niet gevonden).');
+  let url: string;
+  try {
+    ({ url } = assertRunOrderIngestionConfig());
+  } catch (err: any) {
+    console.error(`❌ ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
+    return;
   }
 
   console.log('================================================================');
@@ -80,27 +99,10 @@ async function main() {
     totalScanned++;
 
     try {
-      // 1. SSOT Transformatie
-      const rawInput = mapLogicTradeOrderToRawInput(header, lines, { isQuote });
-
-      // 2. CPQ Validering & Hybride Regelsplitsing
-      const bundle = await intakeService.processOrderIntake(rawInput);
-
-      // 3. Atomaire RPC persistence in Supabase
-      const res = await fetch(`${url}/rest/v1/rpc/ingest_logictrade_order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: key,
-          Authorization: `Bearer ${key}`,
-        },
-        body: JSON.stringify({ p_order: bundle }),
+      const bundle = await ingestOrderRecord(header, lines, {
+        isQuote,
+        intakeService,
       });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`HTTP ${res.status}: ${errText}`);
-      }
 
       totalIngested++;
       if (bundle.order.fsm_step === 2) {
@@ -184,7 +186,15 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error('Unhandled fatal error in run-order-ingestion:', err);
-  process.exit(1);
-});
+const isDirectExecution =
+  typeof process !== 'undefined' &&
+  Array.isArray(process.argv) &&
+  typeof process.argv[1] === 'string' &&
+  process.argv[1].replace(/\\/g, '/').endsWith('/scripts/run-order-ingestion.ts');
+
+if (isDirectExecution) {
+  main().catch((err) => {
+    console.error('Unhandled fatal error in run-order-ingestion:', err);
+    process.exit(1);
+  });
+}

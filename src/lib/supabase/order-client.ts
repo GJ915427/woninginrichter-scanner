@@ -8,6 +8,20 @@
 import { getSupabaseConfig } from './client';
 import type { IngestedOrderBundle, ResolvedProductEntity } from '@/types/order-intake';
 import type { DimensionSpec, OrderSummaryItem } from '@/types/matrix';
+import type { LeaseAcquisitionResult, SyncStateRecord } from '@/types/sync';
+
+export function requireServiceRoleKey(): { url: string; serviceKey: string } {
+  const config = getSupabaseConfig();
+  if (!config.url) {
+    throw new Error('Supabase URL ontbreekt in configuratie.');
+  }
+  if (!config.serviceKey) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY is verplicht voor geprivilegieerde write/sync DAL-operaties.'
+    );
+  }
+  return { url: config.url, serviceKey: config.serviceKey };
+}
 
 export interface OrderLineDto {
   line_number: number;
@@ -158,8 +172,10 @@ export async function fetchOrderSummariesDal(options?: {
     `offset=${offset}`,
   ];
 
+  const filterParts: string[] = [];
+
   if (typeFilter === 'quotes') {
-    queryParams.push('or=(status.ilike.*OFFERTE*,fsm_step.eq.2)');
+    filterParts.push('or(status.ilike.*OFFERTE*,fsm_step.eq.2)');
   } else if (typeFilter === 'orders') {
     queryParams.push('status=neq.OFFERTE');
     queryParams.push('fsm_step=neq.2');
@@ -167,7 +183,16 @@ export async function fetchOrderSummariesDal(options?: {
 
   if (query) {
     const cleanQ = encodeURIComponent(query.replace(/[%,()]/g, ''));
-    queryParams.push(`or=(order_number.ilike.*${cleanQ}*,customer_name.ilike.*${cleanQ}*,city.ilike.*${cleanQ}*)`);
+    filterParts.push(
+      `or(id.ilike.*${cleanQ}*,order_number.ilike.*${cleanQ}*,quotation_number.ilike.*${cleanQ}*,customer_name.ilike.*${cleanQ}*,city.ilike.*${cleanQ}*)`
+    );
+  }
+
+  if (filterParts.length === 1) {
+    const single = filterParts[0];
+    queryParams.push(single.startsWith('or(') ? `or=${single.slice(2)}` : single);
+  } else if (filterParts.length > 1) {
+    queryParams.push(`and=(${filterParts.join(',')})`);
   }
 
   const url = `${config.url}/rest/v1/orders?${queryParams.join('&')}`;
@@ -239,8 +264,8 @@ export async function fetchOrderMatrixBundleDal(
   };
 
   const idParam = encodeURIComponent(cleanId);
-  const headerUrl = `${config.url}/rest/v1/orders?or=(id.eq.${idParam},order_number.eq.${idParam})&limit=1`;
-  const headerRes = await fetchFn(headerUrl, { headers });
+  const headerUrl = `${config.url}/rest/v1/orders?or=(id.eq.${idParam},order_number.eq.${idParam},quotation_number.eq.${idParam})&order=fsm_step.asc,updated_at.desc&limit=50`;
+  const headerRes = await fetchFn(headerUrl, { headers, cache: 'no-store' });
 
   if (!headerRes.ok) {
     return null;
@@ -251,10 +276,17 @@ export async function fetchOrderMatrixBundleDal(
     return null;
   }
 
-  const orderHeader = headersJson[0];
+  const rankHeader = (h: OrderHeaderDto): number => {
+    if (h.id === cleanId) return 0;
+    if (h.order_number === cleanId) return 1;
+    if (h.quotation_number === cleanId) return 2;
+    if (h.fsm_step !== 2) return 3;
+    return 4;
+  };
+  const orderHeader = [...headersJson].sort((a, b) => rankHeader(a) - rankHeader(b))[0];
   const targetOrderId = encodeURIComponent(orderHeader.id);
   const linesUrl = `${config.url}/rest/v1/order_lines?order_id=eq.${targetOrderId}&order=line_number.asc,sub_line.asc`;
-  const linesRes = await fetchFn(linesUrl, { headers });
+  const linesRes = await fetchFn(linesUrl, { headers, cache: 'no-store' });
 
   let lines: OrderLineDto[] = [];
   if (linesRes.ok) {
@@ -328,19 +360,14 @@ export async function resolveProductByCode(
 export async function ingestOrderTransaction(
   bundle: IngestedOrderBundle
 ): Promise<{ success: boolean; order_id: string; lines_processed: number }> {
-  const config = getSupabaseConfig();
-  const authKey = config.serviceKey || config.anonKey;
+  const { url, serviceKey } = requireServiceRoleKey();
 
-  if (!config.url || !authKey) {
-    throw new Error('Supabase configuratie ontbreekt voor order ingest transactie.');
-  }
-
-  const res = await fetch(`${config.url}/rest/v1/rpc/ingest_logictrade_order`, {
+  const res = await fetch(`${url}/rest/v1/rpc/ingest_logictrade_order`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      apikey: authKey,
-      Authorization: `Bearer ${authKey}`,
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
     },
     body: JSON.stringify({ p_order: bundle }),
   });
@@ -351,4 +378,136 @@ export async function ingestOrderTransaction(
   }
 
   return (await res.json()) as { success: boolean; order_id: string; lines_processed: number };
+}
+
+export async function acquireSyncLeaseDal(
+  leaseKey = 'orders_daemon_lease',
+  leaderId: string,
+  ttlSeconds = 300,
+  options?: { fetchImpl?: typeof fetch }
+): Promise<LeaseAcquisitionResult> {
+  const { url, serviceKey } = requireServiceRoleKey();
+  const fetchFn = options?.fetchImpl || fetch;
+
+  const res = await fetchFn(`${url}/rest/v1/rpc/acquire_logictrade_sync_lease`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+    body: JSON.stringify({
+      p_lease_key: leaseKey,
+      p_leader_id: leaderId,
+      p_ttl_seconds: ttlSeconds,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`RPC acquire_logictrade_sync_lease mislukt: ${res.status} ${errorText}`);
+  }
+
+  const parsed = await res.json();
+  return (Array.isArray(parsed) ? parsed[0] : parsed) as LeaseAcquisitionResult;
+}
+
+export async function releaseSyncLeaseDal(
+  leaseKey = 'orders_daemon_lease',
+  leaderId: string,
+  options?: { fetchImpl?: typeof fetch }
+): Promise<boolean> {
+  const { url, serviceKey } = requireServiceRoleKey();
+  const fetchFn = options?.fetchImpl || fetch;
+
+  const res = await fetchFn(`${url}/rest/v1/rpc/release_logictrade_sync_lease`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+    body: JSON.stringify({
+      p_lease_key: leaseKey,
+      p_leader_id: leaderId,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`RPC release_logictrade_sync_lease mislukt: ${res.status} ${errorText}`);
+  }
+
+  return Boolean(await res.json());
+}
+
+export async function getSyncCursorDal(
+  key: string,
+  options?: { fetchImpl?: typeof fetch }
+): Promise<SyncStateRecord | null> {
+  const { url, serviceKey } = requireServiceRoleKey();
+  const fetchFn = options?.fetchImpl || fetch;
+
+  const res = await fetchFn(`${url}/rest/v1/rpc/get_logictrade_sync_state`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+    body: JSON.stringify({ p_key: key }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`RPC get_logictrade_sync_state mislukt: ${res.status} ${errorText}`);
+  }
+
+  const parsed = await res.json();
+  if (Array.isArray(parsed)) {
+    return (parsed[0] as SyncStateRecord | undefined) ?? null;
+  }
+  return (parsed as SyncStateRecord | null) ?? null;
+}
+
+export async function updateSyncCursorDal(
+  key: string,
+  lastSyncedAt: string,
+  totalSynced?: number,
+  options?: {
+    highWatermarkId?: string | null;
+    metadata?: Record<string, unknown>;
+    expectedLeaseOwner?: string;
+    leaseKey?: string;
+    fetchImpl?: typeof fetch;
+  }
+): Promise<SyncStateRecord> {
+  const { url, serviceKey } = requireServiceRoleKey();
+  const fetchFn = options?.fetchImpl || fetch;
+
+  const res = await fetchFn(`${url}/rest/v1/rpc/update_logictrade_sync_state`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+    body: JSON.stringify({
+      p_key: key,
+      p_last_synced_at: lastSyncedAt,
+      p_total_synced: totalSynced ?? null,
+      p_high_watermark_id: options?.highWatermarkId ?? null,
+      p_metadata: options?.metadata ?? null,
+      p_expected_lease_owner: options?.expectedLeaseOwner ?? null,
+      p_lease_key: options?.leaseKey ?? 'orders_daemon_lease',
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`RPC update_logictrade_sync_state mislukt: ${res.status} ${errorText}`);
+  }
+
+  const parsed = await res.json();
+  return (Array.isArray(parsed) ? parsed[0] : parsed) as SyncStateRecord;
 }

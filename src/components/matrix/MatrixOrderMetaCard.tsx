@@ -132,7 +132,7 @@ export function MatrixOrderMetaCard({
                   }`}
                   title={isAuditTrailActive ? 'Klik om terug te keren naar matrix' : 'Klik om offerte-/orderregels te bekijken'}
                 >
-                  <span>{selectedOrder.id}</span>
+                  <span>{selectedOrder.orderNumber || selectedOrder.id}</span>
                 </button>
               </h1>
             </div>

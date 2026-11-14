@@ -80,15 +80,10 @@ export function useMatrixState(
   }, []);
 
   const hydrateOrderBundle = useCallback((orderBundle: MatrixOrder) => {
-    setOrders((prev) => {
-      const idx = prev.findIndex((o) => o.id === orderBundle.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = orderBundle;
-        return next;
-      }
-      return [orderBundle, ...prev];
-    });
+    setOrders((prev) => [
+      orderBundle,
+      ...prev.filter((o) => o.id !== orderBundle.id),
+    ]);
     setCurrentOrderIndex(0);
   }, []);
 
@@ -374,7 +369,7 @@ export function useMatrixState(
     async (orderId: string) => {
       if (!orderId || !orderId.trim()) return;
       const cleanId = orderId.trim();
-      const existingIdx = orders.findIndex((o) => o.id === cleanId);
+      const existingIdx = orders.findIndex((o) => o.id === cleanId || o.orderNumber === cleanId);
       if (existingIdx >= 0) {
         setCurrentOrderIndex(existingIdx);
         setActiveOverlay(null);
@@ -386,8 +381,7 @@ export function useMatrixState(
       try {
         const bundle = await fetchMatrixOrderBundle(cleanId);
         if (bundle) {
-          setOrders((prev) => [bundle, ...prev]);
-          setCurrentOrderIndex(0);
+          hydrateOrderBundle(bundle);
           setActiveOverlay(null);
           setSelectedColumnIds(new Set());
         } else {
@@ -402,7 +396,7 @@ export function useMatrixState(
         setIsOrderLoading(false);
       }
     },
-    [orders]
+    [orders, hydrateOrderBundle]
   );
 
   return {

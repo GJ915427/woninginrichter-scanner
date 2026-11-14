@@ -160,6 +160,7 @@ export function bundleMatrixOrder(dto: OrderMatrixBundleDto): MatrixOrder {
 
   return {
     id: order.id,
+    orderNumber: order.order_number || order.id,
     isLive: true,
     klant: order.customer_name || 'Klant',
     plaats: order.city || 'Nederland',

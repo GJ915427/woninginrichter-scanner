@@ -94,7 +94,7 @@ export function transformMockOrderToIngestPayload(mockOrder: MatrixOrder): Order
         line_number: lineNum,
         sub_line: subLineNum,
         product_code: product.code || 'TEKST',
-        product_group_code: isDienst ? '9.1' : '3.1',
+        product_group_code: isDienst ? '6.9' : '3.1',
         description: product.name || product.code,
         quantity: Number(cell.quantity) || 1,
         unit: cell.unit || product.unit || 'stuks',
@@ -167,16 +167,21 @@ export function validateIngestPayloadIntegrity(payload: OrderIngestPayload): {
 
 export async function seedMatrixOrders(options?: {
   url?: string;
-  anonKey?: string;
+  serviceKey?: string;
   fetchImpl?: typeof fetch;
 }): Promise<{ processedCount: number; errors: string[] }> {
   const config = getSupabaseConfig();
   const baseUrl = options?.url || config.url;
-  const key = options?.anonKey || config.anonKey;
+  const serviceKey = options?.serviceKey || config.serviceKey;
   const customFetch = options?.fetchImpl || fetch;
 
-  if (!baseUrl || !key) {
-    throw new Error('Supabase configuratie ontbreekt voor seedMatrixOrders.');
+  if (!baseUrl) {
+    throw new Error('Supabase URL ontbreekt voor seedMatrixOrders.');
+  }
+  if (!serviceKey) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY is verplicht voor seedMatrixOrders (fail-closed).'
+    );
   }
 
   const errors: string[] = [];
@@ -190,8 +195,8 @@ export async function seedMatrixOrders(options?: {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          apikey: key,
-          Authorization: `Bearer ${key}`,
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
         },
         body: JSON.stringify({ p_order: payload }),
       });

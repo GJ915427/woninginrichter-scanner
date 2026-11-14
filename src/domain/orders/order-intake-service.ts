@@ -246,15 +246,16 @@ export function mapLogicTradeOrderToRawInput(
 ): RawLogicTradeOrderInput {
   const statusStr = String(header.status || '').trim();
   const statusUpper = statusStr.toUpperCase();
-  const rawOrdNumber = String(header.orderNumber || header.id || '').trim();
+  const rawOrdNumber = String(header.orderNumber || header.number || header.id || '').trim();
 
-  const isOfferte =
-    Boolean(options?.isQuote) ||
-    statusUpper === 'OFFERTE' ||
-    statusUpper === 'QUOTATION' ||
-    statusUpper === 'PROPOSAL' ||
-    rawOrdNumber.toUpperCase().startsWith('O') ||
-    Boolean(header.number && !header.orderNumber);
+  const hasExplicitIsQuote = typeof options?.isQuote === 'boolean';
+  const isOfferte = hasExplicitIsQuote
+    ? options!.isQuote!
+    : statusUpper === 'OFFERTE' ||
+      statusUpper === 'QUOTATION' ||
+      statusUpper === 'PROPOSAL' ||
+      rawOrdNumber.toUpperCase().startsWith('O') ||
+      Boolean(header.number && !header.orderNumber);
 
   const ordNumber = isOfferte
     ? String(header.number || header.quotationNumber || rawOrdNumber).trim()
@@ -328,9 +329,9 @@ export function mapLogicTradeOrderToRawInput(
       ? Math.round(header.totalAmount * 100)
       : rawLines.reduce((acc, l) => acc + (l.total_price_cents || 0), 0);
 
-  const quotationNumber = header.number
-    ? String(header.number).trim()
-    : (header.quotationNumber || (isOfferte ? ordNumber : header.quote?.number));
+  const quotationNumber = isOfferte
+    ? (header.number ? String(header.number).trim() : (header.quotationNumber || ordNumber))
+    : (header.quotationNumber || header.quote?.number);
 
   const rawDate = header.date || header.createdDate;
   const orderDate = rawDate ? String(rawDate).slice(0, 10) : undefined;

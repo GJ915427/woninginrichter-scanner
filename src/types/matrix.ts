@@ -256,6 +256,7 @@ export interface OrderSummaryItem {
 
 export interface OrderLinePatchDto {
   quantity?: number;
+  unit?: string;
   unit_price_cents?: number;
   total_price_cents?: number;
   base_total_price_cents?: number;
@@ -268,7 +269,8 @@ export interface OrderLinePatchDto {
 }
 
 export interface MatrixOrder {
-  id: string;                   // e.g. "V26001376"
+  id: string;                   // Uniek order-ID (bijv. "117282" of "V26001376")
+  orderNumber?: string;         // Menselijk ordernummer (bijv. "V26002086")
   isLive?: boolean;             // True wanneer order gehydrateerd is uit Supabase database
   klant: string;                // e.g. "Jaspers"
   plaats: string;               // e.g. "Maastricht"

@@ -12,6 +12,7 @@ export type { OrderLinePatchDto };
 
 export interface OrderCellPatchInput {
   quantity?: number;
+  unit?: string;
   unitPriceCents?: number;
   totalPriceCents?: number;
   baseTotalPriceCents?: number;
@@ -54,6 +55,9 @@ export function toOrderLinePatchDto(input: OrderCellPatchInput): OrderLinePatchD
 
   if (input.quantity !== undefined) {
     dto.quantity = Number(input.quantity);
+  }
+  if (input.unit !== undefined) {
+    dto.unit = String(input.unit);
   }
 
   if (input.unitPriceCents !== undefined) {

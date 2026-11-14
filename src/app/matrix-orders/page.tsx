@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useMatrixState } from '../../components/matrix/useMatrixState';
 import { MatrixHeader } from '../../components/matrix/MatrixHeader';
 import { MatrixProductRow } from '../../components/matrix/MatrixProductRow';
@@ -32,16 +32,24 @@ export default function MatrixOrdersPage() {
     mergePositionsToCluster, dissolveCluster,
   } = useMatrixState();
 
+  const hydratedQueryRef = useRef<string | null>(null);
+
   // URL query hydration voor directe linkbaarheid (?orderId=V26001376)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      const queryOrderId = urlParams.get('orderId');
-      if (queryOrderId && queryOrderId !== selectedOrder.id) {
+      const queryOrderId = urlParams.get('orderId')?.trim();
+      if (
+        queryOrderId &&
+        hydratedQueryRef.current !== queryOrderId &&
+        queryOrderId !== selectedOrder.id &&
+        queryOrderId !== selectedOrder.orderNumber
+      ) {
+        hydratedQueryRef.current = queryOrderId;
         selectOrderById(queryOrderId);
       }
     }
-  }, [selectOrderById, selectedOrder.id]);
+  }, [selectOrderById, selectedOrder.id, selectedOrder.orderNumber]);
   const [viewMode, setViewMode] = useState<'matrix' | 'audit'>('matrix');
 
   const spatialPositions: Position[] = useMemo(

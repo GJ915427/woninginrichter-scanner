@@ -22,7 +22,11 @@ export function MatrixOrderPickerPopover({
 }: MatrixOrderPickerPopoverProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'orders' | 'quotes'>('all');
-  const [liveResults, setLiveResults] = useState<OrderSummaryItem[] | null>(null);
+  const [liveResults, setLiveResults] = useState<{
+    items: OrderSummaryItem[];
+    forType: 'all' | 'orders' | 'quotes';
+    forQuery: string;
+  } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [totals, setTotals] = useState<CatalogTotals>({ all: 0, orders: 0, quotes: 0 });
 
@@ -39,10 +43,15 @@ export function MatrixOrderPickerPopover({
     setIsSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await fetchLiveOrderList({ q: searchTerm.trim() || undefined, type: typeFilter, limit: 30 });
-        if (!isCancelled && res) {
-          setLiveResults(res.items);
-          if (res.catalogTotals) setTotals(res.catalogTotals);
+        const cleanSearch = searchTerm.trim();
+        const res = await fetchLiveOrderList({ q: cleanSearch || undefined, type: typeFilter, limit: 30 });
+        if (!isCancelled) {
+          if (res) {
+            setLiveResults({ items: res.items, forType: typeFilter, forQuery: cleanSearch });
+            if (res.catalogTotals) setTotals(res.catalogTotals);
+          } else {
+            setLiveResults(null);
+          }
         }
       } catch {
         if (!isCancelled) setLiveResults(null);
@@ -58,16 +67,37 @@ export function MatrixOrderPickerPopover({
     const benchmarkList = getMockOrderSummaries();
     const matchesType = (item: OrderSummaryItem | MatrixOrder) => {
       if (typeFilter === 'all') return true;
-      const isQuote = item.id.startsWith('O') || item.status?.toUpperCase().includes('OFFERTE');
+      const ordNr = 'orderNumber' in item ? item.orderNumber : undefined;
+      const fsmStepVal = 'fsmStep' in item ? item.fsmStep : undefined;
+      const isQuote =
+        item.id.toUpperCase().startsWith('O') ||
+        Boolean(ordNr && ordNr.toUpperCase().startsWith('O')) ||
+        fsmStepVal === 2 ||
+        Boolean(item.status?.toUpperCase().includes('OFFERTE'));
       return typeFilter === 'quotes' ? isQuote : !isQuote;
     };
-    const matchesSearch = (item: OrderSummaryItem | MatrixOrder) => !term ||
-      item.id.toLowerCase().includes(term) || item.klant.toLowerCase().includes(term) ||
-      Boolean(item.plaats && item.plaats.toLowerCase().includes(term));
+    const matchesSearch = (item: OrderSummaryItem | MatrixOrder) => {
+      if (!term) return true;
+      const ordNr = 'orderNumber' in item ? item.orderNumber : undefined;
+      const offerteNr = 'offerte' in item ? item.offerte : undefined;
+      return (
+        item.id.toLowerCase().includes(term) ||
+        Boolean(ordNr && ordNr.toLowerCase().includes(term)) ||
+        Boolean(offerteNr && offerteNr.toLowerCase().includes(term)) ||
+        item.klant.toLowerCase().includes(term) ||
+        Boolean(item.plaats && item.plaats.toLowerCase().includes(term))
+      );
+    };
 
     const eligibleBenchmarks = benchmarkList.filter((b) => matchesType(b) && matchesSearch(b));
-    const liveSource = liveResults !== null ? liveResults : orders;
-    const eligibleLive = liveSource.filter((l) => matchesType(l) && matchesSearch(l));
+    const hasAuthoritativeLive =
+      liveResults !== null &&
+      liveResults.forType === typeFilter &&
+      liveResults.forQuery === searchTerm.trim();
+    const liveSource = hasAuthoritativeLive ? liveResults.items : (liveResults === null ? orders : []);
+    const eligibleLive = hasAuthoritativeLive
+      ? liveSource
+      : liveSource.filter((l) => matchesType(l) && matchesSearch(l));
 
     const seenIds = new Set<string>();
     const combined: (OrderSummaryItem | MatrixOrder)[] = [];
@@ -129,7 +159,7 @@ export function MatrixOrderPickerPopover({
               <button key={ord.id} type="button" role="option" aria-selected={isSelected} onClick={() => handleSelect(idx, ord.id)} className={`w-full text-left px-2.5 py-2 rounded-control flex items-center justify-between transition-colors min-h-[44px] ${isSelected ? 'bg-sky-50 text-sky-900 font-semibold border border-sky-200' : 'hover:bg-slate-50 text-slate-700'}`}>
                 <div className="min-w-0 pr-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-bold text-xs">{ord.id}</span>
+                    <span className="font-mono font-bold text-xs">{('orderNumber' in ord && ord.orderNumber) || ord.id}</span>
                     {ord.status && (
                       <span className={`text-[10px] px-1 py-0.2 rounded ${ord.status.toUpperCase().includes('OFFERTE') ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
                         {ord.status}
