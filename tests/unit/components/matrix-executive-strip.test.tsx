@@ -1,4 +1,4 @@
-// [SPEC-CHANGE-AUTHORIZED: Actualiseert testasserties voor Google Material Symbols Outlined SVGs (square_foot, etc.), 32px/44px Fitts' Law styling, semantische tokens (rounded-container, rounded-control), zero Unicode emoji invariant en synchronisatie met gesaneerde actiebalk en compacte executive meta card conform Stitch Optie 1]
+// [SPEC-CHANGE-AUTHORIZED: Verificatie dat Bijlagen chip én alle 6 MatrixActionBar knoppen (inclusief #workflowStageTag) min-h-[44px] fysieke touch targets bezitten met verwijdering van before:min-h-[44px] asserties]
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -106,11 +106,10 @@ describe('Stitch Executive SaaS Triad - Unit & Fitts Law Invariant Suite', () =>
     expect(html).not.toContain('Posities Selecteren');
     expect(html).not.toContain('id="btn-toggle-header-collapse"');
 
-    // Fitts' Law semantic height and pseudo-element expansion (rendered with HTML escaped quotes by React)
-    expect(html).toContain('h-action-btn');
-    expect(html).toMatch(/before:content-\[(\'\'|&#x27;&#x27;)\]/);
-    expect(html).toContain('before:-inset-y-1.5');
-    expect(html).toContain('before:min-h-[44px]');
+    // Fitts' Law physical layout bounding box (min-h-[44px]) over all 6 MatrixActionBar buttons
+    expect(html).toContain('min-h-[44px]');
+    expect(html).not.toContain('before:min-h-[44px]');
+    expect(html).not.toContain('before:-inset');
     expect(html).toContain('rounded-control');
 
     // Google Material Symbols Outlined: square_foot (geodriehoek met maataanduidingen)

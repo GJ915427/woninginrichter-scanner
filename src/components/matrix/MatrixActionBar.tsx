@@ -53,7 +53,7 @@ export function MatrixActionBar({
         <button
           type="button"
           onClick={onMakeAppointment}
-          className="h-action-btn relative before:content-[''] before:absolute before:-inset-y-1.5 before:inset-x-0 before:min-h-[44px] px-3 py-1.5 rounded-control text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+          className="min-h-[44px] px-3 py-1.5 rounded-control text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
         >
           <IconCalendarMonth size={14} className="text-blue-600 shrink-0" />
           <span>Maak Afspraak</span>
@@ -62,7 +62,7 @@ export function MatrixActionBar({
         <button
           type="button"
           onClick={onMakeReport}
-          className="h-action-btn relative before:content-[''] before:absolute before:-inset-y-1.5 before:inset-x-0 before:min-h-[44px] px-3 py-1.5 rounded-control text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+          className="min-h-[44px] px-3 py-1.5 rounded-control text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
         >
           <IconDescription size={14} className="text-blue-600 shrink-0" />
           <span>Maak Rapport</span>
@@ -71,7 +71,7 @@ export function MatrixActionBar({
         <button
           type="button"
           onClick={onInmeten}
-          className="h-action-btn relative before:content-[''] before:absolute before:-inset-y-1.5 before:inset-x-0 before:min-h-[44px] px-3 py-1.5 rounded-control text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+          className="min-h-[44px] px-3 py-1.5 rounded-control text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
         >
           <IconSquareFoot size={14} className="text-blue-600 shrink-0" />
           <span>Inmeten</span>
@@ -80,7 +80,7 @@ export function MatrixActionBar({
         <button
           type="button"
           onClick={onMonteren}
-          className="h-action-btn relative before:content-[''] before:absolute before:-inset-y-1.5 before:inset-x-0 before:min-h-[44px] px-3 py-1.5 rounded-control text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+          className="min-h-[44px] px-3 py-1.5 rounded-control text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
         >
           <IconBuild size={14} className="text-blue-600 shrink-0" />
           <span>Monteren</span>
@@ -95,7 +95,7 @@ export function MatrixActionBar({
               ? "Status moet 'Gemonteerd' zijn & 0 openstaande punten"
               : 'Order afronden en factureren'
           }
-          className="h-action-btn relative before:content-[''] before:absolute before:-inset-y-1.5 before:inset-x-0 before:min-h-[44px] px-3 py-1.5 rounded-control text-xs font-semibold bg-white border border-slate-200 text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5 shadow-2xs"
+          className="min-h-[44px] px-3 py-1.5 rounded-control text-xs font-semibold bg-white border border-slate-200 text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5 shadow-2xs"
         >
           <IconLock size={14} className="text-slate-400 shrink-0" />
           <span>Afronden</span>
@@ -125,7 +125,7 @@ export function MatrixActionBar({
           type="button"
           id="workflowStageTag"
           onClick={onWorkflowStageClick}
-          className="h-action-btn relative before:content-[''] before:absolute before:-inset-y-1.5 before:inset-x-0 before:min-h-[44px] inline-flex items-center gap-2 px-3 py-1.5 rounded-pill text-xs font-medium bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 transition cursor-pointer shadow-2xs"
+          className="min-h-[44px] inline-flex items-center gap-2 px-3 py-1.5 rounded-pill text-xs font-medium bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 transition cursor-pointer shadow-2xs"
           title="Klik om workflow procesmodal te openen"
         >
           <span className="text-slate-400 text-xs font-normal">Huidige fase:</span>

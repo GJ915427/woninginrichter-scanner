@@ -11,7 +11,7 @@ export interface CreateProposalLineResponse {
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ id: string }> | { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<Response> {
   try {
     const resolvedParams = await Promise.resolve(context.params);

@@ -125,7 +125,7 @@ export function MatrixOrderMetaCard({
                   data-testid="order-title"
                   aria-pressed={isAuditTrailActive}
                   onClick={onToggleAuditTrail}
-                  className={`h-[30px] px-2.5 py-1 inline-flex items-center gap-1.5 rounded-control border font-extrabold text-xs font-mono transition-colors shadow-2xs cursor-pointer relative before:content-[''] before:absolute before:-inset-y-1.5 before:inset-x-0 before:min-h-[44px] ${
+                  className={`min-h-[44px] px-2.5 py-1 inline-flex items-center gap-1.5 rounded-control border font-extrabold text-xs font-mono transition-colors shadow-2xs cursor-pointer ${
                     isAuditTrailActive
                       ? 'bg-sky-100 border-sky-300 text-sky-900 ring-1 ring-sky-300'
                       : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-900'
@@ -173,7 +173,7 @@ export function MatrixOrderMetaCard({
           id="btn-meta-media-drawer"
           onClick={() => onOpenMedia?.()}
           aria-label="Bijlagen en notities openen"
-          className="h-action-btn relative before:content-[''] before:absolute before:-inset-y-1.5 before:inset-x-0 before:min-h-[44px] px-3.5 py-1.5 rounded-pill text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-2 shadow-2xs"
+          className="min-h-[44px] px-3.5 py-1.5 rounded-pill text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-2 shadow-2xs"
         >
           <Paperclip className="w-3.5 h-3.5 text-slate-500 shrink-0" aria-hidden="true" />
           <span>Bijlagen</span>

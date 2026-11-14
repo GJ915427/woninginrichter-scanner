@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useMatrixState } from '../../components/matrix/useMatrixState';
 import { MatrixHeader } from '../../components/matrix/MatrixHeader';
 import { MatrixProductRow } from '../../components/matrix/MatrixProductRow';
@@ -32,16 +32,30 @@ export default function MatrixOrdersPage() {
     mergePositionsToCluster, dissolveCluster,
   } = useMatrixState();
 
-  // URL query hydration voor directe linkbaarheid (?orderId=V26001376)
+  // Acyclische URL-hydratatie conform INV-GOV-22 & W3C HTML5
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return;
+    const hydrateFromUrl = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const queryOrderId = urlParams.get('orderId');
-      if (queryOrderId && queryOrderId !== selectedOrder.id) {
+      if (queryOrderId) {
         selectOrderById(queryOrderId);
       }
+    };
+    hydrateFromUrl();
+    window.addEventListener('popstate', hydrateFromUrl);
+    return () => window.removeEventListener('popstate', hydrateFromUrl);
+  }, [selectOrderById]);
+
+  // Outbound URL synchronisatie bij actieve orderselectie
+  const handleSelectOrderId = useCallback((id: string) => {
+    selectOrderById(id);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('orderId', id);
+      window.history.replaceState({}, '', url.toString());
     }
-  }, [selectOrderById, selectedOrder.id]);
+  }, [selectOrderById]);
   const [viewMode, setViewMode] = useState<'matrix' | 'audit'>('matrix');
 
   const spatialPositions: Position[] = useMemo(
@@ -116,7 +130,7 @@ export default function MatrixOrdersPage() {
             orders={orders}
             currentOrderIndex={currentOrderIndex}
             onSelectOrder={selectOrder}
-            onSelectOrderId={selectOrderById}
+            onSelectOrderId={handleSelectOrderId}
             isAuditTrailActive={viewMode === 'audit'}
             onToggleAuditTrail={() => setViewMode((prev) => (prev === 'matrix' ? 'audit' : 'matrix'))}
             onOpenMedia={() => openOverlay({ type: 'media_drawer', positionId: 'pos_project_algemeen', title: `Werffoto's & Media (${selectedOrder.klant})` })}

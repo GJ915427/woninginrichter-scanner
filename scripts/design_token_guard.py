@@ -38,6 +38,8 @@ if hasattr(sys.stderr, 'reconfigure'):
 HEX_COLOR_REGEX = re.compile(r'#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})(?![0-9a-fA-F])')
 
 # Raw Unicode emoji regex (INV-UI-EMOJI-BAN)
+FITTS_PLEISTER_REGEX = re.compile(r'before:(?:min-h-\[44px\]|-inset)')
+
 EMOJI_REGEX = re.compile(
     r"[\U00010000-\U0010ffff"
     r"\u2600-\u26ff\u2700-\u27bf"
@@ -57,7 +59,30 @@ EMOJI_ENFORCED_COMPONENTS = {
 MVP_DIRECTORIES = [
     'src/components/matrix',
     'src/components/configurator',
+    'src/components/ui',
+    'src/components/domain',
+    'src/components/product-detail',
 ]
+
+def scan_fitts_pleisters(file_path: Path) -> list[tuple[int, str, str]]:
+    """Scans a file for before:min-h-[44px] or before:-inset pseudo-element pleisters."""
+    violations = []
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
+        stripped = strip_comments(content)
+        if not FITTS_PLEISTER_REGEX.search(stripped):
+            return []
+        for idx, line in enumerate(content.splitlines(), start=1):
+            trimmed = line.strip()
+            if trimmed.startswith('//') or trimmed.startswith('/*') or trimmed.startswith('*'):
+                continue
+            m = FITTS_PLEISTER_REGEX.search(line)
+            if m:
+                violations.append((idx, line.strip(), m.group(0)))
+    except Exception as e:
+        print(f"[design_token_guard] [WARN] Failed to read {file_path}: {e}", file=sys.stderr)
+    return violations
 
 def strip_comments(text: str) -> str:
     """Strips both multi-line and single-line comments."""
@@ -278,6 +303,14 @@ def main() -> int:
                     semantic_violations_count += 1
                     total_violations += 1
                     print(f"[SEMANTIC_TOKEN_VIOLATION] {rel_posix}: {sem_err}")
+
+        # 2d. Fitts Law pseudo-element pleister check
+        fitts_violations = scan_fitts_pleisters(target)
+        if fitts_violations:
+            for line_num, line_text, pleister in fitts_violations:
+                total_violations += 1
+                print(f"[FITTS_PLEISTER_VIOLATION] {rel_posix}:{line_num} contains forbidden pseudo-element pleister '{pleister}' -> '{line_text}'")
+                print("  [HINT] Replace before:min-h-[44px] pseudo-elements with physical layout bounding boxes (min-h-[44px]).")
 
     if total_violations > 0:
         if emoji_violations_count > 0:

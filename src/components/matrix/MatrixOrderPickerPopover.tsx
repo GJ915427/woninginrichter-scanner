@@ -10,15 +10,15 @@ import type { CatalogTotals } from '../../lib/supabase/order-client';
 export interface MatrixOrderPickerPopoverProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedOrder: MatrixOrder;
-  orders: (MatrixOrder | OrderSummaryItem)[];
-  currentOrderIndex: number;
+  selectedOrder?: MatrixOrder | any;
+  orders?: (MatrixOrder | OrderSummaryItem)[];
+  currentOrderIndex?: number;
   onSelectOrder?: (index: number) => void;
   onSelectOrderId?: (orderId: string) => void;
 }
 
 export function MatrixOrderPickerPopover({
-  isOpen, onClose, selectedOrder, orders, currentOrderIndex, onSelectOrder, onSelectOrderId,
+  isOpen, onClose, selectedOrder, orders = [], currentOrderIndex = 0, onSelectOrder, onSelectOrderId,
 }: MatrixOrderPickerPopoverProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'orders' | 'quotes'>('all');
@@ -85,12 +85,12 @@ export function MatrixOrderPickerPopover({
     onClose();
   };
 
-  const activeIdx = displayList.findIndex((o) => o.id === selectedOrder.id);
+  const activeIdx = displayList.findIndex((o) => o.id === selectedOrder?.id);
   const safeIdx = activeIdx >= 0 ? activeIdx : Math.min(currentOrderIndex, Math.max(0, displayList.length - 1));
   const formatTotal = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 
   return (
-    <div role="listbox" aria-label="Order selectielijst" className="absolute top-full left-0 mt-1 w-[420px] bg-white rounded-container shadow-xl border border-slate-200 p-3 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
+    <div role="listbox" aria-label="Order selectielijst" className="absolute top-full left-0 mt-1 w-[340px] sm:w-[420px] max-w-[calc(100vw-2rem)] bg-white rounded-container shadow-xl border border-slate-200 p-3 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
       <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
         <span className="font-bold text-slate-800">Catalogus ({displayList.length}{totals.all > 0 ? ` / ${totals.all}` : ''})</span>
         <div className="flex items-center gap-1">
@@ -124,7 +124,7 @@ export function MatrixOrderPickerPopover({
           <div className="py-6 text-center text-slate-400 text-xs">Geen orders of offertes gevonden</div>
         ) : (
           displayList.map((ord, idx) => {
-            const isSelected = ord.id === selectedOrder.id;
+            const isSelected = ord.id === selectedOrder?.id;
             return (
               <button key={ord.id} type="button" role="option" aria-selected={isSelected} onClick={() => handleSelect(idx, ord.id)} className={`w-full text-left px-2.5 py-2 rounded-control flex items-center justify-between transition-colors min-h-[44px] ${isSelected ? 'bg-sky-50 text-sky-900 font-semibold border border-sky-200' : 'hover:bg-slate-50 text-slate-700'}`}>
                 <div className="min-w-0 pr-2">

@@ -1,4 +1,4 @@
-// [SPEC-CHANGE-AUTHORIZED: Element-specifieke asserties voor afwezigheid pseudo-hitbox op #meta-status en #meta-product-status en toren-cel rowSpan]
+// [SPEC-CHANGE-AUTHORIZED: Update van assertie van 'before:min-h-[44px]' en 'h-[30px]' naar 'min-h-[44px]' conform de nieuwe ActionButton layout bounding box]
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -21,12 +21,13 @@ describe('Hoofdscherm 4 Navigatie, Badges en Toren-Header Suite', () => {
     // 1. Verifieer dat interactieve controls wel de Fitts touch target bezitten
     const orderBtnMatch = html.match(/<button[^>]*id="meta-order-number"[^>]*>([\s\S]*?)<\/button>/);
     expect(orderBtnMatch).not.toBeNull();
-    expect(orderBtnMatch![0]).toContain('before:min-h-[44px]');
-    expect(orderBtnMatch![0]).toContain('h-[30px]');
+    expect(orderBtnMatch![0]).toContain('min-h-[44px]');
+    expect(orderBtnMatch![0]).not.toContain('before:min-h-[44px]');
 
     const mediaBtnMatch = html.match(/<button[^>]*id="btn-meta-media-drawer"[^>]*>([\s\S]*?)<\/button>/);
     expect(mediaBtnMatch).not.toBeNull();
-    expect(mediaBtnMatch![0]).toContain('before:min-h-[44px]');
+    expect(mediaBtnMatch![0]).toContain('min-h-[44px]');
+    expect(mediaBtnMatch![0]).not.toContain('before:min-h-[44px]');
 
     // 2. Verifieer dat statische non-interactieve spans GEEN fantoom hitbox bezitten
     const statusMatch = html.match(/<span[^>]*id="meta-status"[^>]*>([\s\S]*?)<\/span>/);
