@@ -1,8 +1,8 @@
 /**
  * src/domain/orders/order-intake-service.ts
  *
- * Single Source of Truth (SSOT) voor Order Intake, JIT SKU Disambiguatie
- * en CPQ Hybride Regelsplitsing (Omzetbescherming).
+ * Single Source of Truth (SSOT) voor Order Intake, JIT SKU Disambiguatie,
+ * 4-Traps Configuratie Extractie en CPQ Hybride Regelsplitsing (Omzetbescherming).
  */
 
 import { ClassificationService } from '@/domain/classification/central-classification-service';
@@ -11,6 +11,7 @@ import {
   detectServiceDiscipline,
   SERVICE_DISCIPLINE_TO_PRODUCT_GROUP,
 } from '@/domain/search/v2/cognitive-typology-classifier';
+import { ConfigurationExtractionEngine } from '@/domain/orders/configuration-extraction-engine';
 import type {
   RawLogicTradeOrderInput,
   RawOrderLineInput,
@@ -18,6 +19,8 @@ import type {
   IngestedOrderLine,
   IngestedOrderHeader,
   ResolvedProductEntity,
+  ICognitiveExtractionProvider,
+  ConfigurationSpec,
 } from '@/types/order-intake';
 import { resolveProductByCode as defaultResolveProductByCode } from '@/lib/supabase/order-client';
 
@@ -29,21 +32,27 @@ export type {
   IngestedOrderLine,
   IngestedOrderHeader,
   ResolvedProductEntity,
+  ConfigurationSpec,
 } from '@/types/order-intake';
 
 export interface OrderIntakeServiceOptions {
   classificationService?: ClassificationService;
   resolveProductByCode?: (code: string, supplierName?: string) => Promise<ResolvedProductEntity | null>;
   skipClientLookup?: boolean;
+  cognitiveProvider?: ICognitiveExtractionProvider;
 }
 
 export class OrderIntakeService {
   private classificationService: ClassificationService;
+  private extractionEngine: ConfigurationExtractionEngine;
   private resolveProductByCode: (code: string, supplierName?: string) => Promise<ResolvedProductEntity | null>;
   private skipClientLookup: boolean;
 
   constructor(options: OrderIntakeServiceOptions = {}) {
     this.classificationService = options.classificationService || new ClassificationService();
+    this.extractionEngine = new ConfigurationExtractionEngine({
+      cognitiveProvider: options.cognitiveProvider,
+    });
     this.resolveProductByCode = options.resolveProductByCode || defaultResolveProductByCode;
     this.skipClientLookup = !!options.skipClientLookup;
   }
@@ -86,12 +95,20 @@ export class OrderIntakeService {
   public async splitHybridOrderLine(
     line: RawOrderLineInput,
     productId: number | null,
-    materialGroupCode: string
+    materialGroupCode: string,
+    configSpec?: ConfigurationSpec | null,
+    serviceDisciplineCode?: string
   ): Promise<IngestedOrderLine[]> {
     const unitPrice = line.unit_price_cents || 0;
     const totalPrice = line.total_price_cents !== undefined ? line.total_price_cents : unitPrice * (line.quantity || 1);
     const quantity = line.quantity || 1;
     const etage = line.etage_name || 'Begane grond';
+
+    const derivedDim =
+      line.dim ||
+      (configSpec?.dimensions?.width_mm && configSpec?.dimensions?.height_mm
+        ? `${configSpec.dimensions.width_mm} × ${configSpec.dimensions.height_mm}`
+        : null);
 
     // 1. Hoofdregel (Materiaal): sub_line = 0
     const mainLine: IngestedOrderLine = {
@@ -111,30 +128,33 @@ export class OrderIntakeService {
       room_name: line.room_name,
       window_name: line.window_name,
       position_id: line.position_id,
-      dim: line.dim || null,
+      dim: derivedDim,
       notes: line.notes || null,
       dimension_spec: line.dimension_spec || null,
+      configuration_spec: configSpec || null,
     };
 
     // 2. Bepaal afgeleide service discipline
-    let serviceGroupCode = '6.9'; // Overige diensten default
-    const serviceRes = detectServiceDiscipline(line.description);
-    if (serviceRes && serviceRes.discipline) {
-      serviceGroupCode = SERVICE_DISCIPLINE_TO_PRODUCT_GROUP[serviceRes.discipline] || '6.9';
-    } else {
-      // Fallback op basis van materiaal
-      if (materialGroupCode.startsWith('3.')) {
-        serviceGroupCode = '6.3'; // Vloer legservice
-      } else if (materialGroupCode.startsWith('1.')) {
-        serviceGroupCode = '6.1'; // Gordijn/rail montage
-      } else if (materialGroupCode.startsWith('2.')) {
-        serviceGroupCode = '6.2'; // Binnenzonwering montage
-      } else if (materialGroupCode.startsWith('5.')) {
-        serviceGroupCode = '6.5'; // Buitenzonwering montage
+    let serviceGroupCode = serviceDisciplineCode || '6.9';
+    if (!serviceDisciplineCode) {
+      const serviceRes = detectServiceDiscipline(line.description);
+      if (serviceRes && serviceRes.discipline) {
+        serviceGroupCode = SERVICE_DISCIPLINE_TO_PRODUCT_GROUP[serviceRes.discipline] || '6.9';
+      } else {
+        // Fallback op basis van materiaal
+        if (materialGroupCode.startsWith('3.')) {
+          serviceGroupCode = '6.3'; // Vloer legservice
+        } else if (materialGroupCode.startsWith('1.')) {
+          serviceGroupCode = '6.1'; // Gordijn/rail montage
+        } else if (materialGroupCode.startsWith('2.')) {
+          serviceGroupCode = '6.2'; // Binnenzonwering montage
+        } else if (materialGroupCode.startsWith('5.')) {
+          serviceGroupCode = '6.5'; // Buitenzonwering montage
+        }
       }
     }
 
-    // 3. Afgeleide Serviceregel: sub_line = 1 (verplicht 0€ & isInbegrepen = true)
+    // 3. Afgeleide Serviceregel: sub_line = 1 (verplicht 0€ & isInbegrepen = true & configuration_spec = null)
     const serviceLine: IngestedOrderLine = {
       line_number: line.line_number,
       sub_line: 1,
@@ -152,9 +172,10 @@ export class OrderIntakeService {
       room_name: line.room_name,
       window_name: line.window_name,
       position_id: line.position_id,
-      dim: line.dim || null,
+      dim: derivedDim,
       notes: line.notes || null,
-      dimension_spec: line.dimension_spec || null,
+      dimension_spec: null,
+      configuration_spec: null,
     };
 
     return [mainLine, serviceLine];
@@ -171,6 +192,9 @@ export class OrderIntakeService {
 
     // Classificeer regel
     let groupCode = '9.9';
+    let serviceDisciplineCode: string | undefined;
+    let classificationIsHybrid = false;
+
     if (resolvedProduct && resolvedProduct.product_group_code) {
       groupCode = resolvedProduct.product_group_code;
     } else {
@@ -180,17 +204,37 @@ export class OrderIntakeService {
         description: rawLine.description,
       });
       groupCode = classRes.productGroupCode;
+      serviceDisciplineCode = classRes.serviceDisciplineCode;
+      classificationIsHybrid = Boolean(classRes.isHybrid);
+    }
+
+    // 4-Traps Configuratie Extractie Cascade (0, A, B, C) met Reconciliatie (D)
+    const configSpec = await this.extractionEngine.extractConfiguration(rawLine, groupCode);
+    if (configSpec.reconciled_product_group_code) {
+      groupCode = configSpec.reconciled_product_group_code;
     }
 
     // Is het een hybride regel (materiaal incl. dienst)?
-    const isHybrid = rawLine.is_hybrid || detectIsMaterialAndService(rawLine.description);
+    const isHybrid = rawLine.is_hybrid || classificationIsHybrid || detectIsMaterialAndService(rawLine.description);
 
     if (isHybrid) {
-      return this.splitHybridOrderLine(rawLine, resolvedProduct ? resolvedProduct.id : null, groupCode);
+      return this.splitHybridOrderLine(
+        rawLine,
+        resolvedProduct ? resolvedProduct.id : null,
+        groupCode,
+        configSpec,
+        serviceDisciplineCode
+      );
     }
 
     const unitPrice = rawLine.unit_price_cents || 0;
     const totalPrice = rawLine.total_price_cents !== undefined ? rawLine.total_price_cents : unitPrice * (rawLine.quantity || 1);
+
+    const derivedDim =
+      rawLine.dim ||
+      (configSpec.dimensions?.width_mm && configSpec.dimensions?.height_mm
+        ? `${configSpec.dimensions.width_mm} × ${configSpec.dimensions.height_mm}`
+        : null);
 
     const singleLine: IngestedOrderLine = {
       line_number: rawLine.line_number,
@@ -209,9 +253,10 @@ export class OrderIntakeService {
       room_name: rawLine.room_name,
       window_name: rawLine.window_name,
       position_id: rawLine.position_id,
-      dim: rawLine.dim || null,
+      dim: derivedDim,
       notes: rawLine.notes || null,
       dimension_spec: rawLine.dimension_spec || null,
+      configuration_spec: configSpec,
     };
 
     return [singleLine];
@@ -233,6 +278,7 @@ export function mapLogicTradeOrderToRawInput(
 ): RawLogicTradeOrderInput {
   const statusStr = String(header.status || '').trim();
   const statusUpper = statusStr.toUpperCase();
+
   const rawOrdNumber = String(header.orderNumber || header.id || '').trim();
 
   const isOfferte =
@@ -297,6 +343,10 @@ export function mapLogicTradeOrderToRawInput(
       notes: typeof l.comment === 'string' ? l.comment : (l.comment?.intern || l.comment?.extern || null),
       dimension_spec: l.dimension_spec || null,
       is_hybrid: l.is_hybrid,
+      width_mm: typeof l.widthMm === 'number' ? l.widthMm : (typeof l.width_mm === 'number' ? l.width_mm : undefined),
+      height_mm: typeof l.heightMm === 'number' ? l.heightMm : (typeof l.height_mm === 'number' ? l.height_mm : undefined),
+      options: Array.isArray(l.options) ? l.options : undefined,
+      configuration_json: l.configurationJson || l.configuration_json || undefined,
     };
   });
 

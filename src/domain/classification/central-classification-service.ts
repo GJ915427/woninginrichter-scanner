@@ -8,6 +8,7 @@
 import type { Category, ProductGroup, BatchProductTaxonomyUpdateItem } from '@/types/taxonomy';
 import {
   detectServiceDiscipline,
+  detectIsMaterialAndService,
   SERVICE_DISCIPLINE_TO_PRODUCT_GROUP,
 } from '@/domain/search/v2/cognitive-typology-classifier';
 
@@ -78,6 +79,9 @@ export interface ClassificationResult {
   stage: ClassificationStage;
   confidence: number;
   requiresReview: boolean;
+  materialGroupCode?: string;
+  serviceDisciplineCode?: string;
+  isHybrid?: boolean;
 }
 
 export interface ClassifyProductInput {
@@ -122,10 +126,25 @@ export class ClassificationService {
       return this.buildResult(groupCode, 'trap_1_master_cache', 1.0, false);
     }
 
+    const text = `${input.name || ''} ${input.description || ''} ${input.supplier_name || ''} ${input.sales_group || ''}`.toLowerCase();
+    const isHybrid = detectIsMaterialAndService(text);
+
+    let hybridServiceCode: string | undefined;
+    if (isHybrid) {
+      const sRes = detectServiceDiscipline(text);
+      if (sRes?.discipline) {
+        hybridServiceCode = SERVICE_DISCIPLINE_TO_PRODUCT_GROUP[sRes.discipline];
+      }
+    }
+
     // Trap 2: Mechanisch Deterministische Ontologie (<1ms)
-    const trap2Group = this.matchDeterministicOntology(input);
+    const trap2Group = this.matchDeterministicOntology(input, isHybrid);
     if (trap2Group) {
-      return this.buildResult(trap2Group, 'trap_2_deterministic_ontology', 0.95, false);
+      return this.buildResult(trap2Group, 'trap_2_deterministic_ontology', 0.95, false, {
+        isHybrid,
+        materialGroupCode: trap2Group,
+        serviceDisciplineCode: hybridServiceCode,
+      });
     }
 
     // Trap 3: Cognitieve Typologie Classificatie Engine
@@ -163,11 +182,11 @@ export class ClassificationService {
     return batch;
   }
 
-  private matchDeterministicOntology(input: ClassifyProductInput): string | null {
+  private matchDeterministicOntology(input: ClassifyProductInput, isHybrid: boolean = false): string | null {
     const text = `${input.name || ''} ${input.description || ''} ${input.supplier_name || ''} ${input.sales_group || ''}`.toLowerCase();
 
-    // Als de tekst een duidelijke dienst of montagetaak betreft, delegeer aan Trap 3
-    if (/\b(montage|monteren|plaatsen|leggen|inmeten|inmeet|schouw|stofferen|stoffering|service|uurtarief|arbeid)\b/i.test(text)) {
+    // Als de tekst een duidelijke dienst of montagetaak betreft EN niet hybride is, delegeer aan Trap 3
+    if (!isHybrid && /\b(montage|monteren|plaatsen|leggen|inmeten|inmeet|schouw|stofferen|stoffering|service|uurtarief|arbeid)\b/i.test(text)) {
       return null;
     }
 
@@ -279,7 +298,8 @@ export class ClassificationService {
     productGroupCode: string,
     stage: ClassificationStage,
     confidence: number,
-    requiresReview: boolean
+    requiresReview: boolean,
+    hybridMeta?: { isHybrid?: boolean; materialGroupCode?: string; serviceDisciplineCode?: string }
   ): ClassificationResult {
     const group = this.productGroupMap.get(productGroupCode) || this.productGroupMap.get('9.9')!;
     const category = this.categoryMap.get(group.category_id) || this.categoryMap.get(9)!;
@@ -292,6 +312,9 @@ export class ClassificationService {
       stage,
       confidence,
       requiresReview,
+      isHybrid: hybridMeta?.isHybrid ?? false,
+      materialGroupCode: hybridMeta?.materialGroupCode,
+      serviceDisciplineCode: hybridMeta?.serviceDisciplineCode,
     };
   }
 }

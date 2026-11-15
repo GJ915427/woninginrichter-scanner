@@ -86,6 +86,21 @@ describe('ClassificationService & Taxonomy SSOT', () => {
       expect(result.stage).toBe('trap_4_fail_closed_quarantine');
       expect(result.requiresReview).toBe(true);
     });
+
+    // [SPEC-CHANGE-AUTHORIZED: Sub-Phase 3B Hybrid Classification Coverage]
+    it('Trap 2 (Hybrid Material & Service): detects hybrid order line without losing material product group', async () => {
+      const result: ClassificationResult = await service.classifyProduct({
+        code: 'HYB-001',
+        name: 'Visgraat PVC Eiken incl. leggen',
+      });
+
+      expect(result.productGroupCode).toBe('3.3');
+      expect(result.stage).toBe('trap_2_deterministic_ontology');
+      expect(result.isHybrid).toBe(true);
+      expect(result.materialGroupCode).toBe('3.3');
+      expect(result.serviceDisciplineCode).toBe('6.3');
+      expect(result.requiresReview).toBe(false);
+    });
   });
 
   describe('Keyset Backfill Chunk Runner', () => {

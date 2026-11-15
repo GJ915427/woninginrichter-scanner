@@ -1,9 +1,76 @@
 /**
  * src/types/order-intake.ts
  *
- * Contracten en DTO's voor order-intake, regelsplitsing, JIT catalogus-lookup
- * en PostgreSQL transactionele stored procedure interfaces.
+ * Contracten en DTO's voor order-intake, regelsplitsing, JIT catalogus-lookup,
+ * configuratie-extractie en PostgreSQL transactionele stored procedure interfaces.
  */
+
+export interface ConfigurationDimensions {
+  width_mm?: number;
+  height_mm?: number;
+  depth_mm?: number;
+  area_m2?: number;
+  linear_meters?: number;
+}
+
+export interface ConfigurationSpec {
+  status: 'valid' | 'incomplete' | 'requires_review';
+  confidence: number;
+  source: 'erp_fields' | 'eorder_json' | 'regex_tokenizer' | 'cognitive' | 'manual';
+  dimensions?: ConfigurationDimensions;
+  options?: string[];
+  attributes?: Record<string, unknown>;
+  extraction_notes?: string[];
+  reconciled_product_group_code?: string;
+}
+
+export interface CurtainConfigSpec extends ConfigurationSpec {
+  attributes?: {
+    pleat_type?: 'enkele_plooi' | 'dubbele_plooi' | 'wave' | 'retourplooi' | string;
+    hook_type?: string;
+    track_type?: string;
+    fabric_width_mm?: number;
+    lead_cord?: boolean;
+    hem_cm?: number;
+    [key: string]: unknown;
+  };
+}
+
+export interface HardWindowConfigSpec extends ConfigurationSpec {
+  attributes?: {
+    model?: string;
+    operation?: 'koord' | 'ketting' | 'motor' | 'smartcord' | 'greep' | string;
+    side?: 'links' | 'rechts' | string;
+    profile_color?: string;
+    mounting?: 'in_de_dag' | 'op_de_dag' | string;
+    slat_width_mm?: number;
+    [key: string]: unknown;
+  };
+}
+
+export interface FlooringConfigSpec extends ConfigurationSpec {
+  attributes?: {
+    subfloor?: string;
+    plinth_type?: string;
+    laying_pattern?: 'visgraat' | 'recht' | 'hongaarse_punt' | 'tegel' | string;
+    underfloor_heating?: boolean;
+    waste_percentage?: number;
+    [key: string]: unknown;
+  };
+}
+
+export interface ServiceConfigSpec extends ConfigurationSpec {
+  attributes?: {
+    discipline?: string;
+    is_included?: boolean;
+    reference_line?: number;
+    [key: string]: unknown;
+  };
+}
+
+export interface ICognitiveExtractionProvider {
+  extract(rawLine: RawOrderLineInput, productGroupCode?: string): Promise<ConfigurationSpec>;
+}
 
 export interface RawOrderLineInput {
   line_number: number;
@@ -21,6 +88,10 @@ export interface RawOrderLineInput {
   dim?: string;
   notes?: string;
   dimension_spec?: Record<string, unknown> | null;
+  width_mm?: number;
+  height_mm?: number;
+  options?: string[];
+  configuration_json?: Record<string, unknown> | null;
 }
 
 export interface RawLogicTradeOrderInput {
@@ -61,6 +132,7 @@ export interface IngestedOrderLine {
   dim?: string | null;
   notes?: string | null;
   dimension_spec?: Record<string, unknown> | null;
+  configuration_spec?: ConfigurationSpec | null;
 }
 
 export interface IngestedOrderHeader {

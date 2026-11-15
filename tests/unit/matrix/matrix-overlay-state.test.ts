@@ -442,8 +442,9 @@ describe('Matrix Overlay State Coordinator & Cascading Mutators (Unit Tests)', (
       expect(notFound).toBeNull();
 
       // Test TC-OVR-10: findOrderLineByCompoundKey
-      expect(findOrderLineByCompoundKey(order, 'prod-duette-pos-2__a')).toBe(30);
-      expect(findOrderLineByCompoundKey(order, 'prod-duette-pos-1')).toBe(20);
+      // [SPEC-CHANGE-AUTHORIZED: Sub-Phase 3B SubLine Overlay State Parity]
+      expect(findOrderLineByCompoundKey(order, 'prod-duette-pos-2__a')).toEqual({ line: 30, subLine: undefined });
+      expect(findOrderLineByCompoundKey(order, 'prod-duette-pos-1')).toEqual({ line: 20, subLine: undefined });
       expect(findOrderLineByCompoundKey(order, 'prod-unknown-pos-1')).toBeNull();
       expect(findOrderLineByCompoundKey(order, null)).toBeNull();
     });

@@ -321,5 +321,35 @@ describe('OrderIntakeService & Hybrid Line Ingest SSOT', () => {
       expect(rawInput.fsm_phase).toBe('2. Offerte');
       expect(rawInput.id).toBe('10442');
     });
+
+    // [SPEC-CHANGE-AUTHORIZED: Sub-Phase 3B Configuration Spec Ingest Coverage]
+    it('maps widthMm, heightMm, options, and configurationJson and attaches configuration_spec', async () => {
+      const orderPayload = {
+        id: 119999,
+        orderNumber: 'V26009999',
+        status: 'ORDER',
+      };
+      const linePayloads = [
+        {
+          lineNumber: 10,
+          articleCode: 'A00034988',
+          articleDescription: 'Duette 32mm Smartcord',
+          widthMm: 2400,
+          heightMm: 1800,
+          options: ['SmartCord', 'Top-Down'],
+        },
+      ];
+
+      const rawInput = mapLogicTradeOrderToRawInput(orderPayload, linePayloads);
+      expect(rawInput.lines[0].width_mm).toBe(2400);
+      expect(rawInput.lines[0].height_mm).toBe(1800);
+      expect(rawInput.lines[0].options).toEqual(['SmartCord', 'Top-Down']);
+
+      const ingested = await service.processOrderIntake(rawInput);
+      expect(ingested.lines[0].configuration_spec).toBeDefined();
+      expect(ingested.lines[0].configuration_spec?.source).toBe('erp_fields');
+      expect(ingested.lines[0].configuration_spec?.dimensions?.width_mm).toBe(2400);
+      expect(ingested.lines[0].dim).toBe('2400 × 1800');
+    });
   });
 });

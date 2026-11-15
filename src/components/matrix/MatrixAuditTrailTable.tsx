@@ -7,13 +7,15 @@ import { centsToEuroString } from '../../utils/matrix-pricing';
 export interface MatrixAuditTrailTableProps {
   lines: LogicTradeOrderLine[];
   highlightedLine?: number | null;
-  onSelectLine?: (line: number) => void;
+  highlightedSubLine?: number | null;
+  onSelectLine?: (line: number, subLine?: number) => void;
   onOpenDocument?: () => void;
 }
 
 export function MatrixAuditTrailTable({
   lines,
   highlightedLine,
+  highlightedSubLine,
   onSelectLine,
   onOpenDocument,
 }: MatrixAuditTrailTableProps) {
@@ -36,7 +38,7 @@ export function MatrixAuditTrailTable({
                 Oorspronkelijke LogicTrade Orderregels & Inkooporders (Audit-Trail)
               </h3>
               <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
-                {lines.length} regels
+                {`${lines.length} regels`}
               </span>
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
@@ -85,24 +87,29 @@ export function MatrixAuditTrailTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {lines.map((row) => {
-                const isSelected = highlightedLine === row.line;
+              {lines.map((row, idx) => {
+                const isSelected =
+                  highlightedLine === row.line &&
+                  (highlightedSubLine === undefined ||
+                    highlightedSubLine === null ||
+                    (row.subLine ?? 0) === highlightedSubLine);
                 const isProjectscope = !row.roomName && row.positionName === 'pos_project_algemeen';
+                const isServiceSubline = row.subLine !== undefined && row.subLine > 0;
 
                 return (
                   <tr
-                    key={row.line}
+                    key={`${row.line}_${row.subLine ?? 0}_${idx}`}
                     role={isProjectscope ? undefined : 'button'}
                     tabIndex={isProjectscope ? -1 : 0}
                     onClick={() => {
                       if (!isProjectscope && onSelectLine) {
-                        onSelectLine(row.line);
+                        onSelectLine(row.line, row.subLine);
                       }
                     }}
                     onKeyDown={(e) => {
                       if (!isProjectscope && (e.key === 'Enter' || e.key === ' ')) {
                         e.preventDefault();
-                        onSelectLine?.(row.line);
+                        onSelectLine?.(row.line, row.subLine);
                       }
                     }}
                     className={`transition-colors min-h-[44px] ${
@@ -114,7 +121,14 @@ export function MatrixAuditTrailTable({
                     }`}
                   >
                     <td className="px-4 py-3 text-center font-mono text-slate-600 font-semibold">
-                      {row.line}
+                      <div className="flex items-center justify-center gap-1">
+                        <span>{isServiceSubline ? `${row.line}.${row.subLine}` : row.line}</span>
+                        {isServiceSubline && (
+                          <span className="text-[9px] font-sans px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            Montage
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 font-mono text-slate-500">
                       {row.productCode || '—'}

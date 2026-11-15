@@ -116,6 +116,12 @@ describe('Matrix Order Bundle Engine (Pure Node Vitest)', () => {
       expect(serviceProd!.posPrices['pos_1']).toBeDefined();
       expect(serviceProd!.posPrices['pos_1'].totalPriceCents).toBe(0);
       expect(serviceProd!.posPrices['pos_1'].isInbegrepen).toBe(true);
+
+      // [SPEC-CHANGE-AUTHORIZED: Sub-Phase 3B SubLine Parity in Matrix Bundle]
+      expect(product!.posPrices['pos_1'].subLine).toBe(0);
+      expect(serviceProd!.posPrices['pos_1'].subLine).toBe(1);
+      expect(matrixOrder.rawLines[0].subLine).toBe(0);
+      expect(matrixOrder.rawLines[1].subLine).toBe(1);
     });
   });
 

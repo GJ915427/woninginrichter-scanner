@@ -15,6 +15,7 @@ import type {
   CellPriceData,
   DimensionSpec,
 } from '@/types/matrix';
+import type { ConfigurationSpec } from '@/types/order-intake';
 
 export interface OrderLineDto {
   line_number: number;
@@ -36,6 +37,7 @@ export interface OrderLineDto {
   dim?: string | null;
   notes?: string | null;
   dimension_spec?: DimensionSpec | null;
+  configuration_spec?: ConfigurationSpec | null;
 }
 
 export interface OrderHeaderDto {
@@ -115,9 +117,11 @@ export function bundleMatrixOrder(dto: OrderMatrixBundleDto): MatrixOrder {
       dim: line.dim || undefined,
       note: line.notes || undefined,
       line: line.line_number,
+      subLine: line.sub_line,
       subPos: line.sub_line > 0 ? String(line.sub_line) : undefined,
       isInbegrepen: Boolean(line.is_inbegrepen),
       dimensionSpec: line.dimension_spec || undefined,
+      configurationSpec: line.configuration_spec || undefined,
     };
 
     prod.posPrices[posId] = cellPrice;
@@ -147,6 +151,7 @@ export function bundleMatrixOrder(dto: OrderMatrixBundleDto): MatrixOrder {
   // Bouw rawLines voor de audit trail
   const rawLines = lines.map((l) => ({
     line: l.line_number,
+    subLine: l.sub_line,
     productCode: l.product_code,
     description: l.description,
     quantity: Number(l.quantity) || 1,
@@ -218,31 +223,33 @@ export async function fetchMatrixOrderBundle(
 
 export function useMatrixOrderBundle(orderId: string | null) {
   const [order, setOrder] = useState<MatrixOrder | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadBundle = useCallback(async () => {
     if (!orderId) {
       setOrder(null);
-      setIsLoading(false);
+      setLoading(false);
       setError(null);
       return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
     setError(null);
 
     try {
-      const fetchedOrder = await fetchMatrixOrderBundle(orderId);
-      if (fetchedOrder) {
-        setOrder(fetchedOrder);
+      const bundle = await fetchMatrixOrderBundle(orderId);
+      if (!bundle) {
+        setError(`Order ${orderId} kon niet worden geladen.`);
+        setOrder(null);
       } else {
-        setError(`Order ${orderId} kon niet worden gevonden.`);
+        setOrder(bundle);
       }
     } catch (err) {
-      setError(`Fout bij laden van order: ${err instanceof Error ? err.message : String(err)}`);
+      setError(err instanceof Error ? err.message : 'Onbekende fout bij ophalen order.');
+      setOrder(null);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, [orderId]);
 
@@ -252,8 +259,8 @@ export function useMatrixOrderBundle(orderId: string | null) {
 
   return {
     order,
-    isLoading,
+    loading,
     error,
-    refetch: loadBundle,
+    reload: loadBundle,
   };
 }

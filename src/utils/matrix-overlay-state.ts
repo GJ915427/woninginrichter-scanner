@@ -297,21 +297,31 @@ export function dissolveClusterInOrder(
 }
 
 /**
- * Zoekt de unieke cel-sleutel en productId behorende bij een ERP orderregelnummer.
+ * Zoekt de unieke cel-sleutel en productId behorende bij een ERP orderregelnummer en optioneel subLine.
  * Wordt gebruikt voor de interactieve koppeling vanuit de LogicTrade Audit-Trail tabel.
  */
 export function findCellKeyByOrderLine(
   order: MatrixOrder,
-  line: number
+  line: number,
+  subLine?: number
 ): { productId: string; cellKey: string } | null {
   for (const product of order.products) {
     if (!product.posPrices) continue;
     for (const [cellKey, cellData] of Object.entries(product.posPrices)) {
       if (cellData && cellData.line === line) {
-        return {
-          productId: product.id,
-          cellKey,
-        };
+        if (subLine !== undefined) {
+          if ((cellData.subLine ?? 0) === subLine) {
+            return {
+              productId: product.id,
+              cellKey,
+            };
+          }
+        } else {
+          return {
+            productId: product.id,
+            cellKey,
+          };
+        }
       }
     }
   }
@@ -321,13 +331,19 @@ export function findCellKeyByOrderLine(
 export function findOrderLineByCompoundKey(
   order: MatrixOrder,
   compoundKey: string | null
-): number | null {
+): { line: number; subLine?: number } | null {
   if (!compoundKey) return null;
   for (const product of order.products) {
     if (!product.posPrices) continue;
     for (const [cellKey, cellData] of Object.entries(product.posPrices)) {
       if (cellData && `${product.id}-${cellKey}` === compoundKey) {
-        return cellData.line ?? null;
+        if (cellData.line !== undefined) {
+          return {
+            line: cellData.line,
+            subLine: cellData.subLine,
+          };
+        }
+        return null;
       }
     }
   }

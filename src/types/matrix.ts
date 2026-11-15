@@ -5,8 +5,11 @@
  * Strikt client-safe zonder afhankelijkheid van Node.js runtime scripts (fs, path).
  */
 
+import type { ConfigurationSpec } from '@/types/order-intake';
+
 export interface LogicTradeOrderLine {
   line: number;
+  subLine?: number;
   productCode?: string;
   description: string;
   quantity: number;
@@ -82,6 +85,8 @@ export interface CellPriceData {
   opmerking?: string;           // Vrije montagenotitie
   isCalculated?: boolean;       // Vlag voor dynamische calculatie
   dimensionSpec?: DimensionSpec; // Polymorfe domein-specificatie (Zero Data Loss)
+  subLine?: number;
+  configurationSpec?: ConfigurationSpec;
 }
 
 export interface Position {

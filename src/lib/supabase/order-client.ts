@@ -6,7 +6,7 @@
  */
 
 import { getSupabaseConfig } from './client';
-import type { IngestedOrderBundle, ResolvedProductEntity } from '@/types/order-intake';
+import type { IngestedOrderBundle, ResolvedProductEntity, ConfigurationSpec } from '@/types/order-intake';
 import type { DimensionSpec, OrderSummaryItem } from '@/types/matrix';
 
 export interface OrderLineDto {
@@ -29,6 +29,7 @@ export interface OrderLineDto {
   dim?: string | null;
   notes?: string | null;
   dimension_spec?: DimensionSpec | null;
+  configuration_spec?: ConfigurationSpec | null;
 }
 
 export interface OrderHeaderDto {

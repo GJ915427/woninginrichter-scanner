@@ -100,10 +100,10 @@ export default function MatrixOrdersPage() {
     };
   }, []);
 
-  const handleSelectAuditLine = (line: number) => {
+  const handleSelectAuditLine = (line: number, subLine?: number) => {
     setViewMode('matrix');
     requestAnimationFrame(() => {
-      const match = findCellKeyByOrderLine(selectedOrder, line);
+      const match = findCellKeyByOrderLine(selectedOrder, line, subLine);
       if (match) {
         const fullKey = `${match.productId}-${match.cellKey}`;
         setHighlightedCellKey(fullKey);
@@ -113,9 +113,9 @@ export default function MatrixOrdersPage() {
   };
 
   const handleCellAuditHighlight = (productId: string, positionId: string, subPos?: string) => {
-    const line = findOrderLineByCompoundKey(selectedOrder, `${productId}-${buildCellKey(positionId, subPos)}`);
-    if (line !== null && line !== undefined) {
-      document.getElementById(`audit-row-${line}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const match = findOrderLineByCompoundKey(selectedOrder, `${productId}-${buildCellKey(positionId, subPos)}`);
+    if (match?.line !== undefined) {
+      document.getElementById(`audit-row-${match.line}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   };
 
@@ -200,7 +200,7 @@ export default function MatrixOrdersPage() {
             className={viewMode === 'audit' ? 'block' : 'hidden'}
           >
             <MatrixAuditTrailTable
-              lines={selectedOrder.rawLines || []} highlightedLine={highlightedOrderLine}
+              lines={selectedOrder.rawLines || []} highlightedLine={highlightedOrderLine?.line} highlightedSubLine={highlightedOrderLine?.subLine}
               onSelectLine={handleSelectAuditLine}
               onOpenDocument={() => openOverlay({ type: 'media', positionId: 'pos_order_meta', title: `Historisch Document - ${selectedOrder.id}` })}
             />
