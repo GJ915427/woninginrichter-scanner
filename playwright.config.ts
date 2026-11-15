@@ -25,17 +25,11 @@ export default defineConfig({
     },
     {
       name: 'tablet',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1194, height: 834 },
-        hasTouch: true,
-      },
-      testIgnore: /.*visual-regression\.spec\.ts$/,
+      use: { ...devices['iPad Pro 11'], defaultBrowserType: 'chromium' },
     },
     {
       name: 'mobile',
-      use: { ...devices['Pixel 7'] },
-      testIgnore: /.*visual-regression\.spec\.ts$/,
+      use: { ...devices['Pixel 5'] },
     },
   ],
   webServer: {

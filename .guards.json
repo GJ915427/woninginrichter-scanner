@@ -23,6 +23,10 @@
     }
   },
   "exemptions": [],
+  "verification_policy": {
+    "backend_pytest": "disabled",
+    "reason": "Next.js frontend-only workspace; legacy Python test scripts in tests/ are out of scope"
+  },
   "subpath_test_matrix": {
     "src/components/matrix": {
       "e2e_command": [
