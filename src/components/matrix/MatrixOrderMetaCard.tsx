@@ -66,6 +66,22 @@ export function MatrixOrderMetaCard({
     setIsPopoverOpen(false);
   };
 
+  const isQuote = Boolean(
+    selectedOrder.id?.startsWith('O') ||
+    selectedOrder.fsmStep === 2 ||
+    selectedOrder.status?.toUpperCase().includes('OFFERTE')
+  );
+  const isConverted = selectedOrder.status === 'Geconverteerd naar order';
+  const docTypeLabel = isConverted ? 'Offerte (Geconverteerd)' : isQuote ? 'Offerte' : 'Order';
+  const statusBadgeClass = isConverted
+    ? 'bg-slate-100 text-slate-700 border border-slate-200'
+    : isQuote
+    ? 'bg-amber-50 text-amber-800 border border-amber-200'
+    : 'bg-emerald-50/50 text-emerald-700 border border-emerald-200/60';
+  const productStatusBadgeClass = isConverted
+    ? 'bg-slate-100 text-slate-700 border border-slate-200'
+    : 'bg-emerald-50/50 text-emerald-700 border border-emerald-200/60';
+
   return (
     <div
       aria-label="Order Metadata Overzicht"
@@ -145,9 +161,9 @@ export function MatrixOrderMetaCard({
             </span>
             <span
               id="meta-status"
-              className="inline-flex items-center h-[30px] px-2.5 py-1 rounded-control text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
+              className={`inline-flex items-center h-[30px] px-2.5 py-1 rounded-control text-xs font-medium ${statusBadgeClass}`}
             >
-              Order
+              {docTypeLabel}
             </span>
           </div>
 
@@ -158,7 +174,7 @@ export function MatrixOrderMetaCard({
             </span>
             <span
               id="meta-product-status"
-              className="inline-flex items-center h-[30px] px-2.5 py-1 rounded-control text-xs font-medium bg-emerald-50/50 text-emerald-700 border border-emerald-200/60"
+              className={`inline-flex items-center h-[30px] px-2.5 py-1 rounded-control text-xs font-medium ${productStatusBadgeClass}`}
             >
               {selectedOrder.status || 'Definitief'}
             </span>

@@ -26,23 +26,26 @@ describe('Server-Centric Orders API & DAL Suite (Sub-Fase 3A)', () => {
       ];
 
       const mockFetch = vi.fn().mockImplementation(async (url: string) => {
-        // Count queries
-        if (url.includes('select=count')) {
-          if (url.includes('status.ilike.*OFFERTE*') || url.includes('status=ilike') || url.includes('fsm_step.eq.2')) {
+        // Count queries via limit=0 on SSOT views
+        if (url.includes('limit=0')) {
+          if (url.includes('active_quotes')) {
             return {
               ok: true,
-              json: async () => [{ count: 50 }],
+              headers: new Headers({ 'content-range': '*/50' }),
+              json: async () => [],
             };
           }
-          if (url.includes('status=neq.OFFERTE') || url.includes('status=neq')) {
+          if (url.includes('active_orders')) {
             return {
               ok: true,
-              json: async () => [{ count: 150 }],
+              headers: new Headers({ 'content-range': '*/150' }),
+              json: async () => [],
             };
           }
           return {
             ok: true,
-            json: async () => [{ count: 200 }],
+            headers: new Headers({ 'content-range': '*/200' }),
+            json: async () => [],
           };
         }
 
@@ -86,10 +89,11 @@ describe('Server-Centric Orders API & DAL Suite (Sub-Fase 3A)', () => {
     it('cached catalogustotalen en respecteert _resetOrderTotalsCache', async () => {
       let countCalls = 0;
       const mockFetch = vi.fn().mockImplementation(async (url: string) => {
-        if (url.includes('select=count')) {
+        if (url.includes('limit=0') || url.includes('select=count')) {
           countCalls++;
           return {
             ok: true,
+            headers: new Headers({ 'content-range': '*/100' }),
             json: async () => [{ count: 100 }],
           };
         }
@@ -120,8 +124,8 @@ describe('Server-Centric Orders API & DAL Suite (Sub-Fase 3A)', () => {
     it('filtert op type=quotes en zoekt op q query', async () => {
       let requestedUrl = '';
       const mockFetch = vi.fn().mockImplementation(async (url: string) => {
-        if (url.includes('select=count')) {
-          return { ok: true, json: async () => [{ count: 10 }] };
+        if (url.includes('limit=0') || url.includes('select=count')) {
+          return { ok: true, headers: new Headers({ 'content-range': '*/10' }), json: async () => [{ count: 10 }] };
         }
         requestedUrl = url;
         return {
@@ -138,8 +142,9 @@ describe('Server-Centric Orders API & DAL Suite (Sub-Fase 3A)', () => {
         bypassCache: true,
       });
 
+      expect(requestedUrl).toContain('active_quotes');
+      expect(requestedUrl).toContain('quotation_number.ilike');
       expect(requestedUrl).toContain('order_number.ilike');
-      expect(requestedUrl).toContain('status.ilike');
     });
   });
 
@@ -212,8 +217,11 @@ describe('Server-Centric Orders API & DAL Suite (Sub-Fase 3A)', () => {
     beforeEach(() => {
       fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any) => {
         const urlStr = String(url);
-        if (urlStr.includes('select=count')) {
-          return new Response(JSON.stringify([{ count: 100 }]), { status: 200 });
+        if (urlStr.includes('select=count') || urlStr.includes('limit=0')) {
+          return new Response(JSON.stringify([{ count: 100 }]), {
+            status: 200,
+            headers: { 'content-range': '*/100' },
+          });
         }
         if (urlStr.includes('/order_lines?')) {
           return new Response(

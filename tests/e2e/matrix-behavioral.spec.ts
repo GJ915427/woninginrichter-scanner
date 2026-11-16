@@ -241,4 +241,68 @@ test.describe('Matrix Orders Enterprise Behavioral Suite', () => {
     await page.keyboard.press('Escape');
     await expect(drawer).not.toBeVisible();
   });
+
+  // TC-PAR-11: Offerte Selectie via Popover & Dynamische Documentstatus Badge
+  test('TC-PAR-11: Offerte selectie via popover toont amberkleurige offerte-badge in header strip', async ({ page }) => {
+    // Intercept API calls to provide predictable mock data for quotes
+    await page.route('**/api/orders?*', async (route) => {
+      const url = new URL(route.request().url());
+      const type = url.searchParams.get('type');
+      if (type === 'quotes') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            items: [
+              {
+                id: 'O26001001',
+                orderNumber: 'O26001001',
+                klant: 'Van den Berg',
+                plaats: 'Geleen',
+                offerte: 'O26001001',
+                orderdatum: '2026-03-01',
+                totaalbedragCents: 185000,
+                status: 'Definitief',
+              },
+            ],
+            total: 1,
+            filteredCount: 1,
+            limit: 30,
+            offset: 0,
+            catalogTotals: { all: 200, orders: 150, quotes: 50 },
+          }),
+        });
+      }
+      return route.continue();
+    });
+
+    await page.goto('/matrix-orders');
+    await page.waitForSelector('#matrix-viewport');
+
+    // Default order header shows Order
+    await expect(page.locator('#order-meta-card #meta-status')).toContainText('Order');
+
+    // Open popover by clicking #meta-customer-name
+    await page.locator('#meta-customer-name').click();
+    const popover = page.locator('div[role="listbox"][aria-label="Order selectielijst"]');
+    await expect(popover).toBeVisible();
+
+    // Click Offertes tab filter button
+    const quotesTabBtn = popover.locator('button:has-text("Offertes")');
+    await expect(quotesTabBtn).toBeVisible();
+    await quotesTabBtn.click();
+
+    // Select the quote item
+    const quoteItem = popover.locator('button:has-text("O26001001")');
+    await expect(quoteItem).toBeVisible();
+    await quoteItem.click();
+
+    // Popover closes and header updates to Offerte badge
+    await expect(popover).not.toBeVisible();
+    await expect(page.locator('#order-meta-card #meta-order-number')).toContainText('O26001001');
+    const statusBadge = page.locator('#order-meta-card #meta-status');
+    await expect(statusBadge).toBeVisible();
+    await expect(statusBadge).toContainText('Offerte');
+    await expect(statusBadge).toHaveClass(/bg-amber-50/);
+  });
 });

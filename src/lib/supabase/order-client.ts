@@ -88,32 +88,29 @@ async function fetchCatalogTotals(
   const headers = {
     apikey: config.authKey,
     Authorization: `Bearer ${config.authKey}`,
+    Prefer: 'count=exact',
   };
 
-  const [resAll, resQuotes, resOrders] = await Promise.all([
-    fetchFn(`${config.url}/rest/v1/orders?select=count`, { headers }),
-    fetchFn(`${config.url}/rest/v1/orders?or=(status.ilike.*OFFERTE*,fsm_step.eq.2)&select=count`, { headers }),
-    fetchFn(`${config.url}/rest/v1/orders?status=neq.OFFERTE&fsm_step=neq.2&select=count`, { headers }),
+  const [resOrders, resQuotes] = await Promise.all([
+    fetchFn(`${config.url}/rest/v1/active_orders?select=id&limit=0`, { headers }),
+    fetchFn(`${config.url}/rest/v1/active_quotes?select=id&limit=0`, { headers }),
   ]);
 
-  let all = 0;
-  let quotes = 0;
   let orders = 0;
+  let quotes = 0;
 
-  if (resAll.ok) {
-    const data = await resAll.json();
-    all = Array.isArray(data) && data[0]?.count != null ? Number(data[0].count) : 0;
+  if (resOrders.ok) {
+    const range = resOrders.headers.get('content-range') || '';
+    const match = range.match(/\/(\d+|\*)$/);
+    orders = match && match[1] !== '*' ? parseInt(match[1], 10) : 0;
   }
   if (resQuotes.ok) {
-    const data = await resQuotes.json();
-    quotes = Array.isArray(data) && data[0]?.count != null ? Number(data[0].count) : 0;
-  }
-  if (resOrders.ok) {
-    const data = await resOrders.json();
-    orders = Array.isArray(data) && data[0]?.count != null ? Number(data[0].count) : 0;
+    const range = resQuotes.headers.get('content-range') || '';
+    const match = range.match(/\/(\d+|\*)$/);
+    quotes = match && match[1] !== '*' ? parseInt(match[1], 10) : 0;
   }
 
-  const totals: CatalogTotals = { all, quotes, orders };
+  const totals: CatalogTotals = { all: orders + quotes, orders, quotes };
   cachedCatalogTotals = { data: totals, expiresAt: now + 60_000 };
   return totals;
 }
@@ -152,6 +149,8 @@ export async function fetchOrderSummariesDal(options?: {
   const typeFilter = options?.type ?? 'all';
   const query = options?.q?.trim();
 
+  const endpoint = typeFilter === 'quotes' ? 'active_quotes' : typeFilter === 'orders' ? 'active_orders' : 'active_catalog';
+
   const queryParams: string[] = [
     'select=id,order_number,customer_name,city,quotation_number,order_date,total_amount_cents,status,fsm_step',
     'order=order_date.desc.nullslast,id.desc',
@@ -159,19 +158,12 @@ export async function fetchOrderSummariesDal(options?: {
     `offset=${offset}`,
   ];
 
-  if (typeFilter === 'quotes') {
-    queryParams.push('or=(status.ilike.*OFFERTE*,fsm_step.eq.2)');
-  } else if (typeFilter === 'orders') {
-    queryParams.push('status=neq.OFFERTE');
-    queryParams.push('fsm_step=neq.2');
-  }
-
   if (query) {
     const cleanQ = encodeURIComponent(query.replace(/[%,()]/g, ''));
-    queryParams.push(`or=(order_number.ilike.*${cleanQ}*,customer_name.ilike.*${cleanQ}*,city.ilike.*${cleanQ}*)`);
+    queryParams.push(`or=(order_number.ilike.*${cleanQ}*,quotation_number.ilike.*${cleanQ}*,customer_name.ilike.*${cleanQ}*,city.ilike.*${cleanQ}*)`);
   }
 
-  const url = `${config.url}/rest/v1/orders?${queryParams.join('&')}`;
+  const url = `${config.url}/rest/v1/${endpoint}?${queryParams.join('&')}`;
   const res = await fetchFn(url, {
     headers: {
       apikey: authKey,

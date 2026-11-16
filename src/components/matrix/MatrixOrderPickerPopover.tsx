@@ -20,11 +20,17 @@ export interface MatrixOrderPickerPopoverProps {
 export function MatrixOrderPickerPopover({
   isOpen, onClose, selectedOrder, orders = [], currentOrderIndex = 0, onSelectOrder, onSelectOrderId,
 }: MatrixOrderPickerPopoverProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'orders' | 'quotes'>('all');
+  const [filterState, setFilterState] = useState<{ searchTerm: string; typeFilter: 'all' | 'orders' | 'quotes' }>({
+    searchTerm: '',
+    typeFilter: 'all',
+  });
   const [liveResults, setLiveResults] = useState<OrderSummaryItem[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [totals, setTotals] = useState<CatalogTotals>({ all: 0, orders: 0, quotes: 0 });
+
+  const { searchTerm, typeFilter } = filterState;
+  const setSearchTerm = (term: string) => setFilterState((prev) => ({ ...prev, searchTerm: term }));
+  const setTypeFilter = (filter: 'all' | 'orders' | 'quotes') => setFilterState((prev) => ({ ...prev, typeFilter: filter }));
 
   useEffect(() => {
     if (!isOpen) return;
@@ -62,7 +68,9 @@ export function MatrixOrderPickerPopover({
       return typeFilter === 'quotes' ? isQuote : !isQuote;
     };
     const matchesSearch = (item: OrderSummaryItem | MatrixOrder) => !term ||
-      item.id.toLowerCase().includes(term) || item.klant.toLowerCase().includes(term) ||
+      item.id.toLowerCase().includes(term) ||
+      item.klant.toLowerCase().includes(term) ||
+      Boolean(item.offerte && item.offerte.toLowerCase().includes(term)) ||
       Boolean(item.plaats && item.plaats.toLowerCase().includes(term));
 
     const eligibleBenchmarks = benchmarkList.filter((b) => matchesType(b) && matchesSearch(b));
@@ -71,11 +79,22 @@ export function MatrixOrderPickerPopover({
 
     const seenIds = new Set<string>();
     const combined: (OrderSummaryItem | MatrixOrder)[] = [];
+
+    // Veilige pinning: Toon geselecteerde order uitsluitend bovenaan indien géén zoekterm actief is
+    // en de order matcht met het geselecteerde tabfilter.
+    if (selectedOrder && !term && matchesType(selectedOrder)) {
+      seenIds.add(selectedOrder.id);
+      combined.push(selectedOrder);
+    }
+
     for (const item of [...eligibleBenchmarks, ...eligibleLive]) {
-      if (!seenIds.has(item.id)) { seenIds.add(item.id); combined.push(item); }
+      if (!seenIds.has(item.id)) {
+        seenIds.add(item.id);
+        combined.push(item);
+      }
     }
     return combined;
-  }, [searchTerm, typeFilter, liveResults, orders]);
+  }, [searchTerm, typeFilter, liveResults, orders, selectedOrder]);
 
   if (!isOpen) return null;
 
@@ -131,7 +150,13 @@ export function MatrixOrderPickerPopover({
                   <div className="flex items-center gap-1.5">
                     <span className="font-mono font-bold text-xs">{ord.id}</span>
                     {ord.status && (
-                      <span className={`text-[10px] px-1 py-0.2 rounded ${ord.status.toUpperCase().includes('OFFERTE') ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                      <span className={`text-[10px] px-1 py-0.2 rounded ${
+                        ord.status === 'Geconverteerd naar order'
+                          ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                          : ord.status.toUpperCase().includes('OFFERTE')
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}>
                         {ord.status}
                       </span>
                     )}
