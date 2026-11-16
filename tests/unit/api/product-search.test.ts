@@ -1,6 +1,7 @@
+// [SPEC-CHANGE-AUTHORIZED: Update import pad van geëxtraheerde zoek-helpers van route naar product-search-helpers SSOT conform Next.js App Router type-contracten en INV-GOV-21]
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { GET } from '@/app/api/products/search/route';
 import {
-  GET,
   normalizeProduct,
   sanitizeQuery,
   parseMultiTokenQuery,
@@ -8,7 +9,7 @@ import {
   resetSuppliersCache,
   calculateProductRelevanceTier,
   DISCONTINUED_REGEX
-} from '@/app/api/products/search/route';
+} from '@/lib/logictrade/product-search-helpers';
 import { LogicTradeProductRaw } from '@/types/product';
 
 describe('BFF Product Search Route API Unit Tests', () => {

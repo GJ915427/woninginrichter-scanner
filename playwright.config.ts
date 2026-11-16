@@ -23,9 +23,17 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'tablet',
+      use: { ...devices['iPad Pro 11'], defaultBrowserType: 'chromium' },
+    },
+    {
+      name: 'mobile',
+      use: { ...devices['Pixel 5'] },
+    },
   ],
   webServer: {
-    command: 'npx next dev -p 8088 -H 127.0.0.1',
+    command: 'npx next dev --webpack -p 8088 -H 127.0.0.1',
     url: 'http://127.0.0.1:8088',
     reuseExistingServer: true,
     timeout: 120000,

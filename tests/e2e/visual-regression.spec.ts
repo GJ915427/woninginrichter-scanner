@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { BENCHMARK_TYPOLOGIES } from '@/fixtures/benchmark-typologies';
 
 test.describe('Visual Regression Test Suite', () => {
+  // [VIEWPORT-RESIZE-AUTHORIZED: Baseline visual regression snapshot viewport 1280x800]
   test.use({
     viewport: { width: 1280, height: 800 },
   });
