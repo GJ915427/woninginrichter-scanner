@@ -214,6 +214,27 @@ export class OrderIntakeService {
       groupCode = configSpec.reconciled_product_group_code;
     }
 
+    // Stap 1: Leid altijd dim af voor de tekstuele kolom (voor ELK artikel met maten, inclusief meubels)
+    const derivedDim =
+      rawLine.dim ||
+      (configSpec.dimensions?.width_mm && configSpec.dimensions?.height_mm
+        ? `${configSpec.dimensions.width_mm} × ${configSpec.dimensions.height_mm}`
+        : null);
+
+    // Stap 2: Strikte Discipline Gating: configuration_spec is UITSLUITEND voor geautoriseerde maatwerkdisciplines
+    const isCustomDiscipline = /^(1|2|3|5)\./.test(groupCode);
+
+    // Stap 3: Ken configuration_spec toe (verplichte AND-koppeling met isCustomDiscipline)
+    const hasMeaningfulConfig =
+      isCustomDiscipline &&
+      configSpec &&
+      (configSpec.status === 'valid' || configSpec.status === 'incomplete') &&
+      (Boolean(configSpec.dimensions?.width_mm || configSpec.dimensions?.height_mm) ||
+        Boolean(configSpec.options && configSpec.options.length > 0) ||
+        Boolean(configSpec.attributes && Object.keys(configSpec.attributes).length > 0));
+
+    const assignedConfigSpec = hasMeaningfulConfig ? configSpec : null;
+
     // Is het een hybride regel (materiaal incl. dienst)?
     const isHybrid = rawLine.is_hybrid || classificationIsHybrid || detectIsMaterialAndService(rawLine.description);
 
@@ -222,19 +243,13 @@ export class OrderIntakeService {
         rawLine,
         resolvedProduct ? resolvedProduct.id : null,
         groupCode,
-        configSpec,
+        assignedConfigSpec,
         serviceDisciplineCode
       );
     }
 
     const unitPrice = rawLine.unit_price_cents || 0;
     const totalPrice = rawLine.total_price_cents !== undefined ? rawLine.total_price_cents : unitPrice * (rawLine.quantity || 1);
-
-    const derivedDim =
-      rawLine.dim ||
-      (configSpec.dimensions?.width_mm && configSpec.dimensions?.height_mm
-        ? `${configSpec.dimensions.width_mm} × ${configSpec.dimensions.height_mm}`
-        : null);
 
     const singleLine: IngestedOrderLine = {
       line_number: rawLine.line_number,
@@ -256,7 +271,7 @@ export class OrderIntakeService {
       dim: derivedDim,
       notes: rawLine.notes || null,
       dimension_spec: rawLine.dimension_spec || null,
-      configuration_spec: configSpec,
+      configuration_spec: assignedConfigSpec,
     };
 
     return [singleLine];
@@ -274,34 +289,53 @@ export class OrderIntakeService {
 export function mapLogicTradeOrderToRawInput(
   header: any,
   lines: any[],
-  options?: { isQuote?: boolean }
+  options?: {
+    isQuote?: boolean;
+    existingOrder?: {
+      id?: string;
+      order_number?: string;
+      fsm_step?: number;
+      fsm_phase?: string;
+    };
+  }
 ): RawLogicTradeOrderInput {
   const statusStr = String(header.status || '').trim();
   const statusUpper = statusStr.toUpperCase();
 
-  const rawOrdNumber = String(header.orderNumber || header.id || '').trim();
+  const rawOrdNumber = String(header.number || header.orderNumber || header.id || '').trim();
+  const headerNum = String(header.number || '').trim();
+  const headerOrderNum = String(header.orderNumber || '').trim();
+  const isVOrder = headerNum.toUpperCase().startsWith('V') || headerOrderNum.toUpperCase().startsWith('V');
 
   const isOfferte =
     Boolean(options?.isQuote) ||
-    statusUpper === 'OFFERTE' ||
-    statusUpper === 'QUOTATION' ||
-    statusUpper === 'PROPOSAL' ||
-    rawOrdNumber.toUpperCase().startsWith('O') ||
-    Boolean(header.number && !header.orderNumber);
+    (!isVOrder && (
+      statusUpper === 'OFFERTE' ||
+      statusUpper === 'QUOTATION' ||
+      statusUpper === 'PROPOSAL' ||
+      rawOrdNumber.toUpperCase().startsWith('O') ||
+      Boolean(header.number && !header.orderNumber)
+    ));
 
-  const ordNumber = isOfferte
-    ? String(header.number || header.quotationNumber || rawOrdNumber).trim()
-    : rawOrdNumber;
+  const ordNumber = rawOrdNumber;
 
   const quoteId = header.number
     ? String(header.number).trim()
     : (header.id ? 'quote_' + header.id : (ordNumber ? 'quote_' + ordNumber : 'quote_unknown'));
 
-  const finalId = isOfferte ? quoteId : String(header.id || ordNumber);
-  const finalOrderNumber = isOfferte ? (header.number ? String(header.number).trim() : ordNumber) : ordNumber;
+  let finalId = isOfferte ? quoteId : String(header.id || ordNumber);
+  let finalOrderNumber = ordNumber;
+  let fsm_step = isOfferte ? 2 : 5;
+  let fsm_phase = isOfferte
+    ? '2. Offerte'
+    : (isVOrder && header.number && !header.orderNumber ? '5. Verkooporder' : '5. Bestellen (Actueel)');
 
-  const fsm_step = isOfferte ? 2 : 5;
-  const fsm_phase = isOfferte ? '2. Offerte' : '5. Bestellen (Actueel)';
+  if (options?.existingOrder) {
+    if (options.existingOrder.id) finalId = String(options.existingOrder.id);
+    if (options.existingOrder.order_number) finalOrderNumber = options.existingOrder.order_number;
+    if (options.existingOrder.fsm_step !== undefined) fsm_step = options.existingOrder.fsm_step;
+    if (options.existingOrder.fsm_phase) fsm_phase = options.existingOrder.fsm_phase;
+  }
 
   const rawLines: RawOrderLineInput[] = (lines || []).map((l, index) => {
     const rawCode = String(l.articleCode || l.code || '').trim();
@@ -327,6 +361,13 @@ export function mapLogicTradeOrderToRawInput(
       ? l.lineNumber
       : (index + 1) * 10;
 
+    const noteParts = typeof l.comment === 'object' && l.comment !== null
+      ? [l.comment.extern, l.comment.intern].filter(Boolean).map(String)
+      : [];
+    const notes = noteParts.length > 0
+      ? noteParts.join('\n')
+      : (typeof l.comment === 'string' ? l.comment : (l.notes || null));
+
     return {
       line_number: lineNumber,
       product_code: code,
@@ -340,12 +381,14 @@ export function mapLogicTradeOrderToRawInput(
       window_name: l.window_name,
       position_id: l.position_id,
       dim: l.dim || null,
-      notes: typeof l.comment === 'string' ? l.comment : (l.comment?.intern || l.comment?.extern || null),
+      notes,
       dimension_spec: l.dimension_spec || null,
       is_hybrid: l.is_hybrid,
+      supplier_name: l.supplierName || l.supplier_name || undefined,
       width_mm: typeof l.widthMm === 'number' ? l.widthMm : (typeof l.width_mm === 'number' ? l.width_mm : undefined),
       height_mm: typeof l.heightMm === 'number' ? l.heightMm : (typeof l.height_mm === 'number' ? l.height_mm : undefined),
       options: Array.isArray(l.options) ? l.options : undefined,
+      configuration: l.configuration || undefined,
       configuration_json: l.configurationJson || l.configuration_json || undefined,
     };
   });

@@ -101,6 +101,47 @@ describe('ClassificationService & Taxonomy SSOT', () => {
       expect(result.serviceDisciplineCode).toBe('6.3');
       expect(result.requiresReview).toBe(false);
     });
+
+    // [SPEC-CHANGE-AUTHORIZED: Tranche 2 TDD suite voor gecontextualiseerde ontologie en immuniteit voor meubels]
+    it('Trap 2 (Gecontextualiseerde Jaloezieën): classificeert jaloezie met lamelmaat als 2.3', async () => {
+      const result = await service.classifyProduct({
+        code: 'JAL-001',
+        name: 'Horizontale jaloezie 25 mm alu',
+      });
+      expect(result.productGroupCode).toBe('2.3');
+      expect(result.stage).toBe('trap_2_deterministic_ontology');
+    });
+
+    it('Trap 2 (Meubel Immuniteit): classificeert horizontaal opberg element NIET als jaloezie (geen 2.3 kaping)', async () => {
+      const result = await service.classifyProduct({
+        code: 'KAST-01',
+        name: 'BKS Aurora horizontaal opberg element',
+      });
+      expect(result.productGroupCode).not.toBe('2.3');
+    });
+
+    it('Trap 2 (Horren en Hordeuren): classificeert hordeur en inzethor direct naar 2.4', async () => {
+      const result = await service.classifyProduct({
+        code: 'HOR-01',
+        name: 'Unilux plissé hordeur voorzet',
+        supplier_name: 'Unilux',
+      });
+      expect(result.productGroupCode).toBe('2.4');
+    });
+
+    it('Trap 2 (Lamellen vs Lamellendak): classificeert lamellenrails als 1.4 en lamellendaken als 5.4 (geen 2.1 kaping)', async () => {
+      const dakResult = await service.classifyProduct({
+        code: 'DAK-01',
+        name: 'Brera Lamellendak 400x300 cm',
+      });
+      expect(dakResult.productGroupCode).toBe('5.4');
+
+      const railResult = await service.classifyProduct({
+        code: 'RAIL-01',
+        name: 'Lamellenrail compleet met runners',
+      });
+      expect(railResult.productGroupCode).toBe('1.4');
+    });
   });
 
   describe('Keyset Backfill Chunk Runner', () => {

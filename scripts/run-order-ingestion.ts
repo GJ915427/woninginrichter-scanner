@@ -20,13 +20,23 @@ import { getSupabaseConfig } from '../src/lib/supabase/client';
 async function main() {
   const args = process.argv.slice(2);
   const isFull = args.includes('--full');
+  const isFromDb = args.includes('--from-db');
+
+  const batchSizeIndex = args.indexOf('--batch-size');
+  const batchSize = batchSizeIndex !== -1 && args[batchSizeIndex + 1] ? parseInt(args[batchSizeIndex + 1], 10) : 100;
+
+  const concurrencyIndex = args.indexOf('--concurrency');
+  const concurrency = concurrencyIndex !== -1 && args[concurrencyIndex + 1] ? parseInt(args[concurrencyIndex + 1], 10) : 15;
+
+  const startAfterIndex = args.indexOf('--start-after');
+  const startAfter = startAfterIndex !== -1 && args[startAfterIndex + 1] ? args[startAfterIndex + 1] : undefined;
 
   // Type parsing met fail-closed validatie
   const typeIndex = args.indexOf('--type');
   const ingestionType = typeIndex !== -1 && args[typeIndex + 1] ? args[typeIndex + 1].toLowerCase() : 'all';
-  if (!['orders', 'quotes', 'all'].includes(ingestionType)) {
+  if (!isFromDb && !['orders', 'quotes', 'all'].includes(ingestionType)) {
     console.error(`❌ Ongeldig type argument: "${ingestionType}". Toegestane waarden: orders, quotes, all.`);
-    console.error('Gebruik: npx tsx scripts/run-order-ingestion.ts [--type orders|quotes|all] [--max <N>] [--years <N> | --full]');
+    console.error('Gebruik: npx tsx scripts/run-order-ingestion.ts [--from-db] [--type orders|quotes|all] [--max <N>] [--years <N> | --full]');
     process.exit(1);
   }
 
@@ -45,11 +55,20 @@ async function main() {
   }
 
   console.log('================================================================');
-  console.log('🚀 Start Integrale Order- & Offerte-Intake Pipeline (LogicTrade -> Supabase)');
+  console.log(isFromDb
+    ? '🚀 Start Backfill & Herclassificatie Pipeline uit Database (--from-db)'
+    : '🚀 Start Integrale Order- & Offerte-Intake Pipeline (LogicTrade -> Supabase)');
   console.log(`📍 Supabase Instantie: ${url}`);
-  console.log(`🎯 Pipeline Type:      ${ingestionType.toUpperCase()}`);
-  console.log(`📅 Horizon:            ${isFull ? 'ONBEPERKT (alle historische data)' : `${yearsArg} jaar`}`);
-  console.log(`🎯 Statusfilter:       UITGESCHAKELD (alle statussen worden ingeladen)`);
+  if (isFromDb) {
+    console.log(`⚡ Bron:                PostgreSQL public.orders (keyset streaming)`);
+    console.log(`📦 Batchgrootte:        ${batchSize}`);
+    console.log(`🧵 Concurrency:         ${concurrency} workers`);
+    if (startAfter) console.log(`⏭️  Hervatten na ID:     ${startAfter}`);
+  } else {
+    console.log(`🎯 Pipeline Type:      ${ingestionType.toUpperCase()}`);
+    console.log(`📅 Horizon:            ${isFull ? 'ONBEPERKT (alle historische data)' : `${yearsArg} jaar`}`);
+    console.log(`🎯 Statusfilter:       UITGESCHAKELD (alle statussen worden ingeladen)`);
+  }
   if (maxCount) {
     console.log(`⏹️  Max Items:          ${maxCount}`);
   }
@@ -132,7 +151,133 @@ async function main() {
   }
 
   try {
-    if (ingestionType === 'orders' || ingestionType === 'all') {
+    if (isFromDb) {
+      console.log('--- 🔄 Start Keyset Cursor Paginering over public.orders ---');
+      let lastId: string = startAfter || '';
+      let hasMore = true;
+
+      // Hulpfunctie voor bounded concurrency pool
+      async function asyncPool<T>(limit: number, array: T[], fn: (item: T) => Promise<void>) {
+        const ret: Promise<void>[] = [];
+        const executing = new Set<Promise<void>>();
+        for (const item of array) {
+          const p = Promise.resolve().then(() => fn(item));
+          ret.push(p);
+          executing.add(p);
+          const clean = () => executing.delete(p);
+          p.then(clean, clean);
+          if (executing.size >= limit) {
+            await Promise.race(executing);
+          }
+        }
+        return Promise.all(ret);
+      }
+
+      while (hasMore) {
+        if (maxCount && totalIngested >= maxCount) {
+          console.log(`⏹️ Max count van ${maxCount} bereikt.`);
+          break;
+        }
+
+        const currentLimit = maxCount ? Math.min(batchSize, maxCount - totalIngested) : batchSize;
+        const queryParams = new URLSearchParams({
+          select: 'id,order_number,status,fsm_step,fsm_phase,raw_data',
+          order: 'id.asc',
+          limit: String(currentLimit),
+        });
+        if (lastId) {
+          queryParams.set('id', `gt.${lastId}`);
+        }
+
+        const fetchUrl = `${url}/rest/v1/orders?${queryParams.toString()}`;
+        const fetchRes = await fetch(fetchUrl, {
+          headers: {
+            apikey: key,
+            Authorization: `Bearer ${key}`,
+          },
+        });
+
+        if (!fetchRes.ok) {
+          const errText = await fetchRes.text();
+          throw new Error(`Fout bij ophalen orders batch na id ${lastId}: HTTP ${fetchRes.status}: ${errText}`);
+        }
+
+        const batchOrders: any[] = await fetchRes.json();
+        if (!Array.isArray(batchOrders) || batchOrders.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        lastId = String(batchOrders[batchOrders.length - 1].id);
+
+        await asyncPool(concurrency, batchOrders, async (dbOrder) => {
+          const rawLines = dbOrder.raw_data?.lines || dbOrder.raw_data?.orderLines;
+          if (!Array.isArray(rawLines) || rawLines.length === 0) {
+            // Sla order over ter bescherming van bestaande public.order_lines (Falsificatie 11)
+            return;
+          }
+
+          const isQuote = dbOrder.fsm_step === 2 || String(dbOrder.order_number || '').toUpperCase().startsWith('O');
+          const header = dbOrder.raw_data || {};
+
+          totalScanned++;
+          try {
+            const rawInput = mapLogicTradeOrderToRawInput(header, rawLines, {
+              isQuote,
+              existingOrder: {
+                id: String(dbOrder.id),
+                order_number: dbOrder.order_number,
+                fsm_step: dbOrder.fsm_step,
+                fsm_phase: dbOrder.fsm_phase,
+              },
+            });
+
+            const bundle = await intakeService.processOrderIntake(rawInput);
+
+            const res = await fetch(`${url}/rest/v1/rpc/ingest_logictrade_order`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                apikey: key,
+                Authorization: `Bearer ${key}`,
+              },
+              body: JSON.stringify({ p_order: bundle }),
+            });
+
+            if (!res.ok) {
+              const errText = await res.text();
+              throw new Error(`HTTP ${res.status}: ${errText}`);
+            }
+
+            totalIngested++;
+            if (bundle.order.fsm_step === 2) {
+              totalQuotes++;
+            } else {
+              totalOrders++;
+            }
+            totalLines += bundle.lines.length;
+            totalAmountCents += bundle.order.total_amount_cents;
+
+            if (totalIngested % 50 === 0 || totalIngested === 1) {
+              const isOfferte = bundle.order.fsm_step === 2;
+              const badge = isOfferte ? '📄 [OFFERTE]' : '📦 [ORDER]  ';
+              console.log(
+                ` ${badge} #${totalIngested} | ID: ${String(bundle.order.id).padEnd(10)} | Nr: ${bundle.order.order_number.padEnd(12)} | Regels: ${bundle.lines.length}`
+              );
+            }
+          } catch (err: any) {
+            const errMsg = `Fout bij order ${dbOrder.id} (${dbOrder.order_number}): ${err.message}`;
+            console.error(` ❌ ${errMsg}`);
+            errors.push(errMsg);
+          }
+        });
+
+        if (batchOrders.length < currentLimit) {
+          hasMore = false;
+        }
+      }
+    } else {
+      if (ingestionType === 'orders' || ingestionType === 'all') {
       console.log('--- 📦 Fase A: Ophalen & Verwerken van Verkooporders (/orders) ---');
       await harvest2YearOrders({
         years: yearsArg,
@@ -156,6 +301,7 @@ async function main() {
           await ingestItem(quoteHeader, quoteLines, true);
         },
       });
+    }
     }
 
     const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);

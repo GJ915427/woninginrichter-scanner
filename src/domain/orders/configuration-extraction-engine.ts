@@ -27,7 +27,7 @@ export class DeterministicTokenizerProvider {
   /**
    * Converteert een maatstring met eenheid naar gehele millimeters.
    */
-  private static parseUnitToMm(rawVal: string, unit?: string): number {
+  public static parseUnitToMm(rawVal: string, unit?: string): number {
     const val = parseFloat(rawVal.replace(',', '.'));
     if (!Number.isFinite(val)) return 0;
 
@@ -120,6 +120,115 @@ export class ConfigurationExtractionEngine {
     this.lruCache = new Map();
   }
 
+  /**
+   * Extraheert gestructureerde afmetingen en specificaties uit LogicTrade configuration.items
+   */
+  public static extractFromConfigurationItems(
+    items: unknown[],
+    supplierName?: string,
+    description?: string,
+    productGroupCode?: string
+  ): { dimensions?: ConfigurationDimensions; attributes?: Record<string, unknown> } | null {
+    if (!Array.isArray(items) || items.length === 0) return null;
+
+    // 1. Type-veilige normalisatie van alle elementen (strings, numbers, objects met value)
+    const normalized: string[] = items
+      .map((item) => {
+        if (typeof item === 'string') return item.trim();
+        if (typeof item === 'number') return String(item).trim();
+        if (item && typeof item === 'object' && 'value' in item) {
+          return String((item as { value: unknown }).value || '').trim();
+        }
+        return '';
+      })
+      .filter(Boolean);
+
+    if (normalized.length === 0) return null;
+
+    let width_mm: number | undefined;
+    let height_mm: number | undefined;
+    const attributes: Record<string, unknown> = {};
+
+    // 2. Anker-gebaseerde extractie (Luxaflex, B&C, algemeen)
+    for (const text of normalized) {
+      const widthAnchorMatch = text.match(
+        /(?:blijvende\s*maat|dagmaat|bestelmaat|breedte)\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m)?/i
+      );
+      if (widthAnchorMatch && !width_mm) {
+        const parsed = DeterministicTokenizerProvider.parseUnitToMm(
+          widthAnchorMatch[1],
+          widthAnchorMatch[2]
+        );
+        if (parsed > 0) width_mm = parsed;
+      }
+
+      const heightAnchorMatch = text.match(
+        /(?:hoogte)\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m)?/i
+      );
+      if (heightAnchorMatch && !height_mm) {
+        const parsed = DeterministicTokenizerProvider.parseUnitToMm(
+          heightAnchorMatch[1],
+          heightAnchorMatch[2]
+        );
+        if (parsed > 0) height_mm = parsed;
+      }
+
+      const attrMatch = text.match(/^(bediening|kleur|gaas|lamelbreedte|type|montage)\s*[:=]\s*(.+)$/i);
+      if (attrMatch) {
+        const key = attrMatch[1].toLowerCase().replace(/\s+/g, '_');
+        attributes[key] = attrMatch[2].trim();
+      }
+    }
+
+    if (width_mm && height_mm) {
+      return {
+        dimensions: { width_mm, height_mm },
+        attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
+      };
+    }
+
+    // 3. Domein-geïsoleerd Direct Index Sjabloon voor Horren & Screens (Unilux / KeJe)
+    const isHorOrScreen = Boolean(
+      (supplierName && /unilux|keje/i.test(supplierName)) ||
+      (description && /\b(hor|hordeur|rolhor|plisse\s*hordeur|inzethor)\b/i.test(description))
+    );
+
+    if (isHorOrScreen && normalized.length >= 2) {
+      const wCand = parseInt(normalized[0].replace(/\D/g, ''), 10);
+      const hCand = parseInt(normalized[1].replace(/\D/g, ''), 10);
+      if (wCand >= 100 && wCand <= 6000 && hCand >= 100 && hCand <= 6000) {
+        width_mm = wCand;
+        height_mm = hCand;
+        return {
+          dimensions: { width_mm, height_mm },
+          attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
+        };
+      }
+    }
+
+    // 4. Tokenize overige items met index-quarantaine (< 15)
+    const scanLimit = Math.min(normalized.length, 15);
+    for (let i = 0; i < scanLimit; i++) {
+      const text = normalized[i];
+      const dims = DeterministicTokenizerProvider.tokenize(text);
+      if (dims && dims.width_mm && dims.height_mm) {
+        return {
+          dimensions: dims,
+          attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
+        };
+      }
+    }
+
+    if (width_mm || height_mm) {
+      return {
+        dimensions: { width_mm, height_mm },
+        attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
+      };
+    }
+
+    return null;
+  }
+
   public computeContentHash(text: string): string {
     return createHash('sha256').update(text.trim().toLowerCase()).digest('hex');
   }
@@ -145,7 +254,7 @@ export class ConfigurationExtractionEngine {
         },
         options: rawLine.options || [],
       };
-      return this.crossValidateConfiguration(spec, productGroupCode);
+      return this.crossValidateConfiguration(spec, productGroupCode, rawLine);
     }
 
     // --------------------------------------------------------------------------
@@ -176,7 +285,25 @@ export class ConfigurationExtractionEngine {
             : undefined,
         attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
       };
-      return this.crossValidateConfiguration(spec, productGroupCode);
+      return this.crossValidateConfiguration(spec, productGroupCode, rawLine);
+    } else if (rawLine.configuration?.items && Array.isArray(rawLine.configuration.items)) {
+      const extracted = ConfigurationExtractionEngine.extractFromConfigurationItems(
+        rawLine.configuration.items,
+        rawLine.supplier_name,
+        rawLine.description,
+        productGroupCode
+      );
+
+      if (extracted && extracted.dimensions?.width_mm && extracted.dimensions?.height_mm) {
+        const spec: ConfigurationSpec = {
+          status: 'valid',
+          confidence: 1.0,
+          source: 'eorder_json',
+          dimensions: extracted.dimensions,
+          attributes: extracted.attributes,
+        };
+        return this.crossValidateConfiguration(spec, productGroupCode, rawLine);
+      }
     }
 
     // --------------------------------------------------------------------------
@@ -191,7 +318,7 @@ export class ConfigurationExtractionEngine {
         source: 'regex_tokenizer',
         dimensions: tokenizedDims,
       };
-      return this.crossValidateConfiguration(spec, productGroupCode);
+      return this.crossValidateConfiguration(spec, productGroupCode, rawLine);
     }
 
     // --------------------------------------------------------------------------
@@ -205,7 +332,7 @@ export class ConfigurationExtractionEngine {
         // Move to end for LRU refresh
         this.lruCache.delete(hash);
         this.lruCache.set(hash, cached);
-        return this.crossValidateConfiguration(cached, productGroupCode);
+        return this.crossValidateConfiguration(cached, productGroupCode, rawLine);
       }
 
       try {
@@ -228,7 +355,7 @@ export class ConfigurationExtractionEngine {
         }
         this.lruCache.set(hash, validSpec);
 
-        return this.crossValidateConfiguration(validSpec, productGroupCode);
+        return this.crossValidateConfiguration(validSpec, productGroupCode, rawLine);
       } catch (err: unknown) {
         const fallbackSpec: ConfigurationSpec = {
           status: 'requires_review',
@@ -236,7 +363,7 @@ export class ConfigurationExtractionEngine {
           source: 'cognitive',
           extraction_notes: [`Cognitieve extractie fout: ${err instanceof Error ? err.message : String(err)}`],
         };
-        return this.crossValidateConfiguration(fallbackSpec, productGroupCode);
+        return this.crossValidateConfiguration(fallbackSpec, productGroupCode, rawLine);
       }
     }
 
@@ -247,7 +374,7 @@ export class ConfigurationExtractionEngine {
       source: 'manual',
       extraction_notes: ['Geen afmetingen of configuratiespecificaties aangetroffen'],
     };
-    return this.crossValidateConfiguration(fallbackSpec, productGroupCode);
+    return this.crossValidateConfiguration(fallbackSpec, productGroupCode, rawLine);
   }
 
   /**
@@ -255,7 +382,8 @@ export class ConfigurationExtractionEngine {
    */
   public crossValidateConfiguration(
     spec: ConfigurationSpec,
-    productGroupCode?: string
+    productGroupCode?: string,
+    rawLine?: RawOrderLineInput
   ): ConfigurationSpec {
     const validated = { ...spec };
     const notes: string[] = [...(validated.extraction_notes || [])];
@@ -296,6 +424,25 @@ export class ConfigurationExtractionEngine {
         if (hasFloorAttr) {
           validated.reconciled_product_group_code = '3.1'; // Vloeren
           notes.push(`Productgroep gereconcilieerd van ${grp} naar 3.1 wegens vloerattributen`);
+        }
+      }
+
+      // 3. E-order Reconciliatie voor Raambekleding in 9.9
+      if (grp === '9.9' && validated.dimensions?.width_mm && validated.dimensions?.height_mm) {
+        const desc = (rawLine?.description || '').toLowerCase();
+        const hasBlinds =
+          /\b(jaloezie|lamel|horizonta(al|le)|shutter)\b/i.test(desc) ||
+          Boolean(validated.attributes?.slat_width_mm || validated.attributes?.lamelbreedte);
+        const isHor =
+          /\b(hor|hordeur|rolhor|inzethor)\b/i.test(desc) ||
+          Boolean(rawLine?.supplier_name && /unilux|keje/i.test(rawLine.supplier_name));
+
+        if (hasBlinds) {
+          validated.reconciled_product_group_code = '2.3';
+          notes.push('Productgroep gereconcilieerd van 9.9 naar 2.3 voor jaloezieën e-order');
+        } else if (isHor) {
+          validated.reconciled_product_group_code = '2.4';
+          notes.push('Productgroep gereconcilieerd van 9.9 naar 2.4 voor horren e-order');
         }
       }
     }

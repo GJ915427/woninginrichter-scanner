@@ -124,7 +124,8 @@ export const SERVICE_DISCIPLINE_RULES: ServiceDisciplineRule[] = [
     priority: 4,
     compositePhrases: [
       'ladderlift verhuur', 'puin afvoer', 'afval container', 'verticaal transport',
-      'lift assistentie', 'ladderlift dagdeel', 'afvalcontainer 6', 'transportkosten', 'bezorgkosten'
+      'lift assistentie', 'ladderlift dagdeel', 'afvalcontainer 6', 'transportkosten', 'bezorgkosten',
+      'bezorg service', 'bezorgservice', 'levering en plaatsing'
     ],
     intrinsicTokens: ['ladderlift', 'verhuislift', 'afvalcontainer', 'puincontainer', 'transportkosten', 'bezorgkosten', 'bezorging', 'transport'],
     targetTokens: ['container', 'puin', 'afvoer', 'materieel', 'lift'],
@@ -152,8 +153,9 @@ export const SERVICE_DISCIPLINE_RULES: ServiceDisciplineRule[] = [
     compositePhrases: [
       'wave rail monteren', 'wave rail plaatsen', 'wave rail montage',
       'rail monteren', 'rail plaatsen', 'roede monteren', 'fournituren en montage',
-      'enkele retourplooi', 'dubbele retourplooi', 'confectie enkele plooi',
-      'confectie dubbele plooi', 'atelier confectie', 'atelierconfectie',
+      'waveplooi', 'vlinderplooi', 'enkele retourplooi', 'dubbele retourplooi',
+      'enkele plooi', 'dubbele plooi', 'loodveter',
+      'confectie enkele plooi', 'confectie dubbele plooi', 'atelier confectie', 'atelierconfectie',
       'gordijnconfectie', 'gordijnen ophangen'
     ],
     intrinsicTokens: ['confectie', 'gordijnconfectie', 'atelierconfectie'],
@@ -202,7 +204,9 @@ export const SERVICE_DISCIPLINE_RULES: ServiceDisciplineRule[] = [
       'projectregie woninginrichting', 'totaalinrichting montage', 'montageleiding op locatie',
       'montagekosten complete villa', 'montagekosten villa', 'complete villa montage',
       'uurtarief monteur', 'arbeidsloon montage', 'montage nazorg',
-      'dienstverlening op locatie', 'onderhoudscontract woninginrichting'
+      'dienstverlening op locatie', 'onderhoudscontract woninginrichting',
+      'all in house service', 'all in house garantie', 'all in house', '7 jaar all in house',
+      'vlekken garantie', 'constructie garantie', 'vlekkengarantie', 'constructiegarantie'
     ],
     intrinsicTokens: ['montage', 'montagekosten', 'montageloon', 'uurtarief', 'arbeidsloon', 'plaatsing', 'plaatsingskosten', 'werkloon', 'projectregie', 'montageleiding', 'dienst', 'diensten', 'onderhoud', 'garantie', 'voorrijkosten'],
     targetTokens: ['uurtarief', 'regie', 'nazorg', 'montage', 'tarief', 'uren'],
@@ -250,18 +254,18 @@ export function matchServiceDisciplineFromTokens(rawDescription: string): Servic
   }
 
   for (const rule of SERVICE_DISCIPLINE_RULES) {
-    // 2. VETO FASE (Exclude checks per regel VÓÓR toewijzing)
+    // 2. COMPOSITE PHRASES FASE (Meerwoords-termen worden EERST geëvalueerd vóór excludeTokens, bijv. 'All-in House garantie' voor meubels)
+    if (rule.compositePhrases && rule.compositePhrases.some(phrase => normalized.includes(phrase))) {
+      return rule.discipline;
+    }
+
+    // 3. VETO FASE (Exclude checks per regel vóór losse intrinsic of combinatoriek tokens)
     if (rule.excludePhrases && rule.excludePhrases.some(phrase => normalized.includes(phrase))) {
       continue;
     }
 
     if (rule.excludeTokens && rule.excludeTokens.some(ex => tokens.some(t => t === ex))) {
       continue;
-    }
-
-    // 3. COMPOSITE PHRASES FASE (Meerwoords-termen die uitsluitingen hebben doorstaan)
-    if (rule.compositePhrases && rule.compositePhrases.some(phrase => normalized.includes(phrase))) {
-      return rule.discipline;
     }
 
     // 4. INTRINSIC TOKENS FASE (Termen die op zichzelf reeds onmiskenbaar een dienst aanduiden)

@@ -219,5 +219,114 @@ describe('ConfigurationExtractionEngine (TDD)', () => {
       expect(result.status).toBe('requires_review');
       expect(result.reconciled_product_group_code).toBeUndefined();
     });
+
+    // [SPEC-CHANGE-AUTHORIZED: Tranche 2 TDD suite voor LogicTrade multi-template configuration.items en Trap D fail-safe reconciliatie]
+    it('Trap A Multi-Template: extraheert afmetingen via Luxaflex ankers (Blijvende maat) uit configuration.items', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 70,
+        description: 'Luxaflex Silhouette 50mm',
+        configuration: {
+          id: 12345,
+          items: [
+            'Silhouette 50 mm',
+            'Blijvende maat: 1070 mm',
+            'Hoogte: 1480 mm',
+            'Bediening: Smartcord rechts',
+          ],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '2.3');
+      expect(result.status).toBe('valid');
+      expect(result.dimensions?.width_mm).toBe(1070);
+      expect(result.dimensions?.height_mm).toBe(1480);
+      expect(result.source).toBe('eorder_json');
+    });
+
+    it('Trap A Multi-Template: extraheert Unilux horren via directe indices 0 en 1 met domein-isolatie', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 71,
+        description: 'Vaste hor Plus (veerstift)',
+        supplier_name: 'Unilux',
+        configuration: {
+          id: 99887,
+          items: [
+            '865',
+            '1341',
+            'Standaard gaas grijs',
+            'Kleur: RAL 9010',
+          ],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '2.4');
+      expect(result.status).toBe('valid');
+      expect(result.dimensions?.width_mm).toBe(865);
+      expect(result.dimensions?.height_mm).toBe(1341);
+      expect(result.source).toBe('eorder_json');
+    });
+
+    it('Trap A Multi-Template: normaliseert heterogene array-elementen (strings, numbers, objects) zonder TypeError', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 72,
+        description: 'KeJe Rolhor',
+        supplier_name: 'KeJe',
+        configuration: {
+          id: 55443,
+          items: [
+            1200,
+            { value: '1800' },
+            null,
+            undefined,
+            'In de dag montage',
+          ],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '2.4');
+      expect(result.status).toBe('valid');
+      expect(result.dimensions?.width_mm).toBe(1200);
+      expect(result.dimensions?.height_mm).toBe(1800);
+    });
+
+    it('Trap A Multi-Template: voorkomt ongeankerde index-extractie op Plissés en Duettes (domein-isolatie)', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 73,
+        description: 'Duette 25mm Fix',
+        supplier_name: 'B&C Raamdecoratie',
+        configuration: {
+          id: 11223,
+          items: [
+            'Top-Down / Bottom-Up',
+            'Koordbediening',
+            'Stof Batist Wit',
+          ],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '2.4');
+      expect(result.dimensions?.width_mm).toBeUndefined();
+    });
+
+    it('Trap D Reconciliatie: reconcilieert e-orders met raambekleding in productgroep 9.9 naar 2.3', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 74,
+        description: 'Horizontale jaloezie 25 mm alu',
+        configuration: {
+          id: 88776,
+          items: [
+            'Breedte: 1250 mm',
+            'Hoogte: 1920 mm',
+            'Lamelbreedte: 25 mm',
+          ],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '9.9');
+      expect(result.status).toBe('valid');
+      expect(result.dimensions?.width_mm).toBe(1250);
+      expect(result.dimensions?.height_mm).toBe(1920);
+      expect(result.reconciled_product_group_code).toBe('2.3');
+    });
   });
 });

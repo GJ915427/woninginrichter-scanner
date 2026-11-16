@@ -92,6 +92,12 @@ export interface RawOrderLineInput {
   height_mm?: number;
   options?: string[];
   configuration_json?: Record<string, unknown> | null;
+  supplier_name?: string;
+  configuration?: {
+    id?: number | string;
+    items?: unknown[];
+    [key: string]: unknown;
+  } | null;
 }
 
 export interface RawLogicTradeOrderInput {

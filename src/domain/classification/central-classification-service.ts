@@ -237,14 +237,51 @@ export class ClassificationService {
     if (text.includes('duette') || text.includes('plissé') || text.includes('plisse')) {
       return '2.4';
     }
+    if (
+      /\b(hor|hordeur|rolhor|inzethor|plisse\s*hordeur)\b/i.test(text) ||
+      (input.supplier_name && /unilux|keje/i.test(input.supplier_name))
+    ) {
+      return '2.4';
+    }
     if (text.includes('rolgordijn') || text.includes('duo rolgordijn')) {
       return '2.1';
     }
-    if (text.includes('jaloezie') && (text.includes('hout') || text.includes('bamboe'))) {
+    if (
+      text.includes('verticaal') ||
+      (/\blamel(len)?\b/i.test(text) && !text.includes('dak') && !text.includes('rail'))
+    ) {
+      return '2.1';
+    }
+    if (
+      text.includes('shutter') ||
+      (text.includes('jaloezie') && (text.includes('hout') || text.includes('bamboe') || text.includes('wood')))
+    ) {
       return '2.2';
     }
-    if (text.includes('jaloezie') && (text.includes('alu') || text.includes('aluminium'))) {
+    if (
+      (text.includes('jaloezie') && (text.includes('alu') || text.includes('aluminium'))) ||
+      /\bhorizonta(al|le)\s+(\d+\s*mm|jaloezie|alu|aluminium|raambekleding)\b/i.test(text) ||
+      (/\bhorizonta(al|le)\b/i.test(text) && (text.includes('25 mm') || text.includes('50 mm') || text.includes('16 mm') || text.includes('70 mm'))) ||
+      (text.includes('jaloezie') && !text.includes('hout') && !text.includes('bamboe') && !text.includes('vertica'))
+    ) {
       return '2.3';
+    }
+
+    // Consumentendiensten & Garantie (6.8 / 6.9)
+    if (
+      text.includes('all in house') ||
+      text.includes('all-in house') ||
+      text.includes('vlekkengarantie') ||
+      text.includes('constructiegarantie')
+    ) {
+      return '6.9';
+    }
+    if (
+      text.includes('bezorg service') ||
+      text.includes('bezorgservice') ||
+      text.includes('levering en plaatsing')
+    ) {
+      return '6.8';
     }
 
     // Raambekleding Stof

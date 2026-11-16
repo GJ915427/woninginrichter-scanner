@@ -351,5 +351,92 @@ describe('OrderIntakeService & Hybrid Line Ingest SSOT', () => {
       expect(ingested.lines[0].configuration_spec?.dimensions?.width_mm).toBe(2400);
       expect(ingested.lines[0].dim).toBe('2400 × 1800');
     });
+
+    // [SPEC-CHANGE-AUTHORIZED: Tranche 2 TDD suite voor gecombineerde notities, 'V'-order FSM behoud, afgeleide dim, en retail discipline gating]
+    it('Tranche 2: voegt comment.extern en comment.intern causaal samen met newline', () => {
+      const orderPayload = { id: 120001, orderNumber: 'V26001234', status: 'ORDER' };
+      const linePayloads = [
+        {
+          lineNumber: 10,
+          description: 'Gordijn op maat',
+          comment: {
+            extern: 'Klantinstructie: 10 mm vrijhouden van vloer',
+            intern: 'Let op: moeilijke bereikbaarheid etage 3',
+          },
+        },
+      ];
+
+      const rawInput = mapLogicTradeOrderToRawInput(orderPayload, linePayloads);
+      expect(rawInput.lines[0].notes).toBe(
+        'Klantinstructie: 10 mm vrijhouden van vloer\nLet op: moeilijke bereikbaarheid etage 3'
+      );
+    });
+
+    it('Tranche 2: behoudt verkoopordernummer V22002580, database id 87552 en fsm_step 5 bij header.number', () => {
+      const orderPayload = {
+        id: 87552,
+        number: 'V22002580',
+        orderNumber: null,
+        status: 'ORDER',
+      };
+      const linePayloads = [{ lineNumber: 10, description: 'Gordijnen' }];
+
+      const rawInput = mapLogicTradeOrderToRawInput(orderPayload, linePayloads);
+      expect(rawInput.order_number).toBe('V22002580');
+      expect(rawInput.id).toBe('87552');
+      expect(rawInput.fsm_step).toBe(5);
+      expect(rawInput.fsm_phase).toBe('5. Verkooporder');
+    });
+
+    it('Tranche 2: leidt dim af voor alle artikelen met maten maar houdt retail meubels op configuration_spec = null', async () => {
+      const orderPayload = { id: 120002, orderNumber: 'V26001235', status: 'ORDER' };
+      const linePayloads = [
+        {
+          lineNumber: 10,
+          productCode: 'MEUBEL_01',
+          description: 'Salontafel 70x90 cm Maitre',
+          widthMm: 700,
+          heightMm: 900,
+          configuration: {
+            id: 1122,
+            items: ['Eiken blad', 'Zwart stalen onderstel'],
+          },
+        },
+      ];
+
+      const rawInput = mapLogicTradeOrderToRawInput(orderPayload, linePayloads);
+      const ingested = await service.processOrderIntake(rawInput);
+      const line = ingested.lines[0];
+
+      expect(line.dim).toBe('700 × 900');
+      expect(line.configuration_spec).toBeNull();
+    });
+
+    it('Tranche 2: splitHybridOrderLine propageert assignedConfigSpec naar sub_line 0 en null naar sub_line 1', async () => {
+      const orderPayload = { id: 120003, orderNumber: 'V26001236', status: 'ORDER' };
+      const linePayloads = [
+        {
+          lineNumber: 20,
+          productCode: 'A00034988',
+          description: 'Duette 32mm Smartcord incl. montage',
+          widthMm: 1500,
+          heightMm: 2000,
+        },
+      ];
+
+      const rawInput = mapLogicTradeOrderToRawInput(orderPayload, linePayloads);
+      const ingested = await service.processOrderIntake(rawInput);
+
+      expect(ingested.lines.length).toBe(2);
+      const matLine = ingested.lines[0];
+      const servLine = ingested.lines[1];
+
+      expect(matLine.sub_line).toBe(0);
+      expect(matLine.configuration_spec).toBeDefined();
+      expect(matLine.configuration_spec?.dimensions?.width_mm).toBe(1500);
+
+      expect(servLine.sub_line).toBe(1);
+      expect(servLine.configuration_spec).toBeNull();
+    });
   });
 });
