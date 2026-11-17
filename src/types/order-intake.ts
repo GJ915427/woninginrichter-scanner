@@ -72,6 +72,58 @@ export interface ICognitiveExtractionProvider {
   extract(rawLine: RawOrderLineInput, productGroupCode?: string): Promise<ConfigurationSpec>;
 }
 
+export interface LogicTradeRawOrderLine {
+  id?: number | string;
+  code?: string;
+  articleCode?: string;
+  productCode?: string;
+  description?: string;
+  articleDescription?: string;
+  quantity?: number;
+  unit?: string;
+  price?: number;
+  partPrice?: number;
+  grossPrice?: number;
+  totalPrice?: number;
+  linePrice?: number;
+  totalGrossPrice?: number;
+  basePartPrice?: number;
+  discount?: number;
+  discountPercentage?: number;
+  vat?: {
+    code?: string;
+    percentage?: number;
+  };
+  vatCode?: string;
+  vatPercentage?: number;
+  reservations?: Array<{ number: string; lineNumber?: number }>;
+  stockStatus?: string;
+  deliveryStatus?: string;
+  invoiceStatus?: string;
+  comment?: string | {
+    extern?: string;
+    intern?: string;
+    [key: string]: unknown;
+  };
+  supplierName?: string;
+  supplier_name?: string;
+  supplierCode?: string;
+  supplier_code?: string;
+  widthMm?: number;
+  width_mm?: number;
+  heightMm?: number;
+  height_mm?: number;
+  options?: unknown[];
+  configuration?: {
+    id?: number | string;
+    items?: unknown[];
+    [key: string]: unknown;
+  };
+  configurationJson?: Record<string, unknown>;
+  configuration_json?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 export interface RawOrderLineInput {
   line_number: number;
   product_code?: string;
@@ -85,19 +137,53 @@ export interface RawOrderLineInput {
   room_name?: string;
   window_name?: string;
   position_id?: string;
-  dim?: string;
-  notes?: string;
+  dim?: string | null;
+  notes?: string | null;
   dimension_spec?: Record<string, unknown> | null;
   width_mm?: number;
   height_mm?: number;
   options?: string[];
   configuration_json?: Record<string, unknown> | null;
   supplier_name?: string;
+  supplier_code?: string;
   configuration?: {
     id?: number | string;
     items?: unknown[];
     [key: string]: unknown;
   } | null;
+  // Non-destructive Bronze Layer velden met lt_ prefix:
+  lt_raw_data?: Record<string, unknown> | null;
+  lt_id?: string | null;
+  lt_configuration_json?: Record<string, unknown> | null;
+  lt_configuration?: Record<string, unknown> | null;
+  lt_width_mm?: number | null;
+  lt_height_mm?: number | null;
+  lt_options?: unknown[] | null;
+  lt_supplier_name?: string | null;
+  lt_supplier_code?: string | null;
+  lt_comment_extern?: string | null;
+  lt_comment_intern?: string | null;
+  lt_vat_code?: string | null;
+  lt_vat_percentage?: number | null;
+  lt_discount_percentage?: number | null;
+  lt_base_price_cents?: number | null;
+  lt_reservations?: Array<{ number: string; lineNumber?: number }> | null;
+  lt_stock_status?: string | null;
+  lt_delivery_status?: string | null;
+  lt_invoice_status?: string | null;
+  // Backwards compatibility aliassen:
+  raw_data?: Record<string, unknown> | null;
+  external_line_id?: string | null;
+  comment_extern?: string | null;
+  comment_intern?: string | null;
+  vat_code?: string | null;
+  vat_percentage?: number | null;
+  discount_percentage?: number | null;
+  base_price_cents?: number | null;
+  reservations?: Array<{ number: string; lineNumber?: number }> | null;
+  stock_status?: string | null;
+  delivery_status?: string | null;
+  invoice_status?: string | null;
 }
 
 export interface RawLogicTradeOrderInput {
@@ -115,6 +201,8 @@ export interface RawLogicTradeOrderInput {
   total_amount_cents?: number;
   status?: string;
   raw_data?: Record<string, unknown>;
+  lt_raw_data?: Record<string, unknown> | null;
+  lt_id?: string | null;
   lines: RawOrderLineInput[];
 }
 
@@ -139,6 +227,39 @@ export interface IngestedOrderLine {
   notes?: string | null;
   dimension_spec?: Record<string, unknown> | null;
   configuration_spec?: ConfigurationSpec | null;
+  // Non-destructive Bronze Layer velden met lt_ prefix:
+  lt_raw_data?: Record<string, unknown> | null;
+  lt_id?: string | null;
+  lt_configuration_json?: Record<string, unknown> | null;
+  lt_configuration?: Record<string, unknown> | null;
+  lt_width_mm?: number | null;
+  lt_height_mm?: number | null;
+  lt_options?: unknown[] | null;
+  lt_supplier_name?: string | null;
+  lt_supplier_code?: string | null;
+  lt_comment_extern?: string | null;
+  lt_comment_intern?: string | null;
+  lt_vat_code?: string | null;
+  lt_vat_percentage?: number | null;
+  lt_discount_percentage?: number | null;
+  lt_base_price_cents?: number | null;
+  lt_reservations?: Array<{ number: string; lineNumber?: number }> | null;
+  lt_stock_status?: string | null;
+  lt_delivery_status?: string | null;
+  lt_invoice_status?: string | null;
+  // Backwards compatibility aliassen:
+  raw_data?: Record<string, unknown> | null;
+  external_line_id?: string | null;
+  comment_extern?: string | null;
+  comment_intern?: string | null;
+  vat_code?: string | null;
+  vat_percentage?: number | null;
+  discount_percentage?: number | null;
+  base_price_cents?: number | null;
+  reservations?: Array<{ number: string; lineNumber?: number }> | null;
+  stock_status?: string | null;
+  delivery_status?: string | null;
+  invoice_status?: string | null;
 }
 
 export interface IngestedOrderHeader {
@@ -156,6 +277,8 @@ export interface IngestedOrderHeader {
   total_amount_cents: number;
   status: string;
   raw_data: Record<string, unknown>;
+  lt_id?: string | null;
+  lt_raw_data?: Record<string, unknown> | null;
 }
 
 export interface IngestedOrderBundle {

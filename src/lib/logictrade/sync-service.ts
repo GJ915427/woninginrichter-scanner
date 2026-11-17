@@ -1,4 +1,5 @@
 import { LogicTradeProductRaw } from '@/types/product';
+export type { LogicTradeProductRaw };
 import {
   upsertProductsBatch,
   getSyncState,
@@ -20,6 +21,7 @@ export interface MappedProductRow {
   vat_code: string;
   unit: string;
   raw_data: Record<string, any>;
+  lt_raw_data?: Record<string, any>;
   modified_at: string;
 }
 
@@ -41,15 +43,8 @@ export function mapProductToRow(p: LogicTradeProductRaw): MappedProductRow {
     sales_price: typeof p.salesPrice === 'number' ? p.salesPrice : 0,
     vat_code: p.vat?.code || '',
     unit: p.unit || 'stuks',
-    raw_data: {
-      images: p.images || [],
-      attributes: p.attributes || [],
-      salesGroup: p.salesGroup,
-      vat: p.vat,
-      supplier: p.supplier,
-      width: (p as any).width,
-      height: (p as any).height
-    },
+    raw_data: p,
+    lt_raw_data: p,
     modified_at: (p as any).modifiedDate || new Date().toISOString()
   };
 }

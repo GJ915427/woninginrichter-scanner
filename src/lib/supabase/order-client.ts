@@ -30,6 +30,39 @@ export interface OrderLineDto {
   notes?: string | null;
   dimension_spec?: DimensionSpec | null;
   configuration_spec?: ConfigurationSpec | null;
+  // Non-destructive Bronze Layer velden met lt_ prefix:
+  lt_raw_data?: Record<string, unknown> | null;
+  lt_id?: string | null;
+  lt_configuration_json?: Record<string, unknown> | null;
+  lt_configuration?: Record<string, unknown> | null;
+  lt_width_mm?: number | null;
+  lt_height_mm?: number | null;
+  lt_options?: unknown[] | null;
+  lt_supplier_name?: string | null;
+  lt_supplier_code?: string | null;
+  lt_comment_extern?: string | null;
+  lt_comment_intern?: string | null;
+  lt_vat_code?: string | null;
+  lt_vat_percentage?: number | null;
+  lt_discount_percentage?: number | null;
+  lt_base_price_cents?: number | null;
+  lt_reservations?: Array<{ number: string; lineNumber?: number }> | null;
+  lt_stock_status?: string | null;
+  lt_delivery_status?: string | null;
+  lt_invoice_status?: string | null;
+  // Backwards compatibility aliassen:
+  raw_data?: Record<string, unknown> | null;
+  external_line_id?: string | null;
+  comment_extern?: string | null;
+  comment_intern?: string | null;
+  vat_code?: string | null;
+  vat_percentage?: number | null;
+  discount_percentage?: number | null;
+  base_price_cents?: number | null;
+  reservations?: Array<{ number: string; lineNumber?: number }> | null;
+  stock_status?: string | null;
+  delivery_status?: string | null;
+  invoice_status?: string | null;
 }
 
 export interface OrderHeaderDto {
@@ -47,6 +80,8 @@ export interface OrderHeaderDto {
   total_amount_cents?: number;
   status?: string;
   raw_data?: Record<string, unknown>;
+  lt_id?: string | null;
+  lt_raw_data?: Record<string, unknown> | null;
 }
 
 export interface OrderMatrixBundleDto {
