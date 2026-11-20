@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { defaultRateLimiter, RateLimiter } from './rate-limiter';
+import { resolveLogicTradeConnectionConfig } from '@/lib/logictrade/connection-config';
+import { resolveNumericQuantity } from '@/types/order-intake';
 import {
   HarvestedRawArticle,
   detectServiceDiscipline,
@@ -154,7 +156,7 @@ export function calculateLineTurnoverCents(line: LogicTradeOrderLine): number {
     return line.linePrice > 0 ? Math.round(line.linePrice * 100) : 0;
   }
   const partPrice = typeof line.partPrice === 'number' && Number.isFinite(line.partPrice) ? line.partPrice : 0;
-  const quantity = typeof line.quantity === 'number' && Number.isFinite(line.quantity) ? line.quantity : 1;
+  const quantity = resolveNumericQuantity(line.quantity);
   const total = partPrice * quantity;
   return Number.isFinite(total) && total > 0 ? Math.round(total * 100) : 0;
 }
@@ -268,8 +270,9 @@ export function parseCommentExtern(comment?: { intern?: string; extern?: string 
  * en berekent empirische maatvoeringen met uitsluiting van niet-positieve maten.
  */
 export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promise<Harvest2YrResult> {
-  const apiKey = options.apiKey || process.env.LOGICTRADE_API_KEY || '621dcae6617349d0896d3ca9ba96d4b6';
-  const baseUrl = (options.baseUrl || process.env.LOGICTRADE_BASE_URL || 'https://api.logictrade.cloud/rest/v1').replace(/\/+$/, '');
+  const connection = resolveLogicTradeConnectionConfig({ apiKey: options.apiKey, baseUrl: options.baseUrl });
+  const apiKey = connection.apiKey;
+  const baseUrl = connection.baseUrl.replace(/\/+$/, '');
   const adminGuid = options.adminGuid || process.env.LOGICTRADE_ADMIN_GUID;
   const pageSize = options.pageSize || 50;
   const limiter = options.rateLimiter || defaultRateLimiter;
@@ -709,8 +712,9 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
 }
 
 export async function harvestQuotes(options: HarvestQuotesOptions = {}): Promise<HarvestQuotesResult> {
-  const apiKey = options.apiKey || process.env.LOGICTRADE_API_KEY || '621dcae6617349d0896d3ca9ba96d4b6';
-  const baseUrl = (options.baseUrl || process.env.LOGICTRADE_BASE_URL || 'https://api.logictrade.cloud/rest/v1').replace(/\/+$/, '');
+  const connection = resolveLogicTradeConnectionConfig({ apiKey: options.apiKey, baseUrl: options.baseUrl });
+  const apiKey = connection.apiKey;
+  const baseUrl = connection.baseUrl.replace(/\/+$/, '');
   const adminGuid = options.adminGuid || process.env.LOGICTRADE_ADMIN_GUID;
   const pageSize = options.pageSize || 100;
   const limiter = options.rateLimiter || defaultRateLimiter;

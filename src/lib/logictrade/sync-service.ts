@@ -1,5 +1,6 @@
 import { LogicTradeProductRaw } from '@/types/product';
 export type { LogicTradeProductRaw };
+import { resolveLogicTradeConnectionConfig } from './connection-config';
 import {
   upsertProductsBatch,
   getSyncState,
@@ -65,8 +66,9 @@ export async function executeDeltaSync(
     pageSize?: number;
   } = {}
 ): Promise<{ syncedCount: number; lastSyncedAt: string }> {
-  const apiKey = options.apiKey || process.env.LOGICTRADE_API_KEY || '';
-  const baseUrl = options.baseUrl || process.env.LOGICTRADE_BASE_URL || 'https://api.logictrade.cloud/rest/v1';
+  const connection = resolveLogicTradeConnectionConfig({ apiKey: options.apiKey, baseUrl: options.baseUrl });
+  const apiKey = connection.apiKey;
+  const baseUrl = connection.baseUrl.replace(/\/+$/, '');
   const adminGuid = options.adminGuid || process.env.LOGICTRADE_ADMIN_GUID;
   const pageSize = options.pageSize || 100;
 
@@ -79,7 +81,6 @@ export async function executeDeltaSync(
 
   const url = new URL(`${baseUrl}/products`);
   url.searchParams.set('pageSize', String(pageSize));
-  url.searchParams.set('pageNumber', '1');
   if (since) {
     url.searchParams.set('modifiedAfter', since);
   }
@@ -92,23 +93,35 @@ export async function executeDeltaSync(
     headers['administration-guid'] = adminGuid;
   }
 
-  const res = await fetch(url.toString(), {
-    method: 'GET',
-    headers,
-    cache: 'no-store'
-  });
+  let currentPage = 1;
+  let totalPages = 1;
+  let totalSynced = 0;
 
-  if (!res.ok) {
-    throw new Error(`LogicTrade delta sync API error HTTP ${res.status}: ${await res.text()}`);
-  }
+  do {
+    url.searchParams.set('pageNumber', String(currentPage));
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      headers,
+      cache: 'no-store'
+    });
 
-  const payload = await res.json();
-  const products: LogicTradeProductRaw[] = payload.results || [];
-  const syncedCount = await syncProductsBatch(products);
+    if (!res.ok) {
+      throw new Error(`LogicTrade delta sync API error HTTP ${res.status}: ${await res.text()}`);
+    }
+
+    const payload = await res.json();
+    totalPages = payload.pagination?.totalPages || 1;
+    const products: LogicTradeProductRaw[] = payload.results || [];
+    if (products.length > 0) {
+      const batchCount = await syncProductsBatch(products);
+      totalSynced += batchCount;
+    }
+    currentPage++;
+  } while (currentPage <= totalPages);
 
   const newTimestamp = new Date().toISOString();
-  const total = (existingState?.total_synced || 0) + syncedCount;
+  const total = (existingState?.total_synced || 0) + totalSynced;
   await updateSyncState('catalog_sync', total, newTimestamp);
 
-  return { syncedCount, lastSyncedAt: newTimestamp };
+  return { syncedCount: totalSynced, lastSyncedAt: newTimestamp };
 }

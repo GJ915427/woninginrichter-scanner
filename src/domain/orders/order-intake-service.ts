@@ -12,19 +12,22 @@ import {
   SERVICE_DISCIPLINE_TO_PRODUCT_GROUP,
 } from '@/domain/search/v2/cognitive-typology-classifier';
 import { ConfigurationExtractionEngine } from '@/domain/orders/configuration-extraction-engine';
-import type {
-  RawLogicTradeOrderInput,
-  RawOrderLineInput,
-  IngestedOrderBundle,
-  IngestedOrderLine,
-  IngestedOrderHeader,
-  ResolvedProductEntity,
-  ICognitiveExtractionProvider,
-  ConfigurationSpec,
+import {
+  toNonNegativeQuantity,
+  resolveNumericQuantity,
+  type RawLogicTradeOrderInput,
+  type RawOrderLineInput,
+  type IngestedOrderBundle,
+  type IngestedOrderLine,
+  type IngestedOrderHeader,
+  type ResolvedProductEntity,
+  type ICognitiveExtractionProvider,
+  type ConfigurationSpec,
 } from '@/types/order-intake';
 import { resolveProductByCode as defaultResolveProductByCode } from '@/lib/supabase/order-client';
 
 // Expliciete Re-exports voor downstream consumenten en testsuites
+export { toNonNegativeQuantity, resolveNumericQuantity };
 export type {
   RawLogicTradeOrderInput,
   RawOrderLineInput,
@@ -102,8 +105,8 @@ export class OrderIntakeService {
     serviceDisciplineCode?: string
   ): Promise<IngestedOrderLine[]> {
     const unitPrice = line.unit_price_cents || 0;
-    const totalPrice = line.total_price_cents !== undefined ? line.total_price_cents : unitPrice * (line.quantity || 1);
-    const quantity = line.quantity || 1;
+    const quantity = resolveNumericQuantity(line.quantity);
+    const totalPrice = line.total_price_cents !== undefined ? line.total_price_cents : unitPrice * quantity;
     const etage = line.etage_name || 'Begane grond';
 
     const derivedDim =
@@ -303,7 +306,9 @@ export class OrderIntakeService {
     const assignedConfigSpec = hasMeaningfulConfig ? configSpec : null;
 
     // Is het een hybride regel (materiaal incl. dienst)?
-    const isHybrid = rawLine.is_hybrid || classificationIsHybrid || detectIsMaterialAndService(rawLine.description);
+    // Sub-regels (sub_line > 0) mogen nooit opnieuw als hybride gesplitst worden
+    const isSubLine = rawLine.sub_line !== undefined && rawLine.sub_line > 0;
+    const isHybrid = !isSubLine && (rawLine.is_hybrid || classificationIsHybrid || detectIsMaterialAndService(rawLine.description));
 
     if (isHybrid) {
       return this.splitHybridOrderLine(
@@ -315,17 +320,18 @@ export class OrderIntakeService {
       );
     }
 
+    const quantity = resolveNumericQuantity(rawLine.quantity);
     const unitPrice = rawLine.unit_price_cents || 0;
-    const totalPrice = rawLine.total_price_cents !== undefined ? rawLine.total_price_cents : unitPrice * (rawLine.quantity || 1);
+    const totalPrice = rawLine.total_price_cents !== undefined ? rawLine.total_price_cents : Math.round(unitPrice * quantity);
 
     const singleLine: IngestedOrderLine = {
       line_number: rawLine.line_number,
-      sub_line: 0,
+      sub_line: rawLine.sub_line !== undefined ? rawLine.sub_line : 0,
       product_id: resolvedProduct ? resolvedProduct.id : null,
       product_code: rawLine.product_code || 'TEKST',
       product_group_code: groupCode,
       description: rawLine.description,
-      quantity: rawLine.quantity || 1,
+      quantity: quantity,
       unit: rawLine.unit || 'stuks',
       unit_price_cents: unitPrice,
       total_price_cents: totalPrice,
@@ -439,11 +445,63 @@ export function mapLogicTradeOrderToRawInput(
 
   const effectiveLines = lines || (Array.isArray(header.lines) ? header.lines : (Array.isArray(header.orderLines) ? header.orderLines : []));
 
-  const rawLines: RawOrderLineInput[] = effectiveLines.map((l: any, index: number) => {
+  // Flatten lines and subLines with hierarchical parent-child line number preservation
+  const flattened: Array<{ raw: any; sub_line: number; parentLineNumber: number }> = [];
+
+  // Pre-seed reserved line numbers from all positive main line numbers
+  const reservedLineNumbers = new Set<number>();
+  for (const l of effectiveLines) {
+    const rawLn = typeof l.lineNumber === 'number' && Number.isFinite(l.lineNumber)
+      ? l.lineNumber
+      : (typeof l.line_number === 'number' && Number.isFinite(l.line_number) ? l.line_number : 0);
+    if (rawLn > 0 && !reservedLineNumbers.has(rawLn)) {
+      reservedLineNumbers.add(rawLn);
+    }
+  }
+
+  let nextGeneratedLineNumber = 10;
+  function getNextAvailableLineNumber(): number {
+    while (reservedLineNumbers.has(nextGeneratedLineNumber)) {
+      nextGeneratedLineNumber += 10;
+    }
+    reservedLineNumbers.add(nextGeneratedLineNumber);
+    return nextGeneratedLineNumber;
+  }
+
+  const seenMainLineNumbers = new Set<number>();
+
+  for (const l of effectiveLines) {
+    const rawLn = typeof l.lineNumber === 'number' && Number.isFinite(l.lineNumber)
+      ? l.lineNumber
+      : (typeof l.line_number === 'number' && Number.isFinite(l.line_number) ? l.line_number : 0);
+
+    let parentLn: number;
+    if (rawLn > 0 && !seenMainLineNumbers.has(rawLn)) {
+      parentLn = rawLn;
+      seenMainLineNumbers.add(parentLn);
+    } else {
+      parentLn = getNextAvailableLineNumber();
+    }
+
+    flattened.push({ raw: l, sub_line: 0, parentLineNumber: parentLn });
+
+    const subList = l.subLines || l.sub_lines || l.childLines;
+    if (Array.isArray(subList)) {
+      for (const sl of subList) {
+        // Child sublines strictly inherit parent's resolved line_number
+        flattened.push({ raw: sl, sub_line: 1, parentLineNumber: parentLn });
+      }
+    }
+  }
+
+  const rawLines: RawOrderLineInput[] = flattened.map((item) => {
+    const l = item.raw;
+    const sub_line = item.sub_line;
+    const lineNumber = item.parentLineNumber;
     const rawCode = String(l.articleCode || l.code || l.productCode || '').trim();
     const code = rawCode || 'TEKST';
     const description = String(l.articleDescription || l.description || (code !== 'TEKST' ? code : 'Vrije tekstregel')).trim();
-    const qty = typeof l.quantity === 'number' && Number.isFinite(l.quantity) ? l.quantity : 1;
+    const qty = resolveNumericQuantity(l.quantity !== undefined ? l.quantity : 1);
 
     let unitPriceCents = 0;
     if (typeof l.partPrice === 'number' && Number.isFinite(l.partPrice)) {
@@ -460,12 +518,8 @@ export function mapLogicTradeOrderToRawInput(
     } else if (typeof l.total_price_cents === 'number' && Number.isFinite(l.total_price_cents)) {
       totalPriceCents = l.total_price_cents;
     } else {
-      totalPriceCents = unitPriceCents * qty;
+      totalPriceCents = Math.round(unitPriceCents * qty);
     }
-
-    const lineNumber = typeof l.lineNumber === 'number' && Number.isFinite(l.lineNumber)
-      ? l.lineNumber
-      : (typeof l.line_number === 'number' && Number.isFinite(l.line_number) ? l.line_number : (index + 1) * 10);
 
     const rawComment = typeof l.comment === 'object' && l.comment !== null ? l.comment : null;
     const ltCommentExtern = rawComment?.extern ? String(rawComment.extern).trim() : (typeof l.comment === 'string' ? l.comment.trim() : null);
@@ -499,8 +553,12 @@ export function mapLogicTradeOrderToRawInput(
       ? noteParts.join('\n')
       : (typeof l.comment === 'string' ? l.comment : (l.notes || null));
 
+    // INV-RAW-IMMUTABILITY-01: sub_line = 1 must strictly have lt_raw_data = null
+    const ltRawData = sub_line === 1 ? null : l;
+
     return {
       line_number: lineNumber,
+      sub_line,
       product_code: code,
       description,
       quantity: qty,
@@ -523,7 +581,7 @@ export function mapLogicTradeOrderToRawInput(
       configuration: l.configuration || undefined,
       configuration_json: parsedConfigJson || undefined,
       // 100% Bronze Layer pariteit:
-      lt_raw_data: l,
+      lt_raw_data: ltRawData,
       lt_id: ltId,
       lt_configuration_json: parsedConfigJson,
       lt_configuration: typeof l.configuration === 'object' && l.configuration !== null ? l.configuration : null,
@@ -543,7 +601,7 @@ export function mapLogicTradeOrderToRawInput(
       lt_delivery_status: ltDeliveryStatus,
       lt_invoice_status: ltInvoiceStatus,
       // Backwards-compatible aliassen:
-      raw_data: l,
+      raw_data: ltRawData,
       external_line_id: ltId,
       comment_extern: ltCommentExtern,
       comment_intern: ltCommentIntern,
@@ -595,6 +653,8 @@ export function mapLogicTradeOrderToRawInput(
     )) ||
     'Onbekende Klant';
 
+  const orderLtId = header.id ?? header.orderId ?? header.number ?? ordNumber;
+
   return {
     id: finalId,
     order_number: finalOrderNumber,
@@ -611,7 +671,7 @@ export function mapLogicTradeOrderToRawInput(
     status: statusStr || (isOfferte ? 'OFFERTE' : 'ORDER'),
     raw_data: header,
     lt_raw_data: header,
-    lt_id: String(header.id || ordNumber),
+    lt_id: orderLtId !== undefined && orderLtId !== null ? String(orderLtId).trim() : null,
     lines: rawLines,
   };
 }

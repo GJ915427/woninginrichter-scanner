@@ -80,19 +80,21 @@ export function MatrixOrderPickerPopover({
     const seenIds = new Set<string>();
     const combined: (OrderSummaryItem | MatrixOrder)[] = [];
 
-    // Veilige pinning: Toon geselecteerde order uitsluitend bovenaan indien géén zoekterm actief is
-    // en de order matcht met het geselecteerde tabfilter.
-    if (selectedOrder && !term && matchesType(selectedOrder)) {
-      seenIds.add(selectedOrder.id);
-      combined.push(selectedOrder);
-    }
-
     for (const item of [...eligibleBenchmarks, ...eligibleLive]) {
       if (!seenIds.has(item.id)) {
         seenIds.add(item.id);
         combined.push(item);
       }
     }
+
+    // Veilige pinning: Toon geselecteerde order uitsluitend bovenaan indien géén zoekterm actief is,
+    // de order matcht met het geselecteerde tabfilter, de order nog niet in de lijst voorkomt,
+    // en er daadwerkelijk een actieve catalogus is (geen synthetische order-injectie in lege catalogus).
+    if (selectedOrder && !seenIds.has(selectedOrder.id) && combined.length > 0 && !term && matchesType(selectedOrder)) {
+      seenIds.add(selectedOrder.id);
+      combined.unshift(selectedOrder);
+    }
+
     return combined;
   }, [searchTerm, typeFilter, liveResults, orders, selectedOrder]);
 

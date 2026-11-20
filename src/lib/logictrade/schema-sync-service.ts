@@ -2,10 +2,13 @@ import {
   getSyncState,
   updateSyncState,
   upsertConfiguratorSchemasBatch,
+  upsertConfiguratorOptionValuesBatch,
   getActiveConfiguratorSchemas,
   ConfiguratorSchemaRow,
   ConfiguratorSchemaValueItem,
+  ConfiguratorOptionValueRow,
 } from '@/lib/supabase/client';
+import { resolveLogicTradeConnectionConfig } from './connection-config';
 import { defaultRateLimiter } from '@/lib/logictrade/rate-limiter';
 import {
   DynamicAttributeRegistry,
@@ -17,6 +20,7 @@ export interface LogicTradeOptionRaw {
   id: number;
   code: string;
   name: string;
+  description?: string;
   kind?: number; // 0=None, 100=Number, 200=Text, 300=Choices, 400=Color, 410=Material, 500=Dimension
   startDate?: string | null;
   endDate?: string | null;
@@ -28,7 +32,8 @@ export interface LogicTradeOptionRaw {
 export interface LogicTradeOptionValueRaw {
   id: number;
   code: string;
-  name: string;
+  name?: string;
+  description?: string;
   startDate?: string | null;
   endDate?: string | null;
   webshop?: boolean;
@@ -105,11 +110,18 @@ export async function executeSchemaDeltaSync(
     adminGuid?: string;
     forceSince?: string;
     pageSize?: number;
+    persistBronzeValues?: boolean;
+    preserveSilverOnConflict?: boolean;
   } = {}
 ): Promise<SchemaSyncResult> {
   const startTime = Date.now();
-  const apiKey = options.apiKey || process.env.LOGICTRADE_API_KEY || 'test-api-key';
-  const baseUrl = options.baseUrl || process.env.LOGICTRADE_BASE_URL || 'https://api.logictrade.cloud/rest/v1';
+  const connection = resolveLogicTradeConnectionConfig({
+    apiKey: options.apiKey,
+    baseUrl: options.baseUrl,
+    requireApiKey: false,
+  });
+  const apiKey = connection.apiKey || 'test-api-key';
+  const baseUrl = connection.baseUrl.replace(/\/+$/, '');
   const adminGuid = options.adminGuid || process.env.LOGICTRADE_ADMIN_GUID;
   const pageSize = options.pageSize || 100;
 
@@ -160,6 +172,28 @@ export async function executeSchemaDeltaSync(
     pageNumber++;
   } while (pageNumber <= totalPages);
 
+  // Step 1: Pre-upsert parent option headers with preserveSilverOnConflict: true before /values streaming
+  if (options.preserveSilverOnConflict && rawOptions.length > 0) {
+    const parentPreRows: ConfiguratorSchemaRow[] = rawOptions.map((opt) => ({
+      option_id: opt.id,
+      step_id: resolveCanonicalStepId(opt),
+      option_code: opt.code,
+      label: opt.name,
+      category: inferCategoryFromOption(opt),
+      kind: opt.kind !== undefined ? opt.kind : 400,
+      possible_values: [],
+      is_active: false,
+      sort_order: opt.sortOrder || 0,
+      raw_metadata: opt.customFields || {},
+      synced_at: new Date().toISOString(),
+      code: opt.code,
+      description: opt.description || opt.name,
+      name: opt.name,
+      lt_raw_data: opt as any,
+    }));
+    await upsertConfiguratorSchemasBatch(parentPreRows, { preserveSilverOnConflict: true });
+  }
+
   const now = new Date();
   const schemaRows: ConfiguratorSchemaRow[] = [];
 
@@ -187,6 +221,10 @@ export async function executeSchemaDeltaSync(
         sort_order: opt.sortOrder || 0,
         raw_metadata: opt.customFields || {},
         synced_at: new Date().toISOString(),
+        code: opt.code,
+        description: opt.description || opt.name,
+        name: opt.name,
+        lt_raw_data: opt as any,
       });
       continue;
     }
@@ -195,7 +233,8 @@ export async function executeSchemaDeltaSync(
     let vPage = 1;
     let vTotalPages = 1;
     const values: ConfiguratorSchemaValueItem[] = [];
-    const maxValPages = 10;
+    const maxValPages = options.persistBronzeValues ? 5000 : 10;
+    let bronzeValuesCount = 0;
 
     do {
       const valUrl = new URL(`${baseUrl}/products/configurator/options/${opt.id}/values`);
@@ -217,18 +256,36 @@ export async function executeSchemaDeltaSync(
       const vData = await vRes.json();
       const vBatch: LogicTradeOptionValueRaw[] = vData.results || [];
 
+      // Bronze Normalization: stream all option values into child table in chunks <= 250
+      if (options.persistBronzeValues && vBatch.length > 0) {
+        const bronzeBatch: ConfiguratorOptionValueRow[] = vBatch.map((val) => ({
+          option_id: opt.id,
+          value_id: val.id,
+          code: val.code || String(val.id),
+          description: val.description || val.name || val.code,
+          name: val.name || val.description || val.code,
+          is_active: isEntityActive(val, now),
+          lt_raw_data: val as any,
+        }));
+        await upsertConfiguratorOptionValuesBatch(bronzeBatch, 250);
+        bronzeValuesCount += bronzeBatch.length;
+      }
+
       for (const val of vBatch) {
         if (isEntityActive(val, now)) {
-          values.push({
-            value: val.code || String(val.id),
-            label: val.name || val.code,
-            optionId: val.id,
-            sortOrder: val.sortOrder,
-          });
+          // Cap Silver choices at 500 for UI responsiveness
+          if (values.length < 500) {
+            values.push({
+              value: val.code || String(val.id),
+              label: val.description || val.name || val.code,
+              optionId: val.id,
+              sortOrder: val.sortOrder,
+            });
+          }
         }
       }
 
-      vTotalPages = vData.totalPages || 1;
+      vTotalPages = vData.pagination?.totalPages || (vData.pagination?.totalResults ? Math.ceil(vData.pagination.totalResults / (vData.pagination.pageSize || 100)) : (vData.totalPages || 1));
       vPage++;
     } while (vPage <= vTotalPages && vPage <= maxValPages);
 
@@ -242,8 +299,16 @@ export async function executeSchemaDeltaSync(
       possible_values: values,
       is_active: values.length > 0,
       sort_order: opt.sortOrder || 0,
-      raw_metadata: opt.customFields || {},
+      raw_metadata: {
+        ...(opt.customFields || {}),
+        bronze_values_count: bronzeValuesCount,
+        silver_values_capped: values.length >= 500,
+      },
       synced_at: new Date().toISOString(),
+      code: opt.code,
+      description: opt.description || opt.name,
+      name: opt.name,
+      lt_raw_data: opt as any,
     });
   }
 
@@ -265,11 +330,11 @@ export async function executeSchemaDeltaSync(
   if (activeResult.ok) {
     totalActive = activeResult.rows.length;
     const externalSchemas: ExternalAttributeSchema[] = activeResult.rows.map((row) => ({
-      category: row.category,
-      stepId: row.step_id,
-      label: row.label,
-      values: row.possible_values,
-      isActive: row.is_active,
+      category: row.category || 'algemeen',
+      stepId: row.step_id || '',
+      label: row.label || '',
+      values: row.possible_values || [],
+      isActive: Boolean(row.is_active),
     }));
     DynamicAttributeRegistry.ingestExternalSchemas(externalSchemas);
   }
@@ -297,11 +362,11 @@ export async function ensureExternalSchemasHydrated(): Promise<{
     }
 
     const externalSchemas: ExternalAttributeSchema[] = activeResult.rows.map((row) => ({
-      category: row.category,
-      stepId: row.step_id,
-      label: row.label,
-      values: row.possible_values,
-      isActive: row.is_active,
+      category: row.category || 'algemeen',
+      stepId: row.step_id || '',
+      label: row.label || '',
+      values: row.possible_values || [],
+      isActive: Boolean(row.is_active),
     }));
 
     DynamicAttributeRegistry.ingestExternalSchemas(externalSchemas);

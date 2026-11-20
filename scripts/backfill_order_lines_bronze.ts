@@ -8,7 +8,45 @@
 
 import { getSupabaseConfig } from '../src/lib/supabase/client';
 
-const BATCH_SIZE = 500;
+const BATCH_SIZE = 100;
+
+export async function executeBatchRpc(
+  url: string,
+  baseHeaders: Record<string, string>,
+  orderIds: string[]
+): Promise<number> {
+  try {
+    const rpcRes = await fetch(`${url}/rest/v1/rpc/backfill_order_lines_bronze_batch`, {
+      method: 'POST',
+      headers: baseHeaders,
+      body: JSON.stringify({ p_order_ids: orderIds }),
+    });
+
+    if (!rpcRes.ok) {
+      const errText = await rpcRes.text();
+      if (orderIds.length > 1) {
+        console.warn(`⚠️ Batch fout (${rpcRes.status}), bisecteer ${orderIds.length} orders in 2 helften...`);
+        const mid = Math.floor(orderIds.length / 2);
+        const count1 = await executeBatchRpc(url, baseHeaders, orderIds.slice(0, mid));
+        const count2 = await executeBatchRpc(url, baseHeaders, orderIds.slice(mid));
+        return count1 + count2;
+      }
+      throw new Error(`RPC backfill fout bij order ${orderIds[0]}: HTTP ${rpcRes.status}: ${errText}`);
+    }
+
+    const count = (await rpcRes.json()) as number;
+    return typeof count === 'number' ? count : 0;
+  } catch (err: any) {
+    if (orderIds.length > 1) {
+      console.warn(`⚠️ Exception (${err.message}), bisecteer ${orderIds.length} orders...`);
+      const mid = Math.floor(orderIds.length / 2);
+      const count1 = await executeBatchRpc(url, baseHeaders, orderIds.slice(0, mid));
+      const count2 = await executeBatchRpc(url, baseHeaders, orderIds.slice(mid));
+      return count1 + count2;
+    }
+    throw err;
+  }
+}
 
 export async function backfillBronzeOrderLines(): Promise<{ totalOrders: number; updatedLines: number }> {
   const { url, anonKey, serviceKey } = getSupabaseConfig();
@@ -24,9 +62,10 @@ export async function backfillBronzeOrderLines(): Promise<{ totalOrders: number;
     Authorization: `Bearer ${token}`,
   };
 
-  console.log('🚀 Start Keyset-Cursor Bronze Order Lines Backfill (Zero-Dependency Native Fetch)...');
+  const cursorArg = process.argv.find((a) => a.startsWith('--cursor='));
+  let lastId = cursorArg ? cursorArg.split('=')[1] : '';
 
-  let lastId = '';
+  console.log(`🚀 Start Keyset-Cursor Bronze Order Lines Backfill (Batch: ${BATCH_SIZE}, Cursor: '${lastId}')...`);
   let totalProcessed = 0;
   let totalUpdatedLines = 0;
   let hasMore = true;
@@ -77,18 +116,7 @@ export async function backfillBronzeOrderLines(): Promise<{ totalOrders: number;
     const orderIds = orders.map((o) => o.id);
     lastId = orderIds[orderIds.length - 1];
 
-    const rpcRes = await fetch(`${url}/rest/v1/rpc/backfill_order_lines_bronze_batch`, {
-      method: 'POST',
-      headers: baseHeaders,
-      body: JSON.stringify({ p_order_ids: orderIds }),
-    });
-
-    if (!rpcRes.ok) {
-      const errText = await rpcRes.text();
-      throw new Error(`RPC backfill fout bij batch eindigend op ${lastId}: HTTP ${rpcRes.status}: ${errText}`);
-    }
-
-    const updatedCount = (await rpcRes.json()) as number;
+    const updatedCount = await executeBatchRpc(url, baseHeaders, orderIds);
 
     totalProcessed += orderIds.length;
     totalUpdatedLines += typeof updatedCount === 'number' ? updatedCount : 0;

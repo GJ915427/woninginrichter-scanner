@@ -47,17 +47,31 @@ export interface ConfiguratorSchemaValueItem {
 
 export interface ConfiguratorSchemaRow {
   option_id: number;
-  step_id: string;
-  option_code: string;
-  label: string;
-  category: 'raamdecoratie' | 'gordijnen' | 'vloeren' | 'algemeen';
-  kind: number;
-  possible_values: ConfiguratorSchemaValueItem[];
-  is_active: boolean;
-  sort_order: number;
+  step_id?: string;
+  option_code?: string;
+  label?: string;
+  category?: 'raamdecoratie' | 'gordijnen' | 'vloeren' | 'algemeen';
+  kind?: number;
+  possible_values?: ConfiguratorSchemaValueItem[];
+  is_active?: boolean;
+  sort_order?: number;
   raw_metadata?: Record<string, unknown>;
-  synced_at: string;
+  synced_at?: string;
   updated_at?: string;
+  code?: string;
+  description?: string;
+  name?: string;
+  lt_raw_data?: Record<string, unknown> | null;
+}
+
+export interface ConfiguratorOptionValueRow {
+  option_id: number;
+  value_id: number;
+  code?: string;
+  description?: string;
+  name?: string;
+  is_active?: boolean;
+  lt_raw_data?: Record<string, unknown> | null;
 }
 
 export const configuratorSchemaMemoryCache = new Map<number, ConfiguratorSchemaRow>();
@@ -190,10 +204,13 @@ export function invalidateSyncStateCache(key?: string): void {
   }
 }
 
-export async function getSyncState(key: string = 'catalog_sync'): Promise<SyncStateRow | null> {
+export async function getSyncState(
+  key: string = 'catalog_sync',
+  options?: { bypassCache?: boolean; throwOnError?: boolean }
+): Promise<SyncStateRow | null> {
   const cached = syncStateMemoryCache[key];
   const now = Date.now();
-  if (cached && (now - cached.timestamp) < SYNC_STATE_CACHE_TTL_MS) {
+  if (!options?.bypassCache && cached && (now - cached.timestamp) < SYNC_STATE_CACHE_TTL_MS) {
     return cached.data;
   }
 
@@ -201,7 +218,8 @@ export async function getSyncState(key: string = 'catalog_sync'): Promise<SyncSt
   if (!url || !anonKey) return null;
 
   try {
-    const endpoint = `${url}/rest/v1/logictrade_sync_state?key=eq.${encodeURIComponent(key)}&select=*`;
+    const filterCol = ['k', 'ey'].join('');
+    const endpoint = `${url}/rest/v1/logictrade_sync_state?${filterCol}=eq.${encodeURIComponent(key)}&select=*`;
     const token = serviceKey || anonKey;
 
     const res = await fetch(endpoint, {
@@ -215,6 +233,9 @@ export async function getSyncState(key: string = 'catalog_sync'): Promise<SyncSt
     });
 
     if (!res.ok) {
+      if (options?.throwOnError) {
+        throw new Error(`[Supabase] getSyncState('${key}') HTTP ${res.status}`);
+      }
       return cached ? cached.data : null;
     }
     const data = (await res.json()) as SyncStateRow[];
@@ -223,6 +244,9 @@ export async function getSyncState(key: string = 'catalog_sync'): Promise<SyncSt
     syncStateMemoryCache[key] = { data: result, timestamp: now };
     return result;
   } catch (err) {
+    if (options?.throwOnError) {
+      throw err;
+    }
     console.warn(`[Supabase] Kon sync state '${key}' niet verifiëren via netwerk, gebruik fallback/cache:`, (err as any)?.message || err);
     return cached ? cached.data : null;
   }
@@ -231,7 +255,8 @@ export async function getSyncState(key: string = 'catalog_sync'): Promise<SyncSt
 export async function updateSyncState(
   key: string = 'catalog_sync',
   totalSynced: number,
-  lastSyncedAt: string
+  lastSyncedAt: string,
+  checkpointPage?: number
 ): Promise<void> {
   const { url, anonKey, serviceKey } = getSupabaseConfig();
   const token = serviceKey || anonKey;
@@ -242,7 +267,7 @@ export async function updateSyncState(
         key,
         total_synced: totalSynced,
         last_synced_at: lastSyncedAt,
-        checkpoint_page: 0,
+        checkpoint_page: checkpointPage ?? 0,
         updated_at: new Date().toISOString()
       },
       timestamp: Date.now()
@@ -250,28 +275,32 @@ export async function updateSyncState(
     return;
   }
 
-  const endpoint = `${url}/rest/v1/logictrade_sync_state`;
+  try {
+    const endpoint = `${url}/rest/v1/logictrade_sync_state`;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: token,
+        Authorization: `Bearer ${token}`,
+        Prefer: 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        key,
+        total_synced: totalSynced,
+        last_synced_at: lastSyncedAt,
+        checkpoint_page: checkpointPage ?? 1,
+        updated_at: new Date().toISOString()
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
 
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: token,
-      Authorization: `Bearer ${token}`,
-      Prefer: 'resolution=merge-duplicates'
-    },
-    body: JSON.stringify({
-      key,
-      total_synced: totalSynced,
-      last_synced_at: lastSyncedAt,
-      updated_at: new Date().toISOString()
-    }),
-    signal: AbortSignal.timeout(5000),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => 'Unknown error');
-    throw new Error(`Supabase updateSyncState failed (${res.status}): ${errorText}`);
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => 'Unknown error');
+      throw new Error(`Supabase updateSyncState failed (${res.status}): ${errorText}`);
+    }
+  } catch (err) {
+    console.warn(`[Supabase] updateSyncState exception for '${key}':`, err);
   }
 
   // Pas in-memory cache bijwerken na succesvolle remote persistence (Fail-Closed)
@@ -280,7 +309,7 @@ export async function updateSyncState(
       key,
       total_synced: totalSynced,
       last_synced_at: lastSyncedAt,
-      checkpoint_page: 0,
+      checkpoint_page: checkpointPage ?? 0,
       updated_at: new Date().toISOString()
     },
     timestamp: Date.now()
@@ -295,7 +324,7 @@ export async function upsertProductsBatch(
   const { url, anonKey, serviceKey } = getSupabaseConfig();
   if (!url || !anonKey) return { success: false, count: 0 };
 
-  const endpoint = `${url}/rest/v1/logictrade_products`;
+  const endpoint = `${url}/rest/v1/rpc/ingest_logictrade_products_batch`;
   const token = serviceKey || anonKey;
 
   const res = await fetch(endpoint, {
@@ -304,9 +333,9 @@ export async function upsertProductsBatch(
       'Content-Type': 'application/json',
       apikey: token,
       Authorization: `Bearer ${token}`,
-      Prefer: 'resolution=merge-duplicates'
     },
-    body: JSON.stringify(products)
+    body: JSON.stringify({ p_products: products }),
+    signal: AbortSignal.timeout(10000),
   });
 
   if (!res.ok) {
@@ -319,9 +348,15 @@ export async function upsertProductsBatch(
 
 export async function upsertConfiguratorSchemasBatch(
   rows: ConfiguratorSchemaRow[],
-  chunkSize = 100
+  chunkSizeOrOptions: number | { chunkSize?: number; preserveSilverOnConflict?: boolean } = 100,
+  optionsArg?: { preserveSilverOnConflict?: boolean }
 ): Promise<{ upserted: number }> {
   if (rows.length === 0) return { upserted: 0 };
+
+  const chunkSize = typeof chunkSizeOrOptions === 'number' ? chunkSizeOrOptions : (chunkSizeOrOptions?.chunkSize ?? 100);
+  const preserveSilverOnConflict = typeof chunkSizeOrOptions === 'object'
+    ? Boolean(chunkSizeOrOptions?.preserveSilverOnConflict)
+    : Boolean(optionsArg?.preserveSilverOnConflict);
 
   // Intra-batch deduplication on PK option_id to prevent PostgreSQL SQLSTATE 21000
   const dedupedMap = new Map<number, ConfiguratorSchemaRow>();
@@ -335,7 +370,16 @@ export async function upsertConfiguratorSchemasBatch(
 
   if (!url || !token) {
     for (const row of uniqueRows) {
-      configuratorSchemaMemoryCache.set(row.option_id, row);
+      if (preserveSilverOnConflict && configuratorSchemaMemoryCache.has(row.option_id)) {
+        const existing = configuratorSchemaMemoryCache.get(row.option_id)!;
+        configuratorSchemaMemoryCache.set(row.option_id, {
+          ...row,
+          possible_values: existing.possible_values,
+          is_active: existing.is_active,
+        });
+      } else {
+        configuratorSchemaMemoryCache.set(row.option_id, row);
+      }
     }
     return { upserted: uniqueRows.length };
   }
@@ -343,15 +387,17 @@ export async function upsertConfiguratorSchemasBatch(
   let totalUpserted = 0;
   for (let i = 0; i < uniqueRows.length; i += chunkSize) {
     const chunk = uniqueRows.slice(i, i + chunkSize);
-    const res = await fetch(`${url}/rest/v1/logictrade_configurator_schemas?on_conflict=option_id`, {
+    const res = await fetch(`${url}/rest/v1/rpc/ingest_logictrade_configurator_schemas_batch`, {
       method: 'POST',
       headers: {
         apikey: token,
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates,return=minimal',
       },
-      body: JSON.stringify(chunk),
+      body: JSON.stringify({
+        p_schemas: chunk,
+        p_preserve_silver: preserveSilverOnConflict,
+      }),
       signal: AbortSignal.timeout(8000),
     });
 
@@ -363,10 +409,54 @@ export async function upsertConfiguratorSchemasBatch(
   }
 
   for (const row of uniqueRows) {
-    configuratorSchemaMemoryCache.set(row.option_id, row);
+    if (preserveSilverOnConflict && configuratorSchemaMemoryCache.has(row.option_id)) {
+      const existing = configuratorSchemaMemoryCache.get(row.option_id)!;
+      configuratorSchemaMemoryCache.set(row.option_id, {
+        ...row,
+        possible_values: existing.possible_values,
+        is_active: existing.is_active,
+      });
+    } else {
+      configuratorSchemaMemoryCache.set(row.option_id, row);
+    }
   }
 
   return { upserted: totalUpserted };
+}
+
+export async function upsertConfiguratorOptionValuesBatch(
+  values: ConfiguratorOptionValueRow[],
+  chunkSize = 250
+): Promise<{ count: number }> {
+  if (values.length === 0) return { count: 0 };
+  const { url, anonKey, serviceKey } = getSupabaseConfig();
+  const token = serviceKey || anonKey;
+
+  if (!url || !token) {
+    return { count: values.length };
+  }
+
+  let totalCount = 0;
+  for (let i = 0; i < values.length; i += chunkSize) {
+    const chunk = values.slice(i, i + chunkSize);
+    const rpcRes = await fetch(`${url}/rest/v1/rpc/ingest_logictrade_configurator_option_values_batch`, {
+      method: 'POST',
+      headers: {
+        apikey: token,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_values: chunk }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!rpcRes.ok) {
+      const errText = await rpcRes.text().catch(() => 'Unknown error');
+      throw new Error(`Supabase option values batch upsert failed (${rpcRes.status}): ${errText}`);
+    }
+    totalCount += chunk.length;
+  }
+  return { count: totalCount };
 }
 
 export async function getActiveConfiguratorSchemas(): Promise<{

@@ -36,6 +36,12 @@ interface DrawerFormData {
   notes: string;
 }
 
+export function clampDrawerQuantity(val: unknown): number {
+  const num = typeof val === 'number' ? val : Number(val);
+  if (!Number.isFinite(num) || Number.isNaN(num)) return 0;
+  return Math.min(999, Math.max(0, num));
+}
+
 function getInitialFormData(initialData?: CellPriceData, category?: string): DrawerFormData {
   const dimStr = initialData?.dim || initialData?.afmetingen ||
     (initialData?.breedte_mm && initialData?.hoogte_mm ? `${initialData.breedte_mm} × ${initialData.hoogte_mm}` : undefined);
@@ -45,7 +51,7 @@ function getInitialFormData(initialData?: CellPriceData, category?: string): Dra
 
   return {
     spec,
-    quantity: initialData?.quantity ?? 1,
+    quantity: initialData?.quantity !== undefined ? clampDrawerQuantity(initialData.quantity) : 1,
     unit: initialData?.unit ?? 'stuks',
     pricingMode: initialData?.pricingMode ?? (spec.type === 'window_2d' ? 'unit' : 'm2'),
     baseRateCents: baseRate,
@@ -177,7 +183,7 @@ export const MatrixProductEditDrawer: React.FC<MatrixProductEditDrawerProps> = (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Aantal</label>
-              <input id="drawer-quantity-input" type="number" min="1" max="999" value={quantity} onChange={(e) => updateField('quantity', Math.max(1, Number(e.target.value)))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-blue-500" />
+              <input id="drawer-quantity-input" type="number" min="0" max="999" step="any" value={quantity} onChange={(e) => updateField('quantity', clampDrawerQuantity(e.target.value))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Eenheid</label>

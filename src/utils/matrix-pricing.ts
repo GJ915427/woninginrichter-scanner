@@ -196,8 +196,14 @@ export function resolveCellPriceCents(cell?: CellPriceData, rawLines?: LogicTrad
   if (!cell) return 0;
   if (cell.isInbegrepen) return 0;
 
-  if (cell.totalPriceCents !== undefined && cell.totalPriceCents !== null && cell.totalPriceCents > 0) {
-    return cell.totalPriceCents;
+  if (cell.quantity !== undefined && cell.quantity <= 0) {
+    return 0;
+  }
+
+  if (cell.totalPriceCents !== undefined && cell.totalPriceCents !== null) {
+    if (cell.totalPriceCents > 0 || cell.isCalculated || (cell.quantity !== undefined && cell.quantity <= 0)) {
+      return cell.totalPriceCents;
+    }
   }
 
   if (cell.line && rawLines && rawLines.length > 0) {

@@ -16,6 +16,7 @@ import type {
   DimensionSpec,
 } from '@/types/matrix';
 import type { ConfigurationSpec } from '@/types/order-intake';
+import { resolveNumericQuantity } from '@/types/order-intake';
 
 export interface OrderLineDto {
   line_number: number;
@@ -110,7 +111,7 @@ export function bundleMatrixOrder(dto: OrderMatrixBundleDto): MatrixOrder {
 
     const prod = productMap.get(prodKey)!;
     const cellPrice: CellPriceData = {
-      quantity: Number(line.quantity) || 1,
+      quantity: resolveNumericQuantity(line.quantity),
       unit: line.unit,
       unitPriceCents: Number(line.unit_price_cents) || 0,
       totalPriceCents: Number(line.total_price_cents) || 0,

@@ -370,7 +370,7 @@ export async function ingestOrderTransaction(
       apikey: authKey,
       Authorization: `Bearer ${authKey}`,
     },
-    body: JSON.stringify({ p_order: bundle }),
+    body: JSON.stringify({ p_order: bundle.order, p_lines: bundle.lines }),
   });
 
   if (!res.ok) {

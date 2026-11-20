@@ -276,6 +276,27 @@ test.describe('Matrix Orders Enterprise Behavioral Suite', () => {
       return route.continue();
     });
 
+    // Hermetic route mock for detail endpoint to eliminate live database state leakage (INV-GOV-18)
+    await page.route('**/api/orders/O26001001', async (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          order: {
+            id: 'O26001001',
+            order_number: 'O26001001',
+            customer_name: 'Van den Berg',
+            city: 'Geleen',
+            quotation_number: 'O26001001',
+            order_date: '2026-03-01',
+            total_amount_cents: 185000,
+            status: 'Definitief',
+          },
+          lines: [],
+        }),
+      });
+    });
+
     await page.goto('/matrix-orders');
     await page.waitForSelector('#matrix-viewport');
 

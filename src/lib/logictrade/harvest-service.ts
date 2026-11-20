@@ -1,4 +1,5 @@
 import { defaultRateLimiter, RateLimiter } from './rate-limiter';
+import { resolveLogicTradeConnectionConfig } from './connection-config';
 import { syncProductsBatch } from './sync-service';
 import { getSyncState, updateSyncState } from '@/lib/supabase/client';
 import { LogicTradeProductRaw, LogicTradeResponseEnvelope } from '@/types/product';
@@ -12,6 +13,7 @@ export interface HarvestOptions {
   baseUrl?: string;
   adminGuid?: string;
   resume?: boolean;
+  throwOnHttpError?: boolean;
   rateLimiter?: RateLimiter;
   onProgress?: (info: {
     currentPage: number;
@@ -56,8 +58,13 @@ export async function saveHarvestCheckpoint(
 }
 
 export async function harvestCatalogRange(options: HarvestOptions = {}): Promise<HarvestResult> {
-  const apiKey = options.apiKey || process.env.LOGICTRADE_API_KEY || '621dcae6617349d0896d3ca9ba96d4b6';
-  const baseUrl = (options.baseUrl || process.env.LOGICTRADE_BASE_URL || 'https://api.logictrade.cloud/rest/v1').replace(/\/+$/, '');
+  const connection = resolveLogicTradeConnectionConfig({
+    apiKey: options.apiKey,
+    baseUrl: options.baseUrl,
+    requireApiKey: false,
+  });
+  const apiKey = connection.apiKey || 'test-api-key';
+  const baseUrl = connection.baseUrl.replace(/\/+$/, '');
   const adminGuid = options.adminGuid || process.env.LOGICTRADE_ADMIN_GUID;
   const pageSize = options.pageSize || 100;
   const limiter = options.rateLimiter || defaultRateLimiter;
@@ -121,6 +128,9 @@ export async function harvestCatalogRange(options: HarvestOptions = {}): Promise
     const pageRes = await limiter.fetchWithAdaptiveBackoff(pageUrl, { headers, cache: 'no-store' });
 
     if (!pageRes.ok) {
+      if (options.throwOnHttpError) {
+        throw new Error(`[Harvester] Pagina ${currentPage} fout (HTTP ${pageRes.status}): ${await pageRes.text()}`);
+      }
       console.error(`[Harvester] Pagina ${currentPage} fout (HTTP ${pageRes.status}). Checkpoint bewaard op ${currentPage - 1}.`);
       break;
     }

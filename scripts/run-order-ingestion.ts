@@ -113,7 +113,7 @@ async function main() {
           apikey: key,
           Authorization: `Bearer ${key}`,
         },
-        body: JSON.stringify({ p_order: bundle }),
+        body: JSON.stringify({ p_order: bundle.order, p_lines: bundle.lines }),
       });
 
       if (!res.ok) {
@@ -241,7 +241,7 @@ async function main() {
                 apikey: key,
                 Authorization: `Bearer ${key}`,
               },
-              body: JSON.stringify({ p_order: bundle }),
+              body: JSON.stringify({ p_order: bundle.order, p_lines: bundle.lines }),
             });
 
             if (!res.ok) {
@@ -321,7 +321,10 @@ async function main() {
       })}`
     );
     if (errors.length > 0) {
-      console.log(`⚠️  Aantal mislukte records: ${errors.length}`);
+      console.error(`⚠️  Aantal mislukte records: ${errors.length}`);
+      console.error('💥 Harvester pipeline faalt fail-closed vanwege opgetreden fouten.');
+      console.log('================================================================\n');
+      process.exit(1);
     }
     console.log('================================================================\n');
   } catch (err: any) {

@@ -126,6 +126,7 @@ export interface LogicTradeRawOrderLine {
 
 export interface RawOrderLineInput {
   line_number: number;
+  sub_line?: number;
   product_code?: string;
   description: string;
   quantity?: number;
@@ -292,3 +293,38 @@ export interface ResolvedProductEntity {
   supplier_name?: string;
   product_group_code?: string;
 }
+
+/**
+ * Isomorphic helper ensuring non-negative quantities (>= 0).
+ * Null, undefined, NaN and invalid strings return 0.
+ * Negative numbers are clamped to 0. Retains decimal values without Math.floor.
+ */
+export function toNonNegativeQuantity(val: unknown): number {
+  if (typeof val === 'number') {
+    if (!Number.isFinite(val) || Number.isNaN(val)) return 0;
+    return Math.max(0, val);
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed) return 0;
+    const num = Number(trimmed);
+    if (!Number.isFinite(num) || Number.isNaN(num)) return 0;
+    return Math.max(0, num);
+  }
+  return 0;
+}
+
+/**
+ * Helper to parse quantity retaining 0 for storno/null rows and decimal quantities (e.g. 1.45m),
+ * defaulting undefined/null to 1.
+ */
+export function resolveNumericQuantity(val: unknown): number {
+  if (val === 0 || val === '0' || val === '0.0') return 0;
+  if (typeof val === 'number' && Number.isFinite(val)) return val;
+  if (typeof val === 'string' && val.trim() !== '') {
+    const parsed = Number(val.trim());
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 1;
+}
+

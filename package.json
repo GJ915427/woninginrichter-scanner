@@ -9,7 +9,7 @@
     "start": "next start -p 8088",
     "test": "vitest run",
     "type-check": "tsc --noEmit",
-    "lint": "next lint",
+    "lint": "node node_modules/eslint/bin/eslint.js src/",
     "test:benchmark": "vitest run tests/unit/benchmark/benchmark-ground-truth-drawings.test.ts",
     "test:reference": "vitest run tests/unit/benchmark/benchmark-ground-truth-drawings.test.ts",
     "test:pipeline": "vitest run tests/unit/pipeline/live-pipeline-benchmark.test.ts",
