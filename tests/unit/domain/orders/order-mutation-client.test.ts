@@ -69,7 +69,7 @@ describe('order-mutation-client', () => {
         patch: { quantity: 2, unitPriceCents: 75000 },
         fetchImpl: mockFetch as unknown as typeof fetch,
         url: 'https://test-supabase.co',
-        anonKey: 'test-anon-key',
+        anonKey: 'mock-anon-key',
       });
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -78,8 +78,8 @@ describe('order-mutation-client', () => {
       expect(calledOptions.method).toBe('POST');
       expect(calledOptions.headers).toMatchObject({
         'Content-Type': 'application/json',
-        apikey: 'test-anon-key',
-        Authorization: 'Bearer test-anon-key',
+        apikey: 'mock-anon-key',
+        Authorization: 'Bearer mock-anon-key',
       });
 
       const body = JSON.parse(calledOptions.body);

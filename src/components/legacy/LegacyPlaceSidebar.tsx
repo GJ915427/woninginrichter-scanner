@@ -39,9 +39,7 @@ export const LegacyPlaceSidebar: React.FC<LegacyPlaceSidebarProps> = ({
   const [customLabel, setCustomLabel] = useState('');
   const [heroMode, setHeroMode] = useState<'streetview' | 'satellite'>('streetview');
 
-  const apiKey =
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
-    'AIzaSyBcrKLAGqIMYlDVag_c8zNOLNDbVjVJcLI';
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
   const streetNumber = buildingState?.address ? buildingState.address.split(',')[0].trim() : '';
   const subtitle = buildingState
@@ -90,11 +88,11 @@ export const LegacyPlaceSidebar: React.FC<LegacyPlaceSidebarProps> = ({
   }
 
   const streetViewUrl = coords
-    ? `https://maps.googleapis.com/maps/api/streetview?size=600x300&location=${coords.lat},${coords.lng}&fov=90&heading=${buildingState?.streetViewHeading ?? 92}&pitch=5&key=${apiKey}`
+    ? `https://maps.googleapis.com/maps/api/streetview?size=600x300&location=${coords.lat},${coords.lng}&fov=90&heading=${buildingState?.streetViewHeading ?? 92}&pitch=5${apiKey ? `&key=${apiKey}` : ''}`
     : '';
 
   const satelliteUrl = coords
-    ? `https://maps.googleapis.com/maps/api/staticmap?center=${coords.lat},${coords.lng}&zoom=19&size=600x300&maptype=satellite&key=${apiKey}`
+    ? `https://maps.googleapis.com/maps/api/staticmap?center=${coords.lat},${coords.lng}&zoom=19&size=600x300&maptype=satellite${apiKey ? `&key=${apiKey}` : ''}`
     : '';
 
   return (

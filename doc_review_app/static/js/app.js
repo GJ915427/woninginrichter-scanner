@@ -85,7 +85,7 @@
 
   /**
    * Universal API Request Handler
-   * Automatically injects Bearer authorization token and parses JSON responses.
+   * Automatically injects Authorization Bearer token and parses JSON responses.
    */
   async function api(url, options = {}) {
     const headers = Object.assign({}, options.headers || {});

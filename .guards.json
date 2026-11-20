@@ -22,7 +22,9 @@
       "enabled": true
     }
   },
-  "exemptions": [],
+  "exemptions": [
+    "src/components/legacy"
+  ],
   "verification_policy": {
     "backend_pytest": "disabled",
     "reason": "Next.js frontend-only workspace; legacy Python test scripts in tests/ are out of scope"

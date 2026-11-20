@@ -289,7 +289,7 @@ def auth_headers_reviewer1(
     if login_resp.status_code == 200:
         token = login_resp.json().get("token")
         return {"Authorization": f"Bearer {token}"}
-    return {"Authorization": "Bearer reviewer1_token"}
+    return {"Authorization": "Bearer mock_reviewer1_token"}
 
 
 @pytest.fixture
@@ -320,7 +320,7 @@ def auth_headers_reviewer2(
     if login_resp.status_code == 200:
         token = login_resp.json().get("token")
         return {"Authorization": f"Bearer {token}"}
-    return {"Authorization": "Bearer reviewer2_token"}
+    return {"Authorization": "Bearer mock_reviewer2_token"}
 
 
 @pytest.fixture

@@ -86,7 +86,8 @@ export const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
       if (!existingScript) {
         const script = document.createElement('script');
         script.id = 'google-maps-sdk';
-        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyBcrKLAGqIMYlDVag_c8zNOLNDbVjVJcLI';
+        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+        if (!apiKey) return;
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry`;
         script.async = true;
         script.defer = true;

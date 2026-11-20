@@ -26,7 +26,7 @@ export const StreetViewViewer: React.FC<StreetViewViewerProps> = ({
   heading = 92,
   pitch = 5,
   address,
-  apiKey = 'AIzaSyBcrKLAGqIMYlDVag_c8zNOLNDbVjVJcLI',
+  apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
   className = '',
   historicalPanos = [],
 }) => {
@@ -40,7 +40,9 @@ export const StreetViewViewer: React.FC<StreetViewViewerProps> = ({
     setImageError(false);
   };
 
-  const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=640x360&location=${lat},${lng}&fov=90&heading=${Math.round(currentHeading)}&pitch=${currentPitch}&key=${apiKey}`;
+  const streetViewUrl = apiKey
+    ? `https://maps.googleapis.com/maps/api/streetview?size=640x360&location=${lat},${lng}&fov=90&heading=${Math.round(currentHeading)}&pitch=${currentPitch}&key=${apiKey}`
+    : '';
   const full360Url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}&heading=${Math.round(currentHeading)}&pitch=${currentPitch}`;
 
   return (
@@ -89,7 +91,7 @@ export const StreetViewViewer: React.FC<StreetViewViewerProps> = ({
 
       {/* Main Image Container */}
       <div className="relative aspect-video w-full bg-slate-900 flex items-center justify-center overflow-hidden group">
-        {!imageError ? (
+        {streetViewUrl && !imageError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={streetViewUrl}

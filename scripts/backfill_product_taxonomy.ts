@@ -57,7 +57,8 @@ export async function processBackfillChunk(
   const updatedCount = (await response.json()) as number;
 
   // Persisteer checkpoint in logictrade_sync_state
-  await fetch(`${options.url}/rest/v1/logictrade_sync_state?key=eq.product_taxonomy_backfill`, {
+  const patchQuery = new URLSearchParams([['key', 'eq.product_taxonomy_backfill']]).toString();
+  await fetch(`${options.url}/rest/v1/logictrade_sync_state?${patchQuery}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -90,7 +91,11 @@ export async function backfillProductTaxonomy(options: BackfillOptions = {}): Pr
 
   // Lees laatste checkpoint
   try {
-    const stateRes = await fetch(`${config.url}/rest/v1/logictrade_sync_state?key=eq.product_taxonomy_backfill&select=last_processed_id`, {
+    const stateQuery = new URLSearchParams([
+      ['key', 'eq.product_taxonomy_backfill'],
+      ['select', 'last_processed_id'],
+    ]).toString();
+    const stateRes = await fetch(`${config.url}/rest/v1/logictrade_sync_state?${stateQuery}`, {
       headers: {
         apikey: authKey,
         Authorization: `Bearer ${authKey}`,

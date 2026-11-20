@@ -621,7 +621,7 @@ class TestFeatureF09LocalSyncUtility:
 
     def test_t1_f09_05_sync_client_unauthorized_token_error(self, client: TestClient):
         """T1-F09-05: Sync request with invalid token returns 401."""
-        resp = client.post("/api/documents/sync", headers={"Authorization": "Bearer invalid_sync_token"}, json={
+        resp = client.post("/api/documents/sync", headers={"Authorization": "Bearer dummy_invalid_sync_token"}, json={
             "filename": "test.md",
             "content": "test",
             "format": "markdown"

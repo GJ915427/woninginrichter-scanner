@@ -33,7 +33,7 @@ export const InteractiveMapPicker: React.FC<InteractiveMapPickerProps> = ({
   selectedPandId,
   onSelectPand,
   className = '',
-  apiKey = 'AIzaSyBcrKLAGqIMYlDVag_c8zNOLNDbVjVJcLI',
+  apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [mapType, setMapType] = useState<'roadmap' | 'satellite' | 'hybrid'>('roadmap');
@@ -45,6 +45,7 @@ export const InteractiveMapPicker: React.FC<InteractiveMapPickerProps> = ({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!apiKey) return;
 
     const existingScript = document.getElementById('google-maps-script');
     if (!existingScript) {

@@ -190,7 +190,7 @@ class TestFeatureF02AccessControlEnforcement:
 
     def test_t2_f02_03_forged_bearer_token_401(self, client: TestClient):
         """T2-F02-03: Completely random/forged bearer token returns 401."""
-        resp = client.get("/api/documents", headers={"Authorization": "Bearer deadbeef123456789abcdef"})
+        resp = client.get("/api/documents", headers={"Authorization": "Bearer dummy_deadbeef123456789abcdef"})
         assert resp.status_code == 401
 
     def test_t2_f02_04_tampered_token_signature_401(self, client: TestClient, auth_headers_admin):

@@ -1097,7 +1097,7 @@ content\_copy
     "my-remote-server": {
       "serverUrl": "https://api.example.com/mcp/",
       "headers": {
-        "Authorization": "Bearer YOUR_API_TOKEN"
+        "Authorization": "Bearer <YOUR_API_TOKEN>"
       }
     }
   }
@@ -1189,7 +1189,7 @@ content\_copy
       "serverUrl": "https://api.example.com/mcp/",
       "oauth": {
         "clientId": "your-client-id",
-        "clientSecret": "your-client-secret"
+        "clientSecret": "<YOUR_CLIENT_SECRET>"
       }
     }
   }
@@ -1239,7 +1239,7 @@ content\_copy
     "my-remote-server": {
       "serverUrl": "https://api.example.com/mcp/",
       "headers": {
-        "Authorization": "Bearer YOUR_API_TOKEN"
+        "Authorization": "Bearer <YOUR_API_TOKEN>"
       }
     }
   }
