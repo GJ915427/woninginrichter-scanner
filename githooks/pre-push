@@ -1,0 +1,122 @@
+#!/bin/sh
+# Universal Pre-Push Hook (Pillars 0, 4, 5)
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+# Buffer standard input immediately to prevent stdin draining
+PRE_PUSH_INPUT=$(cat)
+
+# Ensure 4096MB heap for Node/Next.js production builds and tests
+export NODE_OPTIONS="--max-old-space-size=4096 ${NODE_OPTIONS:-}"
+
+# Pillar 0: Zero-Bypass Working Tree Gate (Checked immediately before any other work)
+DIRTY_CHANGES=$(git status --porcelain)
+if [ -n "$DIRTY_CHANGES" ]; then
+    echo "❌ [Pillar 0 Gate] Uncommitted changes detected in working tree!"
+    echo "   All modifications must be cleanly committed before pushing to remote."
+    echo "$DIRTY_CHANGES"
+    exit 1
+fi
+echo "✅ Pillar 0: Working tree is 100% clean."
+
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="$(cd "$HOOK_DIR/.." && pwd)"
+
+PYTHON_CMD=""
+if python -c "import sys" >/dev/null 2>&1; then
+    PYTHON_CMD="python"
+elif py -3 -c "import sys" >/dev/null 2>&1; then
+    PYTHON_CMD="py -3"
+elif python3 -c "import sys" >/dev/null 2>&1; then
+    PYTHON_CMD="python3"
+fi
+if [ -z "$PYTHON_CMD" ]; then
+    echo "❌ [Pre-Push Gate] Geen geschikte Python runtime (python, py -3, python3) gevonden in PATH!" >&2
+    exit 1
+fi
+
+# Zero-Bypass Secret Leak Guard (4-tier path resolution, runs BEFORE .guards.json passthrough and spike exemptions)
+SECRET_LEAK_GUARD=""
+if [ -f "$REPO_ROOT/scripts/core_guards/secret_leak_guard.py" ]; then
+    SECRET_LEAK_GUARD="$REPO_ROOT/scripts/core_guards/secret_leak_guard.py"
+elif [ -f "$PLUGIN_ROOT/scripts/core_guards/secret_leak_guard.py" ]; then
+    SECRET_LEAK_GUARD="$PLUGIN_ROOT/scripts/core_guards/secret_leak_guard.py"
+elif [ -f "$HOME/.gemini/config/plugins/robust-engineering-plugin/scripts/core_guards/secret_leak_guard.py" ]; then
+    SECRET_LEAK_GUARD="$HOME/.gemini/config/plugins/robust-engineering-plugin/scripts/core_guards/secret_leak_guard.py"
+fi
+if [ -n "$SECRET_LEAK_GUARD" ]; then
+    if [ -f "$REPO_ROOT/.git/HEAD" ] || [ -f "$REPO_ROOT/.git" ]; then
+        $PYTHON_CMD "$SECRET_LEAK_GUARD" --all --workspace "$REPO_ROOT" </dev/null
+    fi
+fi
+
+# Fail-Safe Passthrough: if repository has not opted into guards via .guards.json,
+# delegate to project-local hook if present and exit gracefully
+if [ ! -f "$REPO_ROOT/.guards.json" ]; then
+    if [ -z "$ROBUST_CHAIN_DELEGATED" ] && [ -f "$REPO_ROOT/.githooks/pre-push" ] && [ "$REPO_ROOT/.githooks/pre-push" != "$0" ]; then
+        echo "🔄 [Pre-Push Gate] No .guards.json found; delegating directly to project-local .githooks/pre-push..."
+        export ROBUST_CHAIN_DELEGATED=1
+        echo "$PRE_PUSH_INPUT" | exec sh "$REPO_ROOT/.githooks/pre-push" "$@"
+    fi
+    echo "ℹ️ [Pre-Push Gate] No .guards.json found; skipping central pre-push gates."
+    exit 0
+fi
+
+GUARDS_ENGINE=""
+if [ -f "$REPO_ROOT/plugin.json" ] && [ -f "$REPO_ROOT/scripts/guards_engine.py" ]; then
+    GUARDS_ENGINE="$REPO_ROOT/scripts/guards_engine.py"
+elif [ -f "$PLUGIN_ROOT/plugin.json" ] && [ -f "$PLUGIN_ROOT/scripts/guards_engine.py" ]; then
+    GUARDS_ENGINE="$PLUGIN_ROOT/scripts/guards_engine.py"
+elif [ -f "$HOME/.gemini/config/plugins/robust-engineering-plugin/scripts/guards_engine.py" ]; then
+    GUARDS_ENGINE="$HOME/.gemini/config/plugins/robust-engineering-plugin/scripts/guards_engine.py"
+elif [ -f "$REPO_ROOT/scripts/guards_engine.py" ]; then
+    GUARDS_ENGINE="$REPO_ROOT/scripts/guards_engine.py"
+else
+    echo "❌ [Pre-Push Gate] Critical error: guards_engine.py not found!" >&2
+    exit 1
+fi
+
+echo "🛡️  [Pre-Push Gate] Validating repository state before remote push..."
+
+# Process buffered stdin ref-updates for branch ranges and deletions
+echo "$PRE_PUSH_INPUT" | $PYTHON_CMD "$GUARDS_ENGINE" --target-workspace "$REPO_ROOT" --pre-push
+
+# Trapsgewijze script-resolutie voor scoped_verification_engine.py (INV-SYS-10)
+SCOPED_ENGINE=""
+if [ -f "$REPO_ROOT/plugin.json" ] && [ -f "$REPO_ROOT/scripts/scoped_verification_engine.py" ]; then
+    # Binnen de plugin repository zelf: gebruik altijd de actieve broncode
+    SCOPED_ENGINE="$REPO_ROOT/scripts/scoped_verification_engine.py"
+elif [ -f "$PLUGIN_ROOT/plugin.json" ] && [ -f "$PLUGIN_ROOT/scripts/scoped_verification_engine.py" ]; then
+    # Downstream via hook symlink naar centrale plugin
+    SCOPED_ENGINE="$PLUGIN_ROOT/scripts/scoped_verification_engine.py"
+elif [ -f "$HOME/.gemini/config/plugins/robust-engineering-plugin/scripts/scoped_verification_engine.py" ]; then
+    # Centrale plugin installatie in Antigravity home
+    SCOPED_ENGINE="$HOME/.gemini/config/plugins/robust-engineering-plugin/scripts/scoped_verification_engine.py"
+elif [ -f "$REPO_ROOT/scripts/scoped_verification_engine.py" ]; then
+    # Downstream lokale kopie fallback
+    SCOPED_ENGINE="$REPO_ROOT/scripts/scoped_verification_engine.py"
+fi
+
+if [ -n "$SCOPED_ENGINE" ]; then
+    echo "⚡ [Pre-Push Gate] Executing Scoped Verification Engine (INV-SYS-10)..."
+    echo "$PRE_PUSH_INPUT" | $PYTHON_CMD "$SCOPED_ENGINE" --workspace-root "$REPO_ROOT" --pre-push --run
+    SCOPED_EXIT=$?
+    if [ $SCOPED_EXIT -ne 0 ]; then
+        echo "❌ [Pre-Push Gate] Scoped verification failed with exit code $SCOPED_EXIT!"
+        exit $SCOPED_EXIT
+    fi
+else
+    echo "❌ [Pillar 4: Test Suites (pytest)] Critical error: scoped_verification_engine.py not found!" >&2
+    exit 1
+fi
+
+# Estafette Chain of Responsibility: delegate to project-local pre-push if present
+if [ -z "$ROBUST_CHAIN_DELEGATED" ] && [ -f "$REPO_ROOT/.githooks/pre-push" ] && [ "$REPO_ROOT/.githooks/pre-push" != "$0" ]; then
+    echo "🔁 Delegating to project-local hook: .githooks/pre-push..."
+    export ROBUST_CHAIN_DELEGATED=1
+    echo "$PRE_PUSH_INPUT" | sh "$REPO_ROOT/.githooks/pre-push" "$@"
+fi
+
+echo "✅ [Pre-Push Gate] All pre-push gates (Pillars 0, 4, 5) passed successfully!"
+exit 0
