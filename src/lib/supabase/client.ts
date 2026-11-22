@@ -26,6 +26,7 @@ export interface FtsProductRow {
   raw_data: Record<string, any>;
   product_tier?: number;
   is_discontinued?: boolean;
+  is_generic_container?: boolean;
   rank: number;
   total_count: number | string;
 }
@@ -489,4 +490,43 @@ export async function getActiveConfiguratorSchemas(): Promise<{
   } catch {
     return { ok: false, rows: [] };
   }
+}
+
+export async function purgeNonGswOrders(): Promise<number> {
+  const { url, anonKey, serviceKey } = getSupabaseConfig();
+  const token = serviceKey || anonKey;
+  const res = await fetch(`${url}/rest/v1/rpc/purge_non_gsw_orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: token, Authorization: `Bearer ${token}` },
+    body: JSON.stringify({})
+  });
+  if (!res.ok) throw new Error(`purge_non_gsw_orders mislukt (${res.status}): ${await res.text()}`);
+  return await res.json();
+}
+
+export async function getDistinctGswProductIds(): Promise<number[]> {
+  const { url, anonKey, serviceKey } = getSupabaseConfig();
+  const token = serviceKey || anonKey;
+  const res = await fetch(`${url}/rest/v1/rpc/get_distinct_gsw_product_ids`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: token, Authorization: `Bearer ${token}` },
+    body: JSON.stringify({})
+  });
+  if (!res.ok) throw new Error(`get_distinct_gsw_product_ids mislukt (${res.status}): ${await res.text()}`);
+  return await res.json();
+}
+
+export async function pruneNonGswProducts(keepIds: number[]): Promise<number> {
+  if (!keepIds || keepIds.length === 0) {
+    throw new Error('pruneNonGswProducts: keepIds array mag niet leeg of null zijn (beveiliging tegen catalogus-wissing)');
+  }
+  const { url, anonKey, serviceKey } = getSupabaseConfig();
+  const token = serviceKey || anonKey;
+  const res = await fetch(`${url}/rest/v1/rpc/prune_non_gsw_products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: token, Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ p_keep_ids: keepIds })
+  });
+  if (!res.ok) throw new Error(`prune_non_gsw_products mislukt (${res.status}): ${await res.text()}`);
+  return await res.json();
 }

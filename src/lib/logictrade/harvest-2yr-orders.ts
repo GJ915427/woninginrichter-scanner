@@ -130,6 +130,7 @@ export interface HarvestQuotesOptions {
   maxPages?: number;
   maxQuotes?: number;
   statusFilter?: string[] | null;
+  originFilter?: string | string[];
   dryRun?: boolean;
   rateLimiter?: any;
   baseUrl?: string;
@@ -333,7 +334,11 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
       : dateFrom
         ? `createdAfter=${encodeURIComponent(dateFrom)}`
         : '';
-    const ordersUrl = `${baseUrl}/orders?pageSize=${pageSize}&pageNumber=${currentPage}${dateParam ? `&${dateParam}` : ''}`;
+    const rawOrigin = Array.isArray(options.originFilter)
+      ? (options.originFilter.length > 0 ? options.originFilter[0] : null)
+      : (options.originFilter ? options.originFilter : null);
+    const originParam = rawOrigin ? `&originCode=${encodeURIComponent(rawOrigin)}` : '';
+    const ordersUrl = `${baseUrl}/orders?pageSize=${pageSize}&pageNumber=${currentPage}${dateParam ? `&${dateParam}` : ''}${originParam}`;
     const res = await limiter.fetchWithAdaptiveBackoff(ordersUrl, { headers, cache: 'no-store' });
 
     let envelope: any;
@@ -753,6 +758,13 @@ export async function harvestQuotes(options: HarvestQuotesOptions = {}): Promise
       params.push(`createdAfter=${encodeURIComponent(dateFrom)}`);
     }
 
+    const rawOrigin = Array.isArray(options.originFilter)
+      ? (options.originFilter.length > 0 ? options.originFilter[0] : null)
+      : (options.originFilter ? options.originFilter : null);
+    if (rawOrigin) {
+      params.push(`originCode=${encodeURIComponent(rawOrigin)}`);
+    }
+
     const quotesUrl = `${baseUrl}/quotes?${params.join('&')}`;
     const res = await limiter.fetchWithAdaptiveBackoff(quotesUrl, { headers, cache: 'no-store' });
 
@@ -787,9 +799,19 @@ export async function harvestQuotes(options: HarvestQuotesOptions = {}): Promise
         continue;
       }
 
+      // Origin filter (client-side verdediging-in-de-diepte)
+      if (rawOrigin) {
+        const quoteOriginCode = typeof quote.origin === 'object' && quote.origin !== null
+          ? (quote.origin as any).code || ''
+          : String(quote.origin || '');
+        if (quoteOriginCode && !quoteOriginCode.toLowerCase().includes(rawOrigin.toLowerCase())) {
+          continue;
+        }
+      }
+
       // Status filter (indien actief)
-      if (allowedStatuses.length > 0) {
-        const statusUpper = (quote.status || '').toUpperCase();
+      if (allowedStatuses.length > 0 && quote.status) {
+        const statusUpper = quote.status.toUpperCase();
         if (!allowedStatuses.includes(statusUpper)) {
           continue;
         }

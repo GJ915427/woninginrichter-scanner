@@ -43,7 +43,9 @@ async function main() {
   const maxIndex = args.indexOf('--max');
   const maxCount = maxIndex !== -1 && args[maxIndex + 1] ? parseInt(args[maxIndex + 1], 10) : undefined;
   const yearsIndex = args.indexOf('--years');
-  const yearsArg = yearsIndex !== -1 && args[yearsIndex + 1] ? parseFloat(args[yearsIndex + 1]) : (isFull ? null : 2);
+  const yearsArg = yearsIndex !== -1 && args[yearsIndex + 1] ? parseFloat(args[yearsIndex + 1]) : null;
+  const originIndex = args.indexOf('--origin');
+  const originFilter = originIndex !== -1 && args[originIndex + 1] ? args[originIndex + 1] : 'Winkel GSW BV';
 
   const config = getSupabaseConfig();
   const url = config.url;
@@ -66,7 +68,8 @@ async function main() {
     if (startAfter) console.log(`⏭️  Hervatten na ID:     ${startAfter}`);
   } else {
     console.log(`🎯 Pipeline Type:      ${ingestionType.toUpperCase()}`);
-    console.log(`📅 Horizon:            ${isFull ? 'ONBEPERKT (alle historische data)' : `${yearsArg} jaar`}`);
+    console.log(`📅 Horizon:            ${yearsArg ? `${yearsArg} jaar` : 'ONBEPERKT (volledige GSW historie)'}`);
+    console.log(`🏢 Herkomstfilter:     ${originFilter}`);
     console.log(`🎯 Statusfilter:       UITGESCHAKELD (alle statussen worden ingeladen)`);
   }
   if (maxCount) {
@@ -181,15 +184,19 @@ async function main() {
 
         const currentLimit = maxCount ? Math.min(batchSize, maxCount - totalIngested) : batchSize;
         const queryParams = new URLSearchParams({
-          select: 'id,order_number,status,fsm_step,fsm_phase,raw_data',
+          select: 'id,order_number,status,fsm_step,fsm_phase,raw_data,lt_raw_data',
           order: 'id.asc',
           limit: String(currentLimit),
         });
         if (lastId) {
           queryParams.set('id', `gt.${lastId}`);
         }
+        queryParams.set(
+          'or',
+          `(raw_data->origin->>code.eq.${originFilter},raw_data->>origin.eq.${originFilter},lt_raw_data->origin->>code.eq.${originFilter},lt_raw_data->>origin.eq.${originFilter})`
+        );
 
-        const fetchUrl = `${url}/rest/v1/orders?${queryParams.toString()}`;
+        const fetchUrl = `${url}/rest/v1/orders?${queryParams.toString().replace(/\+/g, '%20')}`;
         const fetchRes = await fetch(fetchUrl, {
           headers: {
             apikey: key,
@@ -211,14 +218,14 @@ async function main() {
         lastId = String(batchOrders[batchOrders.length - 1].id);
 
         await asyncPool(concurrency, batchOrders, async (dbOrder) => {
-          const rawLines = dbOrder.raw_data?.lines || dbOrder.raw_data?.orderLines;
+          const rawLines = dbOrder.lt_raw_data?.lines || dbOrder.lt_raw_data?.orderLines || dbOrder.raw_data?.lines || dbOrder.raw_data?.orderLines;
           if (!Array.isArray(rawLines) || rawLines.length === 0) {
             // Sla order over ter bescherming van bestaande public.order_lines (Falsificatie 11)
             return;
           }
 
           const isQuote = dbOrder.fsm_step === 2 || String(dbOrder.order_number || '').toUpperCase().startsWith('O');
-          const header = dbOrder.raw_data || {};
+          const header = dbOrder.lt_raw_data || dbOrder.raw_data || {};
 
           totalScanned++;
           try {
@@ -281,6 +288,7 @@ async function main() {
       console.log('--- 📦 Fase A: Ophalen & Verwerken van Verkooporders (/orders) ---');
       await harvest2YearOrders({
         years: yearsArg,
+        originFilter,
         statusFilter: [], // Lege array = accepteer ALLE statussen
         maxOrders: maxCount,
         pageSize: 50,
@@ -294,6 +302,7 @@ async function main() {
       console.log('\n--- 📄 Fase B: Ophalen & Verwerken van Offertes (/quotes) ---');
       await harvestQuotes({
         years: yearsArg,
+        originFilter,
         statusFilter: [], // Lege array = accepteer ALLE statussen
         maxQuotes: maxCount,
         pageSize: 100,

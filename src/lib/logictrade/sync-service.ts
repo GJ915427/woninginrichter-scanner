@@ -23,18 +23,23 @@ export interface MappedProductRow {
   unit: string;
   raw_data: Record<string, any>;
   lt_raw_data?: Record<string, any>;
+  is_generic_container?: boolean;
   modified_at: string;
 }
 
 export function mapProductToRow(p: LogicTradeProductRaw): MappedProductRow {
   const groupsList = (p.groups || []).map((g) => g.description || '').filter(Boolean);
   const primaryGroup = groupsList[0] || '';
+  const code = p.code || '';
+  const name = p.name || '';
+  const desc = p.description || '';
+  const isContainer = /algem/i.test(code) || /algem/i.test(name) || /algem/i.test(desc);
 
   return {
     id: p.id,
-    code: p.code || '',
-    name: p.name || '',
-    description: p.description || '',
+    code,
+    name,
+    description: desc,
     supplier_id: p.supplier?.supplier?.id || null,
     supplier_name: p.supplier?.supplier?.companyName || '',
     supplier_code: p.supplier?.code || '',
@@ -46,6 +51,7 @@ export function mapProductToRow(p: LogicTradeProductRaw): MappedProductRow {
     unit: p.unit || 'stuks',
     raw_data: p,
     lt_raw_data: p,
+    is_generic_container: isContainer,
     modified_at: (p as any).modifiedDate || new Date().toISOString()
   };
 }
