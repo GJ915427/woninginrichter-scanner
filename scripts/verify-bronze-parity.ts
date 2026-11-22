@@ -22,8 +22,8 @@ export interface ParityVerificationRow {
 
 export const BRONZE_TABLES_TO_VERIFY = [
   { key: 'orders', label: 'orders' },
-  { key: 'order_lines', label: 'order_lines (sub_line=0)' },
-  { key: 'order_lines_sub1', label: 'order_lines (sub_line=1)' },
+  { key: 'order_lines', label: 'order_lines (real)' },
+  { key: 'order_lines_inbegrepen', label: 'order_lines (is_inbegrepen=true)' },
   { key: 'logictrade_products', label: 'logictrade_products' },
   { key: 'logictrade_configurator_schemas', label: 'logictrade_configurator_schemas' },
   { key: 'logictrade_configurator_option_values', label: 'logictrade_configurator_option_values' },
@@ -108,8 +108,8 @@ export async function verifyBronzeParityGate(): Promise<{
       console.error(`❌ CORRUPTIE: Tabel '${row.table_name}' bevat ${row.corrupted_hashes} corrupte hashes!`);
       hasErrors = true;
     }
-    if (row.table_name.includes('sub_line=1') && (row.rows_with_raw_data > 0 || row.rows_with_hash > 0)) {
-      console.error(`❌ INVARIANT SHIFT: 'order_lines (sub_line=1)' bevat niet-lege raw_data of hash!`);
+    if (row.table_name.includes('is_inbegrepen=true') && (row.rows_with_raw_data > 0 || row.rows_with_hash > 0)) {
+      console.error(`❌ INVARIANT SHIFT: 'order_lines (is_inbegrepen=true)' bevat niet-lege raw_data of hash!`);
       hasErrors = true;
     }
   }

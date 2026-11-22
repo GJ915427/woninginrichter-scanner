@@ -16,6 +16,10 @@ import {
   purgeNonGswOrders,
   getDistinctGswProductIds
 } from '@/lib/supabase/client';
+import {
+  mapLogicTradeOrderToRawInput,
+  OrderIntakeService
+} from '@/domain/orders/order-intake-service';
 
 describe('GSW Bronze Ingestion & Catalog Pruning Suite (TDD Red -> Green)', () => {
   beforeEach(() => {
@@ -283,6 +287,153 @@ describe('GSW Bronze Ingestion & Catalog Pruning Suite (TDD Red -> Green)', () =
           body: JSON.stringify({})
         })
       );
+    });
+  });
+
+  // [SPEC-CHANGE-AUTHORIZED: Uitbreiding regressietests met offerte-reconciliatie, salesMan en sub_line pariteit]
+  describe('5. GSW Bronze Pariteit & Reconciliatie Tests (Stap 1B)', () => {
+    it('mapLogicTradeOrderToRawInput: links sales order to quote number via header.quote.number', () => {
+      const mockSalesOrder: any = {
+        id: 98610,
+        number: 'V24000917',
+        fsm_step: 5,
+        fsm_phase: '5. Verkooporder',
+        quote: {
+          id: 109400,
+          number: 'O24000411'
+        },
+        lines: [
+          {
+            id: 1,
+            lineNumber: 10,
+            articleCode: 'A0001',
+            quantity: 1,
+            linePrice: 100
+          }
+        ]
+      };
+
+      const mapped = mapLogicTradeOrderToRawInput(mockSalesOrder);
+      expect(mapped.order_number).toBe('V24000917');
+      expect(mapped.quotation_number).toBe('O24000411');
+      expect(mapped.fsm_step).toBe(5);
+    });
+
+    it('mapLogicTradeOrderToRawInput: unwraps sales_rep from salesMan and branch from origin object/string', () => {
+      const mockOrderWithOriginObj: any = {
+        id: 98611,
+        number: 'V24000918',
+        salesMan: 'Simon Bak',
+        origin: { code: 'Winkel GSW BV', description: 'Vestiging GSW' },
+        lines: []
+      };
+
+      const mapped1 = mapLogicTradeOrderToRawInput(mockOrderWithOriginObj);
+      expect(mapped1.sales_rep).toBe('Simon Bak');
+      expect(mapped1.branch).toBe('Winkel GSW BV');
+
+      const mockOrderWithOriginString: any = {
+        id: 98612,
+        number: 'V24000919',
+        salesMan: 'Carlo Heinemans',
+        origin: 'Winkel GSW BV',
+        lines: []
+      };
+
+      const mapped2 = mapLogicTradeOrderToRawInput(mockOrderWithOriginString);
+      expect(mapped2.sales_rep).toBe('Carlo Heinemans');
+      expect(mapped2.branch).toBe('Winkel GSW BV');
+    });
+
+    it('mapLogicTradeOrderToRawInput: maps all 11 bronze columns into RawOrderLineInput', () => {
+      const mockOrderWithBronzeFields: any = {
+        id: 98613,
+        number: 'V24000920',
+        lines: [
+          {
+            id: 1,
+            lineNumber: 10,
+            articleCode: 'A0001',
+            quantity: 2,
+            partPrice: 50,
+            linePrice: 100,
+            commentExtern: 'Graag leveren op verdieping',
+            commentIntern: 'Sleutel onder de mat',
+            vatCode: '21',
+            vatPercentage: 21,
+            discountPercentage: 10,
+            basePriceCents: 5500,
+            reservations: [{ id: 1, qty: 2 }],
+            stockStatus: 'Op voorraad',
+            deliveryStatus: 'In behandeling',
+            invoiceStatus: 'Niet gefactureerd',
+            isInbegrepen: false
+          }
+        ]
+      };
+
+      const mapped = mapLogicTradeOrderToRawInput(mockOrderWithBronzeFields);
+      expect(mapped.lines.length).toBe(1);
+      const line = mapped.lines[0];
+      expect(line.lt_comment_extern).toBe('Graag leveren op verdieping');
+      expect(line.lt_comment_intern).toBe('Sleutel onder de mat');
+      expect(line.lt_vat_code).toBe('21');
+      expect(line.lt_vat_percentage).toBe(21);
+      expect(line.lt_discount_percentage).toBe(10);
+      expect(line.lt_base_price_cents).toBe(5500);
+      expect(line.lt_reservations).toEqual([{ id: 1, qty: 2 }]);
+      expect(line.lt_stock_status).toBe('Op voorraad');
+      expect(line.lt_delivery_status).toBe('In behandeling');
+      expect(line.lt_invoice_status).toBe('Niet gefactureerd');
+      expect(line.is_inbegrepen).toBe(false);
+    });
+
+    it('mapLogicTradeOrderToRawInput: groups Vadain composite lines sharing identical lineNumber: 20 without random explosion', () => {
+      const mockVadainOrder: any = {
+        id: 98614,
+        number: 'V24000921',
+        lines: [
+          {
+            id: 201,
+            lineNumber: 20,
+            articleCode: 'LT_VADAINGORDIJN',
+            articleDescription: 'Vadain Gordijnstof',
+            quantity: 5.5,
+            linePrice: 275
+          },
+          {
+            id: 202,
+            lineNumber: 20,
+            articleCode: 'LT_VADAINCONFECTIE',
+            articleDescription: 'Vadain Confectie Enkele Plooi',
+            quantity: 1,
+            linePrice: 65
+          }
+        ]
+      };
+
+      const mapped = mapLogicTradeOrderToRawInput(mockVadainOrder);
+      expect(mapped.lines.length).toBe(2);
+
+      const fabricLine = mapped.lines.find((l) => l.product_code === 'LT_VADAINGORDIJN');
+      const confectieLine = mapped.lines.find((l) => l.product_code === 'LT_VADAINCONFECTIE');
+
+      expect(fabricLine).toBeDefined();
+      expect(confectieLine).toBeDefined();
+
+      // Beide regels moeten lineNumber 20 behouden
+      expect(fabricLine?.line_number).toBe(20);
+      expect(confectieLine?.line_number).toBe(20);
+
+      // Confectie moet sub_line = 1 krijgen
+      expect(fabricLine?.sub_line).toBe(0);
+      expect(confectieLine?.sub_line).toBe(1);
+
+      // Beide moeten hun ruwe brondata behouden (geen null voor reële Vadain confectie)
+      expect(fabricLine?.lt_raw_data).toBeDefined();
+      expect(fabricLine?.lt_raw_data).not.toBeNull();
+      expect(confectieLine?.lt_raw_data).toBeDefined();
+      expect(confectieLine?.lt_raw_data).not.toBeNull();
     });
   });
 });

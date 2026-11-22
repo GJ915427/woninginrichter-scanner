@@ -108,20 +108,29 @@ async function main() {
       // 2. CPQ Validering & Hybride Regelsplitsing
       const bundle = await intakeService.processOrderIntake(rawInput);
 
-      // 3. Atomaire RPC persistence in Supabase
-      const res = await fetch(`${url}/rest/v1/rpc/ingest_logictrade_order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: key,
-          Authorization: `Bearer ${key}`,
-        },
-        body: JSON.stringify({ p_order: bundle.order, p_lines: bundle.lines }),
-      });
+      // 3. Atomaire RPC persistence in Supabase met retry bij transient timeouts
+      let attempts = 0;
+      let res: Response | null = null;
+      while (attempts < 3) {
+        attempts++;
+        res = await fetch(`${url}/rest/v1/rpc/ingest_logictrade_order`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: key,
+            Authorization: `Bearer ${key}`,
+          },
+          body: JSON.stringify({ p_order: bundle.order, p_lines: bundle.lines }),
+        });
+        if (res.ok) break;
+        if (attempts < 3) {
+          await new Promise((r) => setTimeout(r, attempts * 500));
+        }
+      }
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`HTTP ${res.status}: ${errText}`);
+      if (!res || !res.ok) {
+        const errText = res ? await res.text() : 'No response';
+        throw new Error(`HTTP ${res?.status}: ${errText}`);
       }
 
       totalIngested++;
@@ -191,22 +200,37 @@ async function main() {
         if (lastId) {
           queryParams.set('id', `gt.${lastId}`);
         }
-        queryParams.set(
-          'or',
-          `(raw_data->origin->>code.eq.${originFilter},raw_data->>origin.eq.${originFilter},lt_raw_data->origin->>code.eq.${originFilter},lt_raw_data->>origin.eq.${originFilter})`
-        );
+        if (!isFromDb) {
+          queryParams.set(
+            'or',
+            `(raw_data->origin->>code.eq.${originFilter},raw_data->>origin.eq.${originFilter},lt_raw_data->origin->>code.eq.${originFilter},lt_raw_data->>origin.eq.${originFilter})`
+          );
+        }
 
         const fetchUrl = `${url}/rest/v1/orders?${queryParams.toString().replace(/\+/g, '%20')}`;
-        const fetchRes = await fetch(fetchUrl, {
-          headers: {
-            apikey: key,
-            Authorization: `Bearer ${key}`,
-          },
-        });
+        let fetchRes: Response | null = null;
+        let fetchAttempts = 0;
+        while (fetchAttempts < 3) {
+          fetchAttempts++;
+          try {
+            fetchRes = await fetch(fetchUrl, {
+              headers: {
+                apikey: key,
+                Authorization: `Bearer ${key}`,
+              },
+            });
+            if (fetchRes.ok) break;
+          } catch {
+            // retry on network error
+          }
+          if (fetchAttempts < 3) {
+            await new Promise((r) => setTimeout(r, fetchAttempts * 1000));
+          }
+        }
 
-        if (!fetchRes.ok) {
-          const errText = await fetchRes.text();
-          throw new Error(`Fout bij ophalen orders batch na id ${lastId}: HTTP ${fetchRes.status}: ${errText}`);
+        if (!fetchRes || !fetchRes.ok) {
+          const errText = fetchRes ? await fetchRes.text() : 'No response';
+          throw new Error(`Fout bij ophalen orders batch na id ${lastId}: HTTP ${fetchRes?.status}: ${errText}`);
         }
 
         const batchOrders: any[] = await fetchRes.json();

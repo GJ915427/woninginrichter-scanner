@@ -64,8 +64,18 @@ export class OrderIntakeService {
     const ingestedLines: IngestedOrderLine[] = [];
     let orderTotalCents = 0;
 
+    // Track assigned sub_lines per line_number to guarantee collision-free uq_order_lines_order_line_sub
+    const usedSubLines = new Map<number, Set<number>>();
+    for (const l of rawOrder.lines || []) {
+      const ln = l.line_number;
+      if (!usedSubLines.has(ln)) usedSubLines.set(ln, new Set<number>());
+      if (typeof l.sub_line === 'number') {
+        usedSubLines.get(ln)!.add(l.sub_line);
+      }
+    }
+
     for (const rawLine of rawOrder.lines || []) {
-      const splitLines = await this.processSingleLine(rawLine);
+      const splitLines = await this.processSingleLine(rawLine, usedSubLines);
       for (const line of splitLines) {
         ingestedLines.push(line);
         orderTotalCents += line.total_price_cents;
@@ -102,7 +112,8 @@ export class OrderIntakeService {
     productId: number | null,
     materialGroupCode: string,
     configSpec?: ConfigurationSpec | null,
-    serviceDisciplineCode?: string
+    serviceDisciplineCode?: string,
+    usedSubLines?: Map<number, Set<number>>
   ): Promise<IngestedOrderLine[]> {
     const unitPrice = line.unit_price_cents || 0;
     const quantity = resolveNumericQuantity(line.quantity);
@@ -115,10 +126,11 @@ export class OrderIntakeService {
         ? `${configSpec.dimensions.width_mm} × ${configSpec.dimensions.height_mm}`
         : null);
 
-    // 1. Hoofdregel (Materiaal): sub_line = 0
+    // 1. Hoofdregel (Materiaal): behoud toegekend sub_line
+    const mainSub = line.sub_line !== undefined ? line.sub_line : 0;
     const mainLine: IngestedOrderLine = {
       line_number: line.line_number,
-      sub_line: 0,
+      sub_line: mainSub,
       product_id: productId,
       product_code: line.product_code || 'TEKST',
       product_group_code: materialGroupCode,
@@ -192,10 +204,19 @@ export class OrderIntakeService {
       }
     }
 
-    // 3. Afgeleide Serviceregel: sub_line = 1 (verplicht 0€ & isInbegrepen = true & configuration_spec = null)
+    // 3. Afgeleide Serviceregel: eerstvolgende vrije sub_line voor dit line_number
+    let nextSub = 1;
+    const lineUsed = usedSubLines?.get(line.line_number);
+    if (lineUsed) {
+      while (lineUsed.has(nextSub)) {
+        nextSub++;
+      }
+      lineUsed.add(nextSub);
+    }
+
     const serviceLine: IngestedOrderLine = {
       line_number: line.line_number,
-      sub_line: 1,
+      sub_line: nextSub,
       product_id: null,
       product_code: 'SERVICE',
       product_group_code: serviceGroupCode,
@@ -251,7 +272,10 @@ export class OrderIntakeService {
     return [mainLine, serviceLine];
   }
 
-  private async processSingleLine(rawLine: RawOrderLineInput): Promise<IngestedOrderLine[]> {
+  private async processSingleLine(
+    rawLine: RawOrderLineInput,
+    usedSubLines?: Map<number, Set<number>>
+  ): Promise<IngestedOrderLine[]> {
     const code = (rawLine.product_code || '').trim();
 
     // JIT SKU Resolutie (wordt overgeslagen bij bulk intake via PostgreSQL LATERAL)
@@ -316,7 +340,8 @@ export class OrderIntakeService {
         resolvedProduct ? resolvedProduct.id : null,
         groupCode,
         assignedConfigSpec,
-        serviceDisciplineCode
+        serviceDisciplineCode,
+        usedSubLines
       );
     }
 
@@ -468,7 +493,25 @@ export function mapLogicTradeOrderToRawInput(
     return nextGeneratedLineNumber;
   }
 
+  const lineSubCounters = new Map<number, number>();
   const seenMainLineNumbers = new Set<number>();
+  let previousParentLn: number | null = null;
+  let previousRawLn: number | null = null;
+
+  function isCompositeSubLine(item: any): boolean {
+    const code = String(item.articleCode || item.code || item.productCode || '').trim().toUpperCase();
+    const desc = String(item.articleDescription || item.description || '').trim().toLowerCase();
+    const isInbegrepen = Boolean(item.is_inbegrepen || item.isInbegrepen);
+    const subList = item.subLines || item.sub_lines || item.childLines;
+    if (Array.isArray(subList) && subList.length > 0) return false;
+    return (
+      code === 'LT_VADAINCONFECTIE' ||
+      code.includes('CONFECTIE') ||
+      desc.includes('confectie') ||
+      isInbegrepen ||
+      Boolean(item.is_subline || item.isSubline)
+    );
+  }
 
   for (const l of effectiveLines) {
     const rawLn = typeof l.lineNumber === 'number' && Number.isFinite(l.lineNumber)
@@ -476,20 +519,36 @@ export function mapLogicTradeOrderToRawInput(
       : (typeof l.line_number === 'number' && Number.isFinite(l.line_number) ? l.line_number : 0);
 
     let parentLn: number;
-    if (rawLn > 0 && !seenMainLineNumbers.has(rawLn)) {
+    let assignedSub: number;
+
+    if (rawLn > 0 && previousRawLn === rawLn && previousParentLn !== null && isCompositeSubLine(l)) {
+      parentLn = previousParentLn;
+      const currentSub = lineSubCounters.get(parentLn) || 1;
+      assignedSub = currentSub;
+      lineSubCounters.set(parentLn, currentSub + 1);
+    } else if (rawLn > 0 && !seenMainLineNumbers.has(rawLn)) {
       parentLn = rawLn;
-      seenMainLineNumbers.add(parentLn);
+      seenMainLineNumbers.add(rawLn);
+      assignedSub = 0;
+      lineSubCounters.set(parentLn, 1);
+      previousParentLn = parentLn;
+      previousRawLn = rawLn;
     } else {
       parentLn = getNextAvailableLineNumber();
+      assignedSub = 0;
+      lineSubCounters.set(parentLn, 1);
+      previousParentLn = parentLn;
+      previousRawLn = rawLn;
     }
 
-    flattened.push({ raw: l, sub_line: 0, parentLineNumber: parentLn });
+    flattened.push({ raw: l, sub_line: assignedSub, parentLineNumber: parentLn });
 
     const subList = l.subLines || l.sub_lines || l.childLines;
     if (Array.isArray(subList)) {
       for (const sl of subList) {
-        // Child sublines strictly inherit parent's resolved line_number
-        flattened.push({ raw: sl, sub_line: 1, parentLineNumber: parentLn });
+        const nextSub = lineSubCounters.get(parentLn) || 1;
+        lineSubCounters.set(parentLn, nextSub + 1);
+        flattened.push({ raw: sl, sub_line: nextSub, parentLineNumber: parentLn });
       }
     }
   }
@@ -522,17 +581,26 @@ export function mapLogicTradeOrderToRawInput(
     }
 
     const rawComment = typeof l.comment === 'object' && l.comment !== null ? l.comment : null;
-    const ltCommentExtern = rawComment?.extern ? String(rawComment.extern).trim() : (typeof l.comment === 'string' ? l.comment.trim() : null);
-    const ltCommentIntern = rawComment?.intern ? String(rawComment.intern).trim() : null;
+    const ltCommentExtern =
+      l.commentExtern ||
+      l.comment_extern ||
+      l.lt_comment_extern ||
+      (rawComment?.extern ? String(rawComment.extern).trim() : (typeof l.comment === 'string' ? l.comment.trim() : null));
+    const ltCommentIntern =
+      l.commentIntern ||
+      l.comment_intern ||
+      l.lt_comment_intern ||
+      (rawComment?.intern ? String(rawComment.intern).trim() : null);
     const ltId = l.id !== undefined && l.id !== null ? String(l.id).trim() : null;
-    const ltVatCode = l.vat?.code || l.vatCode || l.vat_code || null;
-    const ltVatPercentage = typeof l.vat?.percentage === 'number' ? l.vat.percentage : (typeof l.vatPercentage === 'number' ? l.vatPercentage : (typeof l.vat_percentage === 'number' ? l.vat_percentage : null));
-    const ltDiscountPercentage = typeof l.discount === 'number' ? l.discount : (typeof l.discountPercentage === 'number' ? l.discountPercentage : (typeof l.discount_percentage === 'number' ? l.discount_percentage : null));
-    const ltBasePriceCents = typeof l.basePartPrice === 'number' ? Math.round(l.basePartPrice * 100) : (typeof l.base_price_cents === 'number' ? l.base_price_cents : null);
+    const ltVatCode = l.vat?.code || l.vatCode || l.vat_code || l.lt_vat_code || null;
+    const ltVatPercentage = typeof l.vat?.percentage === 'number' ? l.vat.percentage : (typeof l.vatPercentage === 'number' ? l.vatPercentage : (typeof l.vat_percentage === 'number' ? l.vat_percentage : (typeof l.lt_vat_percentage === 'number' ? l.lt_vat_percentage : null)));
+    const ltDiscountPercentage = typeof l.discount === 'number' ? l.discount : (typeof l.discountPercentage === 'number' ? l.discountPercentage : (typeof l.discount_percentage === 'number' ? l.discount_percentage : (typeof l.lt_discount_percentage === 'number' ? l.lt_discount_percentage : null)));
+    const ltBasePriceCents = typeof l.basePartPrice === 'number' ? Math.round(l.basePartPrice * 100) : (typeof l.base_price_cents === 'number' ? l.base_price_cents : (typeof l.lt_base_price_cents === 'number' ? l.lt_base_price_cents : (typeof l.basePriceCents === 'number' ? l.basePriceCents : null)));
     const ltReservations = Array.isArray(l.reservations) ? l.reservations : (Array.isArray(l.lt_reservations) ? l.lt_reservations : []);
-    const ltStockStatus = l.stockStatus || l.stock_status || null;
-    const ltDeliveryStatus = l.deliveryStatus || l.delivery_status || null;
-    const ltInvoiceStatus = l.invoiceStatus || l.invoice_status || null;
+    const ltStockStatus = l.stockStatus || l.stock_status || l.lt_stock_status || null;
+    const ltDeliveryStatus = l.deliveryStatus || l.delivery_status || l.lt_delivery_status || null;
+    const ltInvoiceStatus = l.invoiceStatus || l.invoice_status || l.lt_invoice_status || null;
+    const isInbegrepen = Boolean(l.is_inbegrepen || l.isInbegrepen);
 
     let parsedConfigJson: Record<string, unknown> | null = null;
     const rawConfigJson = l.configurationJson || l.configuration_json;
@@ -553,8 +621,8 @@ export function mapLogicTradeOrderToRawInput(
       ? noteParts.join('\n')
       : (typeof l.comment === 'string' ? l.comment : (l.notes || null));
 
-    // INV-RAW-IMMUTABILITY-01: sub_line = 1 must strictly have lt_raw_data = null
-    const ltRawData = sub_line === 1 ? null : l;
+    // INV-RAW-IMMUTABILITY-01: uitsluitend synthetische inbegrepen regels hebben lt_raw_data = null
+    const ltRawData = isInbegrepen ? null : l;
 
     return {
       line_number: lineNumber,
@@ -573,6 +641,7 @@ export function mapLogicTradeOrderToRawInput(
       notes,
       dimension_spec: l.dimension_spec || null,
       is_hybrid: l.is_hybrid,
+      is_inbegrepen: isInbegrepen,
       supplier_name: l.supplierName || l.supplier_name || undefined,
       supplier_code: l.supplierCode || l.supplier_code || undefined,
       width_mm: typeof l.widthMm === 'number' ? l.widthMm : (typeof l.width_mm === 'number' ? l.width_mm : undefined),
@@ -623,9 +692,26 @@ export function mapLogicTradeOrderToRawInput(
         ? header.total_amount_cents
         : rawLines.reduce((acc, l) => acc + (l.total_price_cents || 0), 0));
 
-  const quotationNumber = header.number
-    ? String(header.number).trim()
-    : (header.quotationNumber || (isOfferte ? ordNumber : header.quote?.number));
+  const quotationNumber = isOfferte
+    ? (header.number ? String(header.number).trim() : (header.quotationNumber || ordNumber || null))
+    : (header.quote?.number
+        ? String(header.quote.number).trim()
+        : (header.quotationNumber ? String(header.quotationNumber).trim() : null));
+
+  const salesRep =
+    header.salesMan ||
+    header.salesRep ||
+    header.sales_rep ||
+    null;
+
+  const branch =
+    typeof header.origin === 'string'
+      ? header.origin
+      : (header.origin?.code ||
+         header.origin?.description ||
+         header.origin?.name ||
+         (typeof header.branch === 'string' ? header.branch : header.branch?.name) ||
+         null);
 
   const rawDate = header.date || header.createdDate || header.order_date;
   const orderDate = rawDate ? String(rawDate).slice(0, 10) : undefined;
@@ -662,8 +748,8 @@ export function mapLogicTradeOrderToRawInput(
     city,
     quotation_number: quotationNumber,
     order_date: orderDate,
-    sales_rep: header.salesRep || header.sales_rep,
-    branch: typeof header.branch === 'string' ? header.branch : header.branch?.name,
+    sales_rep: salesRep,
+    branch: branch,
     fsm_phase,
     fsm_step,
     scope_description: header.scopeDescription || header.scope_description || header.description,

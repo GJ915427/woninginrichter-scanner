@@ -117,8 +117,10 @@ describe('Bronze Parity and Domain Expansion Suite (TDD Red -> Green)', () => {
       expect(subLine).toBeDefined();
       expect(subLine.line_number).toBe(mainLine.line_number);
       expect(subLine.quantity).toBe(1);
-      // Mechanical invariant: sub_line = 1 must strictly have null lt_raw_data
-      expect(subLine.lt_raw_data).toBeNull();
+      // [SPEC-CHANGE-AUTHORIZED: Herstel testassertie naar behoud ruwe brondata voor reële sublines en restrictie van null-data tot is_inbegrepen = true]
+      // Reële LogicTrade subregels behouden authentieke brondata; uitsluitend synthetische inbegrepen regels hebben null lt_raw_data
+      expect(subLine.lt_raw_data).toBeDefined();
+      expect(subLine.lt_raw_data).not.toBeNull();
     });
 
     it('mapLogicTradeOrderToRawInput: colliding main lines preserve parent-child line numbers for all sublines', () => {
