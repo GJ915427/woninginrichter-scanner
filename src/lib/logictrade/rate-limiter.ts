@@ -19,6 +19,7 @@ export class RateLimiter {
   private maxRetries: number;
   private baseBackoffMs: number;
   private lastRequestTime = 0;
+  private queue: Promise<void> = Promise.resolve();
 
   constructor(options: RateLimiterOptions = {}) {
     this.minDelayMs = options.minDelayMs ?? 150; // Max ~6.6 req/s = ~400 req/min (ruimschoots onder 1020 quotum)
@@ -28,14 +29,19 @@ export class RateLimiter {
 
   /**
    * Zorgt voor een gegarandeerde pacing pauze tussen opeenvolgende HTTP verzoeken.
+   * Maakt gebruik van een interne belofteketen met error-containment ter serialisatie van samenvallende aanroepers.
    */
   async pace(): Promise<void> {
-    const now = Date.now();
-    const elapsed = now - this.lastRequestTime;
-    if (elapsed < this.minDelayMs) {
-      await sleep(this.minDelayMs - elapsed);
-    }
-    this.lastRequestTime = Date.now();
+    const currentPacing = this.queue.then(async () => {
+      const now = Date.now();
+      const elapsed = now - this.lastRequestTime;
+      if (elapsed < this.minDelayMs) {
+        await sleep(this.minDelayMs - elapsed);
+      }
+      this.lastRequestTime = Date.now();
+    });
+    this.queue = currentPacing.catch(() => {});
+    return currentPacing;
   }
 
   /**
@@ -43,7 +49,8 @@ export class RateLimiter {
    */
   async fetchWithAdaptiveBackoff(
     url: string | URL,
-    init?: RequestInit
+    init?: RequestInit,
+    customFetch: typeof fetch = fetch
   ): Promise<Response> {
     let attempt = 0;
 
@@ -51,7 +58,7 @@ export class RateLimiter {
       await this.pace();
 
       try {
-        const response = await fetch(url, init);
+        const response = await customFetch(url, init);
 
         // Als we 429 (Too Many Requests) of 503 (Service Unavailable) krijgen:
         if (response.status === 429 || response.status === 503) {
