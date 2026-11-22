@@ -3,7 +3,7 @@ Testsuite ter verificatie van de assortimentsharmonisatie en MVP-scope
 conform de 3.000 geanalyseerde GSW-orders (Groter in Wonen) en de
 integrale 1NF-normalisatie van het ERD in Versie 51 (V51).
 
-[SPEC-CHANGE-AUTHORIZED: Toevoeging van 5 nieuwe productgroep en configuratie integratietests (exact 21 tests totaal) conform Hoofdstuk 3 harmonisatie en Gaspard Jaspars review]
+[SPEC-CHANGE-AUTHORIZED: V52 harmonisatie - Statusmodel orthogonale splitsing, 7-niveaus checklisten, LT-pariteit afbakening, hermeting vereenvoudiging, matrix-acties en LT-SSOT sanering conform Grondwet Laag 1B]
 
 Toetst:
 1. Sanering van Categorie 2 (verwijderen buitenscreens, behoud BB70/BB71 en Facette).
@@ -29,6 +29,7 @@ V48_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v48.md"
 V49_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v49.md"
 V50_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v50.md"
 V51_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v51.md"
+V52_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v52.md"
 MASTER_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting.md"
 
 
@@ -50,6 +51,11 @@ def v50_content() -> str:
 @pytest.fixture
 def v51_content() -> str:
     return _read_doc(V51_PATH)
+
+
+@pytest.fixture
+def v52_content() -> str:
+    return _read_doc(V52_PATH)
 
 
 @pytest.fixture
@@ -139,9 +145,9 @@ def test_mvp_arbeid_montage_afbakening(v51_content: str):
     assert "arbeidsberekening" in v51_content.lower() or "arbeid" in v51_content.lower()
 
 
-def test_master_and_v51_parity(v51_content: str, master_content: str):
-    """Master en v51 moeten 100% synchroon en byte-paritair zijn."""
-    assert master_content.strip() == v51_content.strip(), "Divergentie tussen v51 en master document"
+def test_master_and_v52_parity(v52_content: str, master_content: str):
+    """Master en v52 moeten 100% synchroon en byte-paritair zijn."""
+    assert master_content.strip() == v52_content.strip(), "Divergentie tussen v52 en master document"
 
 
 def test_zes_categorieen_domeinmodel_harmonisatie(v51_content: str):
@@ -423,4 +429,87 @@ def test_outdoor_dimension_spec_buitenleven_alignment(v51_content: str, master_c
         assert "'vrijstaand'" in toewijzing_body
         assert "'gevel_op_de_dag'" in toewijzing_body
         assert "'plafond_uitval'" in toewijzing_body
+
+
+def test_v52_statusmodel_orthogonal_split(v52_content: str, master_content: str):
+    """Toetst of V52 de zuivere splitsing Configuratiestatus en Montagestatus hanteert en maatstatus/ProductStatus saneert."""
+    for content in (v52_content, master_content):
+        # Configuratiestatus
+        cs_match = re.search(r"type\s+Configuratiestatus\s*=\s*'concept'\s*\|\s*'definitief'\s*\|\s*'geannuleerd';", content)
+        assert cs_match, "Configuratiestatus type niet gevonden in §4.9.1"
+
+        # Montagestatus
+        ms_match = re.search(r"type\s+Montagestatus\s*=\s*'te_monteren'\s*\|\s*'geleverd'\s*\|\s*'gereed';", content)
+        assert ms_match, "Montagestatus type niet gevonden in §4.9.1"
+
+        # ProductToewijzing uses both
+        pt_match = re.search(r'interface\s+ProductToewijzing\s*\{([^}]+)\}', content)
+        assert pt_match, "ProductToewijzing interface niet gevonden in §4.9.1"
+        pt_body = pt_match.group(1)
+        assert "configuratiestatus: Configuratiestatus;" in pt_body
+        assert "montagestatus: Montagestatus;" in pt_body
+        assert "maatstatus" not in pt_body
+        assert "product_status" not in pt_body
+
+        # Check absence of legacy ProductStatus type in §4.9.1
+        assert "type ProductStatus =" not in content
+
+
+def test_v52_checklist_seven_levels(v52_content: str, master_content: str):
+    """Toetst of checklisten op alle 7 niveaus configureerbaar zijn en 1NF relaties borgen (INV-CHK-01)."""
+    for content in (v52_content, master_content):
+        cv_match = re.search(r'interface\s+ChecklistVraag\s*\{([^}]+)\}', content)
+        assert cv_match, "ChecklistVraag interface niet gevonden in §4.9.1"
+        cv_body = cv_match.group(1)
+        assert "scope_niveau?:" in cv_body
+        assert "'project' | 'object' | 'verdieping' | 'ruimte' | 'vlak' | 'positie' | 'product'" in cv_body
+
+        # Niveau 7 1NF relaties
+        ir_match = re.search(r'interface\s+InspectieResultaat\s*\{([^}]+)\}', content)
+        assert ir_match, "InspectieResultaat interface niet gevonden in §4.9.1"
+        assert "product_toewijzing_id?: string;" in ir_match.group(1)
+
+        pt_match = re.search(r'interface\s+ProductToewijzing\s*\{([^}]+)\}', content)
+        assert pt_match, "ProductToewijzing interface niet gevonden in §4.9.1"
+        assert "inspectie_resultaten?: InspectieResultaat[];" in pt_match.group(1)
+
+
+def test_v52_lt_ssot_and_diff_rapport(v52_content: str, master_content: str):
+    """Toetst of LT-SSOT radicaal is vereenvoudigd met LTDiffRapport en deterministische convergentie (INV-LT-CONVERGE-01)."""
+    for content in (v52_content, master_content):
+        # LTDiffRapport contracten
+        assert "interface LTDiffRapport" in content
+        assert "interface LTDiffRegel" in content
+        assert "INV-LT-CONVERGE-01" in content
+
+        # Sanering overengineering
+        assert "LTPariteitAfwijking" not in content
+        assert "ProjectLTReconciliatie" not in content
+        assert "lt_bevestigd:*" not in content
+        assert "lt_verwijdering_bevestigd:*" not in content
+        assert "lt_qty_bevestigd:*" not in content
+        assert "1-Klik Koppelhulp" not in content
+
+
+def test_v52_hermeting_simplification(v52_content: str, master_content: str):
+    """Toetst of hermeting in §5.2.7 vereenvoudigd is tot status-reversal naar concept."""
+    for content in (v52_content, master_content):
+        assert "Hermeting Vlaggen" in content
+        assert "'concept'" in content
+        assert "frozen_at" in content
+
+
+def test_v52_matrix_actions_and_product_switch(v52_content: str, master_content: str):
+    """Toetst ontkoppelen naar pos_project_algemeen, [×]/[+] en productwissel met behoud van Positie dagmaten."""
+    for content in (v52_content, master_content):
+        assert "pos_project_algemeen" in content
+        assert "[×]" in content or "[x]" in content.lower()
+        assert "[+]" in content
+        assert "Productwissel" in content
+
+
+def test_v52_lt_parity_scope(v52_content: str, master_content: str):
+    """Toetst of de LT-pariteitscheck in §1.3 en §1.5.5 strikt is afgebakend tot ERP-relevante velden."""
+    for content in (v52_content, master_content):
+        assert "daadwerkelijk in LogicTrade worden geadministreerd" in content or "daadwerkelijk in LogicTrade geadministreerd" in content
 
