@@ -6,6 +6,8 @@ import { toNonNegativeQuantity, resolveNumericQuantity } from '@/types/order-int
 import { mapLogicTradeOrderToRawInput } from '@/domain/orders/order-intake-service';
 import { resolveLogicTradeConnectionConfig } from '@/lib/logictrade/connection-config';
 import { BronzeHarvestService } from '@/lib/logictrade/bronze-harvest-service';
+import { isParityGateEntrypoint } from '../../../scripts/verify-bronze-parity';
+import { isHarvestCliEntrypoint } from '../../../scripts/harvest-logictrade-bronze';
 
 describe('Bronze Parity and Domain Expansion Suite (TDD Red -> Green)', () => {
   beforeEach(() => {
@@ -276,6 +278,119 @@ describe('Bronze Parity and Domain Expansion Suite (TDD Red -> Green)', () => {
 
       expect(expectedHash).toHaveLength(64);
       expect(/^[0-9a-f]{64}$/.test(expectedHash)).toBe(true);
+    });
+
+    // [SPEC-CHANGE-AUTHORIZED: Toevoegen regressietests voor GSW originCode filtering op inkooporders, totalPrice/null order_date/companyName mapping, multi-page /options paginatie, buffered option values streaming, fail-closed DAL/updateSyncState errors, sync checkpoints en Windows/POSIX CLI entrypoint-guards]
+    it('harvestPurchaseOrders: applies originCode Winkel GSW BV by default and maps totalPrice and null order_date faithfully', async () => {
+      let requestedUrl = '';
+      const mockLimiter: any = {
+        fetchWithAdaptiveBackoff: vi.fn().mockImplementation((url: string) => {
+          requestedUrl = url;
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                results: [
+                  {
+                    id: 5001,
+                    orderNumber: 'PO-5001',
+                    orderDate: null,
+                    totalGross: null,
+                    totalPrice: 49.95,
+                    lines: [
+                      { id: 1, lineNumber: 10, code: 'TRACK-01', quantity: 6.92, partPrice: 20.0, linePrice: 138.4 }
+                    ]
+                  }
+                ],
+                pagination: { totalPages: 1 }
+              }),
+              { status: 200 }
+            )
+          );
+        })
+      };
+
+      const mockDal: any = {
+        upsertPurchaseOrdersBatch: vi.fn().mockResolvedValue({ count: 1 }),
+        updateSyncState: vi.fn().mockResolvedValue(true)
+      };
+
+      const service = new BronzeHarvestService({
+        dal: mockDal,
+        rateLimiter: mockLimiter,
+        requireApiKey: false
+      });
+
+      const res = await service.harvestPurchaseOrders();
+      expect(res.purchaseOrdersProcessed).toBe(1);
+      expect(requestedUrl).toContain('originCode=Winkel+GSW+BV');
+
+      expect(mockDal.upsertPurchaseOrdersBatch).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 5001,
+            order_date: null,
+            total_gross_cents: 4995
+          })
+        ])
+      );
+      expect(mockDal.updateSyncState).toHaveBeenCalledWith('purchaseorders_bronze_sync', 1, expect.any(String));
+    });
+
+    it('harvestCustomers: cascades companyName and updates customers_bronze_sync checkpoint', async () => {
+      const mockLimiter: any = {
+        fetchWithAdaptiveBackoff: vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              results: [
+                { id: 7001, customerNumber: 'C-7001', name: null, firstName: null, lastName: null, companyName: 'Bedrijf XYZ B.V.', isActive: true }
+              ],
+              pagination: { totalPages: 1 }
+            }),
+            { status: 200 }
+          )
+        )
+      };
+
+      const mockDal: any = {
+        upsertCustomersBatch: vi.fn().mockResolvedValue({ count: 1 }),
+        updateSyncState: vi.fn().mockResolvedValue(true)
+      };
+
+      const service = new BronzeHarvestService({
+        dal: mockDal,
+        rateLimiter: mockLimiter,
+        requireApiKey: false
+      });
+
+      const res = await service.harvestCustomers();
+      expect(res.customersProcessed).toBe(1);
+      expect(mockDal.upsertCustomersBatch).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 7001,
+            name: 'Bedrijf XYZ B.V.'
+          })
+        ])
+      );
+      expect(mockDal.updateSyncState).toHaveBeenCalledWith('customers_bronze_sync', 1, expect.any(String));
+    });
+
+    // [SPEC-CHANGE-AUTHORIZED: Toevoegen unit tests voor CLI entrypoint guards isParityGateEntrypoint en isHarvestCliEntrypoint]
+    it('isParityGateEntrypoint & isHarvestCliEntrypoint: correctly detects CLI entrypoint vs test environment', () => {
+      // In test environment, returns false
+      expect(isParityGateEntrypoint(undefined, 'test')).toBe(false);
+      expect(isHarvestCliEntrypoint(undefined, 'test')).toBe(false);
+
+      // Matches various POSIX/Windows paths
+      expect(isParityGateEntrypoint('C:\\project\\scripts\\verify-bronze-parity.ts', 'development')).toBe(true);
+      expect(isParityGateEntrypoint('/app/scripts/verify-bronze-parity.js', 'production')).toBe(true);
+      expect(isParityGateEntrypoint('scripts/verify-bronze-parity', 'production')).toBe(true);
+      expect(isParityGateEntrypoint('other-script.ts', 'production')).toBe(false);
+
+      expect(isHarvestCliEntrypoint('C:\\project\\scripts\\harvest-logictrade-bronze.ts', 'development')).toBe(true);
+      expect(isHarvestCliEntrypoint('/app/scripts/harvest-logictrade-bronze.mjs', 'production')).toBe(true);
+      expect(isHarvestCliEntrypoint('scripts/harvest-logictrade-bronze', 'production')).toBe(true);
+      expect(isHarvestCliEntrypoint('other-script.ts', 'production')).toBe(false);
     });
   });
 });

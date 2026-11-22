@@ -125,7 +125,15 @@ export async function verifyBronzeParityGate(): Promise<{
   return { success: true, results };
 }
 
-if (process.env.NODE_ENV !== 'test') {
+export function isParityGateEntrypoint(entryArg?: string, nodeEnv?: string): boolean {
+  const target = entryArg ?? (typeof process !== 'undefined' ? process.argv?.[1] : '');
+  const env = nodeEnv ?? (typeof process !== 'undefined' ? process.env.NODE_ENV : '');
+  if (!target || env === 'test') return false;
+  const normalized = target.replace(/\\/g, '/');
+  return /(?:^|\/)verify-bronze-parity(?:\.[cm]?[tj]s)?$/.test(normalized);
+}
+
+if (isParityGateEntrypoint()) {
   verifyBronzeParityGate()
     .then((res) => {
       if (!res.success) {

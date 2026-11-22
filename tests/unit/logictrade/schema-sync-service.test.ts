@@ -361,5 +361,60 @@ describe('LogicTrade Schema Delta-Sync Service', () => {
       expect(body.data.schemaSync.success).toBe(true);
       expect(body.data.attributeGraph).toBeDefined();
     });
+
+    // [SPEC-CHANGE-AUTHORIZED: Toevoegen regressietest voor pagination.totalPages > 1 bij /products/configurator/options]
+    it('executeSchemaDeltaSync: fetches all pages when LogicTrade API returns pagination.totalPages > 1', async () => {
+      const mockFetch = vi.spyOn(defaultRateLimiter, 'fetchWithAdaptiveBackoff');
+
+      // Page 1 of options: returns pagination object with totalPages: 2, data.totalPages undefined
+      mockFetch.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            results: [
+              { id: 101, code: 'OPT_1', name: 'Option 1', kind: 300, webshop: true },
+            ],
+            pagination: {
+              totalResults: 2,
+              totalPages: 2,
+              page: 1,
+              pageSize: 1,
+            },
+          }),
+          { status: 200 }
+        )
+      );
+
+      // Page 2 of options
+      mockFetch.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            results: [
+              { id: 102, code: 'OPT_2', name: 'Option 2', kind: 300, webshop: true },
+            ],
+            pagination: {
+              totalResults: 2,
+              totalPages: 2,
+              page: 2,
+              pageSize: 1,
+            },
+          }),
+          { status: 200 }
+        )
+      );
+
+      // Value sub-calls for opt 101 and 102
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify({ results: [], totalPages: 1 }), { status: 200 })
+      );
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify({ results: [], totalPages: 1 }), { status: 200 })
+      );
+
+      vi.spyOn(supabaseClient, 'upsertConfiguratorSchemasBatch').mockResolvedValue({ upserted: 2 });
+      vi.spyOn(supabaseClient, 'updateSyncState').mockResolvedValue();
+
+      const result = await executeSchemaDeltaSync({ forceSince: '' });
+      expect(result.schemasSynced).toBe(2);
+    });
   });
 });

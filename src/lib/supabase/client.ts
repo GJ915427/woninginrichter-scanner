@@ -75,6 +75,34 @@ export interface ConfiguratorOptionValueRow {
   lt_raw_data?: Record<string, unknown> | null;
 }
 
+export interface CustomerBronzeRow {
+  id: number;
+  customer_number?: string;
+  name?: string;
+  search_name?: string;
+  is_active?: boolean;
+  lt_raw_data?: Record<string, unknown> | null;
+}
+
+export interface SupplierBronzeRow {
+  id: number;
+  supplier_number?: string;
+  name?: string;
+  is_active?: boolean;
+  lt_raw_data?: Record<string, unknown> | null;
+}
+
+export interface PurchaseOrderBronzeRow {
+  id: number;
+  order_number?: string;
+  supplier_id?: number | null;
+  status?: string;
+  order_date?: string | null;
+  total_gross_cents?: number;
+  lt_raw_data?: Record<string, unknown> | null;
+  lines?: Record<string, unknown>[];
+}
+
 export const configuratorSchemaMemoryCache = new Map<number, ConfiguratorSchemaRow>();
 
 const DEFAULT_SUPABASE_URL = 'https://cizpyycszaszknffofhq.supabase.co';
@@ -302,6 +330,7 @@ export async function updateSyncState(
     }
   } catch (err) {
     console.warn(`[Supabase] updateSyncState exception for '${key}':`, err);
+    throw err;
   }
 
   // Pas in-memory cache bijwerken na succesvolle remote persistence (Fail-Closed)
@@ -454,6 +483,111 @@ export async function upsertConfiguratorOptionValuesBatch(
     if (!rpcRes.ok) {
       const errText = await rpcRes.text().catch(() => 'Unknown error');
       throw new Error(`Supabase option values batch upsert failed (${rpcRes.status}): ${errText}`);
+    }
+    totalCount += chunk.length;
+  }
+  return { count: totalCount };
+}
+
+export async function upsertCustomersBatch(
+  customers: CustomerBronzeRow[],
+  chunkSize = 250
+): Promise<{ count: number }> {
+  if (customers.length === 0) return { count: 0 };
+  const { url, anonKey, serviceKey } = getSupabaseConfig();
+  const token = serviceKey || anonKey;
+
+  if (!url || !token) {
+    return { count: customers.length };
+  }
+
+  let totalCount = 0;
+  for (let i = 0; i < customers.length; i += chunkSize) {
+    const chunk = customers.slice(i, i + chunkSize);
+    const rpcRes = await fetch(`${url}/rest/v1/rpc/ingest_logictrade_customers_batch`, {
+      method: 'POST',
+      headers: {
+        apikey: token,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_customers: chunk }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!rpcRes.ok) {
+      const errText = await rpcRes.text().catch(() => 'Unknown error');
+      throw new Error(`Supabase customers batch upsert failed (${rpcRes.status}): ${errText}`);
+    }
+    totalCount += chunk.length;
+  }
+  return { count: totalCount };
+}
+
+export async function upsertSuppliersBatch(
+  suppliers: SupplierBronzeRow[],
+  chunkSize = 250
+): Promise<{ count: number }> {
+  if (suppliers.length === 0) return { count: 0 };
+  const { url, anonKey, serviceKey } = getSupabaseConfig();
+  const token = serviceKey || anonKey;
+
+  if (!url || !token) {
+    return { count: suppliers.length };
+  }
+
+  let totalCount = 0;
+  for (let i = 0; i < suppliers.length; i += chunkSize) {
+    const chunk = suppliers.slice(i, i + chunkSize);
+    const rpcRes = await fetch(`${url}/rest/v1/rpc/ingest_logictrade_suppliers_batch`, {
+      method: 'POST',
+      headers: {
+        apikey: token,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_suppliers: chunk }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!rpcRes.ok) {
+      const errText = await rpcRes.text().catch(() => 'Unknown error');
+      throw new Error(`Supabase suppliers batch upsert failed (${rpcRes.status}): ${errText}`);
+    }
+    totalCount += chunk.length;
+  }
+  return { count: totalCount };
+}
+
+export async function upsertPurchaseOrdersBatch(
+  purchaseOrders: PurchaseOrderBronzeRow[],
+  chunkSize = 100
+): Promise<{ count: number }> {
+  if (purchaseOrders.length === 0) return { count: 0 };
+  const { url, anonKey, serviceKey } = getSupabaseConfig();
+  const token = serviceKey || anonKey;
+
+  if (!url || !token) {
+    return { count: purchaseOrders.length };
+  }
+
+  let totalCount = 0;
+  for (let i = 0; i < purchaseOrders.length; i += chunkSize) {
+    const chunk = purchaseOrders.slice(i, i + chunkSize);
+    const rpcRes = await fetch(`${url}/rest/v1/rpc/ingest_logictrade_purchase_orders_batch`, {
+      method: 'POST',
+      headers: {
+        apikey: token,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_purchase_orders: chunk }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!rpcRes.ok) {
+      const errText = await rpcRes.text().catch(() => 'Unknown error');
+      throw new Error(`Supabase purchase orders batch upsert failed (${rpcRes.status}): ${errText}`);
     }
     totalCount += chunk.length;
   }

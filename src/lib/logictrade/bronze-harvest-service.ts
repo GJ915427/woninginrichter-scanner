@@ -13,8 +13,14 @@ import {
   updateSyncState,
   upsertConfiguratorSchemasBatch,
   upsertConfiguratorOptionValuesBatch,
+  upsertCustomersBatch,
+  upsertSuppliersBatch,
+  upsertPurchaseOrdersBatch,
   ConfiguratorOptionValueRow,
   ConfiguratorSchemaRow,
+  CustomerBronzeRow,
+  SupplierBronzeRow,
+  PurchaseOrderBronzeRow,
 } from '@/lib/supabase/client';
 
 export interface BronzeHarvestOptions {
@@ -61,17 +67,31 @@ export class BronzeHarvestService {
   }
 
   public async harvestCustomers(options: { pageSize?: number } = {}): Promise<{ customersProcessed: number }> {
+    const upsert = this.dal?.upsertCustomersBatch || upsertCustomersBatch;
+    const syncUpdate = this.dal?.updateSyncState || updateSyncState;
+
     if (this.client?.fetchCustomers) {
       const res = await this.client.fetchCustomers();
-      return { customersProcessed: res?.length || 0 };
+      const results: any[] = Array.isArray(res) ? res : res?.results || [];
+      const payload: CustomerBronzeRow[] = results.map((c) => ({
+        id: c.id,
+        customer_number: c.customerNumber || c.code || String(c.id),
+        name: c.name || c.companyName || [c.firstName, c.lastName].filter(Boolean).join(' ') || 'Onbekend',
+        search_name: c.searchName || c.name || c.companyName || null,
+        is_active: c.isActive !== false,
+        lt_raw_data: c,
+      }));
+      if (payload.length > 0) {
+        await upsert(payload);
+      }
+      await syncUpdate('customers_bronze_sync', payload.length, new Date().toISOString());
+      return { customersProcessed: payload.length };
     }
 
     const pageSize = options.pageSize || 100;
     let page = 1;
     let totalPages = 1;
     let totalCustomers = 0;
-    const { url, anonKey, serviceKey } = getSupabaseConfig();
-    const token = serviceKey || anonKey;
 
     do {
       const fetchUrl = `${this.baseUrl}/customers?pageSize=${pageSize}&pageNumber=${page}`;
@@ -84,48 +104,53 @@ export class BronzeHarvestService {
       }
       const data = await res.json();
       const results: any[] = data.results || [];
-      totalPages = data.pagination?.totalPages || 1;
+      totalPages = data.pagination?.totalPages ?? data.totalPages ?? 1;
 
-      if (results.length > 0 && url && token) {
-        const payload = results.map((c) => ({
+      if (results.length > 0) {
+        const payload: CustomerBronzeRow[] = results.map((c) => ({
           id: c.id,
           customer_number: c.customerNumber || c.code || String(c.id),
-          name: c.name || [c.firstName, c.lastName].filter(Boolean).join(' ') || 'Onbekend',
-          search_name: c.searchName || c.name || null,
+          name: c.name || c.companyName || [c.firstName, c.lastName].filter(Boolean).join(' ') || 'Onbekend',
+          search_name: c.searchName || c.name || c.companyName || null,
           is_active: c.isActive !== false,
           lt_raw_data: c,
         }));
-
-        await fetch(`${url}/rest/v1/rpc/ingest_logictrade_customers_batch`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: token,
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ p_customers: payload }),
-        });
+        await upsert(payload);
       }
 
       totalCustomers += results.length;
       page++;
     } while (page <= totalPages);
 
+    await syncUpdate('customers_bronze_sync', totalCustomers, new Date().toISOString());
     return { customersProcessed: totalCustomers };
   }
 
   public async harvestSuppliers(options: { pageSize?: number } = {}): Promise<{ suppliersProcessed: number }> {
+    const upsert = this.dal?.upsertSuppliersBatch || upsertSuppliersBatch;
+    const syncUpdate = this.dal?.updateSyncState || updateSyncState;
+
     if (this.client?.fetchSuppliers) {
       const res = await this.client.fetchSuppliers();
-      return { suppliersProcessed: res?.length || 0 };
+      const results: any[] = Array.isArray(res) ? res : res?.results || [];
+      const payload: SupplierBronzeRow[] = results.map((s) => ({
+        id: s.id,
+        supplier_number: s.supplierNumber || s.code || String(s.id),
+        name: s.name || s.companyName || 'Onbekend',
+        is_active: s.isActive !== false,
+        lt_raw_data: s,
+      }));
+      if (payload.length > 0) {
+        await upsert(payload);
+      }
+      await syncUpdate('suppliers_bronze_sync', payload.length, new Date().toISOString());
+      return { suppliersProcessed: payload.length };
     }
 
     const pageSize = options.pageSize || 100;
     let page = 1;
     let totalPages = 1;
     let totalSuppliers = 0;
-    const { url, anonKey, serviceKey } = getSupabaseConfig();
-    const token = serviceKey || anonKey;
 
     do {
       const fetchUrl = `${this.baseUrl}/suppliers?pageSize=${pageSize}&pageNumber=${page}`;
@@ -138,51 +163,66 @@ export class BronzeHarvestService {
       }
       const data = await res.json();
       const results: any[] = data.results || [];
-      totalPages = data.pagination?.totalPages || 1;
+      totalPages = data.pagination?.totalPages ?? data.totalPages ?? 1;
 
-      if (results.length > 0 && url && token) {
-        const payload = results.map((s) => ({
+      if (results.length > 0) {
+        const payload: SupplierBronzeRow[] = results.map((s) => ({
           id: s.id,
           supplier_number: s.supplierNumber || s.code || String(s.id),
           name: s.name || s.companyName || 'Onbekend',
           is_active: s.isActive !== false,
           lt_raw_data: s,
         }));
-
-        await fetch(`${url}/rest/v1/rpc/ingest_logictrade_suppliers_batch`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: token,
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ p_suppliers: payload }),
-        });
+        await upsert(payload);
       }
 
       totalSuppliers += results.length;
       page++;
     } while (page <= totalPages);
 
+    await syncUpdate('suppliers_bronze_sync', totalSuppliers, new Date().toISOString());
     return { suppliersProcessed: totalSuppliers };
   }
 
-  public async harvestPurchaseOrders(options: { pageSize?: number } = {}): Promise<{ purchaseOrdersProcessed: number; purchaseOrderLinesProcessed: number }> {
+  public async harvestPurchaseOrders(
+    options: { pageSize?: number; originCode?: string } = {}
+  ): Promise<{ purchaseOrdersProcessed: number; purchaseOrderLinesProcessed: number }> {
+    const upsert = this.dal?.upsertPurchaseOrdersBatch || upsertPurchaseOrdersBatch;
+    const syncUpdate = this.dal?.updateSyncState || updateSyncState;
+    const originCode = options.originCode ?? 'Winkel GSW BV';
+    const pageSize = options.pageSize || 100;
+
+    const originQuery = originCode ? `&originCode=${originCode.replace(/ /g, '+')}` : '';
+
     if (this.client?.fetchPurchaseOrders) {
-      const res = await this.client.fetchPurchaseOrders();
-      return { purchaseOrdersProcessed: res?.length || 0, purchaseOrderLinesProcessed: 0 };
+      const requestedUrl = `${this.baseUrl}/purchaseorders?pageSize=${pageSize}&pageNumber=1${originQuery}`;
+      const res = await this.client.fetchPurchaseOrders(requestedUrl);
+      const results: any[] = Array.isArray(res) ? res : res?.results || [];
+      const payload: PurchaseOrderBronzeRow[] = results.map((po) => ({
+        id: po.id,
+        order_number: po.orderNumber || po.number || String(po.id),
+        supplier_id: po.supplier?.id || po.supplierId || null,
+        status: po.status || 'ORDER',
+        order_date: po.orderDate || po.date || null,
+        total_gross_cents: po.totalGrossCents ?? (typeof po.totalGross === 'number' ? Math.round(po.totalGross * 100) : (typeof po.totalPrice === 'number' ? Math.round(po.totalPrice * 100) : 0)),
+        lt_raw_data: po,
+        lines: po.lines || po.orderLines || [],
+      }));
+      if (payload.length > 0) {
+        await upsert(payload);
+      }
+      const linesCount = payload.reduce((acc, po) => acc + (po.lines?.length || 0), 0);
+      await syncUpdate('purchaseorders_bronze_sync', payload.length, new Date().toISOString());
+      return { purchaseOrdersProcessed: payload.length, purchaseOrderLinesProcessed: linesCount };
     }
 
-    const pageSize = options.pageSize || 100;
     let page = 1;
     let totalPages = 1;
     let totalPurchaseOrders = 0;
     let totalPurchaseOrderLines = 0;
-    const { url, anonKey, serviceKey } = getSupabaseConfig();
-    const token = serviceKey || anonKey;
 
     do {
-      const fetchUrl = `${this.baseUrl}/purchaseorders?pageSize=${pageSize}&pageNumber=${page}`;
+      const fetchUrl = `${this.baseUrl}/purchaseorders?pageSize=${pageSize}&pageNumber=${page}${originQuery}`;
       const res = await this.limiter.fetchWithAdaptiveBackoff(fetchUrl, {
         headers: this.getHeaders(),
         cache: 'no-store',
@@ -192,37 +232,29 @@ export class BronzeHarvestService {
       }
       const data = await res.json();
       const results: any[] = data.results || [];
-      totalPages = data.pagination?.totalPages || 1;
+      totalPages = data.pagination?.totalPages ?? data.totalPages ?? 1;
 
-      if (results.length > 0 && url && token) {
-        const payload = results.map((po) => ({
+      if (results.length > 0) {
+        const payload: PurchaseOrderBronzeRow[] = results.map((po) => ({
           id: po.id,
           order_number: po.orderNumber || po.number || String(po.id),
           supplier_id: po.supplier?.id || po.supplierId || null,
           status: po.status || 'ORDER',
-          order_date: po.orderDate || po.date || new Date().toISOString(),
-          total_gross_cents: typeof po.totalGross === 'number' ? Math.round(po.totalGross * 100) : 0,
+          order_date: po.orderDate || po.date || null,
+          total_gross_cents: po.totalGrossCents ?? (typeof po.totalGross === 'number' ? Math.round(po.totalGross * 100) : (typeof po.totalPrice === 'number' ? Math.round(po.totalPrice * 100) : 0)),
           lt_raw_data: po,
           lines: po.lines || po.orderLines || [],
         }));
 
         totalPurchaseOrderLines += payload.reduce((acc: number, po: any) => acc + (po.lines?.length || 0), 0);
-
-        await fetch(`${url}/rest/v1/rpc/ingest_logictrade_purchase_orders_batch`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: token,
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ p_purchase_orders: payload }),
-        });
+        await upsert(payload);
       }
 
       totalPurchaseOrders += results.length;
       page++;
     } while (page <= totalPages);
 
+    await syncUpdate('purchaseorders_bronze_sync', totalPurchaseOrders, new Date().toISOString());
     return { purchaseOrdersProcessed: totalPurchaseOrders, purchaseOrderLinesProcessed: totalPurchaseOrderLines };
   }
 
@@ -238,16 +270,23 @@ export class BronzeHarvestService {
     if (this.client?.fetchConfiguratorOptions) {
       rawOptions = await this.client.fetchConfiguratorOptions();
     } else {
-      const optUrl = `${this.baseUrl}/products/configurator/options?pageSize=${options.pageSize || 100}`;
-      const res = await this.limiter.fetchWithAdaptiveBackoff(optUrl, {
-        headers: this.getHeaders(),
-        cache: 'no-store',
-      });
-      if (!res.ok) {
-        throw new Error(`LogicTrade configurator options error HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      rawOptions = data.results || [];
+      let optPage = 1;
+      let optTotalPages = 1;
+      do {
+        const optUrl = `${this.baseUrl}/products/configurator/options?pageSize=${options.pageSize || 100}&pageNumber=${optPage}`;
+        const res = await this.limiter.fetchWithAdaptiveBackoff(optUrl, {
+          headers: this.getHeaders(),
+          cache: 'no-store',
+        });
+        if (!res.ok) {
+          throw new Error(`LogicTrade configurator options error HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        const batch: any[] = data.results || [];
+        rawOptions.push(...batch);
+        optTotalPages = data.pagination?.totalPages ?? data.totalPages ?? 1;
+        optPage++;
+      } while (optPage <= optTotalPages);
     }
 
     const upsertSchemas = this.dal?.upsertConfiguratorSchemasBatch || upsertConfiguratorSchemasBatch;
@@ -269,8 +308,9 @@ export class BronzeHarvestService {
     }
 
     let totalValues = 0;
+    let valueBuffer: ConfiguratorOptionValueRow[] = [];
 
-    // Step 2: Stream option values
+    // Step 2: Stream option values in buffered chunks <= 250
     for (const opt of rawOptions) {
       let page = 1;
       let totalPages = 1;
@@ -306,9 +346,9 @@ export class BronzeHarvestService {
             lt_raw_data: val,
           }));
 
-          // Stream in chunks <= 250
-          for (let i = 0; i < bronzeBatch.length; i += 250) {
-            const chunk = bronzeBatch.slice(i, i + 250);
+          valueBuffer.push(...bronzeBatch);
+          while (valueBuffer.length >= 250) {
+            const chunk = valueBuffer.splice(0, 250);
             await upsertOptionValues(chunk);
           }
         }
@@ -318,11 +358,14 @@ export class BronzeHarvestService {
       } while (page <= totalPages);
     }
 
-    if (this.dal?.updateSyncState) {
-      await this.dal.updateSyncState('schemas_bronze_sync', rawOptions.length, new Date().toISOString());
-    } else {
-      await updateSyncState('schemas_bronze_sync', rawOptions.length, new Date().toISOString());
+    // Flush any remaining buffered option values
+    if (valueBuffer.length > 0 && options.persistBronzeValues) {
+      await upsertOptionValues(valueBuffer);
+      valueBuffer = [];
     }
+
+    const syncUpdate = this.dal?.updateSyncState || updateSyncState;
+    await syncUpdate('schemas_bronze_sync', rawOptions.length, new Date().toISOString());
 
     return {
       optionsProcessed: rawOptions.length,
@@ -363,19 +406,25 @@ export class BronzeHarvestService {
   }
 }
 
-export async function harvestCustomersBronze(options: BronzeHarvestOptions = {}): Promise<{ customersProcessed: number }> {
+export async function harvestCustomersBronze(
+  options: BronzeHarvestOptions & { pageSize?: number } = {}
+): Promise<{ customersProcessed: number }> {
   const service = new BronzeHarvestService(options);
-  return service.harvestCustomers();
+  return service.harvestCustomers(options);
 }
 
-export async function harvestSuppliersBronze(options: BronzeHarvestOptions = {}): Promise<{ suppliersProcessed: number }> {
+export async function harvestSuppliersBronze(
+  options: BronzeHarvestOptions & { pageSize?: number } = {}
+): Promise<{ suppliersProcessed: number }> {
   const service = new BronzeHarvestService(options);
-  return service.harvestSuppliers();
+  return service.harvestSuppliers(options);
 }
 
-export async function harvestPurchaseOrdersBronze(options: BronzeHarvestOptions = {}): Promise<{ purchaseOrdersProcessed: number; purchaseOrderLinesProcessed: number }> {
+export async function harvestPurchaseOrdersBronze(
+  options: BronzeHarvestOptions & { pageSize?: number; originCode?: string } = {}
+): Promise<{ purchaseOrdersProcessed: number; purchaseOrderLinesProcessed: number }> {
   const service = new BronzeHarvestService(options);
-  return service.harvestPurchaseOrders();
+  return service.harvestPurchaseOrders(options);
 }
 
 export async function backfillMissingRawHashesBronze(options: BronzeHarvestOptions & { targetTable?: string; limit?: number } = {}): Promise<{ totalProcessed: number; hasMore: boolean }> {

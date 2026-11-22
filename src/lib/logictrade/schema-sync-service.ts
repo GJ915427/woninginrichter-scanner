@@ -168,7 +168,7 @@ export async function executeSchemaDeltaSync(
     const data = await res.json();
     const batch: LogicTradeOptionRaw[] = data.results || [];
     rawOptions.push(...batch);
-    totalPages = data.totalPages || 1;
+    totalPages = data.pagination?.totalPages ?? data.totalPages ?? 1;
     pageNumber++;
   } while (pageNumber <= totalPages);
 
