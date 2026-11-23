@@ -731,3 +731,66 @@ def test_v55_two_axis_mounting_model(v55_content: str, master_content: str):
         assert "18 mm" in content
         assert "15 mm" in content
 
+
+# [SPEC-CHANGE-AUTHORIZED: V55 integrale verankering en terminologiereconciliatie]
+def test_v55_integral_tables_and_terminology_reconciliation(v55_content: str, master_content: str):
+    """Toetst de integrale mastertabellen in §3.1.1 en de ketenbrede uitbanning van alle phantom termen en expressies."""
+    for content in (v55_content, master_content):
+        # 1. Master Tabellen aanwezig in §3.1.1
+        assert "#### Master Tabel 1: As 1 — Fysieke Plaatsing (`PlaatsingType`)" in content
+        assert "#### Master Tabel 2: As 2 — Montagevlak, Steuntype & Bevestigingsmethode (`MontageConfiguratie`)" in content
+
+        # Alle 12 plaatsingssituaties in Tabel 1
+        for plaatsing in (
+            "op_het_glas", "in_de_glaslat", "op_de_glaslat", "op_de_vleugel",
+            "op_het_kozijn", "in_het_kozijn", "in_de_dag", "op_de_dag",
+            "in_het_plafond", "gevel_op_de_dag", "plafond_uitval", "vrijstaand"
+        ):
+            assert f"`{plaatsing}`" in content
+
+        # Alle 13 canonieke steuntypen in Tabel 2
+        for steun in (
+            "plafondsteun", "wandsteun", "zijsteun", "spansysteem_klem",
+            "spansysteem_plak", "profiel_klem", "profiel_plak", "inzetveer",
+            "magneetstrip", "gevelsteun", "vrijstaand_voet", "zijgeleider_profiel",
+            "zijgeleider_gevel"
+        ):
+            assert f"`{steun}`" in content
+
+        # 2. Documentbrede uitbanning van verouderde typenamen en phantom strings
+        forbidden_terms = (
+            "CurtainSteunType",
+            "CurtainBevestigingsMethode",
+            "BlindBevestigingsMethode",
+            "OutdoorBevestigingsMethode",
+            "chemisch_anker_m12",
+            "plafondconsole_buiten",
+            "gevelschroef_plug",
+            "glaslatsteun",
+            "plakprofiel",
+            "klembeugel_vleugel",
+            "magneetframe",
+            "klemveer",
+            "zijsteun_spanschroef",
+            "kader_geleiderprofiel",
+            "montage_scope",
+            "montage.steun.type",
+        )
+        for term in forbidden_terms:
+            assert term not in content, f"Fantoom-term '{term}' mag niet voorkomen in document."
+
+        # Fantoom enum-waarde 'plafondclip' mag nergens in code of condities voorkomen
+        assert "'plafondclip'" not in content, "Fantoom-waarde 'plafondclip' mag niet als enum voorkomen."
+
+        # 3. Ketenbrede sanitatie verificatie in specifieke deelsecties
+        # §1.3 SSOT
+        assert "(SSOT in dimension_spec.montage)" in content
+        # §3.2.6 Check 2 & 9
+        assert "bestaande_rail_behouden = true" in content
+        # §3.3.2 TruFit formulering
+        assert "TruFit (profiel-plaksystemen direct op het glas" in content
+        # §3.3.11 Check 25 & 26
+        assert "montage.steun.steun_type = 'wandsteun'" in content
+        assert "montage.steun.steun_type = 'plafondsteun'" in content
+
+
