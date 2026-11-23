@@ -17,6 +17,10 @@ import {
   type OrderSpatialContext,
 } from '@/domain/orders/spatial-extraction-engine';
 import {
+  DimensionExtractionEngine,
+  type ExtractedDimensionResult,
+} from '@/domain/orders/dimension-extraction-engine';
+import {
   toNonNegativeQuantity,
   resolveNumericQuantity,
   type RawLogicTradeOrderInput,
@@ -29,6 +33,7 @@ import {
   type ConfigurationSpec,
   type SpatialProvenance,
   type ExtractedSpatialMetadata,
+  type DimensionSpec,
 } from '@/types/order-intake';
 import { resolveProductByCode as defaultResolveProductByCode } from '@/lib/supabase/order-client';
 
@@ -49,12 +54,14 @@ export interface OrderIntakeServiceOptions {
   resolveProductByCode?: (code: string, supplierName?: string) => Promise<ResolvedProductEntity | null>;
   skipClientLookup?: boolean;
   cognitiveProvider?: ICognitiveExtractionProvider;
+  dimensionEngine?: DimensionExtractionEngine;
 }
 
 export class OrderIntakeService {
   private classificationService: ClassificationService;
   private extractionEngine: ConfigurationExtractionEngine;
   private spatialEngine: SpatialExtractionEngine;
+  private dimensionEngine: DimensionExtractionEngine;
   private resolveProductByCode: (code: string, supplierName?: string) => Promise<ResolvedProductEntity | null>;
   private skipClientLookup: boolean;
 
@@ -64,6 +71,7 @@ export class OrderIntakeService {
       cognitiveProvider: options.cognitiveProvider,
     });
     this.spatialEngine = new SpatialExtractionEngine();
+    this.dimensionEngine = options.dimensionEngine || new DimensionExtractionEngine();
     this.resolveProductByCode = options.resolveProductByCode || defaultResolveProductByCode;
     this.skipClientLookup = !!options.skipClientLookup;
   }
@@ -125,7 +133,8 @@ export class OrderIntakeService {
     configSpec?: ConfigurationSpec | null,
     serviceDisciplineCode?: string,
     usedSubLines?: Map<number, Set<number>>,
-    spatialMetadata?: ExtractedSpatialMetadata | null
+    spatialMetadata?: ExtractedSpatialMetadata | null,
+    extractedDimension?: ExtractedDimensionResult | null
   ): Promise<IngestedOrderLine[]> {
     const unitPrice = line.unit_price_cents || 0;
     const quantity = resolveNumericQuantity(line.quantity);
@@ -133,11 +142,21 @@ export class OrderIntakeService {
     const spatial: ExtractedSpatialMetadata =
       spatialMetadata || this.spatialEngine.extractSpatialMetadata(line, materialGroupCode);
 
+    const dimResult =
+      extractedDimension ||
+      this.dimensionEngine.extractDimension(line, materialGroupCode, configSpec?.dimensions);
+
     const derivedDim =
       line.dim ||
+      dimResult.formattedDim ||
       (configSpec?.dimensions?.width_mm && configSpec?.dimensions?.height_mm
         ? `${configSpec.dimensions.width_mm} × ${configSpec.dimensions.height_mm}`
         : null);
+
+    const assignedDimensionSpec: DimensionSpec | null =
+      (line.dimension_spec as DimensionSpec) ||
+      dimResult.dimensionSpec ||
+      null;
 
     // 1. Hoofdregel (Materiaal): behoud toegekend sub_line
     const mainSub = line.sub_line !== undefined ? line.sub_line : 0;
@@ -166,7 +185,7 @@ export class OrderIntakeService {
       spatial_metadata: spatial,
       dim: derivedDim,
       notes: line.notes || null,
-      dimension_spec: line.dimension_spec || null,
+      dimension_spec: assignedDimensionSpec,
       configuration_spec: configSpec || null,
       // Bronze Layer velden:
       lt_raw_data: line.lt_raw_data || line.raw_data || null,
@@ -256,9 +275,9 @@ export class OrderIntakeService {
       cluster_name: spatial.cluster_name,
       cluster_source: spatial.cluster_source,
       spatial_metadata: spatial,
-      dim: derivedDim,
+      dim: null,
       notes: line.notes || null,
-      dimension_spec: null,
+      dimension_spec: { type: 'piece_service', unit: 'stuks' },
       configuration_spec: null,
       // Conform INV-RAW-IMMUTABILITY-01: GEEN synthetische brondata fabriceren!
       lt_raw_data: null,
@@ -334,12 +353,19 @@ export class OrderIntakeService {
       groupCode = configSpec.reconciled_product_group_code;
     }
 
-    // Stap 1: Leid altijd dim af voor de tekstuele kolom (voor ELK artikel met maten, inclusief meubels)
-    const derivedDim =
-      rawLine.dim ||
-      (configSpec.dimensions?.width_mm && configSpec.dimensions?.height_mm
-        ? `${configSpec.dimensions.width_mm} × ${configSpec.dimensions.height_mm}`
-        : null);
+    // Wiskundige Maten-Extractie via SSOT DimensionExtractionEngine
+    const dimResult = this.dimensionEngine.extractDimension(
+      rawLine,
+      groupCode,
+      configSpec?.dimensions
+    );
+
+    // Stap 1: Leid altijd dim en dimension_spec af voor de weergave en CPQ calculatie
+    const derivedDim = rawLine.dim || dimResult.formattedDim || null;
+    const assignedDimensionSpec: DimensionSpec | null =
+      (rawLine.dimension_spec as DimensionSpec) ||
+      dimResult.dimensionSpec ||
+      null;
 
     // Stap 2: Strikte Discipline Gating: configuration_spec is UITSLUITEND voor geautoriseerde maatwerkdisciplines
     const isCustomDiscipline = /^(1|2|3|5)\./.test(groupCode);
@@ -391,7 +417,8 @@ export class OrderIntakeService {
         assignedConfigSpec,
         serviceDisciplineCode,
         usedSubLines,
-        spatial
+        spatial,
+        dimResult
       );
     }
 
@@ -424,7 +451,7 @@ export class OrderIntakeService {
       spatial_metadata: spatial,
       dim: derivedDim,
       notes: rawLine.notes || null,
-      dimension_spec: rawLine.dimension_spec || null,
+      dimension_spec: assignedDimensionSpec,
       configuration_spec: assignedConfigSpec,
       // Bronze Layer velden:
       lt_raw_data: rawLine.lt_raw_data || rawLine.raw_data || null,

@@ -16,6 +16,7 @@ import {
   PricingMode,
   Room,
 } from '../types/matrix';
+import { dimensionExtractionEngine } from '@/domain/orders/dimension-extraction-engine';
 
 export const STAIRS_SURCHARGES = {
   openTrapCents: 800,           // +€ 8,00 per trede voor rondom stoffering
@@ -278,137 +279,14 @@ export function calculateOrderTotalCents(order: MatrixOrder): number {
  * Parseert een dimensietekst of categorie naar een polymorfe DimensionSpec contract.
  */
 export function parseDimensionSpec(dim?: string, category?: string): DimensionSpec {
-  const normCategory = (category || '').toLowerCase();
-  const cleaned = (dim || '').trim();
-
-  // 1. Trappen detectie
-  const isStairsCategory = /trap/i.test(normCategory);
-  const stairsMatch = cleaned.match(/(\d+)\s*(?:trede|treden|stappen|tredes)/i);
-  if (isStairsCategory || stairsMatch) {
-    const stepsCount = stairsMatch ? parseInt(stairsMatch[1], 10) : 13;
-    const isRenovation = /renovatie/i.test(normCategory) || /renovatie/i.test(cleaned);
-    const isLoper = /loper/i.test(normCategory) || /loper/i.test(cleaned);
-    const isStoffering = /stoffering/i.test(normCategory) || /stoffering/i.test(cleaned);
-
-    const stairType = isRenovation ? 'renovatie' : isLoper ? 'loper' : isStoffering ? 'stoffering' : 'dicht';
-    const isOpen = /open/i.test(cleaned);
-    const hasRisers = isRenovation ? !isOpen || /stootbord|dicht/i.test(cleaned) : false;
-    const ledLighting = /led/i.test(cleaned);
-    const bandering = /bandering|gebandeerd|feston/i.test(cleaned);
-
-    return {
-      type: 'stairs',
-      stepsCount: Math.max(1, stepsCount),
-      stairType,
-      isOpen,
-      hasRisers,
-      ledLighting,
-      bandering,
-    };
-  }
-
-  // 2. Vloeren detectie
-  const isFloorCategory = /vloer|pvc|laminaat|parket|ondervloer/i.test(normCategory);
-  const floorMatch = cleaned.match(/([\d.,]+)\s*(?:m2|m²)/i);
-  if (isFloorCategory || floorMatch) {
-    const netAreaStr = floorMatch ? floorMatch[1].replace(',', '.') : '0';
-    const netAreaM2 = Math.max(0, parseFloat(netAreaStr) || 0);
-    const wasteMatch = cleaned.match(/(?:\+(\d+)%|\((\d+)%\)\s*snijverlies|\+(\d+)\s*%\s*snijverlies)/i);
-    const wastePercentage = wasteMatch ? parseInt(wasteMatch[1] || wasteMatch[2] || wasteMatch[3], 10) : 10;
-    const grossAreaM2 = Math.round(netAreaM2 * (1 + wastePercentage / 100) * 100) / 100;
-
-    return {
-      type: 'floor_area',
-      netAreaM2,
-      wastePercentage,
-      grossAreaM2,
-    };
-  }
-
-  // 3. Gordijnen & Raambekleding 2D prioritering
-  const isWindowCategory = /raam|duette|plisse|jaloezie|hor|gordijn/i.test(normCategory);
-  const window2DMatch = cleaned.replace(/×/g, 'x').match(/(\d+)\s*x\s*(\d+)/i);
-  if (window2DMatch) {
-    const widthMm = parseInt(window2DMatch[1], 10);
-    const heightMm = parseInt(window2DMatch[2], 10);
-    if (/gordijn/i.test(normCategory) || /gordijn/i.test(cleaned)) {
-      return {
-        type: 'curtain_linear',
-        widthMm,
-        heightMm,
-        pleatFactor: 2.0,
-      };
-    }
-    return {
-      type: 'window_2d',
-      widthMm,
-      heightMm,
-      areaM2: Math.round(((widthMm * heightMm) / 1_000_000) * 100) / 100,
-    };
-  }
-
-  // 4. Gordijnen lineair
-  const curtainLinearMatch = cleaned.match(/(\d+)\s*(?:mm|m1|cm)?/i);
-  if (/gordijn/i.test(normCategory) && curtainLinearMatch) {
-    const widthMm = parseInt(curtainLinearMatch[1], 10);
-    return {
-      type: 'curtain_linear',
-      widthMm,
-      pleatFactor: 2.0,
-    };
-  }
-
-  // 5. Fallback 2D window als standaard
-  if (isWindowCategory && curtainLinearMatch) {
-    const widthMm = parseInt(curtainLinearMatch[1], 10);
-    return {
-      type: 'window_2d',
-      widthMm,
-      heightMm: 2600,
-      areaM2: Math.round(((widthMm * 2600) / 1_000_000) * 100) / 100,
-    };
-  }
-
-  // 6. Standaard fallback: piece_service
-  return {
-    type: 'piece_service',
-    unit: 'stuks',
-  };
+  return dimensionExtractionEngine.parseDimensionString(dim || '', category);
 }
 
 /**
  * Formatteert een DimensionSpec terug naar een heldere, consistente tekstuele weergave.
  */
 export function formatDimensionSpec(spec: DimensionSpec): string {
-  switch (spec.type) {
-    case 'stairs': {
-      const parts: string[] = [];
-      if (spec.isOpen) parts.push('open');
-      if (spec.stairType === 'renovatie' && spec.hasRisers) parts.push('dicht');
-      if (spec.ledLighting) parts.push('LED');
-      if (spec.bandering) parts.push('gebandeerd');
-
-      const optionsStr = parts.length > 0 ? ` (${parts.join(' + ')})` : '';
-      return `${spec.stepsCount} treden${optionsStr}`;
-    }
-    case 'floor_area': {
-      const wasteStr = spec.wastePercentage ? ` (+${spec.wastePercentage}% snijverlies)` : '';
-      const areaFormatted = spec.netAreaM2.toString().replace('.', ',');
-      return `${areaFormatted} m²${wasteStr}`;
-    }
-    case 'window_2d': {
-      return `${spec.widthMm} × ${spec.heightMm}`;
-    }
-    case 'curtain_linear': {
-      if (spec.heightMm) {
-        return `${spec.widthMm} × ${spec.heightMm}`;
-      }
-      return `${spec.widthMm} mm`;
-    }
-    case 'piece_service':
-    default:
-      return 'Vast tarief';
-  }
+  return dimensionExtractionEngine.formatDimensionSpec(spec) || 'Vast tarief';
 }
 
 /**

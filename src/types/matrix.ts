@@ -5,7 +5,7 @@
  * Strikt client-safe zonder afhankelijkheid van Node.js runtime scripts (fs, path).
  */
 
-import type { ConfigurationSpec } from '@/types/order-intake';
+import type { ConfigurationSpec, DimensionSpec } from '@/types/order-intake';
 
 export interface LogicTradeOrderLine {
   line: number;
@@ -19,46 +19,12 @@ export interface LogicTradeOrderLine {
   positionName?: string;
   roomName?: string;
   etageName?: string | null;
+  dimensionSpec?: DimensionSpec;
 }
 
 export type PricingMode = 'm2' | 'm1_width' | 'm1_height' | 'unit';
 
-export type DimensionSpec =
-  | {
-      type: 'window_2d';
-      widthMm: number;
-      heightMm: number;
-      areaM2?: number;
-    }
-  | {
-      type: 'floor_area';
-      netAreaM2: number;
-      wastePercentage: number;
-      grossAreaM2?: number;
-      packageSizeM2?: number;
-      packageCount?: number;
-    }
-  | {
-      type: 'curtain_linear';
-      widthMm: number;
-      heightMm?: number;
-      pleatFactor?: number;
-      fabricWidthMm?: number;
-    }
-  | {
-      type: 'stairs';
-      stepsCount: number;
-      stairType: 'dicht' | 'open' | 'renovatie' | 'stoffering' | 'loper';
-      hasRisers?: boolean;
-      isOpen?: boolean;
-      ledLighting?: boolean;
-      bandering?: boolean;
-      widthMm?: number;
-    }
-  | {
-      type: 'piece_service';
-      unit?: string;
-    };
+export type { DimensionSpec };
 
 export interface DimensionLimits {
   minWidth?: number;

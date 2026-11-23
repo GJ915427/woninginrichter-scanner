@@ -5,6 +5,44 @@
  * configuratie-extractie en PostgreSQL transactionele stored procedure interfaces.
  */
 
+export type DimensionSpec =
+  | {
+      type: 'window_2d';
+      widthMm: number;
+      heightMm: number;
+      areaM2?: number;
+    }
+  | {
+      type: 'floor_area';
+      netAreaM2: number;
+      wastePercentage: number;
+      grossAreaM2?: number;
+      packageSizeM2?: number;
+      packageCount?: number;
+    }
+  | {
+      type: 'curtain_linear';
+      widthMm: number;
+      heightMm?: number;
+      linearMeters?: number;
+      pleatFactor?: number;
+      fabricWidthMm?: number;
+    }
+  | {
+      type: 'stairs';
+      stepsCount: number;
+      stairType: 'dicht' | 'open' | 'renovatie' | 'stoffering' | 'loper';
+      hasRisers?: boolean;
+      isOpen?: boolean;
+      ledLighting?: boolean;
+      bandering?: boolean;
+      widthMm?: number;
+    }
+  | {
+      type: 'piece_service';
+      unit?: string;
+    };
+
 export interface ConfigurationDimensions {
   width_mm?: number;
   height_mm?: number;
@@ -162,7 +200,7 @@ export interface RawOrderLineInput {
   spatial_metadata?: ExtractedSpatialMetadata | null;
   dim?: string | null;
   notes?: string | null;
-  dimension_spec?: Record<string, unknown> | null;
+  dimension_spec?: DimensionSpec | Record<string, unknown> | null;
   width_mm?: number;
   height_mm?: number;
   options?: string[];
@@ -254,7 +292,7 @@ export interface IngestedOrderLine {
   spatial_metadata?: ExtractedSpatialMetadata | null;
   dim?: string | null;
   notes?: string | null;
-  dimension_spec?: Record<string, unknown> | null;
+  dimension_spec?: DimensionSpec | null;
   configuration_spec?: ConfigurationSpec | null;
   // Non-destructive Bronze Layer velden met lt_ prefix:
   lt_raw_data?: Record<string, unknown> | null;

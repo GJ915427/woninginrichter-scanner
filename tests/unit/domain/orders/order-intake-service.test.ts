@@ -575,4 +575,109 @@ describe('OrderIntakeService & Hybrid Line Ingest SSOT', () => {
       expect(raw.lines[0].etage_name).toBeNull();
     });
   });
+
+  // [SPEC-CHANGE-AUTHORIZED: Uitbreiding order-intake-service.test.ts met wiskundige maten-extractie, e-Order synthese en fantoom-bleed sanering]
+  describe('Wiskundige Maten-Extractie & Dimensie Integratie (TC-DIM-01)', () => {
+    it('kent dimension_spec en dim toe aan ingested order regels', async () => {
+      const rawOrder: RawLogicTradeOrderInput = {
+        order_number: 'V26002001',
+        lines: [
+          {
+            line_number: 10,
+            product_code: 'A0001',
+            description: 'Rolgordijn 1200x1800mm',
+            quantity: 1,
+            unit_price_cents: 15000,
+          },
+        ],
+      };
+
+      const result = await service.processOrderIntake(rawOrder);
+      expect(result.lines).toHaveLength(1);
+      const line = result.lines[0];
+      expect(line.dim).toBe('1200 × 1800');
+      expect(line.dimension_spec).toEqual({
+        type: 'window_2d',
+        widthMm: 1200,
+        heightMm: 1800,
+        areaM2: 2.16,
+      });
+    });
+
+    it('synthetiseert e-Order configuratiematen indien tekst geen maten bevat', async () => {
+      const rawOrder: RawLogicTradeOrderInput = {
+        order_number: 'V26002002',
+        lines: [
+          {
+            line_number: 10,
+            product_code: 'UNILUX-01',
+            description: 'Unilux Plisséhordeur',
+            quantity: 1,
+            configuration: {
+              items: [
+                {
+                  code: 'BREEDTE',
+                  value: '950',
+                  numeric_value: 950,
+                  unit: 'mm',
+                },
+                {
+                  code: 'HOOGTE',
+                  value: '2150',
+                  numeric_value: 2150,
+                  unit: 'mm',
+                },
+              ],
+            },
+          },
+        ],
+      };
+
+      const result = await service.processOrderIntake(rawOrder);
+      expect(result.lines).toHaveLength(1);
+      const line = result.lines[0];
+      expect(line.dim).toBe('950 × 2150');
+      expect(line.dimension_spec).toEqual({
+        type: 'window_2d',
+        widthMm: 950,
+        heightMm: 2150,
+        areaM2: 2.04,
+      });
+    });
+
+    it('saneert fantoom-dimensies bij hybride regels: materiaal behoudt maat, service krijgt null en piece_service', async () => {
+      const rawOrder: RawLogicTradeOrderInput = {
+        order_number: 'V26002003',
+        lines: [
+          {
+            line_number: 10,
+            product_code: 'DUETTE-HYBRID',
+            description: 'Duette SmartCord 1400x2000 incl montage',
+            quantity: 1,
+            is_hybrid: true,
+          },
+        ],
+      };
+
+      const result = await service.processOrderIntake(rawOrder);
+      expect(result.lines).toHaveLength(2);
+      const matLine = result.lines[0];
+      const servLine = result.lines[1];
+
+      expect(matLine.dim).toBe('1400 × 2000');
+      expect(matLine.dimension_spec).toEqual({
+        type: 'window_2d',
+        widthMm: 1400,
+        heightMm: 2000,
+        areaM2: 2.8,
+      });
+
+      // Fantoom-dimensie sanering op serviceregel:
+      expect(servLine.dim).toBeNull();
+      expect(servLine.dimension_spec).toEqual({
+        type: 'piece_service',
+        unit: 'stuks',
+      });
+    });
+  });
 });

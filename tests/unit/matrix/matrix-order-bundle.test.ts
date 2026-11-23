@@ -122,6 +122,13 @@ describe('Matrix Order Bundle Engine (Pure Node Vitest)', () => {
       expect(serviceProd!.posPrices['pos_1'].subLine).toBe(1);
       expect(matrixOrder.rawLines[0].subLine).toBe(0);
       expect(matrixOrder.rawLines[1].subLine).toBe(1);
+
+      // [SPEC-CHANGE-AUTHORIZED: Matrix bundle testsuite uitbreiden met wiskundige maten-extractie en polymorfe DimensionSpec asserties]
+      expect(product!.posPrices['pos_1'].dimensionSpec).toEqual({
+        type: 'window_2d',
+        widthMm: 1100,
+        heightMm: 2240,
+      });
     });
 
     // [SPEC-CHANGE-AUTHORIZED: Matrix bundle pariteit voor pos_project_algemeen uitsluiting en cluster partitie]
