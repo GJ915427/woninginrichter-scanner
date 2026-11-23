@@ -1,6 +1,6 @@
 # Domein- en Procesmodel Woninginrichting (EasyM2M)
 
-> **Specificatieversie:** 53.0.0 (V53 MVP Harmonised Master Baseline)  
+> **Specificatieversie:** 54.0.0 (V54 Medallion Architectuur & GSW Baseline)  
 >   
 > **Het Doel:**  
 > *"Een tevreden klant die blij is met het eindresultaat én de wijze waarop dit resultaat tot stand is gekomen."*  
@@ -109,25 +109,50 @@ Het procesmodel van EasyM2M onderkent zeven primaire rollen die als een estafett
 *(Voor de gedetailleerde taakomschrijvingen, de vier-ogencontrole en de fijnmazige RBAC-portaalrechten per rol: zie Deel 5, §5.2 en §5.4).*
 
 ### 1.3 Systeemarchitectuur & Integratiekader (ERP & Outlook)
-* **ERP-integratie & Gegevenscyclus (LogicTrade SSOT in V1 — `INV-ERP-01`, `INV-LT-API-01`, `INV-GOV-21C`):** In Versie 1 (V1 MVP) is LogicTrade (LT) het leidende ERP-systeem en de financiële/calculatie SSOT. Via de LogicTrade REST API worden geen geconfigureerde orderregels gemuteerd (`INV-LT-API-01`): EasyM2M pusht geen configuraties terug naar LT, maar leest LT-offertes en verkooporders continu via een idempotente 1-seconde LT->Supabase synchronisatie. Het proces verloopt volgens vier vaste pijlers:
-  1. *Conceptofferte & Order in LT:* De verkoopadviseur configureert in LT de initiële conceptofferte of verkooporder (artikelen, opties, globale conceptmaten en notities).
-  2. *Inlezing & `2D` vs. `non-2D` Decompositie (`INV-M2M-03` & Bindend Ingest-Contract):*
-     * **2D-gedecomponeerde producten** (`productgroep` in `'gordijnen'`, `'raamdecoratie'`, `'buitenzonwering'` met 2D `dimension_spec` / `productiemaat_*` per positie): elke individuele `ProductToewijzing` vertegenwoordigt `aantal_besteld = 1`; een LT-regel met `quantity = N` correspondeert met $N$ discrete Niveau 6 Posities met dezelfde `lt_context.lt_offerte_regel_id` (`LogicTradeOrderLine.id`). LT-sync vergelijkt per dochterregel op `productiemaat_breedte_mm`, `productiemaat_hoogte_mm`, `artikel_code_erp`, `montagewijze` en `opties` (zonder `aantal_besteld` te vermenigvuldigen).
-     * **Kwantitatieve / `non-2D` producten** (`'vloeren'`, `'trappen'`, `'diensten'`, of continue eenheden `m2`, `m1`, `pak`, `uur`, `forfait`): worden **nooit** automatisch gesplitst en blijven gealloceerd als 1 kwantitatieve toewijzing op het betreffende vlak (§2.6.1) of onder `pos_project_algemeen` (§2.8). `aantal_besteld` (uitsluitend bij ongesplitste `count(actief) === 1`; bij in M2M gesplitste `non-2D` met `count(actief) > 1` wordt `aantal_besteld` in `Stap 3` overgeslagen zodat gesplitste aantallen intact blijven voor `Conditie 5`) en `eenheid` worden 1-op-1 vergeleken en gesynchroniseerd naast `artikel_code_erp` en `opties`.
-     * **Geklemde Doelaantal-Functie:** Definieer voor elke LT-orderregel uniform:
-       $$\text{expected\_active\_records}(\text{lt\_line}) := \begin{cases} \max(0, \text{lt\_line.quantity}) & \text{voor } 2\text{D} \\ 1 \text{ (indien } \text{lt\_line.quantity} > 0\text{) anders } 0 & \text{voor non-}2\text{D} \end{cases}$$
-       zodat `expected_active_records(lt_line) === 0` voor zowel `2D` als `non-2D` strikt gelijkwaardig is aan `lt_line.quantity <= 0` (inclusief negatieve credit-/stornoregels).
-     * **Bindend Database-Ingest Contract (`ingest_logictrade_order`):** De SQL-/backend-ingest mag nooit brede `DELETE FROM order_lines` of blind wissen van gevulde/lege `dimension_spec` uitvoeren; zij moet 2D-decompositie (`quantity = N`), de strikte `Stap 2 -> Stap 4` reconciliatievolgorde, ongekoppelde M2M-toevoegingen (`lt_offerte_regel_id === undefined`), fysiek gemonteerde records (`'geleverd' | 'gereed'`) en pure M2M-inmeetdata (ruimtes, vlakken, foto's, 50cm-meetpunten, checklist, `Positie.configuratiestatus`) te allen tijde waarborgen.
-  3. *Inmeten, Verificatie & Tijdstiploze Diff-Rapportage (`INV-M2M-DIFF-01`):* De inmeter controleert op de tablet alle pre-gepopuleerde specificaties en maten, wijzigt deze waar bouwkundig nodig (gelogd via `AuditVeldMutatie`), zet gecontroleerde posities definitief via `[ Definitief Maken ]` (waarmee `Configuratiestatus` op `'definitief'` komt) en registreert eventuele uitval (via [×] Annuleren, first-class `annulering: AnnuleringInfo`) of nieuwe M2M-toevoegingen (`lt_context?.lt_offerte_regel_id === undefined`). EasyM2M herberekent ter plekke geen verkoopprijzen (`INV-M2M-04`). De pariteitscheck met LogicTrade gaat **uitsluitend over velden die ook daadwerkelijk in LogicTrade worden geadministreerd; media/foto's, notities en opmerkingen maken géén onderdeel uit van de LT-pariteitscheck (de exacte veldselectie voor de pariteitscheck wordt in een latere fase geconfigureerd)**. Zonder kunstmatige snapshot-hashes of synchronisatietijdstippen toont EasyM2M te allen tijde het overzichtelijke `LTDiffRapport` (met PDF-export en klembord-kopieerfunctie) met daarin uitsluitend de zuivere verschillen:
+* **Het 3-Lagen Medallion Model (Brons → Zilver → Goud — `INV-ERP-01`, `INV-LT-API-01`, `INV-GOV-21C`):**
+  De data-architectuur van EasyM2M is fundamenteel gestructureerd volgens het Medallion Model (Brons → Zilver → Goud). Dit garandeert een onverwoestbare scheiding tussen ruwe ERP-grondwaarheid, genormaliseerde domeinentiteiten en flexibele operationele buitendienstdata:
+
+  1. **Brons (Ruwe Grondwaarheid / Raw Truth):**
+     * **1-op-1 Ruwe LogicTrade Import:** Wordt opgeslagen in dedicated `lt_*` tabellen en kolommen (`orders.lt_raw_data`, `order_lines.lt_raw_data`, `orders.lt_raw_hash`, `order_lines.lt_configuration_json`, `orders.origin_code = 'Winkel GSW BV'`, `logictrade_products`, `logictrade_customers`, `logictrade_suppliers`, `logictrade_purchase_orders`, `logictrade_configurator_options`, `logictrade_configurator_values`, `logictrade_sync_leases`).
+     * **Cryptografische Immutabiliteit (`INV-RAW-IMMUTABILITY-01`):** Ruwe importtabellen zijn voorzien van PostgreSQL database-triggers die mutaties blokkeren en de SHA-256 hash valideren.
+     * **GSW-Winkelscope & Catalogus:** Synchroniseert uitsluitend de actieve artikelen (~753) van GSW (`originCode = 'Winkel GSW BV'`), inclusief 58 generieke containerartikelen (`is_generic_container = true`) en virtuele Vadain productcodes.
+     * **Multi-Lane Continue Delta-Synchronisatie:** Idempotente, continue multi-lane achtergrondsynchronisatie:
+       * *Lane 1 (1s interval):* Orders & Offertes (`orders_quotes`)
+       * *Lane 2 (5s interval):* Inkooporders & Klanten (`purchase_orders_customers`)
+       * *Lane 3 (30s interval):* Leveranciers (`suppliers`)
+       * *Continu:* Configurator opties & waarden (`configurator`)
+     * **Dedicated DB-Ingest RPCs:** `ingest_logictrade_order`, `ingest_logictrade_quote`, `ingest_logictrade_purchase_order`, `ingest_logictrade_product_catalog`.
+     * **Bindend Database-Ingest Contract (`ingest_logictrade_order`):** De database-ingest is puur een Brons-ingest procedure (met offerte-reconciliatie). 2D-decompositie (`quantity = N`) en Niveau 6 posities zijn Zilver/Goud logica en maken géén deel uit van de database-ingest. De ingest voert nooit brede `DELETE` queries uit en bewaart te allen tijde M2M-inmeetdata.
+
+  2. **Zilver (Genormaliseerd Domeinmodel / Normalized Domain):**
+     * **4-Traps Extractie via `ConfigurationExtractionEngine`:** Deterministische decodering van configuraties via Trap 1 (JSON `lt_configuration_json`), Trap 2 (Plaintext `lt_configuration`), Trap 3 (Tokenized regex fallback), en Trap 4 (Handmatige/Vrije tekst annotaties). `NormalizedDimensionSpec` representeert deze extractietrap en verdringt de rijke domein-`DimensionSpec` interfaces niet.
+     * **Taxonomische Indeling & Fallback `9.9`:** Classificatie naar categorieën en productgroepen (`categories`, `product_groups`), met behoud van de officiële technische fallback-groep `9.9 Niet geclassificeerd` voor containerartikelen (`Algemeen artikel...`).
+     * **Hybride Dienstsplitsing:** Scheiding van materiaal- en montageregels.
+     * **Offerte-Reconciliatie:** `converted_to_order_id` koppelt offerteregels automatisch aan definitieve orderregels met behoud van alle toewijzingen en lasermaten.
+     * **Deduplicatie & SSOT Views:** `active_orders`, `active_quotes`, `active_catalog`, `active_order_lines`.
+     * **Co-existentie & Preservering (`p_preserve_silver = true`):** Herinlezen van een order overschrijft nooit reeds verwerkte Zilver-extracties en Goud-posities.
+
+  3. **Goud (Werkmatrix & Buitendienst / Operational Field & Matrix):**
+     * **Buitendienstportaal & Werkmatrix:** Het operationele hart van EasyM2M.
+     * **Werkelijke Lasermaten (`PositieMeting`):** Dagmaten, 50cm-rastermetingen, bouwkundige spelingen en montagelijnen.
+     * **7-Niveaus Ruimtelijke Toewijzing:** Toewijzing van producten en diensten aan `Project`, `Object`, `Verdieping`, `Ruimte`, `Vlak`, `Positie`, of projectbreed via `pos_project_algemeen` (waarbij parent FKs `object_id?`, `verdieping_id?`, `ruimte_id?`, `vlak_id?` optioneel zijn).
+     * **Binaire `Configuratiestatus`:** Strikt beperkt tot `'concept' | 'definitief'`. Definitief maken gebeurt via `[ Definitief Maken ]`; hermeting geschiedt door terugzetten naar `'concept'` met reden in `AuditVeldMutatie`.
+     * **Fysieke `Montagestatus`:** Strikt beperkt tot `'te_monteren' | 'geleverd' | 'gereed'`.
+     * **First-Class Lifecycle State `annulering: AnnuleringInfo | null`:** Soft-delete (`[×]`) met behoud van lasermaten en 1-klik herstel.
+     * **Integrale Rich Domain Entity `ProductToewijzing`:** Behoud van alle category types, 14 montagewijzen, opties en stuklijsten.
+     * **Generieke Checklist-Engine (`INV-CHK-01`):** Inspecties over alle 7 niveaus met 6 actietriggers.
+     * **`AuditVeldMutatie` Logging:** Audittrail voor elke mutatie.
+
+  4. **Scharnier LTDiffRapport (Goud vs. Brons — `INV-M2M-DIFF-01`):**
+     * Het `LTDiffRapport` is het formele scharnierpunt dat het verschil berekent tussen de operationele toestand in **Goud** (werkelijke inmeetmaten, toewijzingen, annuleringen `[×]`, toevoegingen `[+]`, 2D-splitsingen) en de actuele grondwaarheid in **Brons** (wat actueel in LogicTrade geregistreerd staat), conform het canonieke V53-contract met behoud van `product_toewijzing_ids?: string[]` en `actie_voor_lt: 'splitsen'`.
      * *Gewijzigde specificaties:* LT-gekoppelde toewijzingen waarvan inmeetmaten, opties of montagewijze afwijken van de actuele LT-orderregel.
      * *Nieuwe toevoegingen in M2M:* Nieuw aangemaakte items/lagen zonder `lt_offerte_regel_id` die in LT als orderregel moeten worden toegevoegd.
      * *Annuleringen / vervallen regels:* Items die in M2M via `[×]` zijn geannuleerd (`annulering !== null`) en in LT geannuleerd/op 0 gezet moeten worden.
-  4. *LogicTrade is ALTIJD de SSOT (ook na montage) & Eenvoudige Sync (`INV-LT-CONVERGE-01`):*
-     * **SSOT Boven Alles:** LogicTrade is en blijft de absolute SSOT voor orderregels en aantallen. Wijzigingen in LT worden altijd direct in EasyM2M doorgevoerd.
-     * **Convergentie-Invariant (`INV-LT-CONVERGE-01`):** De periodieke 1s-tick overschrijft nooit blind een in EasyM2M zojuist gewijzigd veld terug naar de oude LT-waarde zolang de LT-waarde zelf nog ongewijzigd is (de tick convergeert pas zodra LT is bijgewerkt).
-     * **Nieuwe LT-orderregels:** Alle nieuwe orderregels in LogicTrade (zowel bij initiële order-ingest als bij latere toevoegingen in een bestaande order) volgen exact hetzelfde uniforme proces: zij landen via de periodieke 1s-tick automatisch in `pos_project_algemeen` van het project en worden daar via het standaard proces door de gebruiker aan een positie toegewezen.
-     * **Verwijdering of aantalverlaging in LT:** Wordt in EasyM2M direct gevolgd: de betreffende toewijzing wordt geannuleerd of verwijderd op toewijzingsniveau, met strikt behoud van de onderliggende `Positie`, dagmaten, foto's en inspecties.
-     * **Wijzigingen in LT na montage:** Indien een waarde in LT wijzigt nadat een item de `Montagestatus` `'geleverd'` of `'gereed'` heeft bereikt, wordt de waarde in EasyM2M bijgewerkt en gelogd in `AuditVeldMutatie`. Het `LTDiffRapport` toont te allen tijde transparant wat er synchroon loopt of afwijkt.
+     * *LogicTrade Pariteit:* De pariteitscheck met LogicTrade gaat **uitsluitend over velden die ook daadwerkelijk in LogicTrade worden geadministreerd; media/foto's, notities en opmerkingen maken géén onderdeel uit van de LT-pariteitscheck (de exacte veldselectie voor de pariteitscheck wordt in een latere fase geconfigureerd)**.
+     * *Convergentie-Invariant (`INV-LT-CONVERGE-01`):* De periodieke 1s-tick overschrijft nooit blind een in EasyM2M zojuist gewijzigd veld terug naar de oude LT-waarde zolang de LT-waarde zelf nog ongewijzigd is (de tick convergeert pas zodra LT is bijgewerkt).
+     * *Nieuwe LT-orderregels:* Alle nieuwe orderregels in LogicTrade (zowel bij initiële order-ingest als bij latere toevoegingen in een bestaande order) volgen exact hetzelfde uniforme proces: zij landen via de periodieke 1s-tick automatisch in `pos_project_algemeen` van het project en worden daar via het standaard proces door de gebruiker aan een positie toegewezen.
+     * *Verwijdering of aantalverlaging in LT:* Wordt in EasyM2M direct gevolgd: de betreffende toewijzing wordt geannuleerd of verwijderd op toewijzingsniveau, met strikt behoud van de onderliggende `Positie`, dagmaten, foto's en inspecties.
+     * *Wijzigingen in LT na montage:* Indien een waarde in LT wijzigt nadat een item de `Montagestatus` `'geleverd'` of `'gereed'` heeft bereikt, wordt de waarde in EasyM2M bijgewerkt en gelogd in `AuditVeldMutatie`. Het `LTDiffRapport` toont te allen tijde transparant wat er synchroon loopt of afwijkt.
 * **Tweeweg Agendasynchronisatie (Outlook):** De agenda in het portaal en Microsoft Outlook is volledig tweeweg gesynchroniseerd. Zodra een inmeet- of montageorder wordt ingepland of gewijzigd (in het portaal óf in Outlook), wordt dit realtime over en weer bijgewerkt. *(De automatische herbevestiging van datumwijzigingen naar de klant is gereserveerd voor de backlog).*
 
 ### 1.4 Hoofdlijnen van de 6 Ketenfasen & Conditionele Workflow-Overgangen (Gates)
@@ -141,13 +166,13 @@ Het complete maatwerktraject verloopt organisatorisch via 6 vaste ketenfasen (1.
     * **Traject A (Meetgestuurd / Regulier):** Intake & Wensen (optioneel gestart met globale conceptmaten) → Inmeetafspraak plannen & inmeting op locatie → Maten op 'definitief' via `[ Definitief Maken ]` → Calculatie & Offerte → Orderakkoord (projectstatus `Order`).  
     * **Traject B (Showroom-direct / Directe Order):** Intake met globale conceptmaten in showroom → Direct commercieel akkoord & Orderbevestiging (projectstatus `Order`, configuratiestatus op `concept`) → Inmeetactie op locatie ter verificatie → Maten op 'definitief' via `[ Definitief Maken ]` → Vrijgave inkoop in ERP.  
     Tijdens de inmeetactie meet de inmeter op locatie alle posities exact in, maakt overzichts- en detailfoto's en legt schetsen en montagerichtlijnen vast. Eventueel voorafgegaan door een schouw (conceptmeting in ruwbouw). De inmeettool is softwarematig leidend en dwingend: inmetingen kunnen niet worden afgesloten zonder verplichte parameters zoals montagehoogtes, ondergronden en plintinstructies.  
-  * *Gate (Afsluiting):* Formeel afgesloten zodra alle ruimtelijke Niveau 6 Posities (`id !== 'pos_project_algemeen'`) met minimaal 1 niet-geannuleerde fysieke producttoewijzing (`status !== 'geannuleerd' && productgroep !== 'diensten'`) definitief zijn gemaakt via `[ Definitief Maken ]` (en er 0 fysieke toewijzingen op `status === 'draft'` resteren, inclusief onder `pos_project_algemeen`) en de inmeter het inmeetbezoek afrondt. Een Niveau 6 Positie waarvan alle onderliggende `ProductToewijzing`-records de status `'geannuleerd'` hebben (of 0 niet-geannuleerde fysieke toewijzingen resteren), wordt automatisch als vrijgesteld beschouwd en blokkeert de afsluiting van het inmeetdossier niet zolang alle overige posities met niet-geannuleerde fysieke toewijzingen definitief zijn.
+  * *Gate (Afsluiting):* Formeel afgesloten zodra alle ruimtelijke Niveau 6 Posities (`id !== 'pos_project_algemeen'`) met minimaal 1 niet-geannuleerde fysieke producttoewijzing (`annulering === null && productgroep !== 'diensten'`) definitief zijn gemaakt via `[ Definitief Maken ]` (en er 0 fysieke toewijzingen op `configuratiestatus === 'concept'` resteren, inclusief onder `pos_project_algemeen`) en de inmeter het inmeetbezoek afrondt. Een Niveau 6 Positie waarvan alle onderliggende `ProductToewijzing`-records via `[×]` zijn geannuleerd (`annulering !== null`, of 0 niet-geannuleerde fysieke toewijzingen resteren), wordt automatisch als vrijgesteld beschouwd en blokkeert de afsluiting van het inmeetdossier niet zolang alle overige posities met niet-geannuleerde fysieke toewijzingen definitief zijn.
 * **Fase 2: De Offertefase**  
   * *Inhoud:* Indien de klant in de showroom niet direct tot aankoop overgaat, stelt de adviseur op basis van de intake of een voorafgaande inmeting een gespecificeerde offerte op in LogicTrade ERP. De offerte bevat gedetailleerde calculaties en voorwaarden. **Verplichte Conceptmaten-Clausule:** Indien een offerte wordt opgesteld op basis van conceptmaten, wordt er automatisch en verplicht een vaste bepalingsregel opgenomen: *"Deze offerte/orderbevestiging is gebaseerd op voorlopige conceptmaten; specificaties, benodigde hoeveelheden en prijzen worden definitief vastgesteld en eventueel herzien zodra de definitieve inmeting op locatie heeft plaatsgevonden en eventuele maatafwijkingen zijn geconstateerd."*  
   * *Gate (Afsluiting):* Formeel afgesloten met een door de klant geaccordeerde offerte die in LogicTrade ERP wordt omgezet naar een verkooporder (projectstatus `Order`).
 * **Fase 3: De Orderfase**  
   * *Inhoud:* Het project bevindt zich in de actieve orderstatus (hetzij rechtstreeks ontstaan vanuit de showroomintake op conceptmaten, hetzij na acceptatie van de offerte). Indien er nog posities met configuratiestatus `concept` aanwezig zijn, moet de transversale inmeetactie op locatie worden uitgevoerd alvorens de order technisch kan worden vrijgegeven voor productie en inkoop.
-  * *Gate (Afsluiting):* Alle ruimtelijke posities (`id !== 'pos_project_algemeen'`) met min. 1 niet-geannuleerde fysieke toewijzing (`productgroep !== 'diensten'`) bezitten `configuratiestatus === 'definitief'`, alle niet-geannuleerde fysieke toewijzingen (inclusief onder `pos_project_algemeen`) bezitten status `'definitief' | 'geleverd' | 'gereed'`, en de order is administratief en technisch gevalideerd voor inkoop. Posities zonder niet-geannuleerde fysieke toewijzingen (volledig geannuleerd met `annulering !== null` of louter diensten) zijn vrijgesteld.
+  * *Gate (Afsluiting):* Alle ruimtelijke posities (`id !== 'pos_project_algemeen'`) met min. 1 niet-geannuleerde fysieke toewijzing (`productgroep !== 'diensten'`) bezitten `configuratiestatus === 'definitief'`, alle niet-geannuleerde fysieke toewijzingen (inclusief onder `pos_project_algemeen`) bezitten `configuratiestatus === 'definitief' && (montagestatus === 'te_monteren' || montagestatus === 'geleverd' || montagestatus === 'gereed')`, en de order is administratief en technisch gevalideerd voor inkoop. Posities zonder niet-geannuleerde fysieke toewijzingen (volledig geannuleerd met `annulering !== null` of louter diensten) zijn vrijgesteld.
 * **Fase 4: De Bestelfase (Interne Controle & Inkoop in LogicTrade ERP — INV-ERP-02)**  
   * *Inhoud:* Het daadwerkelijk bestellen en inkopen van materialen is 100% het domein van LogicTrade ERP en geen handeling in EasyM2M (het portaal kent dan ook géén bestelknop of blokkerende bestelstatus; het project behoudt in het portaal de status `Order`). Binnen LogicTrade voert de controleur/werkvoorbereider de vier-ogen kwaliteitscontrole uit op meet- en verkoopdata ter voorkoming van overname- en invoerfouten, gevolgd door verzending van inkooporders naar leveranciers. Bevat de verplichte Orderbevestiging-validatie (ACK Gate) en Spookorder-Alerting ter voorkoming van niet-geproduceerde orders*.  
   * *Gate (Afsluiting in ERP):* Formeel afgesloten binnen LogicTrade met geaccordeerde **Inkooporders** voorzien van geregistreerd fabrikant-bevestigingsnummer en verwachte leverweek; deze geaccordeerde inkooporder met verwachte leverweek vormt reeds de montagetrigger voor de planner, waarna de fysieke binnenmelding van goederen in het magazijn fungeert als definitieve verificatie vóór montage.
@@ -186,11 +211,11 @@ Het complete maatwerktraject verloopt organisatorisch via 6 vaste ketenfasen (1.
 * **Gewenste Montagedatum & Afspraakregels:** Vastlegging van een eventuele gewenste montagedatum door de klant (bijv. bij een gefaseerde verbouwing). Als standaard default geldt: er wordt géén vaste periode afgesproken; zodra alle goederen binnen zijn in het centrale magazijn wordt de montage direct ingepland op het eerst mogelijke tijdstip.
 * **Conceptmaten van de Klant:** Mogelijkheid om indicatieve maten in te voeren die de klant zelf heeft meegenomen naar de showroom. Deze conceptmaten dienen voor de initiële prijsindicatie en worden bij de inmeting (Fase 2) definitief getoetst.
 * **Vrij Opmerkingenveld Verkoper:** Een ruim, vrij notitieveld waarin de verkoper speciale klantwensen, bouwkundige aandachtspunten of showroomafspraken kan noteren.
-* **Draft-Status van Producten & Veldhistorie bij Inmeet-Overdracht:** De vanuit LogicTrade (LT) of de showroomintake ingevoerde producten starten op `Configuratiestatus = 'concept'`; de inmeter toetst ter plekke alle specificaties (zonder afzonderlijke aannamestatus) en kan waar bouwkundig noodzakelijk gemotiveerd afwijken. Elke wijziging wordt atomair gelogd in `AuditVeldMutatie`, zonder tussentijdse terugschrijving naar LT (`INV-LT-API-01`).
+* **Concept-Status van Producten & Veldhistorie bij Inmeet-Overdracht:** De vanuit LogicTrade (LT) of de showroomintake ingevoerde producten starten op `Configuratiestatus = 'concept'`; de inmeter toetst ter plekke alle specificaties (zonder afzonderlijke aannamestatus) en kan waar bouwkundig noodzakelijk gemotiveerd afwijken. Elke wijziging wordt atomair gelogd in `AuditVeldMutatie`, zonder tussentijdse terugschrijving naar LT (`INV-LT-API-01`).
 * **Inmeetafspraak & Planning (Multi-Appointment):** Inmeetafspraken zijn direct gekoppeld aan het project (en montageadres/object). Aan één project kunnen **meerdere inmeetafspraken** worden gekoppeld (bijv. een eerste oriënterende schouw in ruwbouw, een hermeting na stucwerk/dekvloer, een controlemeting na kozijnplaatsing, of gescheiden inmeetmomenten voor verschillende productgroepen). Er geldt nadrukkelijk géén blokkerende minimale dataset: zelfs zonder dat er reeds ruimtes, producten of posities zijn ingevoerd, mag een inmeetafspraak worden ingepland (bijvoorbeeld voor een oriënterend adviesgesprek of bouwkundige verkenning op locatie). Het systeem kan een indicatief voorstel doen voor de benodigde tijdslotduur op basis van globale wensen, maar de verkoper bepaalt altijd zelf de definitieve duur van de afspraak.
 * **Inmeetorder & Klantbevestiging:** De inmeetorder zelf wordt aangemaakt in het ERP-systeem*. De inmeetafspraak wordt ingepland via het portaal, waarna de klant direct vanuit het portaal een automatische bevestigingsmail van de inmeetafspraak ontvangt.
 * **LogicTrade ERP-Koppeling & MVP-Scope:**  
-  * *Databasekoppeling Artikelen & Prijzen:* *(Geen onderdeel van MVP-scope V1; gepland voor latere fase / backlog)* Directe databasekoppeling met LogicTrade voor het actueel ophalen en valideren van artikel- en prijsdata (reeds 20.000 van de ruim 100.000 artikelen ingelezen). Hierdoor kan de showroomadviseur direct merkoverstijgend schakelen tussen Luxaflex, Toppoint, Zonnelux en Sunway zonder handmatige overtypefouten.  
+  * *Databasekoppeling Artikelen & Prijzen:* Directe databasekoppeling met LogicTrade in de Brons-laag voor het actueel ophalen en synchroniseren van de actieve GSW-artikelen (~753 artikelen) inclusief 58 generieke containerartikelen (`is_generic_container = true`, met fallback `9.9 Niet geclassificeerd`) en virtuele Vadain productcodes. Hierdoor kan de adviseur direct merkoverstijgend schakelen tussen Luxaflex, Toppoint, Zonnelux en Sunway, terwijl commerciële prijsstaffelcalculaties SSOT in LogicTrade blijven conform `INV-M2M-04`.  
   * *Externe Fabrikantenconfigurators buiten V1:* Volledige externe configurators van fabrikanten vallen buiten de initiële MVP-scope; de focus ligt op snelle validatie tegen de ERP-artikelenlijst.  
   * *Agenda-Sync:* De inplanning van de inmeetafspraak synchroniseert direct met Microsoft Outlook.
 
@@ -201,9 +226,9 @@ Het complete maatwerktraject verloopt organisatorisch via 6 vaste ketenfasen (1.
   * *Ruimteniveau:* Maken van een duidelijke maatschets van de ruimte (voorzien van genummerde posities), overzichtsfoto's en specifieke ruimtelijke notities.
   * *Positieniveau:* Vastleggen van alle vereiste basis- en detailmaten (hoogte, breedte, montagelijnen, obstakels), detailfoto's van kozijnen of vloeren, en gerichte instructies voor offerte en montage.
   * *Bijzonderheden, Extra Werk & Monteursindicatie:* Het inschatten van benodigde uren/montagetijd is uitdrukkelijk géén taak van de inmeter; dit wordt berekend door de planner. De inmeter registreert uitsluitend geconstateerde bijzonderheden, meerwerk/extra werk of de noodzaak voor specifieke specialistische vaardigheden (bijv. meesterstoffeerder voor trappen) via een gerichte opmerking in de conditionele checklist.
-* **Productaanpassing door Inmeter:** Indien de live situatie uitwijst dat een gekozen draft-product technisch niet monteerbaar is (bijv. te geringe plaatsingsdiepte of ongeschikte ondergrond), heeft de inmeter de bevoegdheid het product in overleg aan te passen naar een technisch haalbaar alternatief.
+* **Productaanpassing door Inmeter:** Indien de live situatie uitwijst dat een indicatief conceptproduct technisch niet monteerbaar is (bijv. te geringe plaatsingsdiepte of ongeschikte ondergrond), heeft de inmeter de bevoegdheid het product in overleg aan te passen naar een technisch haalbaar alternatief.
 * **Bouwkundige Schouw (Optioneel):** In situaties van ruwbouw of grootschalige renovatie kan de inmeetactie worden voorafgegaan door een 'schouw' (een conceptmeting waarbij maten en definitieve productkeuzen indicatief zijn en in een later stadium definitief worden gemaakt).
-* **Afsluiting, Meetrapport & Ondertekening (Inclusief Deel-Meetrapport):** Na afloop van de inmeting – zodra alle ruimtelijke Niveau 6 Posities met niet-geannuleerde fysieke producttoewijzingen (`status !== 'geannuleerd' && productgroep !== 'diensten'`) door de inmeter via `[ Definitief Maken ]` op de status `'definitief'` zijn gezet (en `0` `'draft'` fysieke toewijzingen resteren; posities zonder niet-geannuleerde fysieke toewijzingen zijn automatisch vrijgesteld en blokkeren het dossier niet) – genereert het portaal het digitale **Meetrapport** (via de actieknop `[ Rapport Maken ]` met rapporttype *Meetrapport*). Hierin zijn alle geconstateerde bouwkundige details, opmerkingen en montagerichtlijnen verzameld. **Deel-Meetrapport Protocol:** Indien bepaalde ruimtes of verdiepingen zich nog in ruwbouw bevinden (of nog gestukt/geëgaliseerd moeten worden), kan de inmeter een *Deel-Meetrapport* genereren voor de reeds definitief ingemeten ruimtes; de resterende ruimtes blijven op configuratiestatus `concept` staan met een ingeplande vervolginmeting. De inmeter neemt het (deel-)meetrapport door met de klant. Eventuele klantopmerkingen worden ter plekke toegevoegd. Vervolgens ondertekent de klant het rapport digitaal op het scherm (INV-UI-02), waarna het meetrapport per e-mail aan de klant wordt verzonden. *(Voor gedetailleerde inmeetmethodieken en rekenregels per categorie, zie Deel 3).*
+* **Afsluiting, Meetrapport & Ondertekening (Inclusief Deel-Meetrapport):** Na afloop van de inmeting – zodra alle ruimtelijke Niveau 6 Posities met niet-geannuleerde fysieke producttoewijzingen (`annulering === null && productgroep !== 'diensten'`) door de inmeter via `[ Definitief Maken ]` op de configuratiestatus `'definitief'` zijn gezet (en `0` fysieke toewijzingen op configuratiestatus `'concept'` resteren; posities zonder niet-geannuleerde fysieke toewijzingen met `annulering !== null` zijn automatisch vrijgesteld en blokkeren het dossier niet) – genereert het portaal het digitale **Meetrapport** (via de actieknop `[ Rapport Maken ]` met rapporttype *Meetrapport*). Hierin zijn alle geconstateerde bouwkundige details, opmerkingen en montagerichtlijnen verzameld. **Deel-Meetrapport Protocol:** Indien bepaalde ruimtes of verdiepingen zich nog in ruwbouw bevinden (of nog gestukt/geëgaliseerd moeten worden), kan de inmeter een *Deel-Meetrapport* genereren voor de reeds definitief ingemeten ruimtes; de resterende ruimtes blijven op configuratiestatus `concept` staan met een ingeplande vervolginmeting. De inmeter neemt het (deel-)meetrapport door met de klant. Eventuele klantopmerkingen worden ter plekke toegevoegd. Vervolgens ondertekent de klant het rapport digitaal op het scherm (INV-UI-02), waarna het meetrapport per e-mail aan de klant wordt verzonden. *(Voor gedetailleerde inmeetmethodieken en rekenregels per categorie, zie Deel 3).*
 * **Intern `LTDiffRapport` (On-Demand LogicTrade Reconciliatierapport — `INV-M2M-DIFF-01`):** Strikt gescheiden van het formele klant-`Meetrapport` (`RapportDossier`) leidt het portaal te allen tijde het overzichtelijke interne **`LTDiffRapport`** af (met PDF-export en klembord-kopieerfunctie) met daarin uitsluitend de zuivere verschillen tussen EasyM2M en LogicTrade: gewijzigde specificaties (inmeetmaten, opties, montagewijze), nieuwe toevoegingen in M2M en M2M-annuleringen. Het `LTDiffRapport` is geschikt voor tussentijdse verwerking bij zowel volledige inmeting als deel-inmeting: openstaande `'concept'`-posities blokkeren het genereren van het diff-rapport niet.
 
 #### 1.5.3 Fase 2: De Offertefase (Calculatie, ERP & Verkooporder)
@@ -260,7 +285,7 @@ Het complete maatwerktraject verloopt organisatorisch via 6 vaste ketenfasen (1.
 #### 1.5.7 Fase 6: De Nazorg- & Afrondingsfase (Restpunten, Service & Dossiersluiting)
 * **Doelgerichte Oplossing:** De tijdens de oplevering vastgelegde montagebevindingen worden door de planner ingepland en door de servicemonteur op locatie verholpen.
 * **Procesvoering in het Portaal:** De servicemonteur gebruikt het portaal om de exacte bevindingen, foto's en instructies in te zien en het herstelresultaat digitaal en fotografisch vast te leggen. Deze fase verloopt operationeel als een gerichte herhaling van de montageworkflow met dezelfde waarborgen voor kwaliteit.
-* **Dossierafsluiting:** De servicefase wordt formeel afgesloten zodra alle openstaande acties zijn verholpen en gesloten. Het projectdossier wordt definitief overgezet naar de status **Afgerond** zodra er minimaal 1 niet-geannuleerde toewijzing bestaat (`niet_geannuleerde_toewijzingen.length > 0`, i.e. `status !== 'geannuleerd'`), 100% van alle niet-geannuleerde toewijzingen de status `'gereed'` bezit en er 0 openstaande acties resteren (toewijzingen met `Configuratiestatus === 'geannuleerd'` tellen hierin niet mee).
+* **Dossierafsluiting:** De servicefase wordt formeel afgesloten zodra alle openstaande acties zijn verholpen en gesloten. Het projectdossier wordt definitief overgezet naar de status **Afgerond** zodra er minimaal 1 niet-geannuleerde toewijzing bestaat (`niet_geannuleerde_toewijzingen.length > 0`, i.e. `annulering === null`), 100% van alle niet-geannuleerde toewijzingen de status `'gereed'` bezit en er 0 openstaande acties resteren (toewijzingen met `annulering !== null` tellen hierin niet mee).
 
 ---
 ## Deel 2: Ruimtelijke Hiërarchie
@@ -436,7 +461,7 @@ Binnen EasyM2M geldt een fundamenteel en domeinoverstijgend principebesluit over
   De uitgerekende blijvende maat is te allen tijde overschrijfbaar door de inmeter. Indien een specifieke bouwkundige situatie (bijv. een sterk wijkende dagkant, afwijkend stucwerk of een specifieke klantwens) afwijkt van de standaard formule, kan de inmeter de berekende maat handmatig corrigeren.
   * *Verplicht toelichtingsveld:* Zodra een inmeter de berekende maat overschrijft, toont de software verplicht een invoerveld voor een schriftelijke toelichting/reden. Zonder deze toelichting kan de meting niet worden opgeslagen.
   * *Visuele markering:* In de UI krijgt de overschreven waarde een opvallende kleurmarkering (oranje/rode badge: `[Handmatige Aanpassing]`), zodat de werkvoorbereider / controleur in Fase 4 direct ziet dat hier bewust is afgeweken van de standaard rekenregel.
-  * *Audittrail & ERP Export:* De oorspronkelijke gemeten dagmaat, de standaard berekende maat én de handmatig gecorrigeerde maat blijven alle drie bewaard in de database inclusief tijdstempel en gebruikers-ID. Bij export naar ERP LogicTrade wordt altijd de definitief overschreven maat geëxporteerd als bindende bestelmaat.
+  * *Audittrail & LTDiffRapport:* De oorspronkelijke gemeten dagmaat, de standaard berekende maat én de handmatig gecorrigeerde maat blijven alle drie bewaard in de database inclusief tijdstempel en gebruikers-ID. In het `LTDiffRapport` wordt altijd de definitief overschreven maat gerapporteerd als afwijkende waarde ten opzichte van LogicTrade ter overname door de verkoopadviseur/controleur.
 * **Dwingende Inrichting van de Inmeettool ter Borging van de Kenniskloof:** *(Wens/idee)*  
   De inmeettool fungeert als het centrale kwaliteitsanker van de organisatie. Waar senior adviseurs leunen op jarenlange impliciete praktijkervaring om alle details vooraf te tackelen, helpt de inmeettool dezelfde foutloosheid te borgen bij junior adviseurs en nieuwe filialen (zoals Maastricht). Het dwingend inrichten van het inmeetdossier (waarbij de inmeter een meting pas kan afronden nadat relevante parameters zoals montagehoogte, ondergrondclassificatie, montagewijze, plint- en zaaginspectie zijn ingevoerd) is het beoogde streefbeeld. Dit elimineert ad-hoc telefoontjes, montagediscussies tussen verkoop en inmeter (Guy), en faalkosten op locatie.
 
@@ -896,7 +921,7 @@ De inmeetchecklist voor gordijnen en rails is geoptimaliseerd voor directe verwe
   * De software berekent uit de strakke dagmaat automatisch de blijvende maat (bestelmaat) conform de fabrikantregels.  
   * *Overschrijving door inmeter:* De inmeter heeft te allen tijde de bevoegdheid om de berekende blijvende maat handmatig te overschrijven (bijv. bij scheve wanden of afwijkende speling).  
   * *Kleurmarkering & Permanente Dagmaat:* Bij handmatige overschrijving kleurt het veld in de interface direct opvallend (rood/oranje) met een verplichte toelichtingsnotitie. De oorspronkelijke gemeten dagmaat blijft permanent zichtbaar als referentie.  
-  * *Export naar LogicTrade / Fabrikantconfigurator:* Bij orderoverdracht naar LogicTrade of bestelsystemen wordt bij overschrijving **altijd de overschreven blijvende maat geëxporteerd**, zodat de fabrikant exact de gewenste bestelmaat produceert. Fabriekstoleranties (tot 25 mm toegestane afwijking bij textielconfectie en 5 tot 10 mm fabrieksaftrek per fabrikant) worden hierbij contractueel geborgd.
+  * *LTDiffRapport & Fabrikantbestelmaat:* In het `LTDiffRapport` wordt bij overschrijving **altijd de overschreven blijvende maat gerapporteerd**, zodat in LogicTrade exact de gewenste bestelmaat voor de fabrikant kan worden overgenomen. Fabriekstoleranties (tot 25 mm toegestane afwijking bij textielconfectie en 5 tot 10 mm fabrieksaftrek per fabrikant) worden hierbij contractueel geborgd.
 * **Technische Restricties & Montagetechnieken:**
   * *Aluminium Jaloezieën (25 mm vs. 50 mm):*
     * *25 mm lamellen:* Fijne detaillering; Top-Down / Bottom-Up (TDBU) is mogelijk.
@@ -1452,18 +1477,18 @@ Buitenzonwering, Gevelsystemen & Buitenleven vormt een volwaardige kernproductgr
 
 #### 3.7.10 Inmeet- en Rekenmatrix Diensten & Montage
 
-| Dienstgroep / Bewerking | Primaire Eenheid | Registratie Inmeter & Schouwcondities | MVP Portaalactie | Output naar Werkbon & ERP |
+| Dienstgroep / Bewerking | Primaire Eenheid | Registratie Inmeter & Schouwcondities | MVP Portaalactie | Terugkoppeling via LTDiffRapport & Werkbon |
 | :--- | :--- | :--- | :--- | :--- |
-| **Gordijn- & Railmontage** | m¹ / stuks | Railbreedte, montagehoogte, wand/plafond, elektrische aansluiting | Berekent railmontage per m¹ en afhangen | Post naar ERP werkbon |
-| **Binnenzonwering & Horren** | stuks | In/op de dag, kozijntype, kindveiligheid NEN-EN 13120, TruFit/klemsteun | Registreert montagewijze per raam | Post naar ERP werkbon |
-| **Vloeren Legservice** | m² / m¹ | Type vloer (Dryback/Click), legpatroon (visgraat), plinttype en afkitten | Berekent m² leggen en m¹ plinten afkitten | Post `vloer_legservice_m2` naar ERP |
-| **Trapbekleding & Renovatie** | stuks treden | Aantal treden open/dicht, overzettreden vs tapijt, wangen, LED | Registreert treden en afwerkopties | Post naar ERP werkbon |
-| **Buitenzonwering Montage** | stuks | Gevelconstructie, latei, chemische ankers M12, 230V/Solar | Registreert ankers en bekabeling | Post naar ERP werkbon |
+| **Gordijn- & Railmontage** | m¹ / stuks | Railbreedte, montagehoogte, wand/plafond, elektrische aansluiting | Berekent railmontage per m¹ en afhangen | Opname in LTDiffRapport en werkbon |
+| **Binnenzonwering & Horren** | stuks | In/op de dag, kozijntype, kindveiligheid NEN-EN 13120, TruFit/klemsteun | Registreert montagewijze per raam | Opname in LTDiffRapport en werkbon |
+| **Vloeren Legservice** | m² / m¹ | Type vloer (Dryback/Click), legpatroon (visgraat), plinttype en afkitten | Berekent m² leggen en m¹ plinten afkitten | Opname van `vloer_legservice_m2` in LTDiffRapport |
+| **Trapbekleding & Renovatie** | stuks treden | Aantal treden open/dicht, overzettreden vs tapijt, wangen, LED | Registreert treden en afwerkopties | Opname in LTDiffRapport en werkbon |
+| **Buitenzonwering Montage** | stuks | Gevelconstructie, latei, chemische ankers M12, 230V/Solar | Registreert ankers en bekabeling | Opname in LTDiffRapport en werkbon |
 | **Inmeting & Deurinspectie** | stuks_knelpunten | 3D laser-inmeting, deurspleet peilmeting (< 4 mm) | Signaleert `advies_inkorten` | Adviesrapport voor aannemer/klant; monteur zaagt niet |
-| **Sloop & Verwijderen Vloer** | m² | Type vloer (verlijmd vs zwevend), hechtlaag, tapijtbekleding | Registreert oppervlakte en slooptijdindicatie | Post `sloop_vloer_m2` naar ERP-offerte |
+| **Sloop & Verwijderen Vloer** | m² | Type vloer (verlijmd vs zwevend), hechtlaag, tapijtbekleding | Registreert oppervlakte en slooptijdindicatie | Opname van `sloop_vloer_m2` in LTDiffRapport |
 | **Egalisatie & Primeren** | m² / laagdikte mm | Type dekvloer, reitest (> 2 mm), vloerverwarmingssleuven | Berekent zakkenverbruik ($1,6\,\text{kg/m}^2/\text{mm}$) | Materiaalbehoefte en egalisatiepost |
 | **Ladderlift & Logistiek** | dagdeel / forfait | Etagehoogte, raamdoorgang, gevelopstelplaats, afvalcontainer | Registreert materieelnoodzaak en container | Reservering materieel en post in `pos_project_algemeen` |
-| **Service & Regiewerk** | uren / forfait | Nazorg, CBW-garantie, projectregie villa/woning | Registreert man-uren en regie-omvang | Post regie-uren naar ERP |
+| **Service & Regiewerk** | uren / forfait | Nazorg, CBW-garantie, projectregie villa/woning | Registreert man-uren en regie-omvang | Opname van regie-uren in LTDiffRapport |
 
 #### 3.7.11 Samenvattende ERP Verpakkings- & Logistiekgovernance
 Om logistieke faalkosten, materiaaltekorten en retourstromen te elimineren, hanteert EasyM2M in samenwerking met het ERP-systeem (LogicTrade) een strikte **ERP Verpakkingsgovernance**. Bestellingen naar fabrikanten en groothandels worden automatisch afgerond op basis van de fysieke verpakkings- en besteleenheden per materiaalgroep:
@@ -1842,7 +1867,52 @@ export interface Positie {
 }
 
 // ============================================================================
-// 4. Product, Stuklijst & Opties (Niveau 7 & CPQ Laag)
+// 1. BRONS: Ruwe Grondwaarheid Entiteiten
+// ============================================================================
+export interface LogicTradeRawPayload {
+  lt_raw_data: Record<string, unknown>;
+  lt_raw_hash: string; // SHA-256
+  origin_code: 'Winkel GSW BV';
+  synced_at: string;
+}
+
+export interface LogicTradeProduct {
+  id: string; // LT Product ID
+  sku: string; // LT Artikelcode
+  name: string;
+  is_generic_container: boolean; // true voor 58 GSW container-artikelen
+  product_group_code?: string;
+  origin_code: 'Winkel GSW BV';
+  updated_at: string;
+}
+
+export interface LogicTradeSyncLease {
+  lane: 'orders_quotes' | 'purchase_orders_customers' | 'suppliers' | 'configurator';
+  locked_until: string;
+  worker_id: string;
+}
+
+// ============================================================================
+// 2. ZILVER: Genormaliseerd Domeinmodel
+// ============================================================================
+export interface NormalizedDimensionSpec {
+  raw_configuration_string?: string;
+  extraction_stage: 1 | 2 | 3 | 4; // 1: JSON, 2: Plaintext, 3: Regex, 4: Handmatig
+  parsed_dimensions: Record<string, number | string>;
+}
+
+export interface NormalizedOrderLine {
+  id: string;
+  order_id: string;
+  lt_order_line_id: number;
+  product_group_code: string; // Valide productgroep of fallback '9.9'
+  dimension_spec: NormalizedDimensionSpec;
+  is_hybrid_service_split: boolean;
+  converted_to_order_id?: string | null;
+}
+
+// ============================================================================
+// 3. GOUD: Werkmatrix & Buitendienst (Module 4 Product, Stuklijst & Opties)
 // ============================================================================
 export type Configuratiestatus = 'concept' | 'definitief';
 export type Montagestatus = 'te_monteren' | 'geleverd' | 'gereed';
@@ -1855,9 +1925,11 @@ export interface AnnuleringInfo {
   toelichting?: string;
 }
 
-// Gesaneerde ProductToewijzingLTContext (enkel external_line_id uit LogicTrade; zonder kunstmatige status-enums, snapshot-hashes of sync-tijdstippen)
+// Zelfstandige named interface voor LT Context (voorkomt geneste accolades binnen ProductToewijzing)
 export interface ProductToewijzingLTContext {
   lt_offerte_regel_id?: string; // Correspondeert met LogicTradeOrderLine.id / external_line_id
+  lt_order_regel_id?: string;   // Correspondeert met LogicTradeOrderLine.id / external_line_id
+  lt_raw_hash?: string;
 }
 
 export interface BOMItem {
@@ -1882,13 +1954,38 @@ export interface GeselecteerdeOptie {
 }
 
 export interface ProductToewijzing {
+  // [GOUD] Unieke Sleutels & Ruimtelijke Relaties (Niveau 1 t/m 6)
   id: string;
-  positie_id: string;
-  laag_suffix?: string; // 'a', 'b', 'c' bij ≥ 2 lagen op 1 positie
+  project_id?: string;
+  object_id?: string;      // Optioneel voor regels onder pos_project_algemeen
+  verdieping_id?: string;  // Optioneel voor regels onder pos_project_algemeen
+  ruimte_id?: string;      // Optioneel voor regels onder pos_project_algemeen
+  vlak_id?: string;        // Optioneel voor regels onder pos_project_algemeen
+  positie_id: string;      // Niveau 6 Positie of 'pos_project_algemeen'
+  cluster_id?: string;
+  laag_suffix?: string;    // Bijv. 'laag_vitrage', 'laag_overgordijn'
+  
+  // [ZILVER] Categorie, ERP Mapping & LogicTrade Context
+  productgroep: 'gordijnen' | 'raamdecoratie' | 'vloeren' | 'trappen' | 'buitenzonwering' | 'diensten';
+  product_group_code?: string; // Draagt bijv. '9.9' voor containerartikelen
   artikel_code_erp: string;
   artikel_omschrijving: string;
-  productgroep: 'gordijnen' | 'raamdecoratie' | 'vloeren' | 'trappen' | 'buitenzonwering' | 'diensten';
-  montagewijze:
+  lt_context?: ProductToewijzingLTContext;
+  
+  // [GOUD] Statusmodel & Levenscyclus (Orthogonaal Gesplitst)
+  configuratiestatus: Configuratiestatus;
+  montagestatus: Montagestatus;
+  annulering: AnnuleringInfo | null;
+  aantal_besteld: number;
+  eenheid: 'm2' | 'm1' | 'stuks' | 'pak' | 'set' | 'dagdeel' | 'forfait' | 'stuks_knelpunten';
+  tariefeenheid_diensten?: 'uur' | 'm1' | 'm2' | 'stuk' | 'forfait';
+  
+  // [GOUD] Inmeetwaarden & Lasermaten (PositieMeting)
+  productiemaat_breedte_mm?: number;
+  productiemaat_hoogte_mm?: number;
+  gecorrigeerde_maat_breedte_mm?: number;
+  gecorrigeerde_maat_hoogte_mm?: number;
+  montagewijze?:
     | 'in_de_dag'
     | 'op_de_dag'
     | 'in_het_kozijn'
@@ -1899,31 +1996,34 @@ export interface ProductToewijzing {
     | 'wand'
     | 'verlijmd'
     | 'zwevend'
-    | 'vrijstaand' // Buitenleven vrijstaande systemen (§3.6.1)
-    | 'gevel_op_de_dag' // Buitenzonwering gevelmontage (§3.6.1)
-    | 'plafond_uitval' // Buitenzonwering plafondmontage (§3.6.1)
+    | 'vrijstaand'
+    | 'gevel_op_de_dag'
+    | 'plafond_uitval'
     | 'n.v.t.';
-  eenheid: 'm2' | 'm1' | 'stuks' | 'pak' | 'set' | 'dagdeel' | 'forfait' | 'stuks_knelpunten';
-  tariefeenheid_diensten?: 'uur' | 'm1' | 'm2' | 'stuk' | 'forfait';
-  aantal_besteld: number;
-  productiemaat_breedte_mm?: number; // Fabricagemaat na aftrek specifiek voor DEZE laag
-  productiemaat_hoogte_mm?: number; // Fabricagemaat na aftrek specifiek voor DEZE laag
-  montagehoogte_mm?: number; // Specifieke montagesteun-hoogte t.b.v. EN 13120
+  montagehoogte_mm?: number;
+  
+  // [GOUD] Handmatige Correcties & Audit
   handmatige_override: boolean;
   override_reden?: string;
-  configuratiestatus: Configuratiestatus;
-  montagestatus: Montagestatus;
-  annulering: AnnuleringInfo | null;
-  frozen_at?: string; // Tijdstip van definitieve inmeetbevriezing (blijft behouden bij eventuele annulering)
-  inspectie_resultaten?: InspectieResultaat[];
+  frozen_at?: string;
+  frozen_door_user_id?: string;
+  
+  // [ZILVER/GOUD] Commerciële Cel-Calculatie (Kwantitatief / Container)
+  unit_price?: number;
+  prijs_incl_btw?: number;
   rekenformule?: string;
-  dimension_spec?: DimensionSpec; // Zuivere wiskundige 2D rekenkern
-  opties?: GeselecteerdeOptie[]; // 1:N Flexibele configuratoropties conform Gaspard Jaspars review
-  bom_items?: BOMItem[]; // 1:N Genormaliseerde stuklijst en montagematerialen
-  prijs_incl_btw?: number; // Optioneel gemaakt conform INV-M2M-04 (undefined indien nieuw/gewijzigd vóór LT-hercalculatie)
-  lt_context?: ProductToewijzingLTContext; // Optioneel voor 'ongekoppeld' dossiers zonder LT
+  
+  // [GOUD] Rijke Domeinspecificaties per Productcategorie (Polymorf)
+  dimension_spec?: DimensionSpec;
+  opties?: GeselecteerdeOptie[];
+  bom_items?: BOMItem[];
+  inspectie_resultaten?: InspectieResultaat[];
   opmerkingen?: Opmerking[];
   issues?: Issue[];
+  
+  // [SYSTEEM] Tijdstempels
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Polymorfe Dimensie- en Calculatiespecificaties per Productgroep
@@ -2475,14 +2575,14 @@ De centrale visuele werkruimte van het project is georganiseerd volgens een modu
 ##### Zone 1: Project Header & Status-Balk (INV-UI-04)
 * **Projectcontext:** Toont de gekoppelde klantgegevens, het montageadres (object), debiteurennummer en projectnummer.
 * **De Actuele Data-Driven Projectstatus:** In de header van Hoofdscherm 4 is **uitsluitend de actuele berekende status** van het project zichtbaar (een van de 5 canonieke statussen: `Intake`, `Offerte`, `Order`, `Geleverd` of `Afgerond`). Er wordt géén statische procespijplijn getoond waarin alle 5 statussen tegelijk zichtbaar zijn.
-* **Conceptmaten-Statusindicator:** Indien er ≥ 1 ruimtelijke positie (`id !== 'pos_project_algemeen'`) met minimaal 1 niet-geannuleerde fysieke producttoewijzing (`annulering === null && productgroep !== 'diensten'`) de configuratiestatus `'concept'` heeft (of ≥ 1 niet-geannuleerde fysieke toewijzing op `configuratiestatus === 'concept'` staat; posities zonder niet-geannuleerde fysieke toewijzingen zijn automatisch vrijgesteld), toont de header een compact, subtiel rood **Draft** status-icoon met interactieve hover-tooltip (*"Dossier bevat nog conceptmaten — definitief nameten vereist vóór productie/montage"*). Er wordt géén opdringerige of schermverstorende amber waarschuwingsbanner getoond.
+* **Conceptmaten-Statusindicator:** Indien er ≥ 1 ruimtelijke positie (`id !== 'pos_project_algemeen'`) met minimaal 1 niet-geannuleerde fysieke producttoewijzing (`annulering === null && productgroep !== 'diensten'`) de configuratiestatus `'concept'` heeft (of ≥ 1 niet-geannuleerde fysieke toewijzing op `configuratiestatus === 'concept'` staat; posities zonder niet-geannuleerde fysieke toewijzingen zijn automatisch vrijgesteld), toont de header een compact, subtiel rood **Concept** status-icoon met interactieve hover-tooltip (*"Dossier bevat nog conceptmaten — definitief nameten vereist vóór productie/montage"*). Er wordt géén opdringerige of schermverstorende amber waarschuwingsbanner getoond.
 * **LogicTrade Pariteits-Seintje (`PariteitStatus` — `INV-SYNC-RECONCILE-01`):** Voor LT-gekoppelde projecten toont de header de deterministische pariteitsbadge uit `LTDiffRapport en PariteitStatus` (MECE: `'in_afwachting_inmeting'`, `'mutaties_open_voor_lt'`, `[LT Synchroon]` bij `'in_pariteit'`, en het rood/amber seintje `[LT Afwijking]` bij `'afwijking_geconstateerd'`; bij `'ongekoppeld'` wordt geen LT-badge getoond). Klikken op de badge opent direct de `LTDiffRapportModal` (§5.10.7).
 * **De Canonieke Contextuele Actieknoppen:** Op Hoofdscherm 4 bevinden zich actieknoppen die contextueel ontgrendelen op basis van de actuele projectstatus en de staat van de onderliggende data:
   1. `[ Inmeten Starten ]` &rarr; Directe actieknop voor de inmeter op locatie om de inmeetworkflow te activeren en posities definitief te maken via `[ Definitief Maken ]`.
   2. `[ Inmeetafspraak Plannen ]` &rarr; Altijd direct beschikbaar zolang maten op `concept` staan of indien hermeten gewenst is. Opent de `AfspraakPlannerModal` (§5.10.1).
   3. `[ Rapport Maken ]` &rarr; Geünificeerde rapportknop die op elk gewenst moment een compleet PDF-dossier genereert via een modale dialoog (*Meetrapport*, *Montagerapport*, *Afterservicerapport*). Het *Meetrapport* kan te allen tijde worden gegenereerd (ook tussentijds tijdens intake of conceptfase). Daarnaast biedt Zone 1 voor gekoppelde projecten toegang tot `[ Sync met LogicTrade ]` (passieve on-demand herlezing vanuit LogicTrade naast de 1s sync, zonder API-terugschrijving conform `INV-LT-API-01`; opent `LTDiffRapportModal` §5.10.7 voor het overzichtelijke `LTDiffRapport`).
   4. `[ Montageafspraak Plannen ]` &rarr; Beschikbaar zodra de macro-projectstatus `Order` is (de planner behoudt de flexibiliteit om conform Route B / §1.5.6 vooruit te plannen bij harde deadlines). Indien er nog ruimtelijke posities met niet-geannuleerde fysieke toewijzingen (`annulering === null`) op configuratiestatus `'concept'` staan, toont het planningsscherm de tooltip-notificatie dat nameten vereist is (posities zonder niet-geannuleerde fysieke toewijzingen zijn vrijgesteld).
-  5. `[ Starten Montage ]` &rarr; Dwingend en mechanisch vergrendeld (hard-gated via `canStartMontage` / `INV-ORDER-02`) zolang niet voldaan is aan pure technische montagegereedheid: minimaal 1 niet-geannuleerde toewijzing (`annulering === null`), álle ruimtelijke posities (`id !== 'pos_project_algemeen'`) met minimaal 1 niet-geannuleerde fysieke toewijzing (`productgroep !== 'diensten'`) op `configuratiestatus === 'definitief'`, én `0` `'concept'` fysieke toewijzingen (inclusief onder `pos_project_algemeen`). Posities zonder niet-geannuleerde fysieke toewijzingen zijn vrijgesteld; losstaande administratieve `[LT Afwijking]`-meldingen blokkeren `[ Starten Montage ]` niet (destructieve conflicten/toevoegingen resetten de betreffende positie/toewijzing immers fail-closed naar `'concept'` / `'draft'`).
+  5. `[ Starten Montage ]` &rarr; Dwingend en mechanisch vergrendeld (hard-gated via `canStartMontage` / `INV-ORDER-02`) zolang niet voldaan is aan pure technische montagegereedheid: minimaal 1 niet-geannuleerde toewijzing (`annulering === null`), álle ruimtelijke posities (`id !== 'pos_project_algemeen'`) met minimaal 1 niet-geannuleerde fysieke toewijzing (`productgroep !== 'diensten'`) op `configuratiestatus === 'definitief'`, én `0` `'concept'` fysieke toewijzingen (inclusief onder `pos_project_algemeen`). Posities zonder niet-geannuleerde fysieke toewijzingen zijn vrijgesteld; losstaande administratieve `[LT Afwijking]`-meldingen blokkeren `[ Starten Montage ]` niet (destructieve conflicten/toevoegingen resetten de betreffende positie/toewijzing immers fail-closed naar `'concept'`).
   6. `[ Afterservice Afspraak Plannen ]` &rarr; Wordt direct actief zodra er ≥ 1 openstaande actie op productniveau is geregistreerd. Opent de planning voor een servicebezoek.
   7. `[ Project Sluiten / Afronden ]` &rarr; Uitsluitend actief wanneer `niet_geannuleerde_toewijzingen.length > 0` (`annulering === null`), 100% van alle niet-geannuleerde toewijzingen de montagestatus `'gereed'` bezit én er 0 openstaande acties resteren (toewijzingen met `annulering !== null` tellen hierin niet mee). Zet de status deterministisch op **Afgerond**.
 * **Verplichte Pre-Action Checklist Gate & Checklist-Beheermodule:**  
@@ -2831,7 +2931,7 @@ De interactieve dialoogvensters en slide-over componenten in het portaal volgen 
   * **Overzichtelijk `LTDiffRapport`:** Toont een helder en transparant overzicht van de zuivere verschillen tussen EasyM2M en LogicTrade:
     * *Gewijzigde specificaties:* LT-gekoppelde toewijzingen waarvan inmeetmaten, opties of montagewijze afwijken van de actuele LT-orderregel.
     * *Toevoegen in LT:* Nieuw in EasyM2M aangemaakte items of extra productlagen zonder `lt_offerte_regel_id` die in LT als orderregel moeten worden ingevoerd.
-    * *Annuleren in LT:* Items die in EasyM2M via `[×]` op `Configuratiestatus = 'geannuleerd'` zijn gezet en in LT moeten worden geannuleerd of op aantal 0 worden gezet.
+    * *Annuleren in LT:* Items die in EasyM2M via `[×]` zijn geannuleerd (`annulering !== null`) en in LT moeten worden geannuleerd of op aantal 0 worden gezet.
   * **Export & Overname:** Biedt een directe **PDF-export** van het reconciliatierapport en een **klembord-kopieerfunctie** ten behoeve van snelle, foutloze handmatige verwerking in LogicTrade door de adviseur of werkvoorbereider (`INV-LT-API-01`). Zodra de wijzigingen in LT zijn verwerkt, convergeert de 1s-sync automatisch richting `[LT Synchroon]` conform `INV-LT-CONVERGE-01`.
 
 ---

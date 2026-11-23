@@ -3,7 +3,7 @@ Testsuite ter verificatie van de assortimentsharmonisatie en MVP-scope
 conform de 3.000 geanalyseerde GSW-orders (Groter in Wonen) en de
 integrale 1NF-normalisatie van het ERD in Versie 51 (V51).
 
-[SPEC-CHANGE-AUTHORIZED: V53 harmonisatie - Binaire configuratiestatus, first-class annulering, 7-niveaus checklist-engine met 6 actietriggers, en uniforme LT-regel intake]
+[SPEC-CHANGE-AUTHORIZED: V54 harmonisatie - Medallion architectuurverankering, GSW-catalogus realiteit, splitsing ingest-contract, en sanering legacy status- en exportnotaties]
 
 Toetst:
 1. Sanering van Categorie 2 (verwijderen buitenscreens, behoud BB70/BB71 en Facette).
@@ -31,6 +31,7 @@ V50_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v50.md"
 V51_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v51.md"
 V52_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v52.md"
 V53_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v53.md"
+V54_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v54.md"
 MASTER_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting.md"
 
 
@@ -62,6 +63,11 @@ def v52_content() -> str:
 @pytest.fixture
 def v53_content() -> str:
     return _read_doc(V53_PATH)
+
+
+@pytest.fixture
+def v54_content() -> str:
+    return _read_doc(V54_PATH)
 
 
 @pytest.fixture
@@ -151,9 +157,9 @@ def test_mvp_arbeid_montage_afbakening(v51_content: str):
     assert "arbeidsberekening" in v51_content.lower() or "arbeid" in v51_content.lower()
 
 
-def test_master_and_v53_parity(v53_content: str, master_content: str):
-    """Master en v53 moeten 100% synchroon en byte-paritair zijn."""
-    assert master_content.strip() == v53_content.strip(), "Divergentie tussen v53 en master document"
+def test_master_and_v54_parity(v54_content: str, master_content: str):
+    """Master en v54 moeten 100% synchroon en byte-paritair zijn."""
+    assert master_content.strip() == v54_content.strip(), "Divergentie tussen master en v54 document"
 
 
 def test_zes_categorieen_domeinmodel_harmonisatie(v51_content: str):
@@ -520,17 +526,17 @@ def test_v52_lt_parity_scope(v52_content: str):
     assert "daadwerkelijk in LogicTrade worden geadministreerd" in content or "daadwerkelijk in LogicTrade geadministreerd" in content
 
 
-def test_v53_binary_configuratiestatus(v53_content: str, master_content: str):
+def test_v53_binary_configuratiestatus(v53_content: str, v54_content: str, master_content: str):
     """Toetst of V53 een zuiver binaire Configuratiestatus ('concept' | 'definitief') heeft."""
-    for content in (v53_content, master_content):
+    for content in (v53_content, v54_content, master_content):
         cs_match = re.search(r"type\s+Configuratiestatus\s*=\s*'concept'\s*\|\s*'definitief';", content)
         assert cs_match, "Binaire Configuratiestatus ('concept' | 'definitief') niet gevonden in §4.9.1"
         assert "'geannuleerd'" not in cs_match.group(0), "'geannuleerd' mag niet in Configuratiestatus voorkomen"
 
 
-def test_v53_first_class_annulering(v53_content: str, master_content: str):
+def test_v53_first_class_annulering(v53_content: str, v54_content: str, master_content: str):
     """Toetst of V53 first-class AnnuleringInfo heeft en ProductToewijzing dit modelleert."""
-    for content in (v53_content, master_content):
+    for content in (v53_content, v54_content, master_content):
         # AnnuleringInfo interface
         ai_match = re.search(r'interface\s+AnnuleringInfo\s*\{([^}]+)\}', content)
         assert ai_match, "AnnuleringInfo interface niet gevonden in §4.9.1"
@@ -551,9 +557,9 @@ def test_v53_first_class_annulering(v53_content: str, master_content: str):
         assert "frozen_at?: string;" in pt_body
 
 
-def test_v53_checklist_action_triggers(v53_content: str, master_content: str):
+def test_v53_checklist_action_triggers(v53_content: str, v54_content: str, master_content: str):
     """Toetst of V53 SSOT ChecklistTriggerActieType heeft en actietriggers ondersteunt in §4.9.1."""
-    for content in (v53_content, master_content):
+    for content in (v53_content, v54_content, master_content):
         # ChecklistTriggerActieType
         cta_match = re.search(r'type\s+ChecklistTriggerActieType\s*=\s*([^;]+);', content)
         assert cta_match, "ChecklistTriggerActieType type niet gevonden in §4.9.1"
@@ -571,4 +577,68 @@ def test_v53_checklist_action_triggers(v53_content: str, master_content: str):
         assert ir_match, "InspectieResultaat interface niet gevonden in §4.9.1"
         assert "getriggerde_actie?:" in ir_match.group(1)
         assert "type: ChecklistTriggerActieType;" in ir_match.group(1)
+
+
+def test_v54_medallion_architecture(v54_content: str, master_content: str):
+    """Toetst of de 3 lagen (Brons, Zilver, Goud) en bijbehorende architectuurtermen expliciet zijn gedefinieerd in §1.3 en §4.9.1."""
+    for content in (v54_content, master_content):
+        # 1. Medallion terminologie in §1.3
+        assert "Brons (Ruwe Grondwaarheid" in content or "BRONS: Ruwe Grondwaarheid" in content
+        assert "Zilver (Genormaliseerd Domeinmodel" in content or "ZILVER: Genormaliseerd Domeinmodel" in content
+        assert "Goud (Werkmatrix & Buitendienst" in content or "GOUD: Werkmatrix & Buitendienst" in content
+        assert "Multi-Lane Continue Delta-Synchronisatie" in content or "Multi-lane" in content
+        assert "ConfigurationExtractionEngine" in content
+        assert "p_preserve_silver = true" in content or "preserve_silver" in content
+        assert "INV-RAW-IMMUTABILITY-01" in content
+
+        # 2. Interfaces in §4.9.1
+        assert "interface LogicTradeRawPayload" in content
+        assert "interface LogicTradeProduct" in content
+        assert "interface LogicTradeSyncLease" in content
+        assert "interface NormalizedDimensionSpec" in content
+        assert "interface NormalizedOrderLine" in content
+        assert "interface ProductToewijzingLTContext" in content
+        assert "interface ProductToewijzing" in content
+
+
+def test_v54_article_database_and_container_fallback(v54_content: str, master_content: str):
+    """Toetst dat de achterhaalde catalogustekst is gesaneerd en de actuele GSW-scope met fallback 9.9 is verankerd."""
+    for content in (v54_content, master_content):
+        # 1. Sanering verouderde 20.000 van 100.000 tekst
+        assert "20.000 van" not in content
+
+        # 2. GSW artikelen en containers
+        assert "753" in content
+        assert "58 generieke container" in content or "58 container" in content or "is_generic_container" in content
+
+        # 3. Fallback 9.9
+        assert "9.9 Niet geclassificeerd" in content or "9.9" in content
+
+
+def test_v54_sanation_of_erp_export_and_lingering_statuses(v54_content: str, master_content: str):
+    """Toetst dat alle 9 historische statusrestjes en de 'Post naar ERP' phrases zijn geëlimineerd."""
+    for content in (v54_content, master_content):
+        # 1. Geen status === 'geannuleerd' of status !== 'geannuleerd'
+        assert "status === 'geannuleerd'" not in content
+        assert "status !== 'geannuleerd'" not in content
+
+        # 2. Geen 'draft' of status === 'draft'
+        assert "status === 'draft'" not in content
+        assert "Draft-Status" not in content
+        assert "gekozen draft-product" not in content
+
+        # 3. Geen status 'definitief' | 'geleverd' | 'gereed'
+        assert "status 'definitief' | 'geleverd' | 'gereed'" not in content
+
+        # 4. Geen Draft status-icoon of 'concept' / 'draft'
+        assert "**Draft** status-icoon" not in content
+        assert "naar 'concept' / 'draft'" not in content
+
+        # 5. Geen op Configuratiestatus = 'geannuleerd'
+        assert "op Configuratiestatus = 'geannuleerd'" not in content
+
+        # 6. Geen Post naar ERP in Diensten matrix
+        assert "Post naar ERP" not in content
+        assert "Post sloop_vloer_m2 naar ERP-offerte" not in content
+        assert "Post regie-uren naar ERP" not in content
 
