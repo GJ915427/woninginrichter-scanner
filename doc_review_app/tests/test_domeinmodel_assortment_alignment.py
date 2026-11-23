@@ -3,7 +3,7 @@ Testsuite ter verificatie van de assortimentsharmonisatie en MVP-scope
 conform de 3.000 geanalyseerde GSW-orders (Groter in Wonen) en de
 integrale 1NF-normalisatie van het ERD in Versie 51 (V51).
 
-[SPEC-CHANGE-AUTHORIZED: V54 harmonisatie - Medallion architectuurverankering, GSW-catalogus realiteit, splitsing ingest-contract, en sanering legacy status- en exportnotaties]
+[SPEC-CHANGE-AUTHORIZED: V55 harmonisatie - Domeingesplitst SSOT 2-Assen Model, compile-time exclusie en ketensanering]
 
 Toetst:
 1. Sanering van Categorie 2 (verwijderen buitenscreens, behoud BB70/BB71 en Facette).
@@ -32,6 +32,7 @@ V51_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v51.md"
 V52_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v52.md"
 V53_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v53.md"
 V54_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v54.md"
+V55_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting_v55.md"
 MASTER_PATH = DOCUMENTS_DIR / "domeinmodel_woninginrichting.md"
 
 
@@ -68,6 +69,11 @@ def v53_content() -> str:
 @pytest.fixture
 def v54_content() -> str:
     return _read_doc(V54_PATH)
+
+
+@pytest.fixture
+def v55_content() -> str:
+    return _read_doc(V55_PATH)
 
 
 @pytest.fixture
@@ -157,9 +163,9 @@ def test_mvp_arbeid_montage_afbakening(v51_content: str):
     assert "arbeidsberekening" in v51_content.lower() or "arbeid" in v51_content.lower()
 
 
-def test_master_and_v54_parity(v54_content: str, master_content: str):
-    """Master en v54 moeten 100% synchroon en byte-paritair zijn."""
-    assert master_content.strip() == v54_content.strip(), "Divergentie tussen master en v54 document"
+def test_master_and_v55_parity(v55_content: str, master_content: str):
+    """Master en v55 moeten 100% synchroon en byte-paritair zijn."""
+    assert master_content.strip() == v55_content.strip(), "Divergentie tussen master en v55 document"
 
 
 def test_zes_categorieen_domeinmodel_harmonisatie(v51_content: str):
@@ -421,26 +427,45 @@ def test_stair_dimension_spec_chapter_3_alignment(v51_content: str, master_conte
 
 def test_outdoor_dimension_spec_buitenleven_alignment(v51_content: str, master_content: str):
     """Toetst of Categorie 5 Buitenleven en montagewijzen geharmoniseerd zijn (§3.6)."""
-    for content in (v51_content, master_content):
-        outdoor_match = re.search(r'interface\s+OutdoorDimensionSpec\s*\{([^}]+)\}', content)
-        assert outdoor_match, "OutdoorDimensionSpec interface niet gevonden in §4.9.1"
-        outdoor_body = outdoor_match.group(1)
-        assert "'lamellendak'" in outdoor_body
-        assert "'glazen_schuifwand'" in outdoor_body
-        assert "'terrasoverkapping'" in outdoor_body
-        assert "'vrijstaand'" in outdoor_body
-        assert "bediening?:" in outdoor_body
-        assert "'handmatig_schuiven'" in outdoor_body
-        assert "motorzijde?:" in outdoor_body
-        assert "terrasverwarming_watt" not in outdoor_body
-        assert "led_geintegreerd" not in outdoor_body
+    # 1. Historische toetsing op V51 (blijft groen voor historische documenten)
+    outdoor_match_v51 = re.search(r'interface\s+OutdoorDimensionSpec\s*\{([^}]+)\}', v51_content)
+    assert outdoor_match_v51, "OutdoorDimensionSpec interface niet gevonden in §4.9.1 van V51"
+    outdoor_body_v51 = outdoor_match_v51.group(1)
+    assert "'lamellendak'" in outdoor_body_v51
+    assert "'glazen_schuifwand'" in outdoor_body_v51
+    assert "'terrasoverkapping'" in outdoor_body_v51
+    assert "'vrijstaand'" in outdoor_body_v51
+    assert "bediening?:" in outdoor_body_v51
+    assert "'handmatig_schuiven'" in outdoor_body_v51
+    assert "motorzijde?:" in outdoor_body_v51
+    assert "terrasverwarming_watt" not in outdoor_body_v51
+    assert "led_geintegreerd" not in outdoor_body_v51
 
-        toewijzing_match = re.search(r'interface\s+ProductToewijzing\s*\{([^}]+)\}', content)
-        assert toewijzing_match, "ProductToewijzing interface niet gevonden in §4.9.1"
-        toewijzing_body = toewijzing_match.group(1)
-        assert "'vrijstaand'" in toewijzing_body
-        assert "'gevel_op_de_dag'" in toewijzing_body
-        assert "'plafond_uitval'" in toewijzing_body
+    toewijzing_match_v51 = re.search(r'interface\s+ProductToewijzing\s*\{([^}]+)\}', v51_content)
+    assert toewijzing_match_v51, "ProductToewijzing interface niet gevonden in §4.9.1 van V51"
+    toewijzing_body_v51 = toewijzing_match_v51.group(1)
+    assert "'vrijstaand'" in toewijzing_body_v51
+    assert "'gevel_op_de_dag'" in toewijzing_body_v51
+    assert "'plafond_uitval'" in toewijzing_body_v51
+
+    # 2. V55 architectuurtoetsing op master (en v55)
+    outdoor_match = re.search(r'interface\s+OutdoorDimensionSpec\s*\{([^}]+)\}', master_content)
+    assert outdoor_match, "OutdoorDimensionSpec interface niet gevonden in §4.9.1"
+    outdoor_body = outdoor_match.group(1)
+    assert "'lamellendak'" in outdoor_body
+    assert "'glazen_schuifwand'" in outdoor_body
+    assert "'terrasoverkapping'" in outdoor_body
+    assert "montage:" in outdoor_body
+    assert "bediening?:" in outdoor_body
+    assert "'handmatig_schuiven'" in outdoor_body
+    assert "motorzijde?:" in outdoor_body
+    assert "terrasverwarming_watt" not in outdoor_body
+    assert "led_geintegreerd" not in outdoor_body
+
+    toewijzing_match = re.search(r'interface\s+ProductToewijzing\s*\{([^}]+)\}', master_content)
+    assert toewijzing_match, "ProductToewijzing interface niet gevonden in §4.9.1"
+    toewijzing_body = toewijzing_match.group(1)
+    assert "montagewijze?:" not in toewijzing_body, "ProductToewijzing mag géén montagewijze meer bevatten (SSOT naar DimensionSpec)"
 
 
 def test_v52_statusmodel_orthogonal_split(v52_content: str):
@@ -641,4 +666,68 @@ def test_v54_sanation_of_erp_export_and_lingering_statuses(v54_content: str, mas
         assert "Post naar ERP" not in content
         assert "Post sloop_vloer_m2 naar ERP-offerte" not in content
         assert "Post regie-uren naar ERP" not in content
+
+
+def test_v55_two_axis_mounting_model(v55_content: str, master_content: str):
+    """Toetst de integrale implementatie van het V55 2-Assen Montage- en Plaatsingsmodel over beide documenten."""
+    for content in (v55_content, master_content):
+        # 1. Specificatieversie header
+        assert "> **Specificatieversie:** 55.0.0 (V55 2-Assen Montage- & Plaatsingsarchitectuur)" in content
+
+        # 2. TypeScript Types in §4.9.1
+        assert "type CurtainPlaatsingType = 'in_de_dag' | 'op_de_dag' | 'in_het_plafond';" in content
+        assert "type BlindPlaatsingType =" in content
+        for pt in ('op_het_glas', 'in_de_glaslat', 'op_de_glaslat', 'op_de_vleugel', 'op_het_kozijn', 'in_het_kozijn', 'in_de_dag', 'op_de_dag', 'in_het_plafond'):
+            assert f"'{pt}'" in content
+
+        assert "type OutdoorPlaatsingType = 'in_de_dag' | 'gevel_op_de_dag' | 'plafond_uitval' | 'vrijstaand';" in content
+        assert "type BevestigingsMethode = 'schroeven' | 'klemmen' | 'plakken' | 'magnetisch' | 'boren_chemisch_anker';" in content
+        assert "type BlindSteunType = 'wandsteun' | 'plafondsteun' | 'zijsteun' | 'spansysteem_klem' | 'spansysteem_plak' | 'profiel_klem' | 'profiel_plak' | 'inzetveer' | 'magneetstrip';" in content
+        assert "type OutdoorSteunType = 'gevelsteun' | 'plafondsteun' | 'vrijstaand_voet' | 'zijgeleider_profiel' | 'zijgeleider_gevel';" in content
+
+        # Compile-time discriminated unions
+        assert "type SteunSpecificatie =" in content
+        assert "| { steun_type: 'wandsteun'; wandsteun_uitval_mm: number }" in content
+        assert "| { steun_type: Exclude<MontageVlakSteunType, 'wandsteun'>; wandsteun_uitval_mm?: never };" in content
+
+        assert "interface CurtainMontageConfiguratie" in content
+        assert "interface BlindMontageConfiguratie" in content
+        assert "interface OutdoorMontageConfiguratie" in content
+        assert "bestaande_rail_behouden?: boolean;" in content
+        assert "heeft_afstandsbussen_staal?: boolean;" in content
+
+        # 3. ProductToewijzing en DimensionSpecs
+        toewijzing_match = re.search(r'interface\s+ProductToewijzing\s*\{([^}]+)\}', content)
+        assert toewijzing_match
+        assert "montagewijze?:" not in toewijzing_match.group(1)
+
+        curtain_match = re.search(r'interface\s+CurtainDimensionSpec\s*\{([^}]+)\}', content)
+        assert curtain_match
+        assert "montage?: CurtainMontageConfiguratie;" in curtain_match.group(1)
+
+        blind_match = re.search(r'interface\s+BlindDimensionSpec\s*\{([^}]+)\}', content)
+        assert blind_match
+        assert "montage: BlindMontageConfiguratie;" in blind_match.group(1)
+
+        outdoor_match = re.search(r'interface\s+OutdoorDimensionSpec\s*\{([^}]+)\}', content)
+        assert outdoor_match
+        assert "montage: OutdoorMontageConfiguratie;" in outdoor_match.group(1)
+
+        floor_match = re.search(r'interface\s+FloorDimensionSpec\s*\{([^}]+)\}', content)
+        assert floor_match
+        assert "legmethode?: 'verlijmd' | 'zwevend' | 'gespannen';" in floor_match.group(1)
+        assert "montagewijze?:" not in floor_match.group(1)
+
+        # 4. AuditVeldMutatie en LTDiffRegel pad-contract
+        assert "type MontageVeldPad =" in content
+        assert "veld_naam: string | MontageVeldPad;" in content
+
+        # 5. Ketensanering teksten
+        assert "14 montagewijzen" not in content
+        assert "drie primaire montagesituaties" not in content
+        assert "checkbox 'Tegen het plafond'" not in content
+        assert "Plafond van de negge" not in content
+        assert "35 mm" in content
+        assert "18 mm" in content
+        assert "15 mm" in content
 

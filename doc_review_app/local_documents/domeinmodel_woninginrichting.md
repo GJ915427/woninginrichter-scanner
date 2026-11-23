@@ -1,6 +1,6 @@
 # Domein- en Procesmodel Woninginrichting (EasyM2M)
 
-> **Specificatieversie:** 54.0.0 (V54 Medallion Architectuur & GSW Baseline)  
+> **Specificatieversie:** 55.0.0 (V55 2-Assen Montage- & Plaatsingsarchitectuur)  
 >   
 > **Het Doel:**  
 > *"Een tevreden klant die blij is met het eindresultaat én de wijze waarop dit resultaat tot stand is gekomen."*  
@@ -139,13 +139,13 @@ Het procesmodel van EasyM2M onderkent zeven primaire rollen die als een estafett
      * **Binaire `Configuratiestatus`:** Strikt beperkt tot `'concept' | 'definitief'`. Definitief maken gebeurt via `[ Definitief Maken ]`; hermeting geschiedt door terugzetten naar `'concept'` met reden in `AuditVeldMutatie`.
      * **Fysieke `Montagestatus`:** Strikt beperkt tot `'te_monteren' | 'geleverd' | 'gereed'`.
      * **First-Class Lifecycle State `annulering: AnnuleringInfo | null`:** Soft-delete (`[×]`) met behoud van lasermaten en 1-klik herstel.
-     * **Integrale Rich Domain Entity `ProductToewijzing`:** Behoud van alle category types, 14 montagewijzen, opties en stuklijsten.
+     * **Integrale Rich Domain Entity `ProductToewijzing`:** Behoud van alle category types, het 2-Assen Montageconfiguratiemodel (SSOT in dimension_spec.montage / montage_scope), opties en stuklijsten.
      * **Generieke Checklist-Engine (`INV-CHK-01`):** Inspecties over alle 7 niveaus met 6 actietriggers.
      * **`AuditVeldMutatie` Logging:** Audittrail voor elke mutatie.
 
   4. **Scharnier LTDiffRapport (Goud vs. Brons — `INV-M2M-DIFF-01`):**
      * Het `LTDiffRapport` is het formele scharnierpunt dat het verschil berekent tussen de operationele toestand in **Goud** (werkelijke inmeetmaten, toewijzingen, annuleringen `[×]`, toevoegingen `[+]`, 2D-splitsingen) en de actuele grondwaarheid in **Brons** (wat actueel in LogicTrade geregistreerd staat), conform het canonieke V53-contract met behoud van `product_toewijzing_ids?: string[]` en `actie_voor_lt: 'splitsen'`.
-     * *Gewijzigde specificaties:* LT-gekoppelde toewijzingen waarvan inmeetmaten, opties of montagewijze afwijken van de actuele LT-orderregel.
+     * *Gewijzigde specificaties:* LT-gekoppelde toewijzingen waarvan inmeetmaten, opties of montageconfiguratie (via `MontageVeldPad`) afwijken van de actuele LT-orderregel.
      * *Nieuwe toevoegingen in M2M:* Nieuw aangemaakte items/lagen zonder `lt_offerte_regel_id` die in LT als orderregel moeten worden toegevoegd.
      * *Annuleringen / vervallen regels:* Items die in M2M via `[×]` zijn geannuleerd (`annulering !== null`) en in LT geannuleerd/op 0 gezet moeten worden.
      * *LogicTrade Pariteit:* De pariteitscheck met LogicTrade gaat **uitsluitend over velden die ook daadwerkelijk in LogicTrade worden geadministreerd; media/foto's, notities en opmerkingen maken géén onderdeel uit van de LT-pariteitscheck (de exacte veldselectie voor de pariteitscheck wordt in een latere fase geconfigureerd)**.
@@ -229,7 +229,7 @@ Het complete maatwerktraject verloopt organisatorisch via 6 vaste ketenfasen (1.
 * **Productaanpassing door Inmeter:** Indien de live situatie uitwijst dat een indicatief conceptproduct technisch niet monteerbaar is (bijv. te geringe plaatsingsdiepte of ongeschikte ondergrond), heeft de inmeter de bevoegdheid het product in overleg aan te passen naar een technisch haalbaar alternatief.
 * **Bouwkundige Schouw (Optioneel):** In situaties van ruwbouw of grootschalige renovatie kan de inmeetactie worden voorafgegaan door een 'schouw' (een conceptmeting waarbij maten en definitieve productkeuzen indicatief zijn en in een later stadium definitief worden gemaakt).
 * **Afsluiting, Meetrapport & Ondertekening (Inclusief Deel-Meetrapport):** Na afloop van de inmeting – zodra alle ruimtelijke Niveau 6 Posities met niet-geannuleerde fysieke producttoewijzingen (`annulering === null && productgroep !== 'diensten'`) door de inmeter via `[ Definitief Maken ]` op de configuratiestatus `'definitief'` zijn gezet (en `0` fysieke toewijzingen op configuratiestatus `'concept'` resteren; posities zonder niet-geannuleerde fysieke toewijzingen met `annulering !== null` zijn automatisch vrijgesteld en blokkeren het dossier niet) – genereert het portaal het digitale **Meetrapport** (via de actieknop `[ Rapport Maken ]` met rapporttype *Meetrapport*). Hierin zijn alle geconstateerde bouwkundige details, opmerkingen en montagerichtlijnen verzameld. **Deel-Meetrapport Protocol:** Indien bepaalde ruimtes of verdiepingen zich nog in ruwbouw bevinden (of nog gestukt/geëgaliseerd moeten worden), kan de inmeter een *Deel-Meetrapport* genereren voor de reeds definitief ingemeten ruimtes; de resterende ruimtes blijven op configuratiestatus `concept` staan met een ingeplande vervolginmeting. De inmeter neemt het (deel-)meetrapport door met de klant. Eventuele klantopmerkingen worden ter plekke toegevoegd. Vervolgens ondertekent de klant het rapport digitaal op het scherm (INV-UI-02), waarna het meetrapport per e-mail aan de klant wordt verzonden. *(Voor gedetailleerde inmeetmethodieken en rekenregels per categorie, zie Deel 3).*
-* **Intern `LTDiffRapport` (On-Demand LogicTrade Reconciliatierapport — `INV-M2M-DIFF-01`):** Strikt gescheiden van het formele klant-`Meetrapport` (`RapportDossier`) leidt het portaal te allen tijde het overzichtelijke interne **`LTDiffRapport`** af (met PDF-export en klembord-kopieerfunctie) met daarin uitsluitend de zuivere verschillen tussen EasyM2M en LogicTrade: gewijzigde specificaties (inmeetmaten, opties, montagewijze), nieuwe toevoegingen in M2M en M2M-annuleringen. Het `LTDiffRapport` is geschikt voor tussentijdse verwerking bij zowel volledige inmeting als deel-inmeting: openstaande `'concept'`-posities blokkeren het genereren van het diff-rapport niet.
+* **Intern `LTDiffRapport` (On-Demand LogicTrade Reconciliatierapport — `INV-M2M-DIFF-01`):** Strikt gescheiden van het formele klant-`Meetrapport` (`RapportDossier`) leidt het portaal te allen tijde het overzichtelijke interne **`LTDiffRapport`** af (met PDF-export en klembord-kopieerfunctie) met daarin uitsluitend de zuivere verschillen tussen EasyM2M en LogicTrade: gewijzigde specificaties (inmeetmaten, opties, montageconfiguratie via MontageVeldPad), nieuwe toevoegingen in M2M en M2M-annuleringen. Het `LTDiffRapport` is geschikt voor tussentijdse verwerking bij zowel volledige inmeting als deel-inmeting: openstaande `'concept'`-posities blokkeren het genereren van het diff-rapport niet.
 
 #### 1.5.3 Fase 2: De Offertefase (Calculatie, ERP & Verkooporder)
 * **Dossieroverdracht naar Calculatie:** Het inmeetverslag en de klantwensen vormen het fundament voor de offerteberekening.
@@ -265,7 +265,7 @@ Het complete maatwerktraject verloopt organisatorisch via 6 vaste ketenfasen (1.
     * **Route A (Magazijngestuurd - Standaard):** Zodra alle orderregels compleet binnen zijn in het magazijn, neemt de planning contact op met de klant om de montagedatum vast te leggen.
     * **Route B (Vooruitplanning bij Harde Deadlines):** Bij dwingende verhuisdata plant de verkoopadviseur/planner de montage vooraf in, met een verplichte buffer van 2 tot 3 weken ná de door de fabrikant bevestigde leverweek (om transport- en fabricagevertragingen betrouwbaar op te vangen).
   * *Wekelijkse Week-Vooruit Controlecyclus:* De planner/werkvoorbereider controleert wekelijks alle dossiers voor de komende werkweek op magazijncompleetheid; bij onverhoopte vertragingen wordt direct geschakeld vóórdat de monteur vertrekt.
-* **Digitale Werkinstructie voor Monteurs:** Monteurs zien op hun tablet direct alle relevante montage-informatie: ruimtenummers, posities, montagewijzen, uitsluitend definitieve productiematen, bijzonderheden en de route/toegang tot de werkplek.
+* **Digitale Werkinstructie voor Monteurs:** Monteurs zien op hun tablet direct alle relevante montage-informatie: ruimtenummers, posities, montageconfiguratie (plaatsing & steuntype), uitsluitend definitieve productiematen, bijzonderheden en de route/toegang tot de werkplek.
 * **Schadepreventie & Fotorapportage (Vooraf & Achteraf):**
   * Voor aanvang van de werkzaamheden maken de monteurs foto's en korte video's van de bestaande toestand van de ruimte en de route (ter voorkoming van discussies over reeds aanwezige beschadigingen).
   * Na afronding van de montage leggen zij het eindresultaat fotografisch vast.
@@ -310,7 +310,7 @@ Het horizontale niveau binnen een wooneenheid waarop één of meerdere ruimtes z
   * *Standaard:* Bouwtekeningen en digitale plattegronden zijn primair per verdieping georganiseerd; inmeters en verkoopadviseurs werken visueel en functioneel per verdieping.
   * *Bouwkundige standaard voor Multi-Storey Spaces (BIM / IFC `IfcSpace`):* In de architectuur en bouwwereld wordt een ruimte die zich verticaal over meerdere verdiepingen uitstrekt (zoals een vide, traphal of atrium) gemodelleerd als een **Doorlopende Ruimte (Multi-Storey Space)**.
     * *Toewijzingsregel:* De ruimte wordt administratief en logistiek gekoppeld aan de laagste verdieping waar de betreedbare vloer start (meestal Begane grond), met een verdiepingbereik-attribuut `[Start: Begane grond, Eind: 1e verdieping]`.
-    * *Verticale gevelpuien over verdiepingen heen:* Wanneer ramen verticaal boven elkaar geplaatst zijn en doorlopen van BG tot de verdieping (zoals bij een open vide of langs een trapopgang), behoren deze ramen tot het **doorlopende verticale wandvlak** van deze ruimte. De inmeettool projecteert deze wand als één doorlopende verticale geveldoorsnede, waarbij elk raam zijn eigen functionele montagewijze en reikhoogte/bedieningshoogte krijgt (bijv. onderraam: bedienbaar vanaf BG-vloer; bovenraam: bedienbaar vanaf bordes of overloop verdieping).
+    * *Verticale gevelpuien over verdiepingen heen:* Wanneer ramen verticaal boven elkaar geplaatst zijn en doorlopen van BG tot de verdieping (zoals bij een open vide of langs een trapopgang), behoren deze ramen tot het **doorlopende verticale wandvlak** van deze ruimte. De inmeettool projecteert deze wand als één doorlopende verticale geveldoorsnede, waarbij elk raam zijn eigen functionele montageconfiguratie (plaatsing & steuntype) en reikhoogte/bedieningshoogte krijgt (bijv. onderraam: bedienbaar vanaf BG-vloer; bovenraam: bedienbaar vanaf bordes of overloop verdieping).
 * **Constructie & Ondergrond:** Het type constructievloer kan verschillen per niveau (begane grond = vaak beton/zandcement met vloerverwarming; verdiepingen = vaak houten balklagen, kanaalplaten of breedplaatbeton). *(De gedetailleerde montagetechnische consequenties, boorrestricties, geluidsnormen en ondergrondregels zijn ondergebracht in Deel 3: Productcategorieën, Inmeetmethodieken & Rekenregels).*
 * **Koppeling van Trappen:** Vormt het begin- en eindpunt voor trappen die verdiepingen met elkaar verbinden.
 
@@ -450,20 +450,19 @@ Binnen EasyM2M geldt een fundamenteel en domeinoverstijgend principebesluit over
 * **De UI Drie-eenheid:**  
   In de gebruikersinterface van de inmeettool en het backofficeportaal worden voor elk maatvoeringsveld altijd drie elementen transparant getoond:
   1. **Gemeten Dagmaat:** Het invoerveld met de door de inmeter gemeten strakke maat (bijv. `2400 mm`).
-  2. **Rekenregel / Formule:** De actieve formule die op basis van productgroep, montagewijze en merkconfigurator wordt toegepast (bijv. `Dagmaat - 10 mm`).
+  2. **Rekenregel / Formule:** De actieve formule die op basis van productgroep, As 1 fysieke plaatsing en merkconfigurator wordt toegepast (bijv. `Dagmaat - 10 mm`).
   3. **Blijvende Maat (Bestelmaat):** Het berekende resultaat dat als definitieve productiemaat naar fabrikant/atelier gaat (bijv. `2390 mm`).
-* **Standaardisatie van de Drie Primaire Montagesituaties (Transversaal voor alle Verticale Montages):**  
-  Voor gordijnrails, roedes en alle raamdecoratieproducten kiest de inmeter verplicht uit drie gestandaardiseerde situaties (waarbij de Montagehoogte te allen tijde een verplicht invoerveld is conform het universele protocol in §3.1.4):
-  1. **In het plafond:** Bevestiging direct tegen het bouwkundige plafondvlak of in een plafondkoof (vergt plafondinspectie en SDS-boorhamer bij massief beton of speciale pluggen bij holle constructies).
-  2. **Op de dag:** Bevestiging op de wand vóór/boven de opening. Hierbij geldt een **verplicht invoerveld Montagehoogte** (afstand van vloer tot bovenzijde steun conform §3.1.4) en een expliciete **checkbox 'Tegen het plafond'** (strak aansluitend tegen plafond gemonteerd zonder tussenkier).
-  3. **In de dag:** Bevestiging tussen de dagkanten (binnen de negge). Bevat tevens de expliciete subkeuze **'Plafond van de negge'** (bevestiging tegen de bovenzijde/latei van de dagopening).
+* **Het 2-Assen Montage- en Plaatsingsmodel (Transversaal voor alle Verticale Montages):**  
+  Voor gordijnrails, roedes en alle raamdecoratieproducten kiest de inmeter niet langer uit een verwarrende mix van montagewoorden, maar scheidt de software de situatie strikt in twee orthogonale assen (waarbij de Montagehoogte te allen tijde een verplicht invoerveld is conform het universele protocol in §3.1.4):
+  1. **As 1: Fysieke Plaatsing (`PlaatsingType`):** Bepaalt wáár het product in de gevelopening of ruimte hangt (`in_de_dag`, `op_de_dag`, `in_het_plafond` voor gordijnen; uitgebreid met glaslat-, vleugel- en kozijnposities voor raamdecoratie conform §3.3.5; en buitengevelposities conform §3.6.4). As 1 dicteert de inmeetmethodiek en de aftrek- of overlapformule.
+  2. **As 2: Montagevlak, Steuntype & Bevestigingsmethode (`MontageConfiguratie`):** Bepaalt waaraan en waarmee de drager/steun wordt gemonteerd (`plafondclip`, `wandsteun` met verplichte `wandsteun_uitval_mm`, `kader_geleiderprofiel`, `klembeugel_vleugel`, `plakprofiel`, `magneetframe`, `gevelsteun`, etc.). Dit dicteert de stuklijst (BOM) en boor/bevestigingstechniek.
 * **Handmatige Correctie (Override) door Inmeter & Audittrail:**  
   De uitgerekende blijvende maat is te allen tijde overschrijfbaar door de inmeter. Indien een specifieke bouwkundige situatie (bijv. een sterk wijkende dagkant, afwijkend stucwerk of een specifieke klantwens) afwijkt van de standaard formule, kan de inmeter de berekende maat handmatig corrigeren.
   * *Verplicht toelichtingsveld:* Zodra een inmeter de berekende maat overschrijft, toont de software verplicht een invoerveld voor een schriftelijke toelichting/reden. Zonder deze toelichting kan de meting niet worden opgeslagen.
   * *Visuele markering:* In de UI krijgt de overschreven waarde een opvallende kleurmarkering (oranje/rode badge: `[Handmatige Aanpassing]`), zodat de werkvoorbereider / controleur in Fase 4 direct ziet dat hier bewust is afgeweken van de standaard rekenregel.
   * *Audittrail & LTDiffRapport:* De oorspronkelijke gemeten dagmaat, de standaard berekende maat én de handmatig gecorrigeerde maat blijven alle drie bewaard in de database inclusief tijdstempel en gebruikers-ID. In het `LTDiffRapport` wordt altijd de definitief overschreven maat gerapporteerd als afwijkende waarde ten opzichte van LogicTrade ter overname door de verkoopadviseur/controleur.
 * **Dwingende Inrichting van de Inmeettool ter Borging van de Kenniskloof:** *(Wens/idee)*  
-  De inmeettool fungeert als het centrale kwaliteitsanker van de organisatie. Waar senior adviseurs leunen op jarenlange impliciete praktijkervaring om alle details vooraf te tackelen, helpt de inmeettool dezelfde foutloosheid te borgen bij junior adviseurs en nieuwe filialen (zoals Maastricht). Het dwingend inrichten van het inmeetdossier (waarbij de inmeter een meting pas kan afronden nadat relevante parameters zoals montagehoogte, ondergrondclassificatie, montagewijze, plint- en zaaginspectie zijn ingevoerd) is het beoogde streefbeeld. Dit elimineert ad-hoc telefoontjes, montagediscussies tussen verkoop en inmeter (Guy), en faalkosten op locatie.
+  De inmeettool fungeert als het centrale kwaliteitsanker van de organisatie. Waar senior adviseurs leunen op jarenlange impliciete praktijkervaring om alle details vooraf te tackelen, helpt de inmeettool dezelfde foutloosheid te borgen bij junior adviseurs en nieuwe filialen (zoals Maastricht). Het dwingend inrichten van het inmeetdossier (waarbij de inmeter een meting pas kan afronden nadat relevante parameters zoals montagehoogte, ondergrondclassificatie, montageconfiguratie, plint- en zaaginspectie zijn ingevoerd) is het beoogde streefbeeld. Dit elimineert ad-hoc telefoontjes, montagediscussies tussen verkoop en inmeter (Guy), en faalkosten op locatie.
 
 #### 3.1.2 Uniforme Werkwijze, Referentiepunten & Visuele Opname
 * **Filosofie van de Uniforme Werkwijze & Uitbanning Vage Meetbonnen:**  
@@ -546,12 +545,12 @@ Voor standaard gevelopeningen volstaat de triadische 3-puntsmeting conform §3.1
 * **Bovenlichten & Tussenregels:**  
   Ramen met bovenlichten (vaste beglazing boven een tussenkader of stolpraam) kunnen naar keuze van de klant als één doorlopende positie of als twee gescheiden posities worden geconfigureerd. Indien gescheiden, wordt de hoogte van de tussenregel exact ingemeten om te waarborgen dat tussenprofielen van de raambekleding visueel samenvallen met het kozijnkader.
 * **Universele Verplichting van Montagehoogte (De Reken- en Veiligheidsspil):**  
-  De **Montagehoogte (MH)** is de zuivere verticale afstand die **te allen tijde vanaf de definitieve vloer** wordt gemeten tot aan de **bovenkant van de montagebeugel (montagesteun)**, bovenbak of plafondbevestiging. Voor ELKE montagewijze — zowel 'In de dag' (zijwand of plafond van de negge), 'Op de dag' (wandmontage) als 'In het plafond' (plafondmontage) — is de Montagehoogte een **strikt verplicht invoerveld**. Dit onderscheid is cruciaal omdat een product of rail soms aanzienlijk lager hangt dan de beugel waaraan deze is bevestigd (bijv. gordijnrails aan pendels of staaldraden, zoals bij ziekenhuisbedden of hoge koven). Zonder deze waarde kan de software de bestelmaten, veiligheidsmarges en logistiek niet valideren. Deze waarde is mathematisch en operationeel noodzakelijk voor:
+  De **Montagehoogte (MH)** is de zuivere verticale afstand die **te allen tijde vanaf de definitieve vloer** wordt gemeten tot aan de **bovenkant van de montagebeugel (montagesteun)**, bovenbak of plafondbevestiging. Voor ELKE situatie — ongeacht As 1 fysieke plaatsing of As 2 steuntype — is de Montagehoogte een **strikt verplicht invoerveld**. Dit onderscheid is cruciaal omdat een product of rail soms aanzienlijk lager hangt dan de beugel waaraan deze is bevestigd (bijv. gordijnrails aan pendels of staaldraden, zoals bij ziekenhuisbedden of hoge koven). Zonder deze waarde kan de software de bestelmaten, veiligheidsmarges en logistiek niet valideren. Deze waarde is mathematisch en operationeel noodzakelijk voor:
   1. *Wettelijke Kindveiligheid (EN 13120):* Berekent de maximaal toegestane bedieningskoord-/kettinglengte (`Kettinglengte ≤ Montagehoogte - 150 cm`). Bedieningskoorden en -kettingen moeten te allen tijde minimaal 1,50 m boven de afgewerkte vloer hangen en voorzien zijn van een goedgekeurde spanklem of breekketting.
   2. *Automatische Trekstangberekening:* Berekent de ideale confectielengte voor gordijntrekstangen (`Trekstanglengte = Montagehoogte - 140 cm`, automatisch afgerond naar 100, 125 of 150 cm). Hierdoor hangt het handvat ergonomisch op ca. 140–150 cm boven het vloerpeil.
   3. *Ergonomisch Reikhoogte-Advies:* Bij handbediende systemen (zoals Top-Down / Bottom-Up plissés en Duettes met LiteRise handgreep) op een montagehoogte > 2,10 m kan de bovenste handgreep niet meer vanaf de vloer worden bediend. De inmeettool toont verplicht een adviesmelding om een magnetische bedieningsstang aan de order toe te voegen of over te stappen op SmartCord® / accumotorisatie (bespreken met klant).
   4. *Arbo & Klimmaterieel voor de Bus:* Bepaalt of voor de monteur een standaard huishoudtrap (≤ 2,60 m) volstaat, of dat extra klimmaterieel (lange ladder, hoge trap, rolsteiger) via de Arbo-checklist op de werkbon voor de monteursbus moet worden aangestuurd (§4.8).
-  * *Optie 'Tegen het plafond':* Bij montage "Op de dag" kan expliciet worden aangegeven of het product **tegen het plafond** moet komen te hangen (strak plafondaansluitend zonder tussenkier); de hoogte wordt berekend vanaf afgewerkte vloer tot plafond.
+  * *Wand-tot-wand of plafondaansluitend:* Indien gekozen wordt voor As 1 `op_de_dag` of `in_het_plafond` met wand-tot-wand aansluiting (`wand_tot_wand_begrensd: true`), berekent het systeem de maatvoering strak over de volledige overspanning met de vastgelegde speling.
 
 #### 3.1.5 Meetapparatuur & Handmatige Validatie in V1
 * **Geijkte Meetapparatuur:**  
@@ -608,14 +607,14 @@ De bouwkundige ondergrond van het montagevlak bepaalt welk bevestigingsmateriaal
 Tijdens het inmeten doorloopt de inmeter een gestandaardiseerde, dynamische inmeetchecklist. De software dwingt mechanisch af dat een positie pas de configuratiestatus 'definitief' kan krijgen via de actieknop [ Definitief Maken ] (INV-STATE-01) nadat alle verplichte checklist-items van die positie succesvol zijn doorlopen en gevalideerd.
 
 * **Bestaande Situatie & Demontage:** Vastlegging van demontage door klant vs. monteur, hergebruik van bestaande rails/onderdelen, en afvoer van afval/oude vloeren.
-* **Nieuwe Situatie & Configuraties (Conceptverificatie):** De checklist dekt nadrukkelijk ook de nieuwe situatie af. Keuzes zoals de bedieningszijde (links of rechts bij een Duette/rolgordijn), montagewijze (in de dag vs op de dag, wand vs plafond) of klinkvrijheid zijn veelal reeds in het verkoopgesprek (Fase 1) verkend en staan als concept geregistreerd in het dossier. De inmeter toetst deze conceptwaarden ter plekke aan de fysieke werkelijkheid en bevestigt deze definitief.
+* **Nieuwe Situatie & Configuraties (Conceptverificatie):** De checklist dekt nadrukkelijk ook de nieuwe situatie af. Keuzes zoals de bedieningszijde (links of rechts bij een Duette/rolgordijn), montageconfiguratie (As 1 plaatsing, As 2 steuntype & bevestigingsmethode) of klinkvrijheid zijn veelal reeds in het verkoopgesprek (Fase 1) verkend en staan als concept geregistreerd in het dossier. De inmeter toetst deze conceptwaarden ter plekke aan de fysieke werkelijkheid en bevestigt deze definitief.
 * **Domeinspecifieke Checklist-Verankering:** Om maximale vakinhoudelijke diepgang te waarborgen, zijn de specifieke inspectiepunten direct ondergebracht bij de respectievelijke categoriehoofdstukken hieronder: gordijnen & rails (3.2.6), raamdecoratie (3.3.11), vloeren (3.4.6) en trapbekleding (3.5.5).
 
 #### Architectuur van de Dynamische Portaal-Inmeetchecklist (Het 5-Koloms Model)
 Om faalkosten uit te bannen en de inmeter op de ladder niet te overspoelen met statische, overvolle matrixen, is de checklist in het portaal en de inmeet-app gestructureerd volgens een uiterst scherp **5-koloms interactiemodel**. Dit model fungeert als het directe functionele ontwerp voor de software-wizard:
 1. **Nr:** Het unieke volgnummer van het inspectiepunt binnen de categorie.
 2. **Check / Inspectiepunt:** De inhoudelijke kwalitatieve verificatie, bouwkundige conditie, haalbaarheidstoets of veiligheidsinspectie.
-3. **Conditie (Wanneer verschijnt dit?):** De exacte zichtbaarheidsregel (business logic). Vragen verschijnen uitsluitend wanneer ze relevant zijn (bijv. altijd, of uitsluitend bij verlijmd pvc, elektrische motoren, draaikiepramen of specifieke montagewijzen).
+3. **Conditie (Wanneer verschijnt dit?):** De exacte zichtbaarheidsregel (business logic). Vragen verschijnen uitsluitend wanneer ze relevant zijn (bijv. altijd, of uitsluitend bij verlijmd pvc, elektrische motoren, draaikiepramen of specifieke montageconfiguraties).
 4. **Veldtype & Default in App:** Het concrete invoer- en bedieningselement in de mobiele app (Radiobutton, Dropdown, Checkbox, Numeriek invoerveld, of Foto-upload) inclusief een veilige standaardwaarde (default).
 5. **Validatie & Gevolg (Wat doet het portaal?):** De geautomatiseerde downstream afhandeling in het portaal: validatieblokkades (gating), automatische toevoeging van toeslagen en demontage-uren aan de werkorder, reservering van specialistisch klimmaterieel op het planbord, en selectie van bevestigingsmiddelen op de pakbon voor de monteur.
 
@@ -623,7 +622,7 @@ Om faalkosten uit te bannen en de inmeter op de ladder niet te overspoelen met s
   De inspectiepunten volgen binnen de wizard de natuurlijke, fysieke werkvolgorde van de opnemer in de ruimte:
   * *Fase A: Bestaande Situatie, Demontage & Schouw:* Oude raambekleding/vloer/trapbekleding; wie demonteert en wie voert af; hergebruik van bestaande voorzieningen.
   * *Fase B: Bouwkundig Vlak & Ondergrond:* Draagkracht muren/plafonds; kozijnmateriaal; vlakheid (2m rei) en restvocht dekvloer.
-  * *Fase C: Montagewijze & Bevestigingsmethode:* In de dag vs. op de dag vs. raamvleugel; wand- vs. plafondmontage; boorvrije systemen; koofdieptes en leidingvrijheid.
+  * *Fase C: Montageconfiguratie (As 1 Plaatsing & As 2 Steuntype/Bevestigingsmethode):* As 1 plaatsing (in de dag vs. op de dag vs. raamvleugel/kozijn/plafond); As 2 steuntype (wand vs. plafond vs. kader/klem/magneet/plak); boorvrije systemen; koofdieptes en leidingvrijheid.
   * *Fase D: Kwalitatieve Maatverificatie, Vrijloop & Fysieke Obstakels:* Kruk- en beslagvrijloop, draaikiep-kantelhoek, verloopakkoord (> 5 mm / > 15 mm). Numerieke maten (B1–B3, H1–H3) worden in de specifieke maatvelden ingevoerd; de checklist toetst de kwalitatieve randcondities.
   * *Fase E: Bediening, Aansturing & Veiligheid:* Bedieningszijde links/rechts, EN 13120 kindveiligheid, 230V stroompunten en accu-laadpunten.
   * *Fase F: Logistiek, Uitvoeringscondities & Oplevering:* Werkzone vrijmaken, Arbo-klimmaterieel (> 3 m), acclimatisatie en opleverinstructies.
@@ -732,25 +731,31 @@ Om faalkosten uit te bannen en de inmeter op de ladder niet te overspoelen met s
 * **Bochten, Erkers & Ronde Systemen:**  
   * *Retourbochten aan Uiteinden:* Rails kunnen aan één of beide uiteinden worden voorzien van een retourbocht (buiging van 90° naar de wand toe). Dit zorgt voor een naadloze sluiting tegen de muur, elimineert zijwaartse lichtspleten en verhoogt de isolatie en privacy.
   * *Tussenbochten (Binnen- en Buitenhoeken):* Voor erkers, serres en hoekkozijnen worden rails op maat gebogen in binnenhoeken (hoek in de kamer) of buitenhoeken. De inmeter registreert exact de hoekgraad (bijv. 90°, 135° of afwijkend) en de tussenlengtes.
-* **Montagesituaties & Bevestiging (In het plafond, Op de dag, In de dag) — Universeel Geldig voor álle Verticale Montages:**  
-  Bij het bepalen van het montagevlak voor gordijnrails, roedes **én alle andere elementen die in het verticale vlak worden gemonteerd (dit protocol geldt transversaal voor álle verticale montages binnen de woninginrichting, zoals raamdecoratiebovenbakken, cassettes, screens, wandsteunen en profielen)** kiest de inmeter uit drie gestandaardiseerde situaties:  
-  1. `In het plafond`: Rechtstreekse plafondmontage met plafondsteunen of verzonken railprofielen in het dragende bouwkundige plafond.  
-  2. `Op de dag`: Wandmontage met wandsteunen tegen de muur of boven het kozijn; de inmeter voert verplicht de **montagehoogte** in (altijd gemeten vanaf de definitieve vloer tot de bovenkant van de montagebeugel) en kan aanvinken of de rail **tegen het plafond** moet komen te hangen (plafondaansluitend zonder open kier).  
-  3. `In de dag`: Montage tussen de dagkanten van een nis of kozijn, met eventuele subkeuze voor **"Plafond van de negge"** (bevestiging omhoog in de bovenzijde van de nis/latei).  
+* **Montage- & Plaatsingsarchitectuur Gordijnen & Rails (Het 2-Assen Model):**  
+  Voor gordijnrails en roedes scheidt de software de situatie strikt in twee orthogonale assen:
+  * **As 1: Fysieke Plaatsing (`CurtainPlaatsingType`):**  
+    1. `in_de_dag`: Tussen de dagkanten van een nis of koof (altijd `wand_tot_wand_begrensd: true`, aftrekregel `Dagmaat - 15 mm`).  
+    2. `op_de_dag`: Op de wand vóór/boven de gevelopening (vrije uitloop `+ 150–250 mm` aan weerszijden of wand-tot-wand begrensd).  
+    3. `in_het_plafond`: Tegen het bouwkundig plafond (vrije uitloop of wand-tot-wand koof).  
+  * **As 2: Steuntype & Bevestigingsmethode (`CurtainSteunType` & `CurtainBevestigingsMethode`):**  
+    1. `plafondclip`: Rechtstreekse plafondmontage tegen dragend plafond of in koof.  
+    2. `wandsteun`: Wandmontage met uitvalsteunen (verplicht `wandsteun_uitval_mm: number`, INV-MOUNT-02).  
+    * *Zijsteunen-Invariant (INV-MOUNT-01):* `met_eindsteunen_opzij?: boolean` is uitsluitend toegestaan als aanvulling op plafondclips bij wand-tot-wand begrensde situaties (`in_de_dag` of `in_het_plafond` met `wand_tot_wand_begrensd: true`). Solitaire zijwandsteunen zijn mechanisch verboden; een rail vereist altijd primaire dragersteunen (plafondclips of wandsteunen).  
+    * *Scope Bestaande Rail (`CurtainRailMontageScope`):* Indien een klant een bestaande rail hergebruikt (`bestaande_rail_behouden: true`), is `montage` compile-time afwezig (`montage?: never`) en geldt de ingevoerde maat direct als blijvende railmaat.  
   * *Montagehoogte Beugel vs. Railpositie (Afhangconstructies / Ziekenhuisbed-rails):* De montagehoogte van een gordijn wordt altijd vanaf de vloer tot aan de **bovenkant van de montagebeugel** gemeten. Er zijn echter situaties waarin de gordijnrail veel lager hangt dan de beugel waaraan deze is gemonteerd, zoals bij een ziekenhuisbed met een rail die aan draden of pendels hangt (vaak een paar meter lager). In de software worden de montagehoogte van de beugel en de fysieke hoogte van de bovenkant rail daarom als afzonderlijke parameters vastgelegd.  
   * *Ondergrondregistratie:* De inmeter registreert verplicht van welk materiaal het montagevlak is (beton, gipskarton, hout, kalkzandsteen, etc., conform §3.1.7).  
   * *Leidingcontrole muur:* Bij elke wandmontage (verticaal vlak) geldt de verplichte toetsing op leidingen en wandverwarming conform de universele meldingsplicht en het aansprakelijkheidsprotocol in §3.1.7.  
   * *Plafondmontage specificaties:* Standaard bij massief beton of breedplaat (met SDS-boorhamer en nylon pluggen 6 mm). Bij gipsplaatplafonds mag uitsluitend worden gemonteerd indien achterhout aantoonbaar is; anders geldt direct wandmontage.  
   * *Wandsteunlengtes:* Wandsteunen variëren van 3,5 cm (enkele rail) tot 15–20 cm (dubbele rail met wave).  
 * **Inmeetinstructies per Plaatsings- en Montagewijze (Wat meet de inmeter exact?):**  
-  De keuze van de montagewijze bepaalt welke fysieke maten de inmeter moet opnemen en welke aftrek/optelsom de software hanteert:
-  * *In de dag / Nis / Wand-tot-Wand (in een koof of tussen twee muren):*
+  De keuze van de As 1 plaatsing bepaalt welke fysieke maten de inmeter moet opnemen en welke aftrek/optelsom de software hanteert:
+  * *In de dag / Nis / Wand-tot-Wand (`in_de_dag` of `wand_tot_wand_begrensd: true`):*
     * **Wat meten?** 
       1. *Strakke nisbreedte:* Meet de strakke wand-tot-wand maat op montageniveau (zowel aan de voorzijde als achterzijde van het geplande railtracé). De kleinste strakke maat geldt als invoer.
       2. *Strakke hoogte op 3 punten:* Meet de hoogte vanaf het plafond/bovenzijde nis tot de vloer of vensterbank op minimaal 3 posities: Links (H1), Midden (H2) en Rechts (H3). Doorhangende plafonds of aflopende vloeren worden direct gesignaleerd; de kleinste maat is sturend voor de confectiehoogte.
       3. *Koofdiepte / Nisdiepte:* Meet de vrije diepte tussen het raam/kozijn en de voorzijde van de koof/stucrand. Vereiste vrije koofdiepte: minimaal 10 cm voor Wave 60 mm (12 cm golf), minimaal 15 cm voor Wave 80 mm (16 cm golf), en minimaal 18–20 cm voor een dubbele rail (vitrage + overgordijn).
     * **Rekenregel:** Rail zaagmaat = strakke wand-/nisbreedte minus vaste nisafslag van **exact 15 mm** (`Rail zaagmaat = Strakke nisbreedte - 15 mm`). Confectiehoogte = kleinste strakke hoogte minus railhoogte minus vloerspeling (zie 3.2.4).
-  * *Op de dag (over het raam / wand- of plafondmontage vóór de gevel):*
+  * *Op de dag / Vrije uitloop (`op_de_dag` of `in_het_plafond` met `!wand_tot_wand_begrensd`):*
     * **Wat meten?**
       1. *Dagmaat kozijn:* Strakke kozijnbreedte en strakke kozijnhoogte.
       2. *Beschikbare vrije muurbreedte (Links & Rechts):* Vrije wandruimte naast het kozijn tot aan de hoek of obstakels om het geopende gordijnpakket buiten het raam te parkeren.
@@ -806,14 +811,14 @@ De inmeetchecklist voor gordijnen en rails is geoptimaliseerd voor directe verwe
 | Nr | Check / Inspectiepunt | Conditie (Wanneer verschijnt dit?) | Veldtype & Default in App | Validatie & Gevolg (Wat doet het portaal?) |
 | :---: | :--- | :--- | :--- | :--- |
 | **1** | Oude rails/ophanging aanwezig; demontage door klant vs. monteur? | Altijd (alle gordijnen & rails) | Radio [Geen / Klant verwijdert / Monteur verwijdert], default: Geen | Indien Monteur: berekent automatische demontagetijd en voegt orderregel en afvaltoeslag toe aan werkorder. |
-| **2** | Hergebruik bestaande rail (inspectie glijders, bochten, steunen, pluggen)? | Als productgroep = Rails & Roedes én Bestaande rail hergebruiken = Ja | Radio [Ja (goedgekeurd) / Nee (afgekeurd/vervangen)], default: Nee | Bij Ja: dwingt inspectie af van glijders/steunen; waarschuwt klant dat garantie op soepele loop vervalt bij oude rails; monteursinstructie op werkbon. |
+| **2** | Hergebruik bestaande rail (inspectie glijders, bochten, steunen, pluggen)? | Als productgroep = Rails & Roedes én montage_scope.bestaande_rail_behouden = true (of confectieorder op bestaande rail) | Radio [Ja (goedgekeurd) / Nee (afgekeurd/vervangen)], default: Nee | Bij Ja: dwingt inspectie af van glijders/steunen; waarschuwt klant dat garantie op soepele loop vervalt bij oude rails; monteursinstructie op werkbon. |
 | **3** | Plafond-/wandconstructie & draagkracht (massief beton, stuc op riet, gipsplaat, hout)? | Altijd (alle gordijnen & rails) | Dropdown [Massief beton / Stuc op riet / Holle gipsplaat / Hout of Balk / Metal stud], default: Massief beton | Selecteert automatisch het juiste type schroeven en pluggen (bijv. hollewandpluggen / veerpluggen bij gips/riet) op de pakbon voor de monteur; bij stuc op riet toont app alert voor extra steunpunten. |
 | **4** | Plafond-/vloerverloop > 15 mm bij gordijnen: advies en klantakkoord? | Automatisch getriggerd als Max(H1, H2, H3) - Min(H1, H2, H3) > 15 mm | Keuzemenu [Slepend confecteren (+3–5 cm) / Horizontaal hangen (lichtspleet accepteren) / Schuin afsnijden] + Checkbox [Klantakkoord verloop], default: Niet aangevinkt | Portaal blokkeert afronding zonder vinkje klantakkoord; past confectiehoogte-rekenregel aan en plaatst bindende opmerking op offerte en werkbon. |
 | **5** | Leidingvrijheid montagezone: is de beoogde boorzone (wand, kozijn of plafond) gecontroleerd op leidingen? | Altijd (alle gordijnen & rails) | Checkbox [Leidingvrijheid gecontroleerd / akkoord klant], default: Niet aangevinkt | Verplichte veiligheidscheck conform §3.1.7 (vraag aan klant + leidingzoeker bij twijfel); blokkeert afronding zonder bevestiging; vrijwaart monteur voor verborgen leidingen. |
 | **6** | Vrije ruimte golfslag / plooivrijloop: is er voldoende vrije ruimte rondom de rail (vóór > 8 cm, achter > 6 cm)? | Als plooitype = Wave-plooi (of dubbele plooi bij krappe koof/vensterbank) | Radio [Voldoende ruimte (≥ 8 cm vóór, ≥ 6 cm achter) / Beperkte ruimte of koof smal], default: Voldoende ruimte | Bij beperkte ruimte: berekent minimale steunafstand bij wandmontage (wandsteunen 10/15/20 cm) of adviseert enkele plooi; plaatst waarschuwing op werkbon. |
 | **7** | Op locatie buigen? (Ja / Nee, default: Nee) | Als productgroep = Rails & Roedes | Radio [Ja / Nee], default: Nee | Indien Ja: genereert zaag- en buigtarief in calculatie en reserveert buigapparaat in busuitrusting van de monteur (§3.2.3). |
 | **8** | Gewenst valgedrag gordijn: Vrijhangend vs. Slepend (Default: Vrijhangend)? | Als categorie = Gordijnen | Dropdown [Vrijhangend (standaard -15 tot -20 mm boven vloer) / Vloerrakend (0 tot -5 mm) / Slepend (+30 tot +50 mm)], default: Vrijhangend | Stuurt direct de blijvende confectiehoogte-formule in het atelier aan (§3.2.4); berekent exact benodigde stofmeters. |
-| **9** | Pakketparkeerruimte & lichtinval: hangt het geopende gordijnpakket vrij van de dagopening/glaspartij? | Als montagewijze = Op de dag / Wandmontage | Radio [Volledig vrij op de muur / Overlap op glas (lichtreductie geaccordeerd)], default: Volledig vrij op de muur | Berekent vereiste railoverlengte links en rechts op basis van pakketbreedteformule (§3.2.5); voorkomt klachten over verlies van daglicht. |
+| **9** | Pakketparkeerruimte & lichtinval: hangt het geopende gordijnpakket vrij van de dagopening/glaspartij? | Als !montage_scope.bestaande_rail_behouden en !montage_scope.montage.wand_tot_wand_begrensd en montage_scope.montage.plaatsing in ('op_de_dag', 'in_het_plafond') | Radio [Volledig vrij op de muur / Overlap op glas (lichtreductie geaccordeerd)], default: Volledig vrij op de muur | Berekent vereiste railoverlengte links en rechts op basis van pakketbreedteformule (§3.2.5); voorkomt klachten over verlies van daglicht. |
 | **10** | 230V stroompunt aan motorzijde (binnen 1 meter links of rechts)? | Als bediening = Elektrisch (230V railmotor) | Radio [Aanwezig conform opgave / Nog aan te leggen door klant of installateur], default: Aanwezig conform opgave | Indien Nog aan te leggen: markeert oplevervoorwaarde op werkbon en waarschuwt klant dat stroompunt gereed moet zijn vóór montagedatum; koppelt motorzijde (links/rechts) aan stroomlocatie. |
 | **11** | Arbo & Extra klimmaterieel: welk extra materieel is vereist voor montage dat de standaard trap overstijgt? | Automatisch getriggerd als montagehoogte H > 3000 mm (of bereikbaarheid complex) | Dropdown [Geen (standaard trap ≤ 3 m) / Hoge ladder of Bordestrap (3–4 m) / Rolsteiger (≥ 4 m) / 2e monteur vereist], default: Geen | Reserveert rolsteiger/materieel in het planningssysteem, voegt Arbo-klimtoeslag en eventueel een 2e monteur toe aan de planningsorder (§4.8). |
 
@@ -823,8 +828,8 @@ De inmeetchecklist voor gordijnen en rails is geoptimaliseerd voor directe verwe
 
 | Productgroep | Primaire Dagmaat (Invoer Inmeter) | Blijvende Maat (Formule & Aftrekregel) | Verplichte Referentie & Validatie | Output naar Productie & Montage |
 | :--- | :--- | :--- | :--- | :--- |
-| **Rails & Roedes (Recht & Gebogen)** | Wand-tot-wand nisbreedte, of kozijnbreedte + gewenste overlap links/rechts; Bochtgraden / Uiteinde retour (15-25 cm) / Straal & Diameter bij ronde puien | *In de dag (nis):* Zaagmaat = Dagmaat - 15 mm; *Op de dag:* Dagmaat + pakketoverlap (2 × 150-250 mm); *Retourbocht:* Zaaglengte incl. buigtoeslag conform buigradius (R=10, R=15 of R=20) | Plafondtype (kanaalplaat/SDS vs. gips/hout), wand- vs plafondmontage, maximale steunafstand ≤ 70 cm (zware stoffen ≤ 50 cm), >70% rond Interstil inmeting | Zaagmaat rail (mm), aantal bochten/graden, aantal plafond-/wandsteunen, type glijders/runners (Wave 60/80 mm) |
-| **Gordijnstoffen (Confectie)** | Plafond tot vloerpeil / bovenzijde vensterbank op 3 meetpunten (H1, H2, H3); Breedte railtracé | Confectiehoogte = Kleinste gemeten hoogte - railhoogte per gekozen profiel (15-35 mm) - vloerspeling (vast 15 mm harde vloer; vast 20 mm tapijt; standaard +50 mm slepend) | Definitief afwerkvloerpeil (of schriftelijke aftrek klant), wand vs plafond, in vs op de dag, plooitype (hoofdje = 0 mm bij strak plafond) | Maatwerk kniphoogte gordijn (cm), aantal banen (bij baanstof incl. rapport), aantal plooien / runners, zoommaat |
+| **Rails & Roedes (Recht & Gebogen)** | Wand-tot-wand nisbreedte, of kozijnbreedte + gewenste overlap links/rechts; Bochtgraden / Uiteinde retour (15-25 cm) / Straal & Diameter bij ronde puien | *In de dag (nis):* Zaagmaat = Dagmaat - 15 mm; *Op de dag:* Dagmaat + pakketoverlap (2 × 150-250 mm); *Retourbocht:* Zaaglengte incl. buigtoeslag conform buigradius (R=10, R=15 of R=20) | Plafondtype (kanaalplaat/SDS vs. gips/hout), As 1 plaatsing & As 2 steuntype (wandsteun vereist wandsteun_uitval_mm; INV-MOUNT-01 verbiedt solitaire zijsteun), wand_tot_wand_begrensd: true of bestaande_rail_behouden: true, maximale steunafstand ≤ 70 cm (zware stoffen ≤ 50 cm), >70% rond Interstil inmeting | Zaagmaat rail (mm), aantal bochten/graden, aantal plafond-/wandsteunen, type glijders/runners (Wave 60/80 mm) |
+| **Gordijnstoffen (Confectie)** | Plafond tot vloerpeil / bovenzijde vensterbank op 3 meetpunten (H1, H2, H3); Breedte railtracé | Confectiehoogte = Kleinste gemeten hoogte - railhoogte per gekozen profiel (15-35 mm) - vloerspeling (vast 15 mm harde vloer; vast 20 mm tapijt; standaard +50 mm slepend) | Definitief afwerkvloerpeil (of schriftelijke aftrek klant), As 1 plaatsing (in_de_dag, op_de_dag, in_het_plafond), As 2 steuntype, plooitype (hoofdje = 0 mm bij strak plafond) | Maatwerk kniphoogte gordijn (cm), aantal banen (bij baanstof incl. rapport), aantal plooien / runners, zoommaat |
 
 ---
 
@@ -842,9 +847,11 @@ De inmeetchecklist voor gordijnen en rails is geoptimaliseerd voor directe verwe
 * **Shutters & Luikconstructies:**  
   * *Basswood Shutters:* Hoogwaardige binnenluiken met verstelbare lamellen (63 mm, 76 mm, 89 mm of 114 mm) in massief Basswood voor woon- en slaapkamers.  
   * *Polywood Shutters:* Vochtbestendige kunststof composiet shutters met een massieve aluminium kern tegen kromtrekken. Dé dwingende keuze voor vochtige ruimtes (badkamers, wellness en keukens).  
-  * *Montagekaders:* Geleverd in L-kader (in de dag) of Z-kader (op de dag overlappend over de dagkant).  
-* **Montagesystemen zonder Boren:**  
-  * *EasyClick, FrameFix, Splendid Pliss & Louvolite Perfect Fit:* Slanke aluminium montageframes die magnetisch of met klemsteunen tussen de glaslatten van kunststof of aluminium draaikiepramen worden bevestigd. Volledig schadevrij zonder boren of schroeven, waardoor fabrieksgaranties op kozijnen behouden blijven.  
+  * *Montagekaders:* Geleverd in L-kader (`in_de_dag` met steuntype `kader_geleiderprofiel`) of Z-kader (`op_de_dag` met steuntype `kader_geleiderprofiel` overlappend over de dagkant).  
+* **Montagesystemen zonder Boren & Niet-Invasieve Bevestiging:**  
+  * *EasyClick, FrameFix, Splendid Pliss & Louvolite Perfect Fit:* Slanke aluminium montageframes die magnetisch (steuntype `magneetframe`, bevestiging `magnetisch`) of met klemsteunen op de vleugel (plaatsing `op_de_vleugel`, steuntype `klembeugel_vleugel`, bevestiging `geklemd`) tussen de glaslatten van kunststof of aluminium draaikiepramen worden bevestigd.  
+  * *TruFit Plakprofielen:* Montage direct op het glas (plaatsing `op_het_glas`, steuntype `plakprofiel`, bevestiging `geplakt`). Vereist een minimale vlakke hechtstrook van >= 15 mm.  
+  * *Garantiebehoud Kozijnen:* Volledig schadevrij zonder boren of schroeven (`schroeven` is hier verboden), waardoor fabrieksgaranties op kunststof en aluminium kozijnen behouden blijven.  
 * **Trekstang- & Bedieningsformule:**  
   * Bij handbediende raamdecoratie en serresystemen met trekstang berekent de software automatisch de ideale stanglengte: `Trekstanglengte = Montagehoogte - 1400 mm`.
 * **Duette® Marktaandeel & Onderhoudseigenschappen:**  
@@ -961,45 +968,65 @@ De inmeetchecklist voor gordijnen en rails is geoptimaliseerd voor directe verwe
     * **Plisséhordeuren:** Bij uitstek geschikt voor schuifpuien, openslaande deuren en balkondeuren. Voorzien van gevouwen harmonicagaas en een ultra-lage kunststof ondergeleider (slechts 3 tot 5 mm hoog) voor een drempelloze, rolstoelvriendelijke doorloop. Dankzij de flexibele kettingconstructie en speling in de bovenbak is dit systeem zeer vergevingsgezind voor kleine bouwkundige maatafwijkingen en lichte scheefstand.
     * **Oprolbare Hordeuren (Nultolerantie & Verplichte Waterpascontrole):** De oprolbare hordeur loopt in een strakke cassette met vaste zij- en ondergeleiders. In tegenstelling tot plisséhordeuren vereist dit product **absolute nultolerantie**: indien de vloer (parket, tegels) niet 100% waterpas ligt (zelfs 2 mm verloop) of de dagkant scheef gestukadoord is (ruitvorming), gaat het strak gespannen gaas blazen en loopt het mechanisme vast (€ 800,- faalkosten). Bij keuze voor een oprolbare hordeur schrijft het portaal dwingend een waterpasmeting op de vloer én een kruismeting (D1 vs D2) voor.
     * **Rolhorren (Ramen):** De klassieke veerbediende of soft-raise oplossing in een slanke cassette met borstelafdichting en windvaste gaasopsluiting in de zijgeleiders (geschikt voor standaard draairamen en dakramen).
-    * **Inzethorren:** Dé standaardoplossing voor kunststof en houten draaikiepramen. Wordt zonder boren of schroeven gemonteerd door middel van flexibele RVS klemveren in de sponning, waardoor het raambeslag en de rubbers volledig intact blijven.
+    * **Inzethorren:** Dé standaardoplossing voor kunststof en houten draaikiepramen (plaatsing `in_het_kozijn`, steuntype `klemveer`, bevestiging `geklemd`). Wordt zonder boren of schroeven gemonteerd door middel van flexibele RVS klemveren in de sponning, waardoor het raambeslag en de rubbers volledig intact blijven.
     * **Vaste & Scharnierende Hordeuren:** Uitgevoerd met zelfsluitende scharnieren, schopplaat aan de onderzijde en magneetsluiting.
   * **Specifieke Buitensituaties & Kozijn-Inmeetdiscipline:**
     * **Buitendorpels & Vensterbanken:** De inmeter controleert altijd de vlakheid, scheefstand en afloop van de dorpel/vensterbank naar buiten. Bij plisséhordeuren op afschot is een schuine onderlat of wigprofiel vereist om te voorkomen dat de ondergeleider hol staat of water naar binnen leidt.
     * **Kozijn met Waterkering (Lekrand):** Veel houten en kunststof buitenkozijnen zijn voorzien van een uitstekende lekrand of schuine waterkering aan de onderzijde of bovenzijde. De inmeter registreert dit direct in de checklist; het portaal selecteert automatisch de benodigde **opvulprofielen** om de hor zuiver verticaal en vlak op het kozijn te laten aansluiten.
-    * **Montagewijzen & Plaatsing:** Onderscheid tussen 'In de dag' (tussen de neggen of in het kozijn), 'Op de dag' (op het buitenkozijn) en **stootmontage (naar stoots)** waarbij het profiel strak tegen de aanslag of het metselwerk wordt gemonteerd.
+    * **Montage & Plaatsingsarchitectuur (2-Assen Model Horren):** Onderscheid tussen As 1 plaatsing (`in_het_kozijn`, `in_de_dag`, `op_het_kozijn`, `op_de_vleugel`) en As 2 steuntype (`klemveer` bij inzethorren, `klembeugel_vleugel` bij klemhorren, `kader_geleiderprofiel` bij rol- en plisséhorren) met bevestigingsmethode (`geklemd` zonder boren, of `geschroefd`), en **stootmontage (naar stoots)** waarbij het profiel strak tegen de aanslag of het metselwerk wordt gemonteerd.
     * **Draairichting & Beslagspeling:** Bij naar buitendraaiende ramen monteert de monteur de hor aan de binnenzijde; bij naar binnendraaiende ramen (draaikiep) aan de buitenzijde. De inmeter controleert altijd de speling t.o.v. uitzetijzers, raamboompjes, ventilatieroosters en klinken.
 
 ---
 
-#### 3.3.5 Inmeetinstructies per Plaatsings- en Montagewijze (Wat meet de inmeter exact?)
-De selectie van de drie primaire montagesituaties (`In de dag` [incl. subkeuze 'Plafond van de negge'], `Op de dag` [incl. optie 'Tegen het plafond'], en `In het plafond`), waarbij de **Montagehoogte te allen tijde een strikt verplicht invoerveld is bij álle montages in het verticale vlak en aan het plafond**, de verplichte ondergrondclassificatie en de universele leidingdetectie in muren en wanden worden uitgevoerd conform de overkoepelende standaarden in §3.1.1, §3.1.2 en §3.1.7.
+#### 3.3.5 Inmeetinstructies per Plaatsings- en Montagewijze (Het 2-Assen Model in de Praktijk)
+De montage- en plaatsingsarchitectuur van raamdecoratie, binnenzonwering en insectenwering is gebaseerd op het **2-Assen Model**:
+1. **As 1: Fysieke Plaatsing (`BlindPlaatsingType`):** Waar bevindt het product zich bouwkundig ten opzichte van gevel, glas en kozijn? Dit bepaalt de inmeetmaten (glasmaat, vleugelmaat, dagmaat, overlap) en de aftrek-/optelsom.
+2. **As 2: Montagevlak & Steuntype (`SteunSpecificatie` met `BlindSteunType` & `BlindBevestigingsMethode`):** Aan welk constructief vlak en met welk type steun en bevestigingstechniek wordt het product gefixeerd?
 
-Hieronder volgen de specifieke meetinstructies en productspecifieke spelingen per situatie:
+Waarbij de **Montagehoogte te allen tijde een strikt verplicht invoerveld is bij álle montages in het verticale vlak en aan het plafond**, de verplichte ondergrondclassificatie en de universele leidingdetectie in muren en wanden worden uitgevoerd conform de overkoepelende standaarden in §3.1.1, §3.1.2 en §3.1.7.
 
-* **1. Situatie 'In de dag' (Plaatsing tussen de dagkanten van de opening):**  
-  De inmeter meet de zuivere, strakke dagmaten op minimaal 3 posities (Boven B1, Midden B2, Onder B3; en Links H1, Midden H2, Rechts H3) conform §3.1.2.
-  * *Standaard rekenregel:* De software berekent de blijvende maat automatisch op basis van de **kleinste gemeten breedte- en hoogtemaat**, verminderd met de productspecifieke fabrieksspeling (zie aftrekmatrix §3.3.12).
-  * *Vrije dagkantdiepte:* De inmeter meet en registreert de beschikbare diepte van de negge/dagkant. Het product moet volledig binnen de negge vallen zonder vóór het wandvlak uit te steken:
-    * Horizontale jaloezie 25 mm: minimale dagkantdiepte `30 mm`.
-    * Horizontale jaloezie 50 mm: minimale dagkantdiepte `65 tot 75 mm`.
-    * Duette® 25 mm: minimale dagkantdiepte `35 mm`.
-    * Duette® 64 mm: minimale dagkantdiepte `75 mm`.
-    * Rolgordijn met cassette: minimale dagkantdiepte `70 tot 90 mm`.
-    * Bij onvoldoende diepte forceert de software een advies tot montage 'Op de dag' of speciale hoeksteunen.
-  * *Klinkvrijheid:* Vaste controle op minimale vrije klinkspeling van 25 mm tussen productrand en hartlijn raamkruk conform §3.3.8.
-  * *Diagonale Kruismeting (Haaksheidscontrole):* Gestandaardiseerd via `D1` (linksonder naar rechtsboven ↙ → ↗) en `D2` (rechtsonder naar linksboven ↘ → ↖) conform §3.1.2. Verschil > 5 mm activeert scheefstandwaarschuwing en klemrisico bij vaste kadersystemen.
+Hieronder volgen de specifieke meetinstructies en productspecifieke spelingen voor de 9 fysieke As 1 plaatsingen:
 
-* **2. Situatie 'Op de dag' (Plaatsing vóór/over de dagopening):**  
-  De inmeter meet de strakke dagmaat en bepaalt in overleg met de klant de gewenste overlap over de gevelopening:
-  * *Standaard overlap:* Standaard geldt een geadviseerde overlap van **50 tot 100 mm aan weerszijden** (totale breedte = `Dagmaat + 100 tot 200 mm`) en minimaal **100 mm aan de bovenzijde** voor de montagesteunen boven de dagkant/latei.
-  * *Blijvende maat berekening:* De software berekent `Blijvende breedte = Grootste dagmaat B + linker overlap + rechter overlap`.
-  * *Montagehoogte:* Verplicht veld (afstand vloer tot bovenzijde steun) voor het aansturen van de kettinglengte (EN 13120) en klimmaterieel (§4.8).
-  * *Keuzeoptie 'Tegen het plafond':* Indien geselecteerd, wordt de bovenzijde van het product strak tegen het plafond gemonteerd; de hoogte wordt berekend vanaf afgewerkte vloer tot plafond.
+* **1. Plaatsing `op_het_glas` (Direct op de glasplaat, o.a. TruFit®):**  
+  De inmeter meet de strakke glasmaat tussen de glaslatten tot op de millimeter nauwkeurig (B1..B3 en H1..H3).  
+  * *Montage en Bevestiging:* Steuntype `plakprofiel`, bevestiging `geplakt`. Vereist een minimale vlakke hechtstrook van >= 15 mm op het glas. Geen boor- of schroefgaten; 100% behoud van glas- en kozijngarantie.
 
-* **3. Situatie 'Op het raamkozijn / Glaslatmontage' (Draaikiepramen & Deuren):**  
-  * *Glaslatmontage:* De inmeter meet de exacte glasmaat (dagmaat tussen de binnenranden van de glaslatten) in de breedte en hoogte op 3 punten. De inmeter inspecteert de glaslatdiepte (min. 18–25 mm) en glaslatschuinte conform §3.3.8.
-  * *Klemsteunmontage (Boorvrij):* De inmeter meet de breedte en hoogte van de beweegbare raamvleugel (buitenwerkse vleugelmaat) en controleert de sponningdikte (geschikt voor klemsteunen 15–24 mm) en de rubberkaderruimte (minimaal 3 mm vrije ruimte tussen kader en kozijn om tochtvrij sluiten te waarborgen).
-  * *TruFit® / FrameFix (Geplakt of Magnetisch klemkader):* De inmeter meet de strakke glasmaat tot op de millimeter nauwkeurig; de software berekent de exacte kadermaat. Plakstrook vereist minimaal 15 mm vlakke glaslat.
+* **2. Plaatsing `in_de_glaslat` (In de sponning tussen de schuine of rechte glaslatten):**  
+  De inmeter meet de exacte glasmaat (dagmaat tussen de binnenranden van de glaslatten) in breedte en hoogte op 3 punten.  
+  * *Glaslatdiepte:* Vereist een minimale glaslatdiepte van **>= 18 mm** (voor smalle plissé/Duette profielen). Bij minder dan 18 mm diepte loopt het doek aan tegen het glas of steekt het profiel uit; de inmeet-app dwingt dan overstap af naar `op_de_glaslat` of `op_het_glas`.  
+  * *Steuntype:* `glaslatsteun`, bevestiging `geschroefd` (met speciale korte glaslatschroefjes die het glas en de kitvoeg niet raken).
+
+* **3. Plaatsing `op_de_glaslat` (Op het voorvlak van de glaslat):**  
+  De inmeter meet de glasmaat plus de voorvlakbreedte van de glaslatten.  
+  * *Steuntype:* `glaslatsteun` of hoeksteuntje op het voorvlak, bevestiging `geschroefd` of `geklemd`.
+
+* **4. Plaatsing `op_de_vleugel` (Op het draaiende raamdeel / draaikiepvleugel):**  
+  De inmeter meet de buitenwerkse vleugelmaten (breedte en hoogte van de beweegbare raamvleugel).  
+  * *Steuntype:* `klembeugel_vleugel`, bevestiging `geklemd` (zonder boren). Geschikt voor sponningdiktes 15–24 mm en vereist minimaal 3 mm kaderruimte tussen vleugel en vast kozijn om tochtvrij sluiten te waarborgen. Bij vast kozijn kan alternatief `magneetframe` (EasyClick/FrameFix) worden gekozen.
+
+* **5. Plaatsing `op_het_kozijn` (Op het vaste raamkozijnkader):**  
+  De inmeter meet de buitenwerkse kozijnmaat of gewenste dekkingsmaat op het hout/kunststof/aluminium kader.  
+  * *Steuntype:* `wandsteun` (met `wandsteun_uitval_mm`), `kader_geleiderprofiel` of montagestrip, bevestiging `geschroefd` (mits boorrestricties dit toestaan).
+
+* **6. Plaatsing `in_het_kozijn` (In de sponning van het vaste raamkozijn):**  
+  Dé standaardpositie voor inzethorren bij draaikiepramen.  
+  * *Steuntype:* `klemveer` (flexibele RVS klemveren), bevestiging `geklemd` (volledig zonder boren of schroeven). De inmeter meet de strakke dagmaat van de kozijnsponning (0 mm aftrek; zie §3.3.12).
+
+* **7. Plaatsing `in_de_dag` (Tussen de bouwkundige dagkanten / neggen):**  
+  De inmeter meet de zuivere, strakke dagmaten op 3 posities (B1..B3 en H1..H3).  
+  * *Standaard rekenregel:* Software berekent de blijvende maat automatisch op basis van de **kleinste gemeten breedte- en hoogtemaat**, verminderd met de productspecifieke fabrieksspeling (§3.3.12).  
+  * *Steuntype:* `plafondclip` (bovenzijde negge), `wandsteun` of `zijsteun_spanschroef` (zijdeur/klemprofiel).  
+  * *Vrije dagkantdiepte:* Horizontale jaloezie 25 mm: min. 30 mm; Duette® 25 mm: **min. 35 mm**; Duette® 64 mm: min. 75 mm; Horizontale jaloezie 50 mm: min. 65–75 mm; Rolgordijn met cassette: min. 70–90 mm. Bij onvoldoende diepte dwingt het portaal `op_de_dag` af.  
+  * *Klinkvrijheid & Kruismeting:* Klinkspeling min. 25 mm (§3.3.8); kruismeting D1/D2 verschil > 5 mm activeert scheefstandwaarschuwing.
+
+* **8. Plaatsing `op_de_dag` (Vóór/over de dagopening op de gevelwand):**  
+  De inmeter meet de strakke dagmaat en bepaalt de gewenste overlap (standaard 50–100 mm aan weerszijden, min. 100 mm aan de bovenzijde voor de steunen).  
+  * *Steuntype & Uitval:* `wandsteun`. Ingevolge **`INV-MOUNT-02`** vereist `wandsteun` verplicht compile-time de eigenschap `wandsteun_uitval_mm: number` om vensterbanken, klinken of radiatoren vrij te overbruggen.  
+  * *Solitaire zijsteun verbod:* Ingevolge **`INV-MOUNT-01`** is steuntype `zijsteun_spanschroef` bij `op_de_dag` compile-time en logisch verboden.
+
+* **9. Plaatsing `in_het_plafond` (Direct tegen het bouwkundige plafond of koof boven de dag):**  
+  De inmeter meet de hoogte vanaf het afgewerkte vloerpeil (of vensterbank) tot aan het plafond.  
+  * *Steuntype:* `plafondclip` of plafondconsole, bevestiging `geschroefd` (met geschikte pluggen conform ondergrondclassificatie §3.1.1).
 
 * **4. Bedieningshoogte, Kindveiligheid & Reikhoogte:**  
   * *Child Safety EN 13120:* Formule `Kettinglengte ≤ Montagehoogte - 150 cm` wordt automatisch gevalideerd conform §3.1.2.
@@ -1022,11 +1049,13 @@ Hieronder volgen de specifieke meetinstructies en productspecifieke spelingen pe
 #### 3.3.8 Draaikiepramen & Glaslatmontage
 * **Klinkvrijheid Minimaal 2,5 cm (25 mm):**  
   Bij naar binnendraaiende delen en draaikiepramen moet tussen de rand van het product/zijprofiel en de hartlijn van de raamkruk minimaal **25 mm vrije ruimte** overblijven. Bij minder dan 25 mm botst de hand van de gebruiker tegen de raambekleding bij het bedienen van de kruk.
-* **TruFit / FrameFix / EasyClick Montage (Borenloos):**  
-  Montage zonder boren direct op het raamkozijn of glas: TruFit en FrameFix via hoogwaardige 3M kleefstrips op het glas of de glaslat (vooraf grondig ontvetten met isopropanol en hechtprimer, max. breedte 1300 mm), en EasyClick met een aluminium magneetframe dat met klemmen direct op de glaslat of het kozijnprofiel wordt vastgeklikt.
+* **TruFit / FrameFix / EasyClick Montage (Borenloos via 2-Assen Model):**  
+  Montage zonder boren direct op het raamkozijn of glas:  
+  * *TruFit:* Plaatsing `op_het_glas`, steuntype `plakprofiel`, bevestiging `geplakt` via hoogwaardige 3M kleefstrips direct op het glas (vooraf grondig ontvetten met isopropanol en hechtprimer, max. breedte 1300 mm; vereist minimale vlakke hechtstrook van >= 15 mm).  
+  * *FrameFix & EasyClick:* Plaatsing `op_de_vleugel` of `in_de_glaslat`, steuntype `magneetframe` (bevestiging `magnetisch`) of `klembeugel_vleugel` (bevestiging `geklemd`) dat met klemmen direct op de glaslat of het vleugelprofiel wordt vastgeklikt zonder te schroeven.
 * **Standaard Monteursinstructie bij Draaikiepramen & Kiepstandbegrenzing (Filtertrechter):**  
   De vaste default-instructie op de werkbon luidt: *"Rekening houden met kiepstand (steunen zover mogelijk naar achteren plaatsen)"*. De monteur lijnt dit ter plekke uit met de laser (bijv. 32 mm). Alleen wanneer de klant expliciet eist dat het doek bij geopende kiepstand neerwaarts blijft hangen, voert de adviseur een harde afwijkende afstand (bijv. 3 cm) en montageafspraak in.  
-  * *Protocol Kiepstandbegrenzing (Beslag-Nok vs. Montagewijze):* Bij montage 'In de dag' boven of voor een draaikiepraam toetst de inmeetworkflow via een dynamische vraagboom of de kiepuitslag van de raamvleugel kan worden begrensd. Veel modern draaikiepbeslag bevat een verstelbaar schuifje of begrenzingsnok in de bovensponning waarmee de kiepstand kan worden verkleind. Kan het beslag worden begrensd, dan kan de cassette veilig in de dag blijven hangen zonder dat het raam er bij openen tegenaan slaat. Is het beslag niet instelbaar of kantelt het raam te ver naar voren, dan switcht de filtertrechter direct naar montage **'Op de dag'** of montage direct op de raamvleugel (**TruFit / FrameFix / EasyClick / Glaslatmontage**).
+  * *Protocol Kiepstandbegrenzing (Beslag-Nok vs. Plaatsing):* Bij As 1 plaatsing `in_de_dag` boven of voor een draaikiepraam toetst de inmeetworkflow via een dynamische vraagboom of de kiepuitslag van de raamvleugel kan worden begrensd. Veel modern draaikiepbeslag bevat een verstelbaar schuifje of begrenzingsnok in de bovensponning waarmee de kiepstand kan worden verkleind. Kan het beslag worden begrensd, dan kan de cassette veilig in de dag blijven hangen zonder dat het raam er bij openen tegenaan slaat. Is het beslag niet instelbaar of kantelt het raam te ver naar voren, dan switcht de filtertrechter direct naar plaatsing **`op_de_dag`** of plaatsing direct op de raamvleugel (**`op_het_glas` [TruFit], `op_de_vleugel` [FrameFix/EasyClick], of `in_de_glaslat`**).
 
 #### 3.3.9 Mechanische Spelingen & Doekafslagen bij Plaatsing 'In de Dag'
 Bij montage 'In de dag' berekent de software automatisch de blijvende productiemaat via de gecentraliseerde aftrekmatrix in §3.3.12. De bouwkundige en mechanische noodzaak van deze spelingen is als volgt:
@@ -1062,17 +1091,17 @@ De inmeetchecklist voor raamdecoratie en binnenzonwering volgt een dynamische co
 | **1** | Oude raambekleding/folie aanwezig; demontage door klant vs. monteur? | Altijd (alle raamdecoratie) | Radio [Geen / Klant verwijdert / Monteur verwijdert], default: Geen | Indien Monteur: berekent automatische demontagetijd en voegt orderregel toe aan calculatie en werkorder. |
 | **2** | Afvoer van oud materiaal gewenst door monteur vs. klant zelf afvoeren? | Verschijnt als demontage door monteur = Ja | Radio [Klant voert zelf af / Afvoer door monteur], default: Klant voert zelf af | Indien Monteur afvoert: berekent afvalcontainer- en milieutoeslag in werkorder. |
 | **3** | Herplaatsing van gedemonteerd product naar andere positie in woning? | Verschijnt als oude raambekleding aanwezig = Ja | Radio [Ja / Nee], default: Nee | Genereert zelfstandige orderpositie met eigen inmeting, nieuwe bevestigingsmiddelen en gatencontrole (§3.1.2). |
-| **4** | Kozijnverloop & maattolerantie-akkoord (> 5 mm): lichtspleet geaccordeerd? | Automatisch getriggerd als Max(B1..B3)-Min(B1..B3) > 5 mm of Max(H1..H3)-Min(H1..H3) > 5 mm bij 'In de dag' | Checkbox [Klant akkoord met lichtspleet door scheefstand/verloop], default: Niet aangevinkt | Verloop > 5 mm verplicht vastleggen op meetverslag ter voorkoming van klachten; blokkeert afronding zonder klantakkoord. |
-| **5** | Haaksheid kozijn & scheefstandinspectie: klemmen kaders/geleiders niet (kruismeting D1/D2)? | Als montagewijze = In de dag en (product met zijgeleiding, horren of kadersysteem) | Radio [Zuiver haaks (verschil D1 vs D2 ≤ 5 mm) / Scheefstand geconstateerd (> 5 mm)], default: Zuiver haaks | Verschil tussen D1 en D2 > 5 mm triggert scheefstandwaarschuwing en klemrisico bij kaders; adviseert montage 'op de dag' of bouwkundig uitvullen (§3.1.2). |
+| **4** | Kozijnverloop & maattolerantie-akkoord (> 5 mm): lichtspleet geaccordeerd? | Automatisch getriggerd als Max(B1..B3)-Min(B1..B3) > 5 mm of Max(H1..H3)-Min(H1..H3) > 5 mm bij As 1 plaatsing 'in_de_dag' | Checkbox [Klant akkoord met lichtspleet door scheefstand/verloop], default: Niet aangevinkt | Verloop > 5 mm verplicht vastleggen op meetverslag ter voorkoming van klachten; blokkeert afronding zonder klantakkoord. |
+| **5** | Haaksheid kozijn & scheefstandinspectie: klemmen kaders/geleiders niet (kruismeting D1/D2)? | Als montage.plaatsing = 'in_de_dag' en (product met zijgeleiding, horren of kadersysteem) | Radio [Zuiver haaks (verschil D1 vs D2 ≤ 5 mm) / Scheefstand geconstateerd (> 5 mm)], default: Zuiver haaks | Verschil tussen D1 en D2 > 5 mm triggert scheefstandwaarschuwing en klemrisico bij kaders; adviseert montage 'op de dag' of bouwkundig uitvullen (§3.1.2). |
 | **6** | Leidingvrijheid montagevlak: is het montagevlak (in/op de dag/plafond) gecontroleerd op leidingen? | Altijd (alle raamdecoratie) | Checkbox [Leidingvrijheid gecontroleerd / akkoord klant], default: Niet aangevinkt | Verplichte veiligheidscheck conform §3.1.7 (vraag aan klant + leidingzoeker bij twijfel); blokkeert afronding zonder bevestiging. |
-| **7** | Montagewijze met montageprofiel: Checkbox [x] Incl. montageprofiel? | Als productgroep = Horizontale Jaloezieën, Duette & Plissé of Rolgordijnen | Checkbox [Montageprofiel toepassen], default: Aangevinkt (Ja) | Bij Ja: voegt montageprofiel toe aan artikelopbouw, maakt clipmontage mogelijk en voorkomt meervoudige boorgaten in het kozijn. |
-| **8** | Kozijnmontage & boorvrije geschiktheid (materiaal en boorrestricties)? | Alleen bij montage op raamvleugel of glaslat | Dropdown [Hout (schroeven) / Kunststof (klemsteun of boorvrij) / Aluminium (klemsteun of plakprofiel) / Staal], default: Kunststof | Sluit schroeven uit bij kunststof/aluminium zonder akkoord; selecteert boorvrije systemen (TruFit, FrameFix, klemsteunen) en genereert toeslag. |
+| **7** | Montagewijze met montageprofiel: Checkbox [x] Incl. montageprofiel? | Als productgroep in ('Horizontale Jaloezieën', 'Duette & Plissé', 'Rolgordijnen') | Checkbox [x] Incl. montageprofiel (heeft_montageprofiel: boolean), default: true | Bij true: voegt montageprofiel toe aan artikelopbouw, maakt clipmontage mogelijk en voorkomt meervoudige boorgaten in het kozijn. |
+| **8** | Kozijnmontage & boorvrije geschiktheid (materiaal en boorrestricties)? | Alleen bij As 1 plaatsing in ('op_de_vleugel', 'in_de_glaslat', 'op_de_glaslat', 'op_het_glas') | Dropdown [Hout (schroeven) / Kunststof (klemsteun of boorvrij) / Aluminium (klemsteun of plakprofiel) / Staal], default: Kunststof | Sluit schroeven uit bij kunststof/aluminium zonder akkoord; selecteert boorvrije systemen (TruFit, FrameFix, klemsteunen) en genereert toeslag. |
 | **9** | Aansluiting zijgeleiders op vloer/plint gecontroleerd: lopen geleiders ongehinderd door? | Als optie = Zijgeleiding (staaldraad, U-profiel of cassettegeleider) | Radio [Vrij tot ondergrond / Plint of dorpel in de weg], default: Vrij tot ondergrond | Bij obstakel: berekent ingekorte geleiderlengte of afstandsbussen voor geleiderhouders. |
-| **10** | Vrije inbouwdiepte dagkant: biedt de negge voldoende diepte voor de gekozen cassette/bovenbak? | Als montagewijze = In de dag | Numeriek [Gemeten inbouwdiepte in mm], default: Leeg (verplicht invoeren) | Toetst automatisch aan systeemeisen (bijv. min. 65 mm voor jaloezie 50 mm, min. 40 mm voor Duette 25 mm); waarschuwt bij te krappe negge en adviseert 'Op de dag'. |
-| **11** | Glaslatprofiel & dieptetoets: bieden glaslatten voldoende diepte (min. 18–20 mm) en zijn ze recht? | Als montagewijze = Op de glaslat / TruFit / FrameFix | Dropdown [Recht (≥ 18 mm) / Schuin of Afgerond / Te ondiep (< 18 mm)], default: Recht (≥ 18 mm) | Schuin of < 18 mm blokkeert standaard glaslatclips; selecteert klemsteunen of hoeksteunen voor vleugelmontage. |
-| **12** | Klinkbediening & beslagvrijheid: kan de raamkruk ongehinderd worden bediend (> 25 mm speling)? | Als draairichting raam = Binnendraaiend of kruk steekt uit in dagopening | Radio [Kruk vrij (> 25 mm speling) / Kruk botst (verlengde kruk of afstandsteun vereist)], default: Kruk vrij | Bij krukbotsing: activeert afstandsteunen (bijv. 40–60 mm) of selecteert platte designkruk; voorkomt doekbeschadiging. |
+| **10** | Vrije inbouwdiepte dagkant: biedt de negge voldoende diepte voor de gekozen cassette/bovenbak? | Als montage.plaatsing = 'in_de_dag' | Numeriek [Gemeten inbouwdiepte in mm], default: Leeg (verplicht invoeren) | Toetst automatisch aan systeemeisen (bijv. min. 65 mm voor jaloezie 50 mm, min. 35 mm voor Duette 25 mm); waarschuwt bij te krappe negge en adviseert 'op_de_dag'. |
+| **11** | Glaslatprofiel & dieptetoets: bieden glaslatten voldoende diepte (min. 18 mm) en zijn ze recht? | Als montage.plaatsing in ('in_de_glaslat', 'op_de_glaslat') of steuntype in ('plakprofiel', 'magneetframe') | Dropdown [Recht (≥ 18 mm) / Schuin of Afgerond / Te ondiep (< 18 mm)], default: Recht (≥ 18 mm) | Schuin of < 18 mm blokkeert standaard glaslatclips; selecteert klembeugel_vleugel of plakprofiel voor vleugel-/glasmontage. |
+| **12** | Klinkbediening & beslagvrijheid: kan de raamkruk ongehinderd worden bediend (> 25 mm speling)? | Als draairichting raam = Binnendraaiend of kruk steekt uit in dagopening | Radio [Kruk vrij (> 25 mm speling) / Kruk botst (verlengde kruk of wandsteun_uitval vereist)], default: Kruk vrij | Bij krukbotsing: dwingt wandsteun met wandsteun_uitval_mm (INV-MOUNT-02) af of selecteert platte designkruk; voorkomt doekbeschadiging. |
 | **13** | Kiepstandbotsing & openingsbegrenzing: kan het raam in val-/kiepstand openen zonder botsing? | Als raamtype = Draaikiepraam | Radio [Vrij in kiepstand / Beperkte kiepruimte (steunen naar achteren plaatsen)], default: Vrij in kiepstand | Voegt standaard monteursinstructie toe: "Rekening houden met kiepstand (steunen zover mogelijk naar achteren)"; adviseert indien nodig kiepbegrenzer (§3.3.8). |
-| **14** | Doorgangsvrijheid binnendraaiend raam: zwaait raamvleugel vrij onder opgetrokken pakket door? | Als montagewijze = Op de dag / Boven het raam bij binnendraaiend raam | Numeriek [Vrije ruimte boven raamkozijn in mm], default: Leeg | Berekent of vrije lateihoogte ≥ pakkethoogte (tabel §3.3.6); waarschuwt indien raam bij openen tegen het opgetrokken pakket zal stoten. |
+| **14** | Doorgangsvrijheid binnendraaiend raam: zwaait raamvleugel vrij onder opgetrokken pakket door? | Als montage.plaatsing in ('op_de_dag', 'in_het_plafond') bij binnendraaiend raam | Numeriek [Vrije ruimte boven raamkozijn in mm], default: Leeg | Berekent of vrije lateihoogte ≥ pakkethoogte (tabel §3.3.6); waarschuwt indien raam bij openen tegen het opgetrokken pakket zal stoten. |
 | **15** | Doekval & obstakelvrijheid: vereist uitstekend beslag/ventilatierooster een contra-rollend doek? | Als productgroep = Rolgordijnen | Radio [Standaard rollend (doek achterlangs) / Contra-rollend (doek voorlangs)], default: Standaard rollend | Contra-rollend selecteert voorwaartse doekafloop (+25–35 mm speling vanaf glas); voorkomt schuren over kruk of ventilatierooster. |
 | **16** | Toegankelijkheid bedieningszijde: is gekozen bedieningszijde vrij van vaste obstakels? | Als bediening = Handmatig (ketting / koord) | Radio [Bediening Links / Bediening Rechts], default: Rechts | Controleert of gekozen zijde overeenkomt met intake verkoper; waarschuwt indien zijde geblokkeerd wordt door vaste wand of radiator. |
 | **17** | Kindveiligheid EN 13120 inspectie: eindigen koorden/kettingen min. 150 cm boven de afwerkvloer? | Als bediening = Koord of Eindloze ketting | Checkbox [EN 13120 kindveiligheid gecontroleerd & bevestigd], default: Niet aangevinkt | Wettelijke EN 13120 validatie; app berekent maximale kettinglengte (Montagehoogte - 1500 mm); blokkeert order zonder vinkje en genereert spanners op werkbon (§3.3.3). |
@@ -1082,9 +1111,9 @@ De inmeetchecklist voor raamdecoratie en binnenzonwering volgt een dynamische co
 | **21** | Uitvoeringscondities (vensterbank vrij, meubels verplaatst, werkvloer afgedekt)? | Altijd (alle raamdecoratie) | Checkbox [Klant geïnformeerd over vrije werkzone], default: Aangevinkt | Genereert notificatie op afspraakbevestiging voor klant: "Werkzone rondom ramen vrijmaken vóór komst monteur". |
 | **22** | Kozijnprofilering & Waterkering (lekrand) bij Horren: opvulprofiel benodigd? | Als productgroep = Insectenwering / Horren | Radio [Vlak kozijn / Kozijn met waterkering (lekrand)], default: Vlak kozijn | Bij aanwezigheid waterkering/lekrand: selecteert automatisch de benodigde opvulprofielen om de hor waterpas en naadloos te laten aansluiten. |
 | **23** | Buitendorpel & Vensterbankinspectie bij Horren: vlakheid en afloop gecontroleerd? | Als productgroep = Insectenwering (plisséhordeur of rolhor) | Radio [Vlak en horizontaal / Afschot geconstateerd (schuin)], default: Vlak en horizontaal | Bij afschot: voegt automatisch een schuine onderlat/wigprofiel toe aan de calculatie en werkbon om kieren en scheefstand te voorkomen. |
-| **24** | Montagewijze & Plaatsing Horren: In de dag, Op de dag of Stootmontage? | Als productgroep = Insectenwering / Horren | Dropdown [In de dag / Op de dag / Naar stoots (stootmontage)], default: In de dag | Bepaalt de exacte maatvoeringsreducties en de montagesteunkeuze voor de monteur op de werkbon. |
-| **25** | Wandverwarming & leidingcontrole bij wandmontage: meldingsplicht klant geverifieerd? | Als montagewijze = Op de wand (wandsteunen) | Checkbox [Wandverwarming en leidingvrijheid gecontroleerd met klant], default: Niet aangevinkt | Verplichte risicoborging ter voorkoming van leidingboringen en waterschade (€ 300,- herstelkosten); legt de meldingsplicht van de klant juridisch vast op het meetrapport (§3.1.7). |
-| **26** | Plafondconstructie bij zware producten (houten jaloezieën ≥ 50 mm): massief beton vs gips? | Als montagewijze = Tegen het plafond en (productgewicht > 8 kg of Jaloezieën 50 mm) | Radio [Massief beton (kloptest solide) / Gipsplaat of Hol plafond (achterhout/hollewandankers vereist)], default: Massief beton | Bij gipsplafond zonder achterhout: blokkeert directe zware plafondmontage en dwingt wandmontage of constructieve versteviging af om lostrekken te voorkomen. |
+| **24** | Plaatsing & Steuntype Horren (2-Assen Model): in_het_kozijn, in_de_dag, op_het_kozijn of naar stoots? | Als productgroep = Insectenwering / Horren | Dropdown [In het kozijn (klemveer) / In de dag (kader) / Op het kozijn / Naar stoots (stootmontage)], default: In het kozijn (klemveer) | Bepaalt de exacte maatvoeringsreducties (0 mm bij inzethor) en de montagesteunkeuze voor de monteur op de werkbon. |
+| **25** | Wandverwarming & leidingcontrole bij wandmontage: meldingsplicht klant geverifieerd? | Als montage.steun.type = 'wandsteun' | Checkbox [Wandverwarming en leidingvrijheid gecontroleerd met klant], default: Niet aangevinkt | Verplichte risicoborging ter voorkoming van leidingboringen en waterschade (€ 300,- herstelkosten); legt de meldingsplicht van de klant juridisch vast op het meetrapport (§3.1.7). |
+| **26** | Plafondconstructie bij zware producten (houten jaloezieën ≥ 50 mm): massief beton vs gips? | Als (montage.plaatsing = 'in_het_plafond' of montage.steun.type = 'plafondclip') en (productgewicht > 8 kg of Jaloezieën 50 mm) | Radio [Massief beton (kloptest solide) / Gipsplaat of Hol plafond (achterhout/hollewandankers vereist)], default: Massief beton | Bij gipsplafond zonder achterhout: blokkeert directe zware plafondmontage en dwingt wandmontage of constructieve versteviging af om lostrekken te voorkomen. |
 | **27** | Plintinspectie bij doorgang tot op de vloer: tussen de plinten vs tot op de plint? | Als producthoogte H reikt tot vloerniveau | Radio [Vrij van plinten / Tussen de plinten / Tot op de plint / Plint openzagen of inkorten (zaagwerk vereist)], default: Vrij van plinten | Bij 'Tussen de plinten' berekent software maat tussen plinten; bij 'Tot op de plint' zakt product tot bovenzijde plint; bij 'Plint openzagen/inkorten' genereert de software een zaaginstructie voor de monteur én een automatische meerwerkpost voor zaagwerkzaamheden op de order; voorkomt klemmen, scheefstand of ad-hoc zaagverrassingen op de bouwplaats (§3.1.7). |
 | **28** | Vloervlakheid & Diagonaalmeting bij Oprolbare Horren: ondergrond 100% waterpas? | Als productgroep = Insectenwering en type = Oprolbare hor | Radio [100% Waterpas & Haaks (D1=D2) / Scheefstand/Afschot geconstateerd (plisséhordeur geadviseerd)], default: 100% Waterpas & Haaks | Nultolerantie-toets; bij > 2 mm verloop op parket/tegels of ruitvormige dagkant waarschuwt het portaal tegen doekblazen en adviseert plisséhordeur (§3.3.4). |
 
@@ -1094,19 +1123,19 @@ De inmeetchecklist voor raamdecoratie en binnenzonwering volgt een dynamische co
 
 | Productgroep | Primaire Dagmaat (Invoer Inmeter) | Blijvende Maat (Formule & Aftrekregel) | Verplichte Referentie & Validatie | Output naar Productie & Montage |
 | :--- | :--- | :--- | :--- | :--- |
-| **Duette / Plissé (AU10, AU20, AE20, AS20, EOS)** | Strakste dagmaat breedte op 3 punten (B1, B2, B3) & hoogte op 3 punten (H1, H2, H3); Diagonaal D1/D2 bij kaders | *In de dag:* Blijvende breedte = strakste dagmaat - 8 mm, Hoogte = dagmaat - 0 mm; *Op de dag:* Dagmaat + gewenste overlap (2 × 50-100 mm); *Vleugel/TruFit:* Glasmaat | Glaslatdiepte ≥ 25 mm (in de dag) of vlakke hechtstrook ≥ 15 mm; klinkvrijheid ≥ 25 mm; wand- vs plafondmontage; PowerView accessoire-gating | Fabrieks-productiemaat (blijvende maat op sticker), modelcode EOS (AU10/AU20/AS20 vs AE20 PowerView incl. Pebble en laadkabel), prijsstaffel (10–20 cm intervallen), bedieningszijde, montagesteunen |
+| **Duette / Plissé (AU10, AU20, AE20, AS20, EOS)** | Strakste dagmaat breedte op 3 punten (B1, B2, B3) & hoogte op 3 punten (H1, H2, H3); Diagonaal D1/D2 bij kaders | *In de dag:* Blijvende breedte = strakste dagmaat - 8 mm, Hoogte = dagmaat - 0 mm; *Op de dag:* Dagmaat + gewenste overlap (2 × 50-100 mm); *Vleugel/TruFit:* Glasmaat | Glaslatdiepte ≥ 18 mm (bij in_de_glaslat), min. 35 mm dagkantdiepte voor Duette 25 mm (in_de_dag), of vlakke hechtstrook ≥ 15 mm (bij op_het_glas TruFit); klinkvrijheid ≥ 25 mm; As 1 plaatsing & As 2 steuntype (wandsteun vereist wandsteun_uitval_mm; INV-MOUNT-01 verbiedt solitaire zijsteun); PowerView accessoire-gating | Fabrieks-productiemaat (blijvende maat op sticker), modelcode EOS (AU10/AU20/AS20 vs AE20 PowerView incl. Pebble en laadkabel), prijsstaffel (10–20 cm intervallen), bedieningszijde, montagesteunen |
 | **Horizontale Jaloezieën Aluminium (16, 25, 35, 50, 70 mm)** | Strakste dagmaat breedte (B1, B2, B3) & hoogte (H1, H2, H3); Diagonaal D1/D2 | *In de dag:* Blijvende breedte = strakste dagmaat - 10 mm (5 mm per zijde), Hoogte = dagmaat - 0 mm; *Op de dag:* Dagmaat + gewenste overlap | Pakkethoogte t.o.v. draaiende ramen/deuren; lameldoorloop gekoppelde sets ≤ 12 mm; TDBU alleen bij 25 mm | Productiemaat (mm), lamelbreedte (16/25/35/50/70 mm), pakkethoogte, tuimel-/bedieningszijde, ladderband/-koord |
 | **Houten Jaloezieën (50 / 65 mm)** | Strakste dagmaat breedte (B1, B2, B3) & hoogte (H1, H2, H3); Diagonaal D1/D2 | *In de dag:* Blijvende breedte = strakste dagmaat - 10 mm, Hoogte = dagmaat - 0 mm; *Op de dag:* Dagmaat + gewenste overlap | Zwaar gewicht hout; zware bovenbakdiepte (min. 65 mm); pakkethoogtecontrole bij draaiende delen | Productiemaat (mm), houtsoort/kleur, ladderband breedte (25/38 mm), tuimel- en optrekzijde |
-| **Rolgordijnen & Duo-Rolgordijnen (met Montageprofiel)** | Strakste dagmaat breedte (B1, B2, B3) & hoogte (H1, H2, H3) | *In de dag:* Systeembreedte = strakste dagmaat - 5 mm (doek ca. 35 mm smaller dan systeem); *Op de dag:* Dagmaat + overlap | Montageprofiel standaard; absorbeert motorkantasymmetrie; doorloop zijgeleiders vloer/plint bij pui | Systeembreedte (mm), doekbreedte (mm), buisdiameter (28/38/50 mm), montageprofiel-type, kettinglengte |
+| **Rolgordijnen & Duo-Rolgordijnen (met Montageprofiel)** | Strakste dagmaat breedte (B1, B2, B3) & hoogte (H1, H2, H3) | *In de dag:* Systeembreedte = strakste dagmaat - 5 mm (doek ca. 35 mm smaller dan systeem); *Op de dag:* Dagmaat + overlap | Montageprofiel standaard (heeft_montageprofiel: true); absorbeert motorkantasymmetrie; doorloop zijgeleiders vloer/plint bij pui; As 1 plaatsing & As 2 steuntype | Systeembreedte (mm), doekbreedte (mm), buisdiameter (28/38/50 mm), montageprofiel-type, kettinglengte |
 | **Verticale Lamellen (Textiel/Versos, PVC, Aluminium) & Paneelgordijnen** | Strakste dagmaat breedte op 3 punten & hoogte op 3 punten; niscontrole | *In de dag:* Railbreedte = dagmaat - 10 mm; Hoogte = dagmaat minus 15–20 mm vloer-/vensterbankspeling; *Op de dag:* + overlap | Pakketbreedte lamellen/panelen (vrije raamopening); railspoor (2-, 3-, 4- of 5-sporig); lamelbreedte (89/127 mm) | Railmaat (mm), lamelhoogte (mm), pakketzijde (links/rechts/stel), materiaalsoort (textiel/pvc/alu), aantal panelen |
-| **Insectenwering (Horren: Inzethorren, Rolhorren & Plisséhorren)** | Dagwerk breedte & hoogte (op de millimeter) | Inzethor: dagmaat sponning (0 mm aftrek). Rolhor & Plisséhor: dagmaat -2 mm voor soepele geleiding | Vlakheid buitendorpel; obstakels (waterkering/lekrand, ventilatieroosters); gaastype | Maatwerk breedte en hoogte (mm), profielkleur, klemveer-type of geleiderprofiel |
+| **Insectenwering (Horren: Inzethorren, Rolhorren & Plisséhorren)** | Dagwerk breedte & hoogte (op de millimeter); bij inzethorren dagmaat kozijnsponning | Inzethor: dagmaat sponning (0 mm aftrek; in_het_kozijn + klemveer). Rolhor & Plisséhor: dagmaat -2 mm voor soepele geleiding (in_de_dag of op_het_kozijn + kader_geleiderprofiel) | Vlakheid buitendorpel; obstakels (waterkering/lekrand, ventilatieroosters); gaastype; 2-Assen plaatsing en steuntype | Maatwerk breedte en hoogte (mm), profielkleur, klemveer-type of kader_geleiderprofiel |
 
 ##### Aftrekmatrix Insectenwering (Horren) Detail
 
-| Productgroep | Montagepositie | Aftrek Boven | Aftrek Onder | Aftrek Links | Aftrek Rechts | Blijvende Formule |
+| Productgroep | As 1 Plaatsing & As 2 Steun | Aftrek Boven | Aftrek Onder | Aftrek Links | Aftrek Rechts | Blijvende Formule |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Inzethorren** | Binnen | N.v.t. | N.v.t. | 0 mm | 0 mm | Dagmaat kozijnsponning = Bestelmaat (0 mm speling) |
-| **Rolhorren & Plisséhorren** | Binnen | 2 mm | 0 mm | 1 mm | 1 mm | Dagmaat - 2 mm speling op geleiders |
+| **Inzethorren** | `in_het_kozijn` + `klemveer` | N.v.t. | N.v.t. | 0 mm | 0 mm | Dagmaat kozijnsponning = Bestelmaat (0 mm speling) |
+| **Rolhorren & Plisséhorren** | `in_de_dag` / `op_het_kozijn` + `kader_geleiderprofiel` | 2 mm | 0 mm | 1 mm | 1 mm | Dagmaat - 2 mm speling op geleiders |
 
 ### 3.4 Categorie 3: Vaste Vloerbekleding & Dekvloertechniek
 
@@ -1406,9 +1435,9 @@ Buitenzonwering, Gevelsystemen & Buitenleven vormt een volwaardige kernproductgr
 
 | Productgroep | Primaire Dagmaat (Invoer Inmeter) | Blijvende Maat (Formule & Aftrekregel) | Verplichte Referentie & Validatie | Output naar Productie & Montage |
 | :--- | :--- | :--- | :--- | :--- |
-| **Knikarmscherm (Terras)** | Breedte gevelzone (mm) & Gewenste uitval (mm); Montagehoogte bovenkant cassette | Blijvende breedte = Gekozen cassettebreedte; Vrije doorloophoogte bij maximale uitval ≥ 2000 mm | Geveltype (massief vs spouw), latei-inspectie, chemische ankers M12, 230V voedingszijde | Cassettebreedte (mm), uitval (mm), doekdessin, motorzijde (L/R), muursteunposities, afstandsbussen |
-| **Ritsscreen (ZIP-screen)** | Dagmaat kozijn breedte (B1..B3) & hoogte (H1..H3) | *Op de dag:* Breedte = Dagmaat + 2 × geleiderbreedte (2 × 35 mm); *In de dag:* Breedte = Strakste dagmaat - 5 mm | Haaksheid dagkant (D1/D2 ≤ 3 mm), afschot buitendorpel, kabeldoorvoerlocatie, windklasse (1..6) conform NEN-EN 13561, valbeveiliging NEN 2608 | Kastmaat (85/95/105/125 mm), geleidertype, doektype (Serge 1% of 5%), zender / schakelaar |
-| **Rolluik Aluminium (Voorzet/Opbouw)** | Dagmaat breedte (B1..B3) & hoogte (H1..H3) | *Op de dag:* Breedte = Dagmaat + 2 × kastgeleider (2 × 53 mm); *In de dag:* Breedte = Strakste dagmaat - 5 mm | Klink- en waterslagvrijheid, rolluikkastafmeting (137, 150, 165, 180, 205 mm) t.o.v. bovendorpel, RC2/RC3 NEN-EN 1627 met optilbeveiliging | Blijvende breedte en hoogte, lameltype, kastafschuining (45° / 45_graden of rond), bediening (Somfy io / Solar LiFePO4) |
+| **Knikarmscherm (Terras)** | Breedte gevelzone (mm) & Gewenste uitval (mm); Montagehoogte bovenkant cassette | Blijvende breedte = Gekozen cassettebreedte; Vrije doorloophoogte bij maximale uitval ≥ 2000 mm | Geveltype (massief vs spouw), latei-inspectie, chemische ankers M12 (OutdoorBevestigingsMethode `chemisch_anker_m12`), 2-Assen model (`gevel_op_de_dag` / `plafond_uitval` met steuntype `gevelsteun` of `plafondconsole_buiten`), heeft_afstandsbussen_staal?: boolean bij gevelisolatie, 230V voedingszijde | Cassettebreedte (mm), uitval (mm), doekdessin, motorzijde (L/R), muursteunposities, afstandsbussen |
+| **Ritsscreen (ZIP-screen)** | Dagmaat kozijn breedte (B1..B3) & hoogte (H1..H3) | *Op de dag:* Breedte = Dagmaat + 2 × geleiderbreedte (2 × 35 mm); *In de dag:* Breedte = Strakste dagmaat - 5 mm | Haaksheid dagkant (D1/D2 ≤ 3 mm), afschot buitendorpel, kabeldoorvoerlocatie, windklasse (1..6) conform NEN-EN 13561, valbeveiliging NEN 2608, 2-Assen model (`in_de_dag` of `gevel_op_de_dag` met steuntype `zijgeleider_gevel` en bevestiging `gevelschroef_plug` of `chemisch_anker_m12`) | Kastmaat (85/95/105/125 mm), geleidertype, doektype (Serge 1% of 5%), zender / schakelaar |
+| **Rolluik Aluminium (Voorzet/Opbouw)** | Dagmaat breedte (B1..B3) & hoogte (H1..H3) | *Op de dag:* Breedte = Dagmaat + 2 × kastgeleider (2 × 53 mm); *In de dag:* Breedte = Strakste dagmaat - 5 mm | Klink- en waterslagvrijheid, rolluikkastafmeting (137, 150, 165, 180, 205 mm) t.o.v. bovendorpel, RC2/RC3 NEN-EN 1627 met optilbeveiliging, 2-Assen model (`in_de_dag` of `gevel_op_de_dag` met steuntype `zijgeleider_gevel`) | Blijvende breedte en hoogte, lameltype, kastafschuining (45° / 45_graden of rond), bediening (Somfy io / Solar LiFePO4) |
 
 ---
 
@@ -1480,7 +1509,7 @@ Buitenzonwering, Gevelsystemen & Buitenleven vormt een volwaardige kernproductgr
 | Dienstgroep / Bewerking | Primaire Eenheid | Registratie Inmeter & Schouwcondities | MVP Portaalactie | Terugkoppeling via LTDiffRapport & Werkbon |
 | :--- | :--- | :--- | :--- | :--- |
 | **Gordijn- & Railmontage** | m¹ / stuks | Railbreedte, montagehoogte, wand/plafond, elektrische aansluiting | Berekent railmontage per m¹ en afhangen | Opname in LTDiffRapport en werkbon |
-| **Binnenzonwering & Horren** | stuks | In/op de dag, kozijntype, kindveiligheid NEN-EN 13120, TruFit/klemsteun | Registreert montagewijze per raam | Opname in LTDiffRapport en werkbon |
+| **Binnenzonwering & Horren** | stuks | In/op de dag, kozijntype, kindveiligheid NEN-EN 13120, TruFit/klemsteun | Registreert montageconfiguratie per raam | Opname in LTDiffRapport en werkbon |
 | **Vloeren Legservice** | m² / m¹ | Type vloer (Dryback/Click), legpatroon (visgraat), plinttype en afkitten | Berekent m² leggen en m¹ plinten afkitten | Opname van `vloer_legservice_m2` in LTDiffRapport |
 | **Trapbekleding & Renovatie** | stuks treden | Aantal treden open/dicht, overzettreden vs tapijt, wangen, LED | Registreert treden en afwerkopties | Opname in LTDiffRapport en werkbon |
 | **Buitenzonwering Montage** | stuks | Gevelconstructie, latei, chemische ankers M12, 230V/Solar | Registreert ankers en bekabeling | Opname in LTDiffRapport en werkbon |
@@ -1570,7 +1599,7 @@ De keten is nadrukkelijk méér dan een route naar productie: het is een geïnte
 Waar Deel 1 het overkoepelende procesmodel op hoofdlijnen schetst, zoomt Deel 4 zuiver in op de **concrete data-overdracht van montage-, plannings- en uitvoeringsparameters**:
 * **De Doorstroming van Showroom naar Montage:**  
   1. *Stap 1: Verkoop-Intake & Afspraakplanning (Verkoper):* Vastlegging van klantwensen, leefstijl, ruimte-indeling en stalenkeuze. De verkoper plant direct in de showroom in overleg met de klant de inmeetafspraak in op de agenda van de inmeter.
-  2. *Stap 2: Fysieke Inmeting & Kwalitatieve Schouw (Inmeter):* Verificatie van zuivere dagmaten, bouwkundige vlakken (beton/stuc/gips), leidingvrijheid, klinkspelingen en obstakels. De inmeter registreert direct de montagewijze, steuntoepassingen en het benodigde klimmaterieel.
+  2. *Stap 2: Fysieke Inmeting & Kwalitatieve Schouw (Inmeter):* Verificatie van zuivere dagmaten, bouwkundige vlakken (beton/stuc/gips), leidingvrijheid, klinkspelingen en obstakels. De inmeter registreert direct de montageconfiguratie (As 1 fysieke plaatsing, As 2 steuntype & bevestigingsmethode), steuntoepassingen en het benodigde klimmaterieel.
   3. *Stap 3: Technische Validatie & Bestelspecificatie (Werkvoorbereider):* Toetsing via conditional logic aan fabricage- en montagegrenzen (vier-ogenprincipe). Genereren van definitieve productiematen voor de fabriek én gedetailleerde montage-instructies voor de werkbon.
   4. *Stap 4: Uitvoering, Oplevering & Klantbeleving (Monteur):* Vakkundige montage volgens voorgeschreven volgorde, controle van werking en kindveiligheid, en digitale aftekening van het opleverprotocol met de tevreden klant.
 * **De Vier Gekoppelde Parameterdomeinen voor Uitvoering:**  
@@ -1816,6 +1845,9 @@ export type MeetAs = 'breedte' | 'hoogte' | 'diepte' | 'diagonaal' | 'omtrek';
 export type MeetwaardeType = 
   | 'dagmaat' 
   | 'kozijnmaat' 
+  | 'glasmaat'
+  | 'vleugelmaat'
+  | 'glaslat_diepte'
   | 'borstweringhoogte' 
   | 'latei_plafondhoogte' 
   | 'dagkant_diepte' 
@@ -1985,21 +2017,6 @@ export interface ProductToewijzing {
   productiemaat_hoogte_mm?: number;
   gecorrigeerde_maat_breedte_mm?: number;
   gecorrigeerde_maat_hoogte_mm?: number;
-  montagewijze?:
-    | 'in_de_dag'
-    | 'op_de_dag'
-    | 'in_het_kozijn'
-    | 'op_het_kozijn'
-    | 'op_raamvleugel'
-    | 'tussen_twee_muren'
-    | 'plafond'
-    | 'wand'
-    | 'verlijmd'
-    | 'zwevend'
-    | 'vrijstaand'
-    | 'gevel_op_de_dag'
-    | 'plafond_uitval'
-    | 'n.v.t.';
   montagehoogte_mm?: number;
   
   // [GOUD] Handmatige Correcties & Audit
@@ -2026,6 +2043,82 @@ export interface ProductToewijzing {
   updated_at?: string;
 }
 
+// ============================================================================
+// 2-Assen Montage- & Plaatsingsarchitectuur (V55)
+// ============================================================================
+
+export type CurtainPlaatsingType = 'in_de_dag' | 'op_de_dag' | 'in_het_plafond';
+
+export type BlindPlaatsingType =
+  | 'op_het_glas'
+  | 'in_de_glaslat'
+  | 'op_de_glaslat'
+  | 'op_de_vleugel'
+  | 'op_het_kozijn'
+  | 'in_het_kozijn'
+  | 'in_de_dag'
+  | 'op_de_dag'
+  | 'in_het_plafond';
+
+export type OutdoorPlaatsingType = 'in_de_dag' | 'gevel_op_de_dag' | 'plafond_uitval' | 'vrijstaand';
+
+export type PlaatsingType =
+  | CurtainPlaatsingType
+  | BlindPlaatsingType
+  | OutdoorPlaatsingType;
+
+export type BevestigingsMethode = 'schroeven' | 'klemmen' | 'plakken' | 'magnetisch' | 'boren_chemisch_anker';
+
+export type BlindSteunType = 'wandsteun' | 'plafondsteun' | 'zijsteun' | 'spansysteem_klem' | 'spansysteem_plak' | 'profiel_klem' | 'profiel_plak' | 'inzetveer' | 'magneetstrip';
+
+export type OutdoorSteunType = 'gevelsteun' | 'plafondsteun' | 'vrijstaand_voet' | 'zijgeleider_profiel' | 'zijgeleider_gevel';
+
+export type MontageVlakSteunType =
+  | 'wandsteun'
+  | 'plafondsteun'
+  | 'zijsteun'
+  | 'spansysteem_klem'
+  | 'spansysteem_plak'
+  | 'profiel_klem'
+  | 'profiel_plak'
+  | 'inzetveer'
+  | 'magneetstrip'
+  | 'gevelsteun'
+  | 'vrijstaand_voet'
+  | 'zijgeleider_profiel'
+  | 'zijgeleider_gevel';
+
+// INV-MOUNT-02: Compile-time Discriminated Union voor SteunSpecificatie
+export type SteunSpecificatie =
+  | { steun_type: 'wandsteun'; wandsteun_uitval_mm: number }
+  | { steun_type: Exclude<MontageVlakSteunType, 'wandsteun'>; wandsteun_uitval_mm?: never };
+
+export interface CurtainMontageConfiguratie {
+  plaatsing: CurtainPlaatsingType;
+  steun: SteunSpecificatie;
+  bevestiging: BevestigingsMethode;
+  wand_tot_wand_begrensd?: boolean;
+}
+
+export interface BlindMontageConfiguratie {
+  plaatsing: BlindPlaatsingType;
+  steun: SteunSpecificatie;
+  bevestiging: BevestigingsMethode;
+}
+
+export interface OutdoorMontageConfiguratie {
+  plaatsing: OutdoorPlaatsingType;
+  steun: SteunSpecificatie;
+  bevestiging: BevestigingsMethode;
+}
+
+export type MontageVeldPad =
+  | 'montage.plaatsing'
+  | 'montage.steun.steun_type'
+  | 'montage.steun.wandsteun_uitval_mm'
+  | 'montage.bevestiging'
+  | 'montage.wand_tot_wand_begrensd';
+
 // Polymorfe Dimensie- en Calculatiespecificaties per Productgroep
 export type DimensionSpec =
   | CurtainDimensionSpec
@@ -2040,6 +2133,8 @@ export interface CurtainDimensionSpec {
   type: 'gordijnen';
   referentie_type: 'blijvende_maat' | 'bruto_maat';
   railbreedte_mm: number;
+  montage?: CurtainMontageConfiguratie;
+  bestaande_rail_behouden?: boolean;
   rail_roede_type?: 'rail' | 'roede' | 'railroede' | 'elektrisch'; // §3.2.3
   bochten_aantal?: number;
   stof_type?: 'baan' | 'kamerhoog'; // §3.2.2: Bepalend voor banenberekening vs kamerhoog stofverbruik
@@ -2078,7 +2173,7 @@ export type BlindProductSubgroep =
 export interface BlindDimensionSpec {
   type: 'raamdecoratie';
   product_subgroep: BlindProductSubgroep; // §3.3.1: Alle 12 canonieke productgroepen
-  montagewijze: 'in_de_dag' | 'op_de_dag' | 'op_raamvleugel' | 'in_het_kozijn' | 'op_het_kozijn'; // Inclusief klemveer-montage voor inzethorren
+  montage: BlindMontageConfiguratie;
   strakste_dagmaat_b_mm: number; // Afgeleid minimum uit PositieMeting[]
   strakste_dagmaat_h_mm: number; // Afgeleid minimum uit PositieMeting[]
   productiemaat_b_mm: number; // Definitieve fabricagemaat na aftrek (§3.3.9)
@@ -2086,8 +2181,7 @@ export interface BlindDimensionSpec {
   bediening?: 'ketting_links' | 'ketting_rechts' | 'motor_24v' | 'motor_solar' | 'handgreep' | 'smartcord' | 'literise'; // Optioneel: horren hebben geen bediening
   lamel_cel_breedte_mm?: 16 | 25 | 32 | 35 | 50 | 63 | 64 | 65 | 70 | 76 | 89 | 114 | 127; // Inclusief 70mm XXL (§3.3.1) en shuttermaten 63, 76, 114 mm
   ladderband_of_koord?: 'ladderkoord' | 'ladderband_10mm' | 'ladderband_25mm' | 'ladderband_38mm'; // §3.3.2
-  montagesysteem?: 'standaard_steunen' | 'easyclick_frame' | 'trufit_plakprofiel' | 'framefix_magneet' | 'klemsteun_draaikiep'; // §3.3.2
-  heeft_montageprofiel?: boolean; // §3.3.2 regel 848 (default: true)
+  heeft_montageprofiel?: boolean; // §3.3.2 (default: true)
   top_down_bottom_up?: boolean; // §3.3.1 regels 830 & 862
   eos_model_code?: 'standaard' | 'bb60_trapezium' | 'bb70_bb71_driehoek' | 'bb80_vijfhoek' | 'pb70_serre'; // §3.3.1 regels 832-835
   shutter_kader?: 'l_kader' | 'z_kader'; // §3.3.1 regels 796-799
@@ -2115,6 +2209,7 @@ export interface FloorDimensionSpec {
   type: 'vloeren';
   vloertype: FloorType; // §3.4.1
   netto_oppervlakte_m2: number;
+  legmethode?: 'verlijmd' | 'zwevend' | 'gespannen';
   legpatroon?: 'rechte_plank' | 'wildverband' | 'diagonaal' | 'visgraat' | 'hongaarse_punt' | 'weense_punt' | 'tegel' | 'blokverband'; // §3.4.1 regel 1079
   bies_en_band?: boolean; // §3.4.1: Bies en band bij visgraat
   snijverlies_percentage: number; // §3.4.4: 5% recht t/m 15% visgraat
@@ -2168,7 +2263,7 @@ export interface OutdoorDimensionSpec {
     | 'lamellendak'
     | 'glazen_schuifwand'
     | 'terrasoverkapping'; // §3.6.1: Inclusief Groep 3 Buitenleven
-  montagewijze: 'gevel_op_de_dag' | 'in_de_dag' | 'plafond_uitval' | 'vrijstaand';
+  montage: OutdoorMontageConfiguratie;
   breedte_mm: number;
   uitval_of_hoogte_mm: number;
   windklasse?: 'klasse_1' | 'klasse_2' | 'klasse_3' | 'klasse_4' | 'klasse_5' | 'klasse_6'; // NEN-EN 13561 (optioneel voor glazen wanden)
@@ -2177,7 +2272,7 @@ export interface OutdoorDimensionSpec {
   inbraakwerendheid_rc?: 'geen' | 'RC2' | 'RC3'; // NEN-EN 1627
   valbeveiliging_nen2608?: boolean; // NEN 2608
   gevelconstructie?: 'spouwmuur_baksteen' | 'beton' | 'kalkzandsteen' | 'gevelisolatie_etics'; // Optioneel voor vrijstaande constructies
-  verankeringstype?: 'keilbout' | 'chemisch_anker_m10' | 'chemisch_anker_m12' | 'afstandsbussen_staal'; // Optioneel voor vrijstaande systemen
+  heeft_afstandsbussen_staal?: boolean; // Orthogonale eigenschap bij gevelisolatie (§3.6.4)
   bediening?: 'somfy_io_230v' | 'solar_accu' | 'handmatig_oogwindwerk' | 'handmatig_schuiven' | 'n.v.t.'; // Optioneel / passieve schuifwanden
   motorzijde?: 'links' | 'rechts'; // Optioneel voor niet-gemotoriseerde systemen
   sensor_type?: 'geen' | 'zon_wind_automaat' | 'trillingssensor_eolis';
@@ -2413,7 +2508,7 @@ export interface AuditVeldMutatie {
   project_id: string;
   entiteit_type: 'klant' | 'project' | 'ruimte' | 'positie' | 'positie_meting' | 'product_toewijzing' | 'afspraak' | 'conditie';
   entiteit_id: string;
-  veld_naam: string; // Veldnaam, optie ('optie:' + code) of stuklijst ('bom:' + code)
+  veld_naam: string | MontageVeldPad; // Veldnaam, optie ('optie:' + code), stuklijst ('bom:' + code) of genest montageveldpad (bijv. 'montage.steun.steun_type')
   oude_waarde: string | null;
   nieuwe_waarde: string | null; // Nullable voor verwijdering van opties/BOM-items
   gewijzigd_door_id: string;
@@ -2436,7 +2531,7 @@ export interface LTDiffRegel {
   product_toewijzing_ids?: string[]; // Voor 'splitsen' over N M2M-toewijzingen onder 1 LT-regel
   lt_offerte_regel_id?: string;
   actie_voor_lt: 'gewijzigd' | 'toevoegen' | 'annuleren' | 'splitsen';
-  veld_naam?: string; // Bij optie/BOM-wijziging: 'optie:' + optie_code of 'bom:' + artikel_code_erp
+  veld_naam?: string | MontageVeldPad; // Bij optie/BOM-wijziging: 'optie:' + optie_code, 'bom:' + artikel_code_erp of MontageVeldPad
   waarde_in_lt?: string | number | null;
   waarde_verwacht_uit_m2m?: string | number | null;
   toelichting_audit_reden?: string;
@@ -2669,7 +2764,7 @@ Het volledige centrale werkblad waarin alle ruimtelijke niveaus (inclusief posit
   * *Overkoepelende Afspraakplanning op Projectniveau (Hoofdscherm 4):* Een **Afterservice-afspraak** zelf wordt op **Projectniveau** gepland. In het projectoverzicht (Hoofdscherm 4) kan de planner/adviseur één of meerdere openstaande issues (ook over meerdere verschillende producten binnen het project heen) selecteren en hiervoor in één handeling een gecombineerde afterservice-afspraak met de servicemonteur inplannen. Dit blijft te allen tijde mogelijk, **ook nadat het oorspronkelijke project reeds is gesloten of gearchiveerd**.
 * **Dynamische Technische & Esthetische Specificaties per Productgroep:**  
   Het specificatiepaneel past zich dynamisch aan op basis van de geselecteerde productgroep:
-  * *Raamdecoratie:* Merk, collectie, kleur/dessin, lamelbreedte, montagewijze (in de dag / op de dag, montageprofiel vs losse steunen), bedieningszijde en type motorisering.
+  * *Raamdecoratie:* Merk, collectie, kleur/dessin, lamelbreedte, montageconfiguratie (As 1 fysieke plaatsing, As 2 steuntype & bevestigingsmethode, montageprofiel vs losse steunen), bedieningszijde en type motorisering.
   * *Gordijnen & Vitrages:* Stofnummer, confectie- en plooitype (enkel, dubbel, wave), voering (lichtdoorlatend/verduisterend), pakketverdeling (links, rechts, stel) en railtype.
   * *Vloeren:* Vloertype (PVC stroken/visgraat, laminaat, parket, gietvloer), slijtlaagdikte, legmethode (verlijmd vs click), plinttype (plakplint vs hoge MDF-plint) en overgangsprofielen.
   * *Traprenovatie & Bekleding:* Uitvoering (stoffering met ondertapijt vs overzettreden CPL/hout/PVC), neusprofielen (antislip), stootborden en geïntegreerde LED-tredeverlichting.
@@ -2773,7 +2868,7 @@ Het portaal faciliteert directe visuele interactie en toewijzing over de volledi
   Voor de Versie 1 (V1 MVP) Scope werkt de monteur via het uniforme webportaal (primair Hoofdscherm 6 Product en Hoofdscherm 4 Project), responsive geoptimaliseerd voor touchscreens en tablets (44×44px touch-targets). De monteur doorloopt de volgende taken op het webportaal:
   * **Taakuitvoering in V1:**
     * De monteur opent het project op Hoofdscherm 4 en inspecteert de geplande afspraak en montagelocatie.
-    * Per positie/product navigeert de monteur naar Hoofdscherm 6 (Product) voor de definitieve maten, montagewijze en specificaties.
+    * Per positie/product navigeert de monteur naar Hoofdscherm 6 (Product) voor de definitieve maten, montageconfiguratie (plaatsing, steuntype en bevestigingsmethode) en specificaties.
     * Na plaatsing handelt de monteur het product af via de knop `[ Gemonteerd ]`. Bij succes krijgt het product direct status `'gereed'`; bij eventuele restpunten of transportschade registreert de monteur direct een `Opmerking` van het type `openstaande_actie` met detailfoto's en krijgt het product de status `'geleverd'`.
     * Na afhandeling van alle posities genereert de monteur het digitale **Montagerapport** via de geünificeerde knop `[ Rapport Maken ]`.
 * **2. Volledige Inzage ter Voorbereiding:**  
@@ -2929,7 +3024,7 @@ De interactieve dialoogvensters en slide-over componenten in het portaal volgen 
 * **Context & Triggers:** Geactiveerd via het pariteitsseintje (`[LT Synchroon]` / `[LT Afwijking]`) of `[ Sync met LogicTrade ]` in Hoofdscherm 4 Zone 1 en vanuit Zone 2 Tab C (`INV-M2M-DIFF-01`).
 * **Componenten & Diff-Rapportage:**
   * **Overzichtelijk `LTDiffRapport`:** Toont een helder en transparant overzicht van de zuivere verschillen tussen EasyM2M en LogicTrade:
-    * *Gewijzigde specificaties:* LT-gekoppelde toewijzingen waarvan inmeetmaten, opties of montagewijze afwijken van de actuele LT-orderregel.
+    * *Gewijzigde specificaties:* LT-gekoppelde toewijzingen waarvan inmeetmaten, opties of montageconfiguratie (geprojecteerd via `MontageVeldPad`) afwijken van de actuele LT-orderregel.
     * *Toevoegen in LT:* Nieuw in EasyM2M aangemaakte items of extra productlagen zonder `lt_offerte_regel_id` die in LT als orderregel moeten worden ingevoerd.
     * *Annuleren in LT:* Items die in EasyM2M via `[×]` zijn geannuleerd (`annulering !== null`) en in LT moeten worden geannuleerd of op aantal 0 worden gezet.
   * **Export & Overname:** Biedt een directe **PDF-export** van het reconciliatierapport en een **klembord-kopieerfunctie** ten behoeve van snelle, foutloze handmatige verwerking in LogicTrade door de adviseur of werkvoorbereider (`INV-LT-API-01`). Zodra de wijzigingen in LT zijn verwerkt, convergeert de 1s-sync automatisch richting `[LT Synchroon]` conform `INV-LT-CONVERGE-01`.
