@@ -11,6 +11,7 @@
 
 import os from 'os';
 import path from 'path';
+import { loadEnvConfig } from '@next/env';
 import { SyncLeaderElection } from '../src/lib/logictrade/sync-leader-elector';
 import { LRUDeduplicationCache } from '../src/lib/logictrade/lru-deduplication-cache';
 import { ContinuousSyncEngine, IDeltaDomainHandler } from '../src/lib/logictrade/continuous-sync-engine';
@@ -20,6 +21,73 @@ import { PurchaseOrderDeltaHandler } from '../src/lib/logictrade/delta-handlers/
 import { CustomerDeltaHandler } from '../src/lib/logictrade/delta-handlers/customers-delta-handler';
 import { SupplierDeltaHandler } from '../src/lib/logictrade/delta-handlers/suppliers-delta-handler';
 import { getSupabaseConfig } from '../src/lib/supabase/client';
+
+export interface WorkerCliOptions {
+  isOnce: boolean;
+  tickIntervalMs: number;
+  domainList: string[];
+  workerId: string;
+}
+
+export const CANONICAL_SYNC_DOMAINS = [
+  'orders',
+  'quotes',
+  'purchaseorders',
+  'customers',
+  'suppliers',
+];
+
+export function parseWorkerCliArgs(argv: string[] = process.argv.slice(2)): WorkerCliOptions {
+  const isOnce = argv.includes('--once');
+  const intervalArg = argv.find((a) => a.startsWith('--interval='));
+  const parsedInterval = intervalArg ? parseInt(intervalArg.split('=')[1], 10) : NaN;
+  const tickIntervalMs = !isNaN(parsedInterval) && parsedInterval > 0 ? parsedInterval : 1000;
+
+  const domainsArg = argv.find((a) => a.startsWith('--domains='));
+  let domainList: string[];
+  if (domainsArg) {
+    const rawList = domainsArg
+      .split('=')[1]
+      .split(',')
+      .map((d) => d.trim().toLowerCase())
+      .filter(Boolean);
+    domainList = rawList.length > 0 ? rawList : [...CANONICAL_SYNC_DOMAINS];
+  } else {
+    domainList = [...CANONICAL_SYNC_DOMAINS];
+  }
+
+  const workerIdArg = argv.find((a) => a.startsWith('--worker-id='));
+  const rawWorkerId = workerIdArg ? workerIdArg.split('=')[1]?.trim() : '';
+  const workerId = rawWorkerId || `${os.hostname()}-${process.pid}`;
+
+  return {
+    isOnce,
+    tickIntervalMs,
+    domainList,
+    workerId,
+  };
+}
+
+export function validateWorkerCredentials(config?: { url?: string; serviceKey?: string }): {
+  ok: boolean;
+  error?: string;
+} {
+  const cfg = config || getSupabaseConfig();
+  if (!cfg.url) {
+    return {
+      ok: false,
+      error: 'Supabase URL ontbreekt in environment.',
+    };
+  }
+  if (!cfg.serviceKey) {
+    return {
+      ok: false,
+      error:
+        'SUPABASE_SERVICE_ROLE_KEY ontbreekt in environment. Continue sync worker vereist service-role rechten.',
+    };
+  }
+  return { ok: true };
+}
 
 export function isWorkerCliEntrypoint(
   filename: string,
@@ -35,17 +103,10 @@ export function isWorkerCliEntrypoint(
 }
 
 export async function runSyncWorkerCli(argv = process.argv.slice(2)): Promise<void> {
-  const isOnce = argv.includes('--once');
-  const intervalArg = argv.find((a) => a.startsWith('--interval='));
-  const tickIntervalMs = intervalArg ? parseInt(intervalArg.split('=')[1], 10) : 1000;
+  // 0. Hydrateer automatisch .env.local via Next.js env loader tijdens CLI executie
+  loadEnvConfig(process.cwd());
 
-  const domainsArg = argv.find((a) => a.startsWith('--domains='));
-  const domainList = domainsArg
-    ? domainsArg.split('=')[1].split(',').map((d) => d.trim().toLowerCase())
-    : ['orders', 'quotes', 'purchaseorders', 'customers', 'suppliers'];
-
-  const workerIdArg = argv.find((a) => a.startsWith('--worker-id='));
-  const workerId = workerIdArg ? workerIdArg.split('=')[1] : `${os.hostname()}-${process.pid}`;
+  const { isOnce, tickIntervalMs, domainList, workerId } = parseWorkerCliArgs(argv);
 
   console.log('='.repeat(80));
   console.log(`[LogicTrade Sync Worker] Initialisatie worker '${workerId}'`);
@@ -55,16 +116,19 @@ export async function runSyncWorkerCli(argv = process.argv.slice(2)): Promise<vo
   console.log('='.repeat(80));
 
   // 1. Fail-closed credential check
-  const supabaseConfig = getSupabaseConfig();
-  if (!supabaseConfig.url || !supabaseConfig.serviceKey) {
-    console.error('[FOUT] SUPABASE_SERVICE_ROLE_KEY ontbreekt in environment. Continue sync worker vereist service-role rechten.');
+  const credCheck = validateWorkerCredentials();
+  if (!credCheck.ok) {
+    console.error(`[FOUT] ${credCheck.error}`);
     process.exit(1);
+    return;
   }
+
+  const supabaseConfig = getSupabaseConfig();
 
   // 2. Initialiseer Leader Elector en Dedup-Cache
   const elector = new SyncLeaderElection(workerId, {
     supabaseUrl: supabaseConfig.url,
-    supabaseKey: supabaseConfig.serviceKey,
+    supabaseKey: supabaseConfig.serviceKey!,
     leaseKey: 'logictrade_sync_master',
     ttlSeconds: 15,
     heartbeatIntervalMs: 5000,
