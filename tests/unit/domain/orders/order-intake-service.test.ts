@@ -439,4 +439,140 @@ describe('OrderIntakeService & Hybrid Line Ingest SSOT', () => {
       expect(servLine.configuration_spec).toBeNull();
     });
   });
+
+  describe('[SPEC-CHANGE-AUTHORIZED: Pariteitstest voor ruimtelijke extractie en dienstenroutering] 3-Stream Routing & Spatial Extraction Parity', () => {
+    it('Stream A: routes project services (group 6.6 or general costs) to pos_project_algemeen with null floor and room', async () => {
+      const rawOrder: RawLogicTradeOrderInput = {
+        id: 'V26001010',
+        order_number: 'V26001010',
+        lines: [
+          {
+            line_number: 1,
+            product_code: 'INMEET',
+            description: 'Inmeetservice GSW ter plaatse',
+            quantity: 1,
+            unit_price_cents: 9500,
+            total_price_cents: 9500,
+          },
+        ],
+      };
+
+      const result = await service.processOrderIntake(rawOrder);
+      expect(result.lines).toHaveLength(1);
+      const line = result.lines[0];
+      expect(line.position_id).toBe('pos_project_algemeen');
+      expect(line.etage_name).toBeNull();
+      expect(line.room_name).toBeNull();
+      expect(line.window_name).toBeNull();
+    });
+
+    it('Stream B: extracts spatial coordinates and infers floor and canonical position from notes', async () => {
+      const rawOrder: RawLogicTradeOrderInput = {
+        id: 'V26001011',
+        order_number: 'V26001011',
+        lines: [
+          {
+            line_number: 1,
+            product_code: 'A00034988',
+            description: 'Duette gordijn',
+            notes: '- Keuken raam links',
+            quantity: 1,
+            unit_price_cents: 35000,
+            total_price_cents: 35000,
+          },
+        ],
+      };
+
+      const result = await service.processOrderIntake(rawOrder);
+      expect(result.lines).toHaveLength(1);
+      const line = result.lines[0];
+      expect(line.room_name).toBe('Keuken');
+      expect(line.room_source).toBe('EXPLICIT');
+      expect(line.window_name).toBe('Raam links');
+      expect(line.pos_source).toBe('EXPLICIT');
+      expect(line.etage_name).toBe('Begane grond');
+      expect(line.etage_source).toBe('INFERRED');
+      expect(line.spatial_metadata).toBeDefined();
+      expect(line.spatial_metadata?.room_name).toBe('Keuken');
+    });
+
+    it('Stream B: assigns discrete buffer positions for materials with empty notes to prevent cell clobbering', async () => {
+      const rawOrder: RawLogicTradeOrderInput = {
+        id: 'V26001012',
+        order_number: 'V26001012',
+        lines: [
+          {
+            line_number: 1,
+            product_code: 'A00034988',
+            description: 'Duette stof 1',
+            quantity: 1,
+            unit_price_cents: 20000,
+            total_price_cents: 20000,
+          },
+          {
+            line_number: 2,
+            product_code: 'A00034988',
+            description: 'Duette stof 2',
+            quantity: 1,
+            unit_price_cents: 25000,
+            total_price_cents: 25000,
+          },
+        ],
+      };
+
+      const result = await service.processOrderIntake(rawOrder);
+      expect(result.lines).toHaveLength(2);
+      expect(result.lines[0].position_id).toBe('pos_onbekend_1');
+      expect(result.lines[1].position_id).toBe('pos_onbekend_2');
+      expect(result.lines[0].window_name).toBe('Pos. N.t.b.');
+      expect(result.lines[1].window_name).toBe('Pos. N.t.b.');
+      expect(result.lines[0].etage_name).toBeNull();
+      expect(result.lines[1].etage_name).toBeNull();
+    });
+
+    it('Stream C: hybrid service line inherits spatial coordinates and provenance exactly from material parent', async () => {
+      const rawOrder: RawLogicTradeOrderInput = {
+        id: 'V26001013',
+        order_number: 'V26001013',
+        lines: [
+          {
+            line_number: 1,
+            product_code: 'A00034988',
+            description: 'Duette 32mm incl montage',
+            notes: '- Woonkamer raam voorzijde',
+            quantity: 1,
+            unit_price_cents: 45000,
+            total_price_cents: 45000,
+            is_hybrid: true,
+          },
+        ],
+      };
+
+      const result = await service.processOrderIntake(rawOrder);
+      expect(result.lines).toHaveLength(2);
+      const matLine = result.lines[0];
+      const servLine = result.lines[1];
+
+      expect(matLine.sub_line).toBe(0);
+      expect(servLine.sub_line).toBe(1);
+
+      expect(servLine.room_name).toBe(matLine.room_name);
+      expect(servLine.room_name).toBe('Woonkamer');
+      expect(servLine.etage_name).toBe(matLine.etage_name);
+      expect(servLine.etage_name).toBe('Begane grond');
+      expect(servLine.window_name).toBe(matLine.window_name);
+      expect(servLine.position_id).toBe(matLine.position_id);
+      expect(servLine.spatial_metadata).toEqual(matLine.spatial_metadata);
+    });
+
+    it('mapLogicTradeOrderToRawInput preserves null etage_name and does not force Begane grond', () => {
+      const header = { id: 101, orderNumber: 'V26001014', status: 'ORDER' };
+      const lines = [
+        { lineNumber: 10, description: 'Artikel zonder etage' },
+      ];
+
+      const raw = mapLogicTradeOrderToRawInput(header, lines);
+      expect(raw.lines[0].etage_name).toBeNull();
+    });
+  });
 });

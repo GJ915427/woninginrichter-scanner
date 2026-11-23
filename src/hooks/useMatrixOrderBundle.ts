@@ -10,6 +10,7 @@ import type {
   MatrixOrder,
   Etage,
   Room,
+  Cluster,
   Position,
   MatrixProduct,
   CellPriceData,
@@ -17,84 +18,73 @@ import type {
 } from '@/types/matrix';
 import type { ConfigurationSpec } from '@/types/order-intake';
 import { resolveNumericQuantity } from '@/types/order-intake';
+import type {
+  OrderLineDto,
+  OrderHeaderDto,
+  OrderMatrixBundleDto,
+} from '@/lib/supabase/order-client';
 
-export interface OrderLineDto {
-  line_number: number;
-  sub_line: number;
-  product_id: number | null;
-  product_code: string;
-  product_group_code: string;
-  description: string;
-  quantity: number;
-  unit: string;
-  unit_price_cents: number;
-  total_price_cents: number;
-  is_hybrid: boolean;
-  is_inbegrepen: boolean;
-  etage_name: string;
-  room_name?: string;
-  window_name?: string;
-  position_id?: string;
-  dim?: string | null;
-  notes?: string | null;
-  dimension_spec?: DimensionSpec | null;
-  configuration_spec?: ConfigurationSpec | null;
-}
-
-export interface OrderHeaderDto {
-  id: string;
-  order_number: string;
-  customer_name?: string;
-  city?: string;
-  quotation_number?: string;
-  order_date?: string;
-  sales_rep?: string;
-  branch?: string;
-  fsm_phase?: string;
-  fsm_step?: number;
-  scope_description?: string;
-  total_amount_cents?: number;
-  status?: string;
-  raw_data?: Record<string, unknown>;
-}
-
-export interface OrderMatrixBundleDto {
-  order: OrderHeaderDto;
-  lines: OrderLineDto[];
-}
+export type { OrderLineDto, OrderHeaderDto, OrderMatrixBundleDto };
 
 export function bundleMatrixOrder(dto: OrderMatrixBundleDto): MatrixOrder {
   const { order, lines } = dto;
 
   // 1. Construeer ruimtelijke hiërarchie: etages -> rooms -> positions
   const etageMap = new Map<string, Map<string, Map<string, Position>>>();
+  const clusterMap = new Map<string, Map<string, Map<string, Set<string>>>>();
   const productMap = new Map<string, MatrixProduct>();
 
   for (const line of lines) {
-    const etageName = (line.etage_name || 'BEGANE GROND').trim();
-    const roomName = (line.room_name || 'Algemeen').trim();
     const posId = (line.position_id || `pos_${line.line_number}`).trim();
     const posName = (line.window_name || `Positie ${line.line_number}`).trim();
 
-    if (!etageMap.has(etageName)) {
-      etageMap.set(etageName, new Map());
-    }
-    const roomMap = etageMap.get(etageName)!;
+    // Stroom A uitsluiten van etageMap/roomMap (INV-SPATIAL-02)
+    if (posId !== 'pos_project_algemeen') {
+      const etageName = (line.etage_name && line.etage_name.trim() !== '')
+        ? line.etage_name.trim()
+        : 'Overig / N.t.b.';
+      const roomName = (line.room_name && line.room_name.trim() !== '')
+        ? line.room_name.trim()
+        : 'N.t.b.';
 
-    if (!roomMap.has(roomName)) {
-      roomMap.set(roomName, new Map());
-    }
-    const posMap = roomMap.get(roomName)!;
+      if (!etageMap.has(etageName)) {
+        etageMap.set(etageName, new Map());
+      }
+      const roomMap = etageMap.get(etageName)!;
 
-    if (!posMap.has(posId)) {
-      posMap.set(posId, {
-        id: posId,
-        name: posName,
-        type: 'Raam',
-      });
+      if (!roomMap.has(roomName)) {
+        roomMap.set(roomName, new Map());
+      }
+      const posMap = roomMap.get(roomName)!;
+
+      if (!posMap.has(posId)) {
+        posMap.set(posId, {
+          id: posId,
+          name: posName,
+          type: 'Raam',
+        });
+      }
+
+      // Cluster tracking voor ColSpan pariteit
+      const clusterName = line.spatial_metadata?.cluster_name;
+      if (clusterName && clusterName.trim() !== '') {
+        const cName = clusterName.trim();
+        if (!clusterMap.has(etageName)) {
+          clusterMap.set(etageName, new Map());
+        }
+        const etageClusterMap = clusterMap.get(etageName)!;
+        if (!etageClusterMap.has(roomName)) {
+          etageClusterMap.set(roomName, new Map());
+        }
+        const roomClusterMap = etageClusterMap.get(roomName)!;
+        if (!roomClusterMap.has(cName)) {
+          roomClusterMap.set(cName, new Set());
+        }
+        roomClusterMap.get(cName)!.add(posId);
+      }
     }
 
-    // 2. Construeer Matrix Producten & CellPriceData
+    // 2. Construeer Matrix Producten & CellPriceData (inclusief pos_project_algemeen voor Kolom 1)
     const prodCode = line.product_code || 'TEKST';
     const prodKey = `${prodCode}_${line.sub_line}`;
 
@@ -128,18 +118,41 @@ export function bundleMatrixOrder(dto: OrderMatrixBundleDto): MatrixOrder {
     prod.posPrices[posId] = cellPrice;
   }
 
-  // Bouw Etage array
+  // Bouw Etage array met geclusterde posities vooraan voor colSpan pariteit
   const etages: Etage[] = [];
   let etageIdx = 1;
   for (const [etageName, roomMap] of etageMap.entries()) {
     const rooms: Room[] = [];
     let roomIdx = 1;
     for (const [roomName, posMap] of roomMap.entries()) {
+      const allPositions = Array.from(posMap.values());
+      const clusters: Cluster[] = [];
+      const roomClusterMap = clusterMap.get(etageName)?.get(roomName);
+
+      if (roomClusterMap && roomClusterMap.size > 0) {
+        let clusterIdx = 1;
+        for (const [clusterName, posIdSet] of roomClusterMap.entries()) {
+          clusters.push({
+            id: `cluster_${etageIdx}_${roomIdx}_${clusterIdx++}`,
+            name: clusterName,
+            positionIds: Array.from(posIdSet),
+          });
+        }
+      }
+
+      let orderedPositions = allPositions;
+      if (clusters.length > 0) {
+        const primaryCluster = clusters[0];
+        const clusteredPositions = allPositions.filter((p) => primaryCluster.positionIds.includes(p.id));
+        const remainingPositions = allPositions.filter((p) => !primaryCluster.positionIds.includes(p.id));
+        orderedPositions = [...clusteredPositions, ...remainingPositions];
+      }
+
       rooms.push({
         id: `room_${etageIdx}_${roomIdx++}`,
         name: roomName,
-        clusters: [],
-        positions: Array.from(posMap.values()),
+        clusters,
+        positions: orderedPositions,
       });
     }
     etages.push({
@@ -159,8 +172,8 @@ export function bundleMatrixOrder(dto: OrderMatrixBundleDto): MatrixOrder {
     unit: l.unit,
     priceCents: Number(l.unit_price_cents) || 0,
     totalCents: Number(l.total_price_cents) || 0,
-    positionName: l.window_name || l.position_id,
-    roomName: l.room_name,
+    positionName: (l.window_name || l.position_id) ? String(l.window_name || l.position_id) : undefined,
+    roomName: l.room_name ? String(l.room_name) : undefined,
     etageName: l.etage_name,
   }));
 

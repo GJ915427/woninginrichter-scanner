@@ -18,7 +18,7 @@ export interface LogicTradeOrderLine {
   totalCents: number;
   positionName?: string;
   roomName?: string;
-  etageName?: string;
+  etageName?: string | null;
 }
 
 export type PricingMode = 'm2' | 'm1_width' | 'm1_height' | 'unit';

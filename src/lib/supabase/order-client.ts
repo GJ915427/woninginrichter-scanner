@@ -6,7 +6,7 @@
  */
 
 import { getSupabaseConfig } from './client';
-import type { IngestedOrderBundle, ResolvedProductEntity, ConfigurationSpec } from '@/types/order-intake';
+import type { IngestedOrderBundle, ResolvedProductEntity, ConfigurationSpec, ExtractedSpatialMetadata } from '@/types/order-intake';
 import type { DimensionSpec, OrderSummaryItem } from '@/types/matrix';
 
 export interface OrderLineDto {
@@ -22,14 +22,15 @@ export interface OrderLineDto {
   total_price_cents: number;
   is_hybrid: boolean;
   is_inbegrepen: boolean;
-  etage_name: string;
-  room_name?: string;
-  window_name?: string;
-  position_id?: string;
+  etage_name: string | null;
+  room_name?: string | null;
+  window_name?: string | null;
+  position_id?: string | null;
   dim?: string | null;
   notes?: string | null;
   dimension_spec?: DimensionSpec | null;
   configuration_spec?: ConfigurationSpec | null;
+  spatial_metadata?: ExtractedSpatialMetadata | null;
   // Non-destructive Bronze Layer velden met lt_ prefix:
   lt_raw_data?: Record<string, unknown> | null;
   lt_id?: string | null;

@@ -123,6 +123,202 @@ describe('Matrix Order Bundle Engine (Pure Node Vitest)', () => {
       expect(matrixOrder.rawLines[0].subLine).toBe(0);
       expect(matrixOrder.rawLines[1].subLine).toBe(1);
     });
+
+    // [SPEC-CHANGE-AUTHORIZED: Matrix bundle pariteit voor pos_project_algemeen uitsluiting en cluster partitie]
+    it('excludes pos_project_algemeen from etageMap/roomMap while preserving it in prod.posPrices for Column 1', () => {
+      const dtoWithAlgemeen: OrderMatrixBundleDto = {
+        order: {
+          id: 'V26001377',
+          order_number: 'V26001377',
+        },
+        lines: [
+          {
+            line_number: 1,
+            sub_line: 0,
+            product_id: null,
+            product_code: 'INMEET',
+            product_group_code: '6.6',
+            description: 'Inmeetservice GSW',
+            quantity: 1,
+            unit: 'keer',
+            unit_price_cents: 9500,
+            total_price_cents: 9500,
+            is_hybrid: false,
+            is_inbegrepen: false,
+            etage_name: null,
+            room_name: null,
+            window_name: null,
+            position_id: 'pos_project_algemeen',
+          },
+          {
+            line_number: 2,
+            sub_line: 0,
+            product_id: 101,
+            product_code: 'A0001',
+            product_group_code: '2.4',
+            description: 'Gordijn Woonkamer',
+            quantity: 1,
+            unit: 'stuks',
+            unit_price_cents: 25000,
+            total_price_cents: 25000,
+            is_hybrid: false,
+            is_inbegrepen: false,
+            etage_name: 'Begane grond',
+            room_name: 'Woonkamer',
+            window_name: 'Raam links',
+            position_id: 'pos_wk_1',
+          },
+        ],
+      };
+
+      const matrixOrder = bundleMatrixOrder(dtoWithAlgemeen);
+
+      // pos_project_algemeen mag NOOIT als kolom in etages zitten
+      for (const etage of matrixOrder.etages) {
+        for (const room of etage.rooms) {
+          for (const pos of room.positions) {
+            expect(pos.id).not.toBe('pos_project_algemeen');
+          }
+        }
+      }
+
+      // Maar het product moet wél posPrices['pos_project_algemeen'] bevatten
+      const inmeetProd = matrixOrder.products.find((p) => p.code === 'INMEET');
+      expect(inmeetProd).toBeDefined();
+      expect(inmeetProd!.posPrices['pos_project_algemeen']).toBeDefined();
+      expect(inmeetProd!.posPrices['pos_project_algemeen'].totalPriceCents).toBe(9500);
+    });
+
+    // [SPEC-CHANGE-AUTHORIZED: Matrix bundle pariteit voor pos_project_algemeen uitsluiting en cluster partitie]
+    it('groups lines with null etage under Overig / N.t.b. with room fallback N.t.b. without phantom Algemeen room', () => {
+      const dtoWithNullEtage: OrderMatrixBundleDto = {
+        order: { id: 'V26001378', order_number: 'V26001378' },
+        lines: [
+          {
+            line_number: 1,
+            sub_line: 0,
+            product_id: 102,
+            product_code: 'A0002',
+            product_group_code: '1.1',
+            description: 'Stof zonder verdieping',
+            quantity: 1,
+            unit: 'm1',
+            unit_price_cents: 10000,
+            total_price_cents: 10000,
+            is_hybrid: false,
+            is_inbegrepen: false,
+            etage_name: null,
+            room_name: null,
+            window_name: 'Pos. N.t.b.',
+            position_id: 'pos_onbekend_1',
+          },
+        ],
+      };
+
+      const matrixOrder = bundleMatrixOrder(dtoWithNullEtage);
+      expect(matrixOrder.etages).toHaveLength(1);
+      expect(matrixOrder.etages[0].name).toBe('Overig / N.t.b.');
+      expect(matrixOrder.etages[0].rooms).toHaveLength(1);
+      expect(matrixOrder.etages[0].rooms[0].name).toBe('N.t.b.');
+      expect(matrixOrder.etages[0].rooms[0].positions[0].id).toBe('pos_onbekend_1');
+    });
+
+    // [SPEC-CHANGE-AUTHORIZED: Matrix bundle pariteit voor pos_project_algemeen uitsluiting en cluster partitie]
+    it('partitions room.positions with clustered positions first for 100% HTML colSpan alignment in MatrixHeader', () => {
+      const dtoWithCluster: OrderMatrixBundleDto = {
+        order: { id: 'V26001379', order_number: 'V26001379' },
+        lines: [
+          {
+            line_number: 1,
+            sub_line: 0,
+            product_id: 103,
+            product_code: 'A0003',
+            product_group_code: '2.4',
+            description: 'Zijraam (ongeclusterd)',
+            quantity: 1,
+            unit: 'stuks',
+            unit_price_cents: 20000,
+            total_price_cents: 20000,
+            is_hybrid: false,
+            is_inbegrepen: false,
+            etage_name: 'Begane grond',
+            room_name: 'Woonkamer',
+            window_name: 'Zijraam 1',
+            position_id: 'pos_wk_zijraam',
+            spatial_metadata: {
+              etage_name: 'Begane grond',
+              room_name: 'Woonkamer',
+              window_name: 'Zijraam 1',
+              position_id: 'pos_wk_zijraam',
+              cluster_name: null,
+            },
+          },
+          {
+            line_number: 2,
+            sub_line: 0,
+            product_id: 104,
+            product_code: 'A0004',
+            product_group_code: '2.4',
+            description: 'Erker raam 1 (geclusterd)',
+            quantity: 1,
+            unit: 'stuks',
+            unit_price_cents: 30000,
+            total_price_cents: 30000,
+            is_hybrid: false,
+            is_inbegrepen: false,
+            etage_name: 'Begane grond',
+            room_name: 'Woonkamer',
+            window_name: 'Erker Raam 1',
+            position_id: 'pos_wk_erker_1',
+            spatial_metadata: {
+              etage_name: 'Begane grond',
+              room_name: 'Woonkamer',
+              window_name: 'Erker Raam 1',
+              position_id: 'pos_wk_erker_1',
+              cluster_name: 'Erkercluster',
+            },
+          },
+          {
+            line_number: 3,
+            sub_line: 0,
+            product_id: 105,
+            product_code: 'A0005',
+            product_group_code: '2.4',
+            description: 'Erker raam 2 (geclusterd)',
+            quantity: 1,
+            unit: 'stuks',
+            unit_price_cents: 30000,
+            total_price_cents: 30000,
+            is_hybrid: false,
+            is_inbegrepen: false,
+            etage_name: 'Begane grond',
+            room_name: 'Woonkamer',
+            window_name: 'Erker Raam 2',
+            position_id: 'pos_wk_erker_2',
+            spatial_metadata: {
+              etage_name: 'Begane grond',
+              room_name: 'Woonkamer',
+              window_name: 'Erker Raam 2',
+              position_id: 'pos_wk_erker_2',
+              cluster_name: 'Erkercluster',
+            },
+          },
+        ],
+      };
+
+      const matrixOrder = bundleMatrixOrder(dtoWithCluster);
+      const room = matrixOrder.etages[0].rooms[0];
+      expect(room.clusters).toHaveLength(1);
+      expect(room.clusters[0].name).toBe('Erkercluster');
+      expect(room.clusters[0].positionIds).toEqual(['pos_wk_erker_1', 'pos_wk_erker_2']);
+
+      // Verifieer dat de geclusterde posities VOORAAN staan in room.positions,
+      // zodat <th colSpan={clusteredPositions.length}> exact uitlijnt met Row 4 posities!
+      expect(room.positions).toHaveLength(3);
+      expect(room.positions[0].id).toBe('pos_wk_erker_1');
+      expect(room.positions[1].id).toBe('pos_wk_erker_2');
+      expect(room.positions[2].id).toBe('pos_wk_zijraam');
+    });
   });
 
   describe('fetchMatrixOrderBundle', () => {

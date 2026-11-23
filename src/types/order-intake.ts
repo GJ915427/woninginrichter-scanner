@@ -24,6 +24,26 @@ export interface ConfigurationSpec {
   reconciled_product_group_code?: string;
 }
 
+export type SpatialProvenance = 'EXPLICIT' | 'INFERRED' | 'VERIFIED';
+
+export interface ExtractedSpatialMetadata {
+  etage_name: string | null;
+  etage_source?: SpatialProvenance;
+  room_name: string | null;
+  room_source?: SpatialProvenance;
+  window_name: string | null;
+  position_id: string | null;
+  pos_source?: SpatialProvenance;
+  cluster_name: string | null;
+  cluster_source?: SpatialProvenance;
+}
+
+export interface OrderSpatialContext {
+  orderFloors: Set<string>;
+  orderRooms: Set<string>;
+  existingPositionsByRoom: Map<string, string[]>;
+}
+
 export interface CurtainConfigSpec extends ConfigurationSpec {
   attributes?: {
     pleat_type?: 'enkele_plooi' | 'dubbele_plooi' | 'wave' | 'retourplooi' | string;
@@ -134,10 +154,12 @@ export interface RawOrderLineInput {
   unit_price_cents?: number;
   total_price_cents?: number;
   is_hybrid?: boolean;
-  etage_name?: string;
-  room_name?: string;
-  window_name?: string;
-  position_id?: string;
+  etage_name?: string | null;
+  room_name?: string | null;
+  window_name?: string | null;
+  position_id?: string | null;
+  cluster_name?: string | null;
+  spatial_metadata?: ExtractedSpatialMetadata | null;
   dim?: string | null;
   notes?: string | null;
   dimension_spec?: Record<string, unknown> | null;
@@ -220,10 +242,16 @@ export interface IngestedOrderLine {
   total_price_cents: number;
   is_hybrid: boolean;
   is_inbegrepen: boolean;
-  etage_name: string;
-  room_name?: string;
-  window_name?: string;
-  position_id?: string;
+  etage_name: string | null;
+  etage_source?: SpatialProvenance;
+  room_name?: string | null;
+  room_source?: SpatialProvenance;
+  window_name?: string | null;
+  position_id?: string | null;
+  pos_source?: SpatialProvenance;
+  cluster_name?: string | null;
+  cluster_source?: SpatialProvenance;
+  spatial_metadata?: ExtractedSpatialMetadata | null;
   dim?: string | null;
   notes?: string | null;
   dimension_spec?: Record<string, unknown> | null;

@@ -13,6 +13,10 @@ import {
 } from '@/domain/search/v2/cognitive-typology-classifier';
 import { ConfigurationExtractionEngine } from '@/domain/orders/configuration-extraction-engine';
 import {
+  SpatialExtractionEngine,
+  type OrderSpatialContext,
+} from '@/domain/orders/spatial-extraction-engine';
+import {
   toNonNegativeQuantity,
   resolveNumericQuantity,
   type RawLogicTradeOrderInput,
@@ -23,6 +27,8 @@ import {
   type ResolvedProductEntity,
   type ICognitiveExtractionProvider,
   type ConfigurationSpec,
+  type SpatialProvenance,
+  type ExtractedSpatialMetadata,
 } from '@/types/order-intake';
 import { resolveProductByCode as defaultResolveProductByCode } from '@/lib/supabase/order-client';
 
@@ -48,6 +54,7 @@ export interface OrderIntakeServiceOptions {
 export class OrderIntakeService {
   private classificationService: ClassificationService;
   private extractionEngine: ConfigurationExtractionEngine;
+  private spatialEngine: SpatialExtractionEngine;
   private resolveProductByCode: (code: string, supplierName?: string) => Promise<ResolvedProductEntity | null>;
   private skipClientLookup: boolean;
 
@@ -56,6 +63,7 @@ export class OrderIntakeService {
     this.extractionEngine = new ConfigurationExtractionEngine({
       cognitiveProvider: options.cognitiveProvider,
     });
+    this.spatialEngine = new SpatialExtractionEngine();
     this.resolveProductByCode = options.resolveProductByCode || defaultResolveProductByCode;
     this.skipClientLookup = !!options.skipClientLookup;
   }
@@ -63,6 +71,9 @@ export class OrderIntakeService {
   public async processOrderIntake(rawOrder: RawLogicTradeOrderInput): Promise<IngestedOrderBundle> {
     const ingestedLines: IngestedOrderLine[] = [];
     let orderTotalCents = 0;
+
+    // Pass-1 Contextual Pre-Scan voor globale ruimtelijke context
+    const orderContext: OrderSpatialContext = this.spatialEngine.buildOrderContext(rawOrder.lines || []);
 
     // Track assigned sub_lines per line_number to guarantee collision-free uq_order_lines_order_line_sub
     const usedSubLines = new Map<number, Set<number>>();
@@ -75,7 +86,7 @@ export class OrderIntakeService {
     }
 
     for (const rawLine of rawOrder.lines || []) {
-      const splitLines = await this.processSingleLine(rawLine, usedSubLines);
+      const splitLines = await this.processSingleLine(rawLine, usedSubLines, orderContext);
       for (const line of splitLines) {
         ingestedLines.push(line);
         orderTotalCents += line.total_price_cents;
@@ -113,12 +124,14 @@ export class OrderIntakeService {
     materialGroupCode: string,
     configSpec?: ConfigurationSpec | null,
     serviceDisciplineCode?: string,
-    usedSubLines?: Map<number, Set<number>>
+    usedSubLines?: Map<number, Set<number>>,
+    spatialMetadata?: ExtractedSpatialMetadata | null
   ): Promise<IngestedOrderLine[]> {
     const unitPrice = line.unit_price_cents || 0;
     const quantity = resolveNumericQuantity(line.quantity);
     const totalPrice = line.total_price_cents !== undefined ? line.total_price_cents : unitPrice * quantity;
-    const etage = line.etage_name || 'Begane grond';
+    const spatial: ExtractedSpatialMetadata =
+      spatialMetadata || this.spatialEngine.extractSpatialMetadata(line, materialGroupCode);
 
     const derivedDim =
       line.dim ||
@@ -141,10 +154,16 @@ export class OrderIntakeService {
       total_price_cents: totalPrice,
       is_hybrid: true,
       is_inbegrepen: false,
-      etage_name: etage,
-      room_name: line.room_name,
-      window_name: line.window_name,
-      position_id: line.position_id,
+      etage_name: spatial.etage_name,
+      etage_source: spatial.etage_source,
+      room_name: spatial.room_name,
+      room_source: spatial.room_source,
+      window_name: spatial.window_name,
+      position_id: spatial.position_id,
+      pos_source: spatial.pos_source,
+      cluster_name: spatial.cluster_name,
+      cluster_source: spatial.cluster_source,
+      spatial_metadata: spatial,
       dim: derivedDim,
       notes: line.notes || null,
       dimension_spec: line.dimension_spec || null,
@@ -227,10 +246,16 @@ export class OrderIntakeService {
       total_price_cents: 0,
       is_hybrid: true,
       is_inbegrepen: true,
-      etage_name: etage,
-      room_name: line.room_name,
-      window_name: line.window_name,
-      position_id: line.position_id,
+      etage_name: spatial.etage_name,
+      etage_source: spatial.etage_source,
+      room_name: spatial.room_name,
+      room_source: spatial.room_source,
+      window_name: spatial.window_name,
+      position_id: spatial.position_id,
+      pos_source: spatial.pos_source,
+      cluster_name: spatial.cluster_name,
+      cluster_source: spatial.cluster_source,
+      spatial_metadata: spatial,
       dim: derivedDim,
       notes: line.notes || null,
       dimension_spec: null,
@@ -274,7 +299,8 @@ export class OrderIntakeService {
 
   private async processSingleLine(
     rawLine: RawOrderLineInput,
-    usedSubLines?: Map<number, Set<number>>
+    usedSubLines?: Map<number, Set<number>>,
+    orderContext?: OrderSpatialContext
   ): Promise<IngestedOrderLine[]> {
     const code = (rawLine.product_code || '').trim();
 
@@ -329,6 +355,29 @@ export class OrderIntakeService {
 
     const assignedConfigSpec = hasMeaningfulConfig ? configSpec : null;
 
+    // 3-Stromen Routering & Ruimtelijke Extractie:
+    const desc = (rawLine.description || '').toLowerCase();
+    const isProjectService =
+      groupCode === '6.6' ||
+      rawLine.position_id === 'pos_project_algemeen' ||
+      /^(inmeet|inmeten|reiskost|afvalcontainer|vrachtkost|bezorgkost|parkeerkost|steiger)/i.test(desc) ||
+      (/\b(inmeet|reiskosten|afvalcontainer|vrachtkosten)\b/i.test(desc) && groupCode.startsWith('6.'));
+
+    let spatial: ExtractedSpatialMetadata;
+    if (isProjectService) {
+      // Stroom A: Projectbrede Diensten & Algemene Kosten -> pos_project_algemeen
+      spatial = {
+        etage_name: null,
+        room_name: null,
+        window_name: null,
+        position_id: 'pos_project_algemeen',
+        cluster_name: null,
+      };
+    } else {
+      // Stroom B: Maatwerk & Materialen -> Deterministische Ruimtelijke Extractie
+      spatial = this.spatialEngine.extractSpatialMetadata(rawLine, groupCode, orderContext);
+    }
+
     // Is het een hybride regel (materiaal incl. dienst)?
     // Sub-regels (sub_line > 0) mogen nooit opnieuw als hybride gesplitst worden
     const isSubLine = rawLine.sub_line !== undefined && rawLine.sub_line > 0;
@@ -341,7 +390,8 @@ export class OrderIntakeService {
         groupCode,
         assignedConfigSpec,
         serviceDisciplineCode,
-        usedSubLines
+        usedSubLines,
+        spatial
       );
     }
 
@@ -362,10 +412,16 @@ export class OrderIntakeService {
       total_price_cents: totalPrice,
       is_hybrid: false,
       is_inbegrepen: false,
-      etage_name: rawLine.etage_name || 'Begane grond',
-      room_name: rawLine.room_name,
-      window_name: rawLine.window_name,
-      position_id: rawLine.position_id,
+      etage_name: spatial.etage_name,
+      etage_source: spatial.etage_source,
+      room_name: spatial.room_name,
+      room_source: spatial.room_source,
+      window_name: spatial.window_name,
+      position_id: spatial.position_id,
+      pos_source: spatial.pos_source,
+      cluster_name: spatial.cluster_name,
+      cluster_source: spatial.cluster_source,
+      spatial_metadata: spatial,
       dim: derivedDim,
       notes: rawLine.notes || null,
       dimension_spec: rawLine.dimension_spec || null,
@@ -633,7 +689,7 @@ export function mapLogicTradeOrderToRawInput(
       unit: l.unit || 'stuks',
       unit_price_cents: unitPriceCents,
       total_price_cents: totalPriceCents,
-      etage_name: l.etage_name || 'Begane grond',
+      etage_name: l.etage_name ? String(l.etage_name).trim() : null,
       room_name: l.room_name,
       window_name: l.window_name,
       position_id: l.position_id,
