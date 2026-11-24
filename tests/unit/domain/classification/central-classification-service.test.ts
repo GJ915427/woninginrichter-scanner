@@ -87,6 +87,35 @@ describe('ClassificationService & Taxonomy SSOT', () => {
       expect(result.requiresReview).toBe(true);
     });
 
+    // [SPEC-CHANGE-AUTHORIZED: Dekking voor 33 productgroepen harmonisatie en false positive eliminatie]
+    it('Trap 2 (Sanering Arte Substring): classificeert James startersset harde vloeren als 3.8 en NIET als 4.1', async () => {
+      const result = await service.classifyProduct({
+        code: 'A000123',
+        name: 'James startersset harde vloeren',
+        description: 'James startersset harde vloeren',
+      });
+      expect(result.productGroupCode).toBe('3.8');
+      expect(result.productGroupCode).not.toBe('4.1');
+    });
+
+    it('Trap 2 (Sanering Arte Substring): classificeert leverancier Artelux gordijn als 1.1 en NIET als 4.1', async () => {
+      const result = await service.classifyProduct({
+        code: 'ART-001',
+        name: 'Artelux Inbetween gordijnstof',
+        supplier_name: 'Artelux',
+      });
+      expect(result.productGroupCode).toBe('1.1');
+      expect(result.productGroupCode).not.toBe('4.1');
+    });
+
+    it('Trap 2 (Legitiem Arte Behang): classificeert echt Arte behang zuiver als 4.1', async () => {
+      const result = await service.classifyProduct({
+        code: 'BEH-001',
+        name: 'Arte behang Focus collectie',
+      });
+      expect(result.productGroupCode).toBe('4.1');
+    });
+
     // [SPEC-CHANGE-AUTHORIZED: Sub-Phase 3B Hybrid Classification Coverage]
     it('Trap 2 (Hybrid Material & Service): detects hybrid order line without losing material product group', async () => {
       const result: ClassificationResult = await service.classifyProduct({

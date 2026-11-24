@@ -322,6 +322,83 @@ export class OrderIntakeService {
     orderContext?: OrderSpatialContext
   ): Promise<IngestedOrderLine[]> {
     const code = (rawLine.product_code || '').trim();
+    const quantity = resolveNumericQuantity(rawLine.quantity);
+    const unitPrice = rawLine.unit_price_cents || 0;
+    const effectiveTotalCents =
+      rawLine.total_price_cents !== undefined
+        ? rawLine.total_price_cents
+        : Math.round(unitPrice * quantity);
+
+    const isPureAnnotation =
+      code.toUpperCase() === 'TEKST' &&
+      effectiveTotalCents === 0;
+
+    if (isPureAnnotation) {
+      const spatial = this.spatialEngine.extractSpatialMetadata(rawLine, '9.9', orderContext);
+      const singleLine: IngestedOrderLine = {
+        line_number: rawLine.line_number,
+        sub_line: rawLine.sub_line !== undefined ? rawLine.sub_line : 0,
+        product_id: null,
+        product_code: rawLine.product_code || 'TEKST',
+        product_group_code: '9.9',
+        description: rawLine.description,
+        quantity: quantity,
+        unit: rawLine.unit || 'stuks',
+        unit_price_cents: unitPrice,
+        total_price_cents: effectiveTotalCents,
+        is_hybrid: false,
+        is_inbegrepen: false,
+        etage_name: spatial.etage_name,
+        etage_source: spatial.etage_source,
+        room_name: spatial.room_name,
+        room_source: spatial.room_source,
+        window_name: spatial.window_name,
+        position_id: spatial.position_id === 'pos_project_algemeen' ? 'pos_1' : spatial.position_id,
+        pos_source: spatial.pos_source,
+        cluster_name: spatial.cluster_name,
+        cluster_source: spatial.cluster_source,
+        spatial_metadata: spatial,
+        dim: null,
+        notes: rawLine.notes || null,
+        dimension_spec: null,
+        configuration_spec: null,
+        // Bronze Layer velden:
+        lt_raw_data: rawLine.lt_raw_data || rawLine.raw_data || null,
+        lt_id: rawLine.lt_id || rawLine.external_line_id || null,
+        lt_configuration_json: rawLine.lt_configuration_json || rawLine.configuration_json || null,
+        lt_configuration: rawLine.lt_configuration || rawLine.configuration || null,
+        lt_width_mm: rawLine.lt_width_mm ?? rawLine.width_mm ?? null,
+        lt_height_mm: rawLine.lt_height_mm ?? rawLine.height_mm ?? null,
+        lt_options: rawLine.lt_options || rawLine.options || [],
+        lt_supplier_name: rawLine.lt_supplier_name || rawLine.supplier_name || null,
+        lt_supplier_code: rawLine.lt_supplier_code || rawLine.supplier_code || null,
+        lt_comment_extern: rawLine.lt_comment_extern || rawLine.comment_extern || null,
+        lt_comment_intern: rawLine.lt_comment_intern || rawLine.comment_intern || null,
+        lt_vat_code: rawLine.lt_vat_code || rawLine.vat_code || null,
+        lt_vat_percentage: rawLine.lt_vat_percentage ?? rawLine.vat_percentage ?? null,
+        lt_discount_percentage: rawLine.lt_discount_percentage ?? rawLine.discount_percentage ?? null,
+        lt_base_price_cents: rawLine.lt_base_price_cents ?? rawLine.base_price_cents ?? null,
+        lt_reservations: rawLine.lt_reservations || rawLine.reservations || [],
+        lt_stock_status: rawLine.lt_stock_status || rawLine.stock_status || null,
+        lt_delivery_status: rawLine.lt_delivery_status || rawLine.delivery_status || null,
+        lt_invoice_status: rawLine.lt_invoice_status || rawLine.invoice_status || null,
+        // Backwards-compatible aliassen:
+        raw_data: rawLine.raw_data || rawLine.lt_raw_data || null,
+        external_line_id: rawLine.external_line_id || rawLine.lt_id || null,
+        comment_extern: rawLine.comment_extern || rawLine.lt_comment_extern || null,
+        comment_intern: rawLine.comment_intern || rawLine.lt_comment_intern || null,
+        vat_code: rawLine.vat_code || rawLine.lt_vat_code || null,
+        vat_percentage: rawLine.vat_percentage ?? rawLine.lt_vat_percentage ?? null,
+        discount_percentage: rawLine.discount_percentage ?? rawLine.lt_discount_percentage ?? null,
+        base_price_cents: rawLine.base_price_cents ?? rawLine.lt_base_price_cents ?? null,
+        reservations: rawLine.reservations || rawLine.lt_reservations || [],
+        stock_status: rawLine.stock_status || rawLine.lt_stock_status || null,
+        delivery_status: rawLine.delivery_status || rawLine.lt_delivery_status || null,
+        invoice_status: rawLine.invoice_status || rawLine.lt_invoice_status || null,
+      };
+
+      return [singleLine];
+    }
 
     // JIT SKU Resolutie (wordt overgeslagen bij bulk intake via PostgreSQL LATERAL)
     let resolvedProduct: ResolvedProductEntity | null = null;
@@ -338,9 +415,13 @@ export class OrderIntakeService {
       groupCode = resolvedProduct.product_group_code;
     } else {
       const classRes = await this.classificationService.classifyProduct({
-        code: rawLine.product_code,
-        name: rawLine.description,
-        description: rawLine.description,
+        code: rawLine.product_code || undefined,
+        name: rawLine.description || undefined,
+        description: rawLine.description || undefined,
+        supplier_name: rawLine.supplier_name || undefined,
+        notes: rawLine.notes || undefined,
+        configuration_text: rawLine.configuration ? JSON.stringify(rawLine.configuration) : undefined,
+        total_price_cents: effectiveTotalCents,
       });
       groupCode = classRes.productGroupCode;
       serviceDisciplineCode = classRes.serviceDisciplineCode;
@@ -422,9 +503,7 @@ export class OrderIntakeService {
       );
     }
 
-    const quantity = resolveNumericQuantity(rawLine.quantity);
-    const unitPrice = rawLine.unit_price_cents || 0;
-    const totalPrice = rawLine.total_price_cents !== undefined ? rawLine.total_price_cents : Math.round(unitPrice * quantity);
+    const totalPrice = effectiveTotalCents;
 
     const singleLine: IngestedOrderLine = {
       line_number: rawLine.line_number,

@@ -125,7 +125,8 @@ export const SERVICE_DISCIPLINE_RULES: ServiceDisciplineRule[] = [
     compositePhrases: [
       'ladderlift verhuur', 'puin afvoer', 'afval container', 'verticaal transport',
       'lift assistentie', 'ladderlift dagdeel', 'afvalcontainer 6', 'transportkosten', 'bezorgkosten',
-      'bezorg service', 'bezorgservice', 'levering en plaatsing'
+      'bezorg service', 'bezorgservice', 'levering en plaatsing',
+      'bezorgen vloer', 'bezorging vloer', 'bezorgen pvc', 'bezorging pvc'
     ],
     intrinsicTokens: ['ladderlift', 'verhuislift', 'afvalcontainer', 'puincontainer', 'transportkosten', 'bezorgkosten', 'bezorging', 'transport'],
     targetTokens: ['container', 'puin', 'afvoer', 'materieel', 'lift'],
@@ -172,10 +173,11 @@ export const SERVICE_DISCIPLINE_RULES: ServiceDisciplineRule[] = [
       'plisse monteren', 'plissé monteren', 'duette plaatsen', 'jaloezie monteren', 'rolgordijn ophangen',
       'hor plaatsen', 'raamdecoratie montage', 'montagekosten raambekleding',
       'plaatsing raambekleding', 'montage raambekleding', 'binnenzonwering montage',
-      'zonwering monteren', 'montage binnenzonwering'
+      'zonwering monteren', 'montage binnenzonwering',
+      'raamdecoratie verplaatsen', 'raambekleding verplaatsen', 'binnenzonwering verplaatsen'
     ],
     targetTokens: ['raamdecoratie', 'raambekleding', 'binnenzonwering', 'zonwering', 'jaloezie', 'plisse', 'plissé', 'duette', 'lamel', 'lamellen', 'rolgordijn', 'vouwgordijn', 'hor', 'horren', 'inzethor', 'rolhor', 'voorzethor', 'plissehor', 'hordeur', 'hordeuren'],
-    actionTokens: ['montage', 'monteren', 'plaatsen', 'plaatsing', 'hangen', 'ophangen', 'installatie', 'installeren'],
+    actionTokens: ['montage', 'monteren', 'plaatsen', 'plaatsing', 'hangen', 'ophangen', 'installatie', 'installeren', 'verplaatsen', 'verplaatsing', 'verhangen'],
     excludeTokens: ['buiten', 'gevel', 'terras', 'rolluik', 'ritsscreen', 'klemsteun', 'montageclip', 'montageset', 'beugel'],
     excludePhrases: ['losse lamel', 'klemsteunen set', 'montageset rolgordijn'],
   },

@@ -83,10 +83,12 @@ export class DimensionExtractionEngine {
 
     // 2. Trappen (stairs)
     const isStairs =
-      groupCode.startsWith('4.') ||
+      groupCode === '6.4' ||
       /trap/i.test(groupCode) ||
-      /trap/i.test(desc) ||
-      /trap/i.test(notes);
+      ((!groupCode || groupCode === '9.9') && (
+        /\btrap(pen|loper|renovatie|tred(e|en))?\b/i.test(desc) ||
+        /\btrap(pen|loper|renovatie|tred(e|en))?\b/i.test(notes)
+      ));
 
     if (isStairs) {
       const stairsResult = this.parseStairs(desc, notes, unit, groupCode);

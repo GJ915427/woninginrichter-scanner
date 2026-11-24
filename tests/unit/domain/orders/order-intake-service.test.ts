@@ -92,6 +92,55 @@ describe('OrderIntakeService & Hybrid Line Ingest SSOT', () => {
       expect(result.lines[0].product_group_code).toBe('9.9');
     });
 
+    // [SPEC-CHANGE-AUTHORIZED: Dekking voor TEKST regels en brand SKU intake]
+    it('isoleert zuivere ERP nulprijs TEKST regels als 9.9 zonder fantoom-diensten of ruimtelijke kaping', async () => {
+      const rawOrder: RawLogicTradeOrderInput = {
+        id: 'V26001003',
+        order_number: 'V26001003',
+        customer_name: 'Klant C',
+        lines: [
+          {
+            line_number: 1,
+            product_code: 'TEKST',
+            description: 'De definitieve prijs kunnen wij pas geven na het inmeten! - inclusief montage',
+            quantity: 1,
+            unit_price_cents: 0,
+            total_price_cents: 0,
+          },
+        ],
+      };
+
+      const result = await service.processOrderIntake(rawOrder);
+      expect(result.lines.length).toBe(1); // Geen hybride splitsing!
+      const line = result.lines[0];
+      expect(line.product_group_code).toBe('9.9');
+      expect(line.is_hybrid).toBe(false);
+      expect(line.position_id).not.toBe('pos_project_algemeen');
+      expect(line.dimension_spec).toBeNull();
+    });
+
+    it('geeft contextuele notes door bij brand SKU (Toppoint) voor correcte raambekledingsclassificatie', async () => {
+      const rawOrder: RawLogicTradeOrderInput = {
+        id: 'V26001004',
+        order_number: 'V26001004',
+        customer_name: 'Klant D',
+        lines: [
+          {
+            line_number: 1,
+            product_code: 'TOP-SKU-01',
+            description: 'Toppoint',
+            notes: '- 3 Ramen rolgordijnen screendoek (montage zaterdag)',
+            quantity: 1,
+            unit_price_cents: 25000,
+            total_price_cents: 25000,
+          },
+        ],
+      };
+
+      const result = await service.processOrderIntake(rawOrder);
+      expect(result.lines[0].product_group_code).toBe('2.1');
+    });
+
     it('respects skipClientLookup option to delegate SKU resolution to PostgreSQL LATERAL join', async () => {
       const resolveMock = vi.fn().mockResolvedValue({ id: 9999, code: 'A00034988', supplier_name: 'Ambiant' });
       const bulkService = new OrderIntakeService({

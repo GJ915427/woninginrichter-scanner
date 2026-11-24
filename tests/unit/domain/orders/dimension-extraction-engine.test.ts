@@ -220,13 +220,14 @@ describe('DimensionExtractionEngine (TDD)', () => {
   });
 
   describe('4. Trappen (stairs)', () => {
-    it('extraheert tredenaantal, open/dicht, renovatie en LED opties', () => {
+    // [SPEC-CHANGE-AUTHORIZED: Aanpassing testcases aan canonieke taxonomie 6.4 Trapstoffering ipv 4.x Wandafwerking]
+    it('extraheert tredenaantal, open/dicht, renovatie en LED opties onder 6.4 Trapstoffering', () => {
       const line: RawOrderLineInput = {
         line_number: 40,
         description: 'Traprenovatie 13 treden dicht met LED verlichting',
       };
 
-      const res = engine.extractDimension(line, '4.1');
+      const res = engine.extractDimension(line, '6.4');
       expect(res.dimensionSpec).toEqual({
         type: 'stairs',
         stepsCount: 13,
@@ -239,13 +240,13 @@ describe('DimensionExtractionEngine (TDD)', () => {
       expect(res.formattedDim).toBe('13 treden (dicht + LED)');
     });
 
-    it('extraheert open trap met 14 treden', () => {
+    it('extraheert open trap met 14 treden onder 6.4', () => {
       const line: RawOrderLineInput = {
         line_number: 41,
         description: 'Trap stofferen 14 treden open rondom',
       };
 
-      const res = engine.extractDimension(line, '4.2');
+      const res = engine.extractDimension(line, '6.4');
       expect(res.dimensionSpec).toEqual({
         type: 'stairs',
         stepsCount: 14,
@@ -258,13 +259,13 @@ describe('DimensionExtractionEngine (TDD)', () => {
       expect(res.formattedDim).toBe('14 treden (open)');
     });
 
-    it('extraheert traploper met bandering', () => {
+    it('extraheert traploper met bandering onder 6.4', () => {
       const line: RawOrderLineInput = {
         line_number: 42,
         description: 'Traploper sisal 13 treden gebandeerd met roedes',
       };
 
-      const res = engine.extractDimension(line, '4.3');
+      const res = engine.extractDimension(line, '6.4');
       expect(res.dimensionSpec).toEqual({
         type: 'stairs',
         stepsCount: 13,
@@ -277,13 +278,13 @@ describe('DimensionExtractionEngine (TDD)', () => {
       expect(res.formattedDim).toBe('13 treden (gebandeerd)');
     });
 
-    it('kent standaard 13 treden toe indien categorie trap is maar aantal ontbreekt', () => {
+    it('kent standaard 13 treden toe indien categorie trap (6.4) is maar aantal ontbreekt', () => {
       const line: RawOrderLineInput = {
         line_number: 43,
         description: 'Traprenovatie overzettreden CPL eiken dicht',
       };
 
-      const res = engine.extractDimension(line, '4.1');
+      const res = engine.extractDimension(line, '6.4');
       expect(res.dimensionSpec).toEqual({
         type: 'stairs',
         stepsCount: 13,
@@ -293,6 +294,26 @@ describe('DimensionExtractionEngine (TDD)', () => {
         ledLighting: false,
         bandering: false,
       });
+    });
+
+    it('kent GEEN trappen toe aan Categorie 4 Wandafwerking (4.1 Behang krijgt geen 13 fantoom traptreden)', () => {
+      const lineBehang: RawOrderLineInput = {
+        line_number: 44,
+        description: 'Arte behang Focus collectie',
+      };
+      const resBehang = engine.extractDimension(lineBehang, '4.1');
+      expect(resBehang.dimensionSpec?.type).not.toBe('stairs');
+      expect(resBehang.formattedDim).toBeNull();
+    });
+
+    it('kent GEEN trappen toe aan behang met notitie trapopgang onder Categorie 4', () => {
+      const lineTrapopgang: RawOrderLineInput = {
+        line_number: 45,
+        description: 'Arte behang voor trapopgang',
+        notes: 'behang voor trapopgang',
+      };
+      const res = engine.extractDimension(lineTrapopgang, '4.1');
+      expect(res.dimensionSpec?.type).not.toBe('stairs');
     });
   });
 

@@ -328,5 +328,44 @@ describe('ConfigurationExtractionEngine (TDD)', () => {
       expect(result.dimensions?.height_mm).toBe(1920);
       expect(result.reconciled_product_group_code).toBe('2.3');
     });
+
+    // [SPEC-CHANGE-AUTHORIZED: Dekking voor e-order reconciliatie van 9.9 naar 2.1, 2.2, 2.4, 1.1]
+    it('Trap D Reconciliatie: reconcilieert e-orders met rolgordijnen in productgroep 9.9 naar 2.1', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 75,
+        description: 'Toppoint Rolgordijn cassette',
+        configuration: {
+          id: 88777,
+          items: [
+            'Breedte: 1600 mm',
+            'Hoogte: 2100 mm',
+            'Stof: Verduisterend',
+          ],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '9.9');
+      expect(result.status).toBe('valid');
+      expect(result.reconciled_product_group_code).toBe('2.1');
+    });
+
+    it('Trap D Reconciliatie: reconcilieert e-orders met duettes in productgroep 9.9 naar 2.4', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 76,
+        description: 'Luxaflex Duette Shades 25mm',
+        configuration: {
+          id: 88778,
+          items: [
+            'Breedte: 1400 mm',
+            'Hoogte: 1800 mm',
+            'Model: Smartcord',
+          ],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '9.9');
+      expect(result.status).toBe('valid');
+      expect(result.reconciled_product_group_code).toBe('2.4');
+    });
   });
 });

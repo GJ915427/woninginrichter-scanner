@@ -85,11 +85,14 @@ export interface ClassificationResult {
 }
 
 export interface ClassifyProductInput {
-  code?: string;
-  name: string;
-  description?: string;
-  supplier_name?: string;
-  sales_group?: string;
+  code?: string | null;
+  name?: string | null;
+  description?: string | null;
+  supplier_name?: string | null;
+  sales_group?: string | null;
+  total_price_cents?: number;
+  notes?: string | null;
+  configuration_text?: string | null;
 }
 
 export interface ClassifyFreeTextInput {
@@ -159,7 +162,7 @@ export class ClassificationService {
 
   public async classifyFreeTextLine(input: ClassifyFreeTextInput): Promise<ClassificationResult> {
     return this.classifyProduct({
-      code: 'TEKST',
+      code: 'FREE_TEXT',
       name: input.description,
       description: input.description,
       supplier_name: input.supplier_name,
@@ -183,12 +186,15 @@ export class ClassificationService {
   }
 
   private matchDeterministicOntology(input: ClassifyProductInput, isHybrid: boolean = false): string | null {
-    const text = `${input.name || ''} ${input.description || ''} ${input.supplier_name || ''} ${input.sales_group || ''}`.toLowerCase();
+    const primaryText = `${input.name || ''} ${input.description || ''} ${input.supplier_name || ''} ${input.sales_group || ''}`.toLowerCase();
 
     // Als de tekst een duidelijke dienst of montagetaak betreft EN niet hybride is, delegeer aan Trap 3
-    if (!isHybrid && /\b(montage|monteren|plaatsen|leggen|inmeten|inmeet|schouw|stofferen|stoffering|service|uurtarief|arbeid)\b/i.test(text)) {
+    if (!isHybrid && /\b(montage|monteren|plaatsen|leggen|inmeten|inmeet|schouw|stofferen|stoffering|service|uurtarief|arbeid)\b/i.test(primaryText)) {
       return null;
     }
+
+    // Materiële ontologie benut ook notes en configuration_text (voorkomt context starvation bij Toppoint/Luxaflex)
+    const text = `${primaryText} ${input.notes || ''} ${input.configuration_text || ''}`.toLowerCase();
 
     // Ondervloeren
     if (text.includes('ondervloer') || text.includes('heat-foil') || text.includes('jumpax') || text.includes('estillon')) {
@@ -201,7 +207,7 @@ export class ClassificationService {
     }
 
     // Plinten & Profielen
-    if (text.includes('plint') || text.includes('overgangsprofiel') || text.includes('hoekprofiel')) {
+    if (text.includes('plint') || text.includes('overgangsprofiel') || text.includes('hoekprofiel') || text.includes('startersset') || text.includes('onderhoudsmiddel') || text.includes('reinigingsset') || /\bjames\b/i.test(text)) {
       return '3.8';
     }
 
@@ -223,7 +229,7 @@ export class ClassificationService {
     }
 
     // Behang & Wandafwerking
-    if (text.includes('behang') || text.includes('renovlies') || text.includes('glasvezel') || text.includes('arte')) {
+    if (text.includes('behang') || text.includes('renovlies') || text.includes('glasvezel') || /\barte\b/i.test(text)) {
       return '4.1';
     }
     if (text.includes('wandpaneel') || text.includes('akupanel')) {
@@ -315,7 +321,7 @@ export class ClassificationService {
     return null;
   }
 
-  private evaluateCognitiveTypology(name: string, description?: string): ClassificationResult | null {
+  private evaluateCognitiveTypology(name?: string | null, description?: string | null): ClassificationResult | null {
     const combined = `${name || ''} ${description || ''}`.trim();
     if (!combined) return null;
 

@@ -441,6 +441,56 @@ describe('CognitiveTypologyClassifier (TDD Suite)', () => {
       expect(result.itemRole).not.toBe('LABOR_SERVICE');
       expect(result.domain).not.toBe('DIENSTEN');
     });
+
+    // [SPEC-CHANGE-AUTHORIZED: Dekking voor service discipline regels en prioriteitsbescherming vloerleggen vs bezorgen]
+    it('C6-7: classificeert \"Bezorgen vloer\" als LOGISTIEK_MATERIEEL_SERVICE', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'A00038408',
+        articleName: 'Bezorgen vloer',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 5,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      expect(result.domain).toBe('DIENSTEN');
+      expect(result.itemRole).toBe('LABOR_SERVICE');
+      expect(result.productType).toBe('LOGISTIEK_MATERIEEL_SERVICE');
+    });
+
+    it('C6-8: prioriteitsbescherming: \"PVC vloer bezorgen en leggen\" landt in VLOER_LEGSERVICE en NIET in logistiek', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'A00038409',
+        articleName: 'PVC vloer bezorgen en leggen',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 3,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      expect(result.domain).toBe('DIENSTEN');
+      expect(result.itemRole).toBe('LABOR_SERVICE');
+      expect(result.productType).toBe('VLOER_LEGSERVICE');
+      expect(result.productType).not.toBe('LOGISTIEK_MATERIEEL_SERVICE');
+    });
+
+    it('C6-9: classificeert \"Bestaande raamdecoratie verplaatsen\" als BINNENZONWERING_MONTAGE', () => {
+      const input: HarvestedRawArticle = {
+        articleCode: 'A00038410',
+        articleName: 'Bestaande raamdecoratie verplaatsen',
+        orderOptions: [],
+        rawConfigurations: [],
+        historicalOccurrences: 2,
+      };
+
+      const result = classifyCognitiveTypology(input);
+
+      expect(result.domain).toBe('DIENSTEN');
+      expect(result.itemRole).toBe('LABOR_SERVICE');
+      expect(result.productType).toBe('BINNENZONWERING_MONTAGE');
+    });
   });
 
   describe('Anti-Furniture Guard & Field Isolation', () => {
