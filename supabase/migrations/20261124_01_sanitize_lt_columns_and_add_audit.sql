@@ -35,7 +35,8 @@ WHERE (
     (
         (LOWER(name) ~ '^(legkosten|montagekosten|inmeetservice|inmeet|2mm egaliseren|egaliseren|verwijderen|afvoer|bocht buigen|uurtarief|arbeid)'
          OR code IN ('A00033263', 'A00038387', 'A00038400', 'A00039708', 'A00036806', 'A00036786', 'A00038024', 'A00036805', 'A00046078', 'A00064287', 'A00067288'))
-        AND NOT (\n            (LOWER(name) LIKE '%plint%' OR LOWER(name) LIKE '%profiel%' OR LOWER(name) LIKE '%ondervloer%' OR LOWER(name) LIKE '%thermofelt%' OR LOWER(name) LIKE '%jumpax%' OR LOWER(name) LIKE '%egalsoft%')
+        AND NOT (
+            (LOWER(name) LIKE '%plint%' OR LOWER(name) LIKE '%profiel%' OR LOWER(name) LIKE '%ondervloer%' OR LOWER(name) LIKE '%thermofelt%' OR LOWER(name) LIKE '%jumpax%' OR LOWER(name) LIKE '%egalsoft%')
             OR (LOWER(name) LIKE '%rail%' AND LOWER(name) NOT LIKE '%montagekosten%' AND LOWER(name) NOT LIKE '%bocht buigen%')
             OR (LOWER(name) !~ '^(legkosten|montagekosten|inmeetservice|inmeet|2mm egaliseren)' AND LOWER(name) LIKE '%incl.%')
         )
