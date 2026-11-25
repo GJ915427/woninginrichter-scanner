@@ -22,10 +22,11 @@ export interface ExtractedDimensionResult {
   dimensionSpec: DimensionSpec;
   formattedDim: string | null;
   source: 'erp_fields' | 'description_regex' | 'notes_regex' | 'configuration_fallback' | 'fallback_default';
+  isOutlier?: boolean;
 }
 
-const MAX_DIMENSION_MM = 15000;
-const MIN_DIMENSION_MM = 1;
+export const MAX_DIMENSION_MM = 12000;
+export const MIN_DIMENSION_MM = 100;
 
 export class DimensionExtractionEngine {
   /**
@@ -49,10 +50,12 @@ export class DimensionExtractionEngine {
         (w !== undefined && (w < MIN_DIMENSION_MM || w > MAX_DIMENSION_MM)) ||
         (h !== undefined && (h < MIN_DIMENSION_MM || h > MAX_DIMENSION_MM))
       ) {
+        const isOutlier = (w !== undefined && w > MAX_DIMENSION_MM) || (h !== undefined && h > MAX_DIMENSION_MM);
         return {
           dimensionSpec: { type: 'piece_service', unit },
           formattedDim: null,
           source: 'fallback_default',
+          isOutlier,
         };
       }
     }
@@ -98,9 +101,9 @@ export class DimensionExtractionEngine {
     // 3. Vaste Vloerbekleding (floor_area)
     const isFloor =
       groupCode.startsWith('3.') ||
-      /vloer|pvc|laminaat|parket|tapijt|ondervloer/i.test(groupCode) ||
-      /vloer|pvc|laminaat|parket|tapijt|ondervloer/i.test(desc) ||
-      /vloer|pvc|laminaat|parket|tapijt|ondervloer/i.test(notes);
+      /vloer|pvc|laminaat|parket|tapijt|ondervloer|marmoleum|linoleum|vinyl/i.test(groupCode) ||
+      /vloer|pvc|laminaat|parket|tapijt|ondervloer|marmoleum|linoleum|vinyl/i.test(desc) ||
+      /vloer|pvc|laminaat|parket|tapijt|ondervloer|marmoleum|linoleum|vinyl/i.test(notes);
 
     if (isFloor) {
       const floorResult = this.parseFloor(line, desc, notes, unit, groupCode);
@@ -184,6 +187,50 @@ export class DimensionExtractionEngine {
     };
     const result = this.extractDimension(syntheticLine, categoryOrGroupCode);
     return result.dimensionSpec;
+  }
+
+  /**
+   * Toetst generiek of een orderregel (via ERP velden of vrije tekst) fysieke uitschieters (> 12000 mm) bevat.
+   */
+  public hasDimensionOutlier(line: RawOrderLineInput): boolean {
+    if (line.width_mm !== undefined && line.width_mm > MAX_DIMENSION_MM) return true;
+    if (line.height_mm !== undefined && line.height_mm > MAX_DIMENSION_MM) return true;
+
+    const text = `${line.description || ''} ${line.notes || ''}`;
+    if (!text) return false;
+
+    // 1. Label syntax: B 25000 mm, Hoogte: 15000, Breedte 24000 mm
+    const labelMatches = text.matchAll(/(?:B|Breedte|H|Hoogte)[:\s]*(\d+(?:[.,]\d+)?)\s*(mm|cm|m)?/gi);
+    for (const match of labelMatches) {
+      const val = parseFloat(match[1].replace(',', '.'));
+      const u = match[2]?.toLowerCase();
+      const mm = Math.round(u === 'cm' ? val * 10 : u === 'm' ? val * 1000 : (!u && val <= 500 ? val * 10 : val));
+      if (mm > MAX_DIMENSION_MM) return true;
+    }
+
+    // 2. Kruismaat: 25000 x 1800, 1800 x 25000 mm, 20000x2000
+    const crossMatches = text.replace(/×/g, 'x').matchAll(/(\d+)\s*x\s*(\d+)\s*(cm|mm)?/gi);
+    for (const match of crossMatches) {
+      const u = match[3]?.toLowerCase();
+      let w = parseInt(match[1], 10);
+      let h = parseInt(match[2], 10);
+      if (u === 'cm' || (!u && w <= 500 && h <= 500)) {
+        w *= 10;
+        h *= 10;
+      }
+      if (w > MAX_DIMENSION_MM || h > MAX_DIMENSION_MM) return true;
+    }
+
+    // 3. Lineaire maten: 15000 mm, 15 m1, 1500 cm
+    const linearMatches = text.matchAll(/(\d+(?:[.,]\d+)?)\s*(mm|cm|m1|meter)/gi);
+    for (const match of linearMatches) {
+      const val = parseFloat(match[1].replace(',', '.'));
+      const u = match[2]?.toLowerCase();
+      const mm = Math.round(u === 'cm' ? val * 10 : (u === 'm1' || u === 'meter') ? val * 1000 : val);
+      if (mm > MAX_DIMENSION_MM) return true;
+    }
+
+    return false;
   }
 
   /**
@@ -442,16 +489,24 @@ export class DimensionExtractionEngine {
       if (!text) continue;
       const source: ExtractedDimensionResult['source'] = text === desc ? 'description_regex' : 'notes_regex';
 
-      // A. Label syntax: B 1800 H 2400 of Breedte: 1800 Hoogte: 2400
-      const bhMatch = text.match(/(?:B|Breedte)[:\s]*(\d+)\s*(?:cm|mm)?[\s,]+(?:H|Hoogte)[:\s]*(\d+)\s*(?:cm|mm)?/i);
+      // A. Label syntax: B 1800 H 2400 of Breedte: 1800 Hoogte: 2400 (met capturing units en decimale getallen)
+      const bhMatch = text.match(/(?:B|Breedte)[:\s]*(\d+(?:[.,]\d+)?)\s*(mm|cm|m)?[\s,]+(?:H|Hoogte)[:\s]*(\d+(?:[.,]\d+)?)\s*(mm|cm|m)?/i);
       if (bhMatch) {
-        const widthMm = parseInt(bhMatch[1], 10);
-        const heightMm = parseInt(bhMatch[2], 10);
+        const wVal = parseFloat(bhMatch[1].replace(',', '.'));
+        const wUnit = bhMatch[2]?.toLowerCase();
+        const widthMm = Math.round(wUnit === 'cm' ? wVal * 10 : wUnit === 'm' ? wVal * 1000 : (!wUnit && wVal <= 500 ? wVal * 10 : wVal));
+
+        const hVal = parseFloat(bhMatch[3].replace(',', '.'));
+        const hUnit = bhMatch[4]?.toLowerCase();
+        const heightMm = Math.round(hUnit === 'cm' ? hVal * 10 : hUnit === 'm' ? hVal * 1000 : (!hUnit && hVal <= 500 ? hVal * 10 : hVal));
+
         if (widthMm < MIN_DIMENSION_MM || widthMm > MAX_DIMENSION_MM || heightMm < MIN_DIMENSION_MM || heightMm > MAX_DIMENSION_MM) {
+          const isOutlier = widthMm > MAX_DIMENSION_MM || heightMm > MAX_DIMENSION_MM;
           return {
             dimensionSpec: { type: 'piece_service', unit },
             formattedDim: null,
             source: 'fallback_default',
+            isOutlier,
           };
         }
         const areaM2 = Math.round(((widthMm * heightMm) / 1_000_000) * 100) / 100;
@@ -480,10 +535,12 @@ export class DimensionExtractionEngine {
         }
 
         if (widthMm < MIN_DIMENSION_MM || widthMm > MAX_DIMENSION_MM || heightMm < MIN_DIMENSION_MM || heightMm > MAX_DIMENSION_MM) {
+          const isOutlier = widthMm > MAX_DIMENSION_MM || heightMm > MAX_DIMENSION_MM;
           return {
             dimensionSpec: { type: 'piece_service', unit },
             formattedDim: null,
             source: 'fallback_default',
+            isOutlier,
           };
         }
 

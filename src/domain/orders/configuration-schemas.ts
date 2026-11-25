@@ -8,8 +8,8 @@
 import { z } from 'zod';
 
 export const ConfigurationDimensionsSchema = z.object({
-  width_mm: z.number().int().positive().optional(),
-  height_mm: z.number().int().positive().optional(),
+  width_mm: z.number().int().min(100).max(12000).optional(),
+  height_mm: z.number().int().min(100).max(12000).optional(),
   depth_mm: z.number().int().positive().optional(),
   area_m2: z.number().positive().optional(),
   linear_meters: z.number().positive().optional(),

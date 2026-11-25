@@ -126,8 +126,30 @@ export interface ServiceConfigSpec extends ConfigurationSpec {
   };
 }
 
+export interface CognitiveExtractionContext {
+  line: RawOrderLineInput;
+  spatial?: OrderSpatialContext;
+  catalogProduct?: ResolvedProductEntity;
+  adjacentLines?: RawOrderLineInput[];
+}
+
 export interface ICognitiveExtractionProvider {
-  extract(rawLine: RawOrderLineInput, productGroupCode?: string): Promise<ConfigurationSpec>;
+  extract(
+    input: RawOrderLineInput | CognitiveExtractionContext,
+    productGroupCode?: string
+  ): Promise<ConfigurationSpec>;
+}
+
+export interface NeuroSymbolicLineResult {
+  productGroupCode: string;
+  dimensionSpec?: DimensionSpec | null;
+  configurationSpec?: ConfigurationSpec | null;
+  confidence: number;
+  stage: 'trap_1_master_cache' | 'trap_2_configurator' | 'trap_3_cognitive' | 'trap_4_physics' | 'trap_4_fail_closed_quarantine';
+  requiresReview: boolean;
+  extractionNotes?: string[];
+  isHybrid?: boolean;
+  serviceDisciplineCode?: string;
 }
 
 export interface LogicTradeRawOrderLine {
@@ -297,13 +319,7 @@ export interface IngestedOrderLine {
   // Non-destructive Bronze Layer velden met lt_ prefix:
   lt_raw_data?: Record<string, unknown> | null;
   lt_id?: string | null;
-  lt_configuration_json?: Record<string, unknown> | null;
   lt_configuration?: Record<string, unknown> | null;
-  lt_width_mm?: number | null;
-  lt_height_mm?: number | null;
-  lt_options?: unknown[] | null;
-  lt_supplier_name?: string | null;
-  lt_supplier_code?: string | null;
   lt_comment_extern?: string | null;
   lt_comment_intern?: string | null;
   lt_vat_code?: string | null;
@@ -314,6 +330,11 @@ export interface IngestedOrderLine {
   lt_stock_status?: string | null;
   lt_delivery_status?: string | null;
   lt_invoice_status?: string | null;
+  // Audit tracing en review vlaggen (Sanering 6 dode kolommen):
+  classification_confidence?: number | null;
+  classification_stage?: string | null;
+  requires_review?: boolean;
+  extraction_notes?: string[] | null;
   // Backwards compatibility aliassen:
   raw_data?: Record<string, unknown> | null;
   external_line_id?: string | null;
@@ -356,8 +377,11 @@ export interface IngestedOrderBundle {
 export interface ResolvedProductEntity {
   id: number;
   code: string;
+  name?: string;
+  unit?: string;
   supplier_name?: string;
   product_group_code?: string;
+  is_generic_container?: boolean;
 }
 
 /**

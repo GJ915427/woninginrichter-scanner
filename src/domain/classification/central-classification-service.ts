@@ -1,7 +1,7 @@
 /**
  * src/domain/classification/central-classification-service.ts
  *
- * Centrale Classificatie Service & Taxonomie SSOT (32 Productgroepen + 9.9 UNCLASSIFIED)
+ * Centrale Classificatie Service & Taxonomie SSOT (38 Productgroepen + 9.9 UNCLASSIFIED)
  * Implementeert de 4-traps cascade (Mechanisch vóór Cognitief) conform Grondwet Laag 1B § 6.
  */
 
@@ -13,16 +13,21 @@ import {
 } from '@/domain/search/v2/cognitive-typology-classifier';
 
 export const TAXONOMY_CATEGORIES: readonly Category[] = [
+  { id: 0, name: 'Informatief / Niet-Product', code: 'informatief_niet_product' },
   { id: 1, name: 'Raambekleding Stof', code: 'raambekleding_stof' },
   { id: 2, name: 'Raambekleding Hard', code: 'raambekleding_hard' },
   { id: 3, name: 'Vloeren & Afwerking', code: 'vloeren_afwerking' },
   { id: 4, name: 'Wandafwerking', code: 'wandafwerking' },
   { id: 5, name: 'Buiten & Zonwering', code: 'buiten_zonwering' },
   { id: 6, name: 'Diensten & Arbeid', code: 'diensten_arbeid' },
+  { id: 7, name: 'Meubels & Interieur', code: 'meubels_interieur' },
   { id: 9, name: 'Onbekend / Fallback', code: 'onbekend_fallback' },
 ] as const;
 
 export const TAXONOMY_PRODUCT_GROUPS: readonly ProductGroup[] = [
+  // Categorie 0: Informatief / Niet-Product
+  { code: '0.0', category_id: 0, name: 'Informatieve Tekst / Clausule', default_uom: 'stuks' },
+  { code: '0.1', category_id: 0, name: 'Korting / Actie / Cadeaubon', default_uom: 'stuks' },
   // Categorie 1: Raambekleding Stof
   { code: '1.1', category_id: 1, name: 'Gordijnen & Vitrages', default_uom: 'm1' },
   { code: '1.2', category_id: 1, name: 'Vouwgordijnen', default_uom: 'stuks' },
@@ -33,6 +38,8 @@ export const TAXONOMY_PRODUCT_GROUPS: readonly ProductGroup[] = [
   { code: '2.2', category_id: 2, name: 'Jaloezieën Hout / Bamboe', default_uom: 'stuks' },
   { code: '2.3', category_id: 2, name: 'Jaloezieën Aluminium', default_uom: 'stuks' },
   { code: '2.4', category_id: 2, name: 'Plissés & Duettes', default_uom: 'stuks' },
+  { code: '2.5', category_id: 2, name: 'Horren & Insectenwering', default_uom: 'stuks' },
+  { code: '2.6', category_id: 2, name: 'Domotica & Toebehoren', default_uom: 'stuks' },
   // Categorie 3: Vloeren & Afwerking
   { code: '3.1', category_id: 3, name: 'Click PVC', default_uom: 'm2' },
   { code: '3.2', category_id: 3, name: 'Dryback PVC (Plak)', default_uom: 'm2' },
@@ -42,6 +49,7 @@ export const TAXONOMY_PRODUCT_GROUPS: readonly ProductGroup[] = [
   { code: '3.6', category_id: 3, name: 'Egaline, Lijm & Egalisatie', default_uom: 'kg' },
   { code: '3.7', category_id: 3, name: 'Ondervloeren', default_uom: 'm2' },
   { code: '3.8', category_id: 3, name: 'Plinten & Profielen', default_uom: 'm1' },
+  { code: '3.9', category_id: 3, name: 'Vinyl & Marmoleum', default_uom: 'm2' },
   // Categorie 4: Wandafwerking
   { code: '4.1', category_id: 4, name: 'Behang & Renovlies', default_uom: 'rollen' },
   { code: '4.2', category_id: 4, name: 'Wandpanelen & Akoestiek', default_uom: 'stuks' },
@@ -61,6 +69,8 @@ export const TAXONOMY_PRODUCT_GROUPS: readonly ProductGroup[] = [
   { code: '6.7', category_id: 6, name: 'Sloop, Egalisatie & Voorbereiding', default_uom: 'm2' },
   { code: '6.8', category_id: 6, name: 'Logistiek & Materieel Service', default_uom: 'stuks' },
   { code: '6.9', category_id: 6, name: 'Overige Diensten & Maatwerk', default_uom: 'stuks' },
+  // Categorie 7: Meubels & Interieur
+  { code: '7.1', category_id: 7, name: 'Meubels & Interieurtoebehoren', default_uom: 'stuks' },
   // Categorie 9: Fallback
   { code: '9.9', category_id: 9, name: 'Niet geclassificeerd', default_uom: 'stuks' },
 ] as const;
@@ -90,6 +100,7 @@ export interface ClassifyProductInput {
   description?: string | null;
   supplier_name?: string | null;
   sales_group?: string | null;
+  quantity?: number;
   total_price_cents?: number;
   notes?: string | null;
   configuration_text?: string | null;
@@ -122,6 +133,55 @@ export class ClassificationService {
 
   public async classifyProduct(input: ClassifyProductInput): Promise<ClassificationResult> {
     const code = (input.code || '').trim().toUpperCase();
+    const totalPrice = input.total_price_cents ?? 0;
+    const quantity = input.quantity ?? 1;
+
+    // 0. Nulprijs Informatieve Tekst / Clausule
+    if (code === 'TEKST' && totalPrice === 0) {
+      return this.buildResult('0.0', 'trap_1_master_cache', 1.0, false);
+    }
+
+    // 1. 5-Traps Credit Triage bij negatieve orderregels
+    if (totalPrice < 0) {
+      const textLower = `${input.name || ''} ${input.description || ''} ${input.sales_group || ''}`.toLowerCase();
+      // Conditie A: Zuivere kortingen / acties / vouchers
+      if (
+        ['A00044570', 'A00014590', 'A00036356'].includes(code) ||
+        code === 'TEKST' ||
+        /\b(korting|actie|cadeaubon|voucher|coupon)\b/i.test(textLower)
+      ) {
+        return this.buildResult('0.1', 'trap_1_master_cache', 1.0, false);
+      }
+
+      // Conditie B: Fysieke materiaalretouren (quantity < 0)
+      if (quantity < 0) {
+        if (code && this.masterCache.has(code)) {
+          const cached = this.masterCache.get(code)!;
+          if (/^[1-57]\./.test(cached)) {
+            return this.buildResult(cached, 'trap_1_master_cache', 1.0, false);
+          }
+        }
+        const ontologyGroup = this.matchDeterministicOntology(input, false);
+        if (ontologyGroup && /^[1-57]\./.test(ontologyGroup)) {
+          return this.buildResult(ontologyGroup, 'trap_2_deterministic_ontology', 0.95, false);
+        }
+      }
+
+      // Conditie C & D: Minderwerk op diensten of afrondingscenten
+      if (code && this.masterCache.has(code)) {
+        const cached = this.masterCache.get(code)!;
+        if (cached.startsWith('6.')) {
+          return this.buildResult(cached, 'trap_1_master_cache', 1.0, false);
+        }
+      }
+      const serviceOntology = this.evaluateCognitiveTypology(input.name, input.description);
+      if (serviceOntology && serviceOntology.productGroupCode.startsWith('6.')) {
+        return serviceOntology;
+      }
+
+      // Conditie E: Overige niet-gekoppelde negatieve regels -> fail-closed quarantaine
+      return this.buildResult('9.9', 'trap_4_fail_closed_quarantine', 0.1, true);
+    }
 
     // Trap 1: Mechanisch Master Data Cache (0ms)
     if (code && this.masterCache.has(code)) {
@@ -193,7 +253,7 @@ export class ClassificationService {
       return null;
     }
 
-    // Materiële ontologie benut ook notes en configuration_text (voorkomt context starvation bij Toppoint/Luxaflex)
+    // Materiële ontologie benut ook notes en configuration_text
     const text = `${primaryText} ${input.notes || ''} ${input.configuration_text || ''}`.toLowerCase();
 
     // Ondervloeren
@@ -209,6 +269,11 @@ export class ClassificationService {
     // Plinten & Profielen
     if (text.includes('plint') || text.includes('overgangsprofiel') || text.includes('hoekprofiel') || text.includes('startersset') || text.includes('onderhoudsmiddel') || text.includes('reinigingsset') || /\bjames\b/i.test(text)) {
       return '3.8';
+    }
+
+    // Vinyl & Marmoleum (3.9)
+    if (text.includes('marmoleum') || text.includes('linoleum') || text.includes('vinyl')) {
+      return '3.9';
     }
 
     // PVC Vloeren
@@ -239,14 +304,26 @@ export class ClassificationService {
       return '4.3';
     }
 
-    // Raambekleding Hard
-    if (text.includes('duette') || text.includes('plissé') || text.includes('plisse')) {
-      return '2.4';
-    }
+    // Horren & Insectenwering (2.5)
     if (
-      /\b(hor|hordeur|rolhor|inzethor|plisse\s*hordeur)\b/i.test(text) ||
-      (input.supplier_name && /unilux|keje/i.test(input.supplier_name))
+      /\b(hor|hordeur|rolhor|inzethor|plisse\s*hordeur|plisséhor)\b/i.test(text) ||
+      (input.supplier_name && /unilux/i.test(input.supplier_name))
     ) {
+      return '2.5';
+    }
+
+    // Domotica & Toebehoren (2.6)
+    if (
+      text.includes('somfy') ||
+      text.includes('afstandsbediening') ||
+      text.includes('domotica') ||
+      (/\bmotor\b/i.test(text) && !text.includes('montage'))
+    ) {
+      return '2.6';
+    }
+
+    // Raambekleding Hard (2.1..2.4)
+    if (text.includes('duette') || text.includes('plissé') || text.includes('plisse')) {
       return '2.4';
     }
     if (text.includes('rolgordijn') || text.includes('duo rolgordijn')) {
@@ -290,7 +367,7 @@ export class ClassificationService {
       return '6.8';
     }
 
-    // Raambekleding Stof
+    // Raambekleding Stof (1.1..1.4)
     if (text.includes('vouwgordijn')) {
       return '1.2';
     }
@@ -304,7 +381,7 @@ export class ClassificationService {
       return '1.1';
     }
 
-    // Buiten & Zonwering
+    // Buiten & Zonwering (5.1..5.4)
     if (text.includes('screen') || text.includes('zipscreen')) {
       return '5.1';
     }
@@ -316,6 +393,18 @@ export class ClassificationService {
     }
     if (text.includes('lamellendak') || text.includes('overkapping')) {
       return '5.4';
+    }
+
+    // Meubels & Interieur (7.1)
+    if (
+      text.includes('hoekbank') ||
+      text.includes('bankstel') ||
+      text.includes('fauteuil') ||
+      text.includes('eetkamertafel') ||
+      text.includes('eetkamerstoel') ||
+      /\b(stoel|bank|tafel|salontafel|dressoir|kast)\b/i.test(text)
+    ) {
+      return '7.1';
     }
 
     return null;
@@ -355,9 +444,9 @@ export class ClassificationService {
       stage,
       confidence,
       requiresReview,
-      isHybrid: hybridMeta?.isHybrid ?? false,
       materialGroupCode: hybridMeta?.materialGroupCode,
       serviceDisciplineCode: hybridMeta?.serviceDisciplineCode,
+      isHybrid: hybridMeta?.isHybrid ?? false,
     };
   }
 }

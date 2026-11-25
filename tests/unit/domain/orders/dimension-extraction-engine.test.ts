@@ -365,7 +365,7 @@ describe('DimensionExtractionEngine (TDD)', () => {
       expect(res.formattedDim).toBeNull();
     });
 
-    it('wijst absurde afmetingen (> 15000 mm) af en valt fail-closed terug op piece_service', () => {
+    it('wijst absurde afmetingen (> 12000 mm) af en valt fail-closed terug op piece_service', () => {
       const line: RawOrderLineInput = {
         line_number: 61,
         description: 'Duette 50000 x 1800 mm',
@@ -378,6 +378,45 @@ describe('DimensionExtractionEngine (TDD)', () => {
         type: 'piece_service',
         unit: 'stuks',
       });
+    });
+
+    it('wijst afmetingen kleiner dan 100 mm af voor ramen en valt fail-closed terug op piece_service', () => {
+      const line: RawOrderLineInput = {
+        line_number: 62,
+        description: 'Buisdiameter 20 mm',
+        width_mm: 20,
+        height_mm: 20,
+      };
+
+      const res = engine.extractDimension(line, '2.1');
+      expect(res.dimensionSpec).toEqual({
+        type: 'piece_service',
+        unit: 'stuks',
+      });
+    });
+
+    it('normaliseert cm-eenheden en decimale getallen in parseWindow2D', () => {
+      const lineCm: RawOrderLineInput = {
+        line_number: 63,
+        description: 'Rolgordijn B: 180,5 cm H: 240 cm',
+      };
+
+      const res = engine.extractDimension(lineCm, '2.1');
+      expect(res.dimensionSpec?.type).toBe('window_2d');
+      expect((res.dimensionSpec as any)?.widthMm).toBe(1805);
+      expect((res.dimensionSpec as any)?.heightMm).toBe(2400);
+    });
+
+    it('herkent marmoleum, linoleum en vinyl onder categorie 3.9 als vloeren', () => {
+      const lineFloor: RawOrderLineInput = {
+        line_number: 64,
+        description: 'Forbo Marmoleum Click 90x30 cm',
+        quantity: 15,
+        unit: 'm2',
+      };
+
+      const res = engine.extractDimension(lineFloor, '3.9');
+      expect(res.dimensionSpec?.type).toBe('floor_area');
     });
 
     it('parseDimensionString en formatDimensionSpec werken bijectief en consistent', () => {

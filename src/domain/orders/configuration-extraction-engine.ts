@@ -136,8 +136,13 @@ export class ConfigurationExtractionEngine {
       .map((item) => {
         if (typeof item === 'string') return item.trim();
         if (typeof item === 'number') return String(item).trim();
-        if (item && typeof item === 'object' && 'value' in item) {
-          return String((item as { value: unknown }).value || '').trim();
+        if (item && typeof item === 'object') {
+          if ('key' in item && 'value' in item) {
+            return `${(item as any).key}: ${(item as any).value}`.trim();
+          }
+          if ('value' in item) {
+            return String((item as { value: unknown }).value || '').trim();
+          }
         }
         return '';
       })
@@ -196,7 +201,7 @@ export class ConfigurationExtractionEngine {
     if (isHorOrScreen && normalized.length >= 2) {
       const wCand = parseInt(normalized[0].replace(/\D/g, ''), 10);
       const hCand = parseInt(normalized[1].replace(/\D/g, ''), 10);
-      if (wCand >= 100 && wCand <= 6000 && hCand >= 100 && hCand <= 6000) {
+      if (wCand >= 100 && wCand <= 12000 && hCand >= 100 && hCand <= 12000) {
         width_mm = wCand;
         height_mm = hCand;
         return {
@@ -427,46 +432,8 @@ export class ConfigurationExtractionEngine {
         }
       }
 
-      // 3. E-order Reconciliatie voor Raambekleding in 9.9
-      if (grp === '9.9' && validated.dimensions?.width_mm && validated.dimensions?.height_mm) {
-        const desc = (rawLine?.description || '').toLowerCase();
-        const text = `${desc} ${rawLine?.notes || ''}`.toLowerCase();
-
-        const isRolgordijn = /\b(rolgordijn|duorol)\b/i.test(text);
-        const isHoutenJaloezie = /\b(jaloezie|lamel|horizonta(al|le)|shutter)\b/i.test(text) && /hout|bamboe/i.test(text);
-        const isJaloezie =
-          /\b(jaloezie|lamel|horizonta(al|le)|shutter)\b/i.test(text) ||
-          Boolean(validated.attributes?.slat_width_mm || validated.attributes?.lamelbreedte);
-        const isDuettePlisse = /\b(duette|pliss[eé]|facette|silhouette)\b/i.test(text);
-        const isGordijn = /\b(gordijn|inbetween|vitrage)\b/i.test(text);
-        const isScreen = /\b(screen|zipscreen|rolluik)\b/i.test(text);
-        const isHor =
-          /\b(hor|hordeur|rolhor|inzethor)\b/i.test(text) ||
-          Boolean(rawLine?.supplier_name && /unilux|keje/i.test(rawLine.supplier_name));
-
-        if (isRolgordijn) {
-          validated.reconciled_product_group_code = '2.1';
-          notes.push('Productgroep gereconcilieerd van 9.9 naar 2.1 voor rolgordijnen e-order');
-        } else if (isHoutenJaloezie) {
-          validated.reconciled_product_group_code = '2.2';
-          notes.push('Productgroep gereconcilieerd van 9.9 naar 2.2 voor houten jaloezieën e-order');
-        } else if (isJaloezie) {
-          validated.reconciled_product_group_code = '2.3';
-          notes.push('Productgroep gereconcilieerd van 9.9 naar 2.3 voor jaloezieën e-order');
-        } else if (isDuettePlisse) {
-          validated.reconciled_product_group_code = '2.4';
-          notes.push('Productgroep gereconcilieerd van 9.9 naar 2.4 voor duettes/plissés e-order');
-        } else if (isGordijn) {
-          validated.reconciled_product_group_code = '1.1';
-          notes.push('Productgroep gereconcilieerd van 9.9 naar 1.1 voor gordijnen e-order');
-        } else if (isScreen) {
-          validated.reconciled_product_group_code = '5.1';
-          notes.push('Productgroep gereconcilieerd van 9.9 naar 5.1 voor screens e-order');
-        } else if (isHor) {
-          validated.reconciled_product_group_code = '2.4';
-          notes.push('Productgroep gereconcilieerd van 9.9 naar 2.4 voor horren e-order');
-        }
-      }
+      // 3. E-order Reconciliatie: Sanering van concurrerende 9.9 classificatie (voorheen Trap D).
+      // ClassificationService is de exclusieve SSOT voor artikelgroepen.
     }
 
     if (notes.length > 0) {

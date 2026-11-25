@@ -34,13 +34,7 @@ export interface OrderLineDto {
   // Non-destructive Bronze Layer velden met lt_ prefix:
   lt_raw_data?: Record<string, unknown> | null;
   lt_id?: string | null;
-  lt_configuration_json?: Record<string, unknown> | null;
   lt_configuration?: Record<string, unknown> | null;
-  lt_width_mm?: number | null;
-  lt_height_mm?: number | null;
-  lt_options?: unknown[] | null;
-  lt_supplier_name?: string | null;
-  lt_supplier_code?: string | null;
   lt_comment_extern?: string | null;
   lt_comment_intern?: string | null;
   lt_vat_code?: string | null;
@@ -51,6 +45,11 @@ export interface OrderLineDto {
   lt_stock_status?: string | null;
   lt_delivery_status?: string | null;
   lt_invoice_status?: string | null;
+  // Audit tracing en review vlaggen (Sanering 6 dode kolommen):
+  classification_confidence?: number | null;
+  classification_stage?: string | null;
+  requires_review?: boolean | null;
+  extraction_notes?: string[] | null;
   // Backwards compatibility aliassen:
   raw_data?: Record<string, unknown> | null;
   external_line_id?: string | null;
@@ -323,7 +322,7 @@ export async function resolveProductByCode(
     if (supplierName && supplierName.trim()) {
       const supParam = encodeURIComponent(supplierName.trim());
       const codeParam = encodeURIComponent(code);
-      const url = `${config.url}/rest/v1/logictrade_products?code=eq.${codeParam}&supplier_name=ilike.*${supParam}*&select=id,code,supplier_name,product_group_code&order=modified_at.desc&limit=1`;
+      const url = `${config.url}/rest/v1/logictrade_products?code=eq.${codeParam}&supplier_name=ilike.*${supParam}*&select=id,code,supplier_name,product_group_code,name,unit,is_generic_container&order=modified_at.desc&limit=1`;
       const res = await fetch(url, {
         headers: { apikey: authKey, Authorization: `Bearer ${authKey}` },
       });
@@ -337,7 +336,7 @@ export async function resolveProductByCode(
 
     // 2. Secundaire poging: Meest recente SKU match
     const codeParam = encodeURIComponent(code);
-    const url = `${config.url}/rest/v1/logictrade_products?code=eq.${codeParam}&select=id,code,supplier_name,product_group_code&order=modified_at.desc&limit=1`;
+    const url = `${config.url}/rest/v1/logictrade_products?code=eq.${codeParam}&select=id,code,supplier_name,product_group_code,name,unit,is_generic_container&order=modified_at.desc&limit=1`;
     const res = await fetch(url, {
       headers: { apikey: authKey, Authorization: `Bearer ${authKey}` },
     });
@@ -354,9 +353,64 @@ export async function resolveProductByCode(
   return null;
 }
 
+/**
+ * Batch JIT Catalogus Pre-Hydratatie (voorkomt N+1 PostgREST queries).
+ * Haalt alle unieke SKU codes in 1 query op en retourneert een Map ge-indexeerd op UPPERCASE code.
+ */
+export async function resolveProductsByCodes(
+  productCodes: string[]
+): Promise<Map<string, ResolvedProductEntity>> {
+  const result = new Map<string, ResolvedProductEntity>();
+  const cleanCodes = Array.from(
+    new Set(
+      productCodes
+        .map((c) => (c || '').trim())
+        .filter((c) => c && c.toUpperCase() !== 'TEKST')
+    )
+  );
+
+  if (cleanCodes.length === 0) {
+    return result;
+  }
+
+  const config = getSupabaseConfig();
+  const authKey = config.serviceKey || config.anonKey;
+  if (!config.url || !authKey) {
+    return result;
+  }
+
+  try {
+    const inList = cleanCodes.map((c) => `"${c.replace(/"/g, '""')}"`).join(',');
+    const url = `${config.url}/rest/v1/logictrade_products?code=in.(${encodeURIComponent(
+      inList
+    )})&select=id,code,supplier_name,product_group_code,name,unit,is_generic_container&order=modified_at.desc`;
+
+    const res = await fetch(url, {
+      headers: { apikey: authKey, Authorization: `Bearer ${authKey}` },
+    });
+
+    if (res.ok) {
+      const rows = (await res.json()) as ResolvedProductEntity[];
+      if (Array.isArray(rows)) {
+        for (const row of rows) {
+          const upperCode = row.code.toUpperCase();
+          if (!result.has(upperCode)) {
+            result.set(upperCode, row);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Fout bij resolveProductsByCodes:', err);
+  }
+
+  return result;
+}
+
 export async function ingestOrderTransaction(
-  bundle: IngestedOrderBundle
-): Promise<{ success: boolean; order_id: string; lines_processed: number }> {
+  bundle: IngestedOrderBundle,
+  options?: { p_force?: boolean }
+): Promise<{ success: boolean; order_id: string; lines_processed: number; skipped_reason?: string }> {
   const config = getSupabaseConfig();
   const authKey = config.serviceKey || config.anonKey;
 
@@ -371,7 +425,11 @@ export async function ingestOrderTransaction(
       apikey: authKey,
       Authorization: `Bearer ${authKey}`,
     },
-    body: JSON.stringify({ p_order: bundle.order, p_lines: bundle.lines }),
+    body: JSON.stringify({
+      p_order: bundle.order,
+      p_lines: bundle.lines,
+      p_force: options?.p_force ?? false,
+    }),
   });
 
   if (!res.ok) {
@@ -379,5 +437,5 @@ export async function ingestOrderTransaction(
     throw new Error(`RPC ingest_logictrade_order mislukt: ${res.status} ${errorText}`);
   }
 
-  return (await res.json()) as { success: boolean; order_id: string; lines_processed: number };
+  return (await res.json()) as { success: boolean; order_id: string; lines_processed: number; skipped_reason?: string };
 }

@@ -20,6 +20,7 @@ import {
   DimensionExtractionEngine,
   type ExtractedDimensionResult,
 } from '@/domain/orders/dimension-extraction-engine';
+import { NeuroSymbolicEngine } from '@/domain/orders/neuro-symbolic-engine';
 import {
   toNonNegativeQuantity,
   resolveNumericQuantity,
@@ -30,12 +31,17 @@ import {
   type IngestedOrderHeader,
   type ResolvedProductEntity,
   type ICognitiveExtractionProvider,
+  type CognitiveExtractionContext,
+  type NeuroSymbolicLineResult,
   type ConfigurationSpec,
   type SpatialProvenance,
   type ExtractedSpatialMetadata,
   type DimensionSpec,
 } from '@/types/order-intake';
-import { resolveProductByCode as defaultResolveProductByCode } from '@/lib/supabase/order-client';
+import {
+  resolveProductByCode as defaultResolveProductByCode,
+  resolveProductsByCodes as defaultResolveProductsByCodes,
+} from '@/lib/supabase/order-client';
 
 // Expliciete Re-exports voor downstream consumenten en testsuites
 export { toNonNegativeQuantity, resolveNumericQuantity };
@@ -52,9 +58,11 @@ export type {
 export interface OrderIntakeServiceOptions {
   classificationService?: ClassificationService;
   resolveProductByCode?: (code: string, supplierName?: string) => Promise<ResolvedProductEntity | null>;
+  resolveProductsByCodes?: (codes: string[]) => Promise<Map<string, ResolvedProductEntity>>;
   skipClientLookup?: boolean;
   cognitiveProvider?: ICognitiveExtractionProvider;
   dimensionEngine?: DimensionExtractionEngine;
+  neuroSymbolicEngine?: NeuroSymbolicEngine;
 }
 
 export class OrderIntakeService {
@@ -62,7 +70,9 @@ export class OrderIntakeService {
   private extractionEngine: ConfigurationExtractionEngine;
   private spatialEngine: SpatialExtractionEngine;
   private dimensionEngine: DimensionExtractionEngine;
+  private neuroSymbolicEngine: NeuroSymbolicEngine;
   private resolveProductByCode: (code: string, supplierName?: string) => Promise<ResolvedProductEntity | null>;
+  private resolveProductsByCodesFn: ((codes: string[]) => Promise<Map<string, ResolvedProductEntity>>) | null;
   private skipClientLookup: boolean;
 
   constructor(options: OrderIntakeServiceOptions = {}) {
@@ -72,7 +82,18 @@ export class OrderIntakeService {
     });
     this.spatialEngine = new SpatialExtractionEngine();
     this.dimensionEngine = options.dimensionEngine || new DimensionExtractionEngine();
+    this.neuroSymbolicEngine =
+      options.neuroSymbolicEngine ||
+      new NeuroSymbolicEngine({
+        cognitiveProvider: options.cognitiveProvider,
+        classificationService: this.classificationService,
+        extractionEngine: this.extractionEngine,
+        dimensionEngine: this.dimensionEngine,
+      });
     this.resolveProductByCode = options.resolveProductByCode || defaultResolveProductByCode;
+    this.resolveProductsByCodesFn =
+      options.resolveProductsByCodes ||
+      (options.resolveProductByCode ? null : defaultResolveProductsByCodes);
     this.skipClientLookup = !!options.skipClientLookup;
   }
 
@@ -82,6 +103,22 @@ export class OrderIntakeService {
 
     // Pass-1 Contextual Pre-Scan voor globale ruimtelijke context
     const orderContext: OrderSpatialContext = this.spatialEngine.buildOrderContext(rawOrder.lines || []);
+
+    // Batch pre-hydratatie catalogus (1 PostgREST query ipv N)
+    const productCache = new Map<string, ResolvedProductEntity>();
+    if (!this.skipClientLookup && this.resolveProductsByCodesFn) {
+      const allCodes = (rawOrder.lines || []).map((l) => l.product_code || '').filter(Boolean);
+      try {
+        const resolvedBatch = await this.resolveProductsByCodesFn(allCodes);
+        if (resolvedBatch && resolvedBatch.size > 0) {
+          for (const [k, v] of resolvedBatch) {
+            productCache.set(k.toUpperCase(), v);
+          }
+        }
+      } catch (err) {
+        console.warn('Batch catalogus lookup mislukt, valt terug op per-regel lookup:', err);
+      }
+    }
 
     // Track assigned sub_lines per line_number to guarantee collision-free uq_order_lines_order_line_sub
     const usedSubLines = new Map<number, Set<number>>();
@@ -93,8 +130,15 @@ export class OrderIntakeService {
       }
     }
 
-    for (const rawLine of rawOrder.lines || []) {
-      const splitLines = await this.processSingleLine(rawLine, usedSubLines, orderContext);
+    const allRawLines = rawOrder.lines || [];
+    for (const rawLine of allRawLines) {
+      const splitLines = await this.processSingleLine(
+        rawLine,
+        usedSubLines,
+        orderContext,
+        productCache,
+        allRawLines
+      );
       for (const line of splitLines) {
         ingestedLines.push(line);
         orderTotalCents += line.total_price_cents;
@@ -134,7 +178,13 @@ export class OrderIntakeService {
     serviceDisciplineCode?: string,
     usedSubLines?: Map<number, Set<number>>,
     spatialMetadata?: ExtractedSpatialMetadata | null,
-    extractedDimension?: ExtractedDimensionResult | null
+    extractedDimension?: ExtractedDimensionResult | null,
+    auditInfo?: {
+      confidence?: number;
+      stage?: string;
+      requiresReview?: boolean;
+      extractionNotes?: string[];
+    }
   ): Promise<IngestedOrderLine[]> {
     const unitPrice = line.unit_price_cents || 0;
     const quantity = resolveNumericQuantity(line.quantity);
@@ -159,6 +209,8 @@ export class OrderIntakeService {
       null;
 
     // 1. Hoofdregel (Materiaal): behoud toegekend sub_line
+    const isCustomDiscipline = /^(1|2|3|5)\./.test(materialGroupCode);
+    const assignedConfigSpecForHybrid = isCustomDiscipline ? configSpec || null : null;
     const mainSub = line.sub_line !== undefined ? line.sub_line : 0;
     const mainLine: IngestedOrderLine = {
       line_number: line.line_number,
@@ -186,17 +238,15 @@ export class OrderIntakeService {
       dim: derivedDim,
       notes: line.notes || null,
       dimension_spec: assignedDimensionSpec,
-      configuration_spec: configSpec || null,
-      // Bronze Layer velden:
+      configuration_spec: assignedConfigSpecForHybrid,
+      classification_confidence: auditInfo?.confidence ?? 1.0,
+      classification_stage: auditInfo?.stage ?? 'trap_1_master_cache',
+      requires_review: auditInfo?.requiresReview ?? false,
+      extraction_notes: auditInfo?.extractionNotes ?? null,
+      // Bronze Layer velden (zonder de 6 gedropte kolommen):
       lt_raw_data: line.lt_raw_data || line.raw_data || null,
       lt_id: line.lt_id || line.external_line_id || null,
-      lt_configuration_json: line.lt_configuration_json || line.configuration_json || null,
       lt_configuration: line.lt_configuration || line.configuration || null,
-      lt_width_mm: line.lt_width_mm ?? line.width_mm ?? null,
-      lt_height_mm: line.lt_height_mm ?? line.height_mm ?? null,
-      lt_options: line.lt_options || line.options || [],
-      lt_supplier_name: line.lt_supplier_name || line.supplier_name || null,
-      lt_supplier_code: line.lt_supplier_code || line.supplier_code || null,
       lt_comment_extern: line.lt_comment_extern || line.comment_extern || null,
       lt_comment_intern: line.lt_comment_intern || line.comment_intern || null,
       lt_vat_code: line.lt_vat_code || line.vat_code || null,
@@ -279,16 +329,14 @@ export class OrderIntakeService {
       notes: line.notes || null,
       dimension_spec: { type: 'piece_service', unit: 'stuks' },
       configuration_spec: null,
+      classification_confidence: 1.0,
+      classification_stage: 'trap_1_master_cache',
+      requires_review: false,
+      extraction_notes: ['Inbegrepen montagedienst afgeleid van hybride hoofdregel'],
       // Conform INV-RAW-IMMUTABILITY-01: GEEN synthetische brondata fabriceren!
       lt_raw_data: null,
       raw_data: null,
-      lt_configuration_json: null,
       lt_configuration: null,
-      lt_width_mm: null,
-      lt_height_mm: null,
-      lt_options: null,
-      lt_supplier_name: null,
-      lt_supplier_code: null,
       lt_id: (line.lt_id || line.external_line_id) ? `${line.lt_id || line.external_line_id}.service` : `${line.line_number}.service`,
       external_line_id: (line.external_line_id || line.lt_id) ? `${line.external_line_id || line.lt_id}.service` : `${line.line_number}.service`,
       lt_comment_extern: null,
@@ -319,9 +367,12 @@ export class OrderIntakeService {
   private async processSingleLine(
     rawLine: RawOrderLineInput,
     usedSubLines?: Map<number, Set<number>>,
-    orderContext?: OrderSpatialContext
+    orderContext?: OrderSpatialContext,
+    productCache?: Map<string, ResolvedProductEntity>,
+    adjacentLines?: RawOrderLineInput[]
   ): Promise<IngestedOrderLine[]> {
     const code = (rawLine.product_code || '').trim();
+    const upperCode = code.toUpperCase();
     const quantity = resolveNumericQuantity(rawLine.quantity);
     const unitPrice = rawLine.unit_price_cents || 0;
     const effectiveTotalCents =
@@ -329,20 +380,40 @@ export class OrderIntakeService {
         ? rawLine.total_price_cents
         : Math.round(unitPrice * quantity);
 
-    const isPureAnnotation =
-      code.toUpperCase() === 'TEKST' &&
-      effectiveTotalCents === 0;
+    // JIT SKU Resolutie (met batch cache fallback)
+    let resolvedProduct: ResolvedProductEntity | null = null;
+    if (!this.skipClientLookup && code && upperCode !== 'TEKST') {
+      if (productCache && productCache.has(upperCode)) {
+        resolvedProduct = productCache.get(upperCode)!;
+      } else {
+        resolvedProduct = await this.resolveProductByCode(code, rawLine.supplier_name);
+        if (resolvedProduct && productCache) {
+          productCache.set(upperCode, resolvedProduct);
+        }
+      }
+    }
 
-    if (isPureAnnotation) {
-      const spatial = this.spatialEngine.extractSpatialMetadata(rawLine, '9.9', orderContext);
+    // 4-Layer Neuro-Symbolische Engine verwerking
+    const neuroResult = await this.neuroSymbolicEngine.processLine(rawLine, {
+      line: rawLine,
+      spatial: orderContext,
+      catalogProduct: resolvedProduct ?? undefined,
+      adjacentLines,
+    });
+
+    const groupCode = neuroResult.productGroupCode;
+
+    // Zuivere annotaties (0.0): behoud ruimtelijke context (pos_1)
+    if (groupCode === '0.0') {
+      const spatial = this.spatialEngine.extractSpatialMetadata(rawLine, '0.0', orderContext);
       const singleLine: IngestedOrderLine = {
         line_number: rawLine.line_number,
         sub_line: rawLine.sub_line !== undefined ? rawLine.sub_line : 0,
         product_id: null,
         product_code: rawLine.product_code || 'TEKST',
-        product_group_code: '9.9',
+        product_group_code: '0.0',
         description: rawLine.description,
-        quantity: quantity,
+        quantity,
         unit: rawLine.unit || 'stuks',
         unit_price_cents: unitPrice,
         total_price_cents: effectiveTotalCents,
@@ -353,7 +424,7 @@ export class OrderIntakeService {
         room_name: spatial.room_name,
         room_source: spatial.room_source,
         window_name: spatial.window_name,
-        position_id: spatial.position_id === 'pos_project_algemeen' ? 'pos_1' : spatial.position_id,
+        position_id: spatial.position_id === 'pos_project_algemeen' ? 'pos_1' : (spatial.position_id || 'pos_1'),
         pos_source: spatial.pos_source,
         cluster_name: spatial.cluster_name,
         cluster_source: spatial.cluster_source,
@@ -362,16 +433,13 @@ export class OrderIntakeService {
         notes: rawLine.notes || null,
         dimension_spec: null,
         configuration_spec: null,
-        // Bronze Layer velden:
+        classification_confidence: neuroResult.confidence,
+        classification_stage: neuroResult.stage,
+        requires_review: neuroResult.requiresReview,
+        extraction_notes: neuroResult.extractionNotes || null,
         lt_raw_data: rawLine.lt_raw_data || rawLine.raw_data || null,
         lt_id: rawLine.lt_id || rawLine.external_line_id || null,
-        lt_configuration_json: rawLine.lt_configuration_json || rawLine.configuration_json || null,
         lt_configuration: rawLine.lt_configuration || rawLine.configuration || null,
-        lt_width_mm: rawLine.lt_width_mm ?? rawLine.width_mm ?? null,
-        lt_height_mm: rawLine.lt_height_mm ?? rawLine.height_mm ?? null,
-        lt_options: rawLine.lt_options || rawLine.options || [],
-        lt_supplier_name: rawLine.lt_supplier_name || rawLine.supplier_name || null,
-        lt_supplier_code: rawLine.lt_supplier_code || rawLine.supplier_code || null,
         lt_comment_extern: rawLine.lt_comment_extern || rawLine.comment_extern || null,
         lt_comment_intern: rawLine.lt_comment_intern || rawLine.comment_intern || null,
         lt_vat_code: rawLine.lt_vat_code || rawLine.vat_code || null,
@@ -382,7 +450,6 @@ export class OrderIntakeService {
         lt_stock_status: rawLine.lt_stock_status || rawLine.stock_status || null,
         lt_delivery_status: rawLine.lt_delivery_status || rawLine.delivery_status || null,
         lt_invoice_status: rawLine.lt_invoice_status || rawLine.invoice_status || null,
-        // Backwards-compatible aliassen:
         raw_data: rawLine.raw_data || rawLine.lt_raw_data || null,
         external_line_id: rawLine.external_line_id || rawLine.lt_id || null,
         comment_extern: rawLine.comment_extern || rawLine.lt_comment_extern || null,
@@ -396,71 +463,34 @@ export class OrderIntakeService {
         delivery_status: rawLine.delivery_status || rawLine.lt_delivery_status || null,
         invoice_status: rawLine.invoice_status || rawLine.lt_invoice_status || null,
       };
-
       return [singleLine];
     }
 
-    // JIT SKU Resolutie (wordt overgeslagen bij bulk intake via PostgreSQL LATERAL)
-    let resolvedProduct: ResolvedProductEntity | null = null;
-    if (!this.skipClientLookup && code && code.toUpperCase() !== 'TEKST') {
-      resolvedProduct = await this.resolveProductByCode(code);
-    }
-
-    // Classificeer regel
-    let groupCode = '9.9';
-    let serviceDisciplineCode: string | undefined;
-    let classificationIsHybrid = false;
-
-    if (resolvedProduct && resolvedProduct.product_group_code) {
-      groupCode = resolvedProduct.product_group_code;
-    } else {
-      const classRes = await this.classificationService.classifyProduct({
-        code: rawLine.product_code || undefined,
-        name: rawLine.description || undefined,
-        description: rawLine.description || undefined,
-        supplier_name: rawLine.supplier_name || undefined,
-        notes: rawLine.notes || undefined,
-        configuration_text: rawLine.configuration ? JSON.stringify(rawLine.configuration) : undefined,
-        total_price_cents: effectiveTotalCents,
-      });
-      groupCode = classRes.productGroupCode;
-      serviceDisciplineCode = classRes.serviceDisciplineCode;
-      classificationIsHybrid = Boolean(classRes.isHybrid);
-    }
-
-    // 4-Traps Configuratie Extractie Cascade (0, A, B, C) met Reconciliatie (D)
-    const configSpec = await this.extractionEngine.extractConfiguration(rawLine, groupCode);
-    if (configSpec.reconciled_product_group_code) {
-      groupCode = configSpec.reconciled_product_group_code;
-    }
-
-    // Wiskundige Maten-Extractie via SSOT DimensionExtractionEngine
+    // Wiskundige Maten-Extractie via SSOT DimensionExtractionEngine als complement
     const dimResult = this.dimensionEngine.extractDimension(
       rawLine,
       groupCode,
-      configSpec?.dimensions
+      neuroResult.configurationSpec?.dimensions
     );
 
-    // Stap 1: Leid altijd dim en dimension_spec af voor de weergave en CPQ calculatie
     const derivedDim = rawLine.dim || dimResult.formattedDim || null;
     const assignedDimensionSpec: DimensionSpec | null =
       (rawLine.dimension_spec as DimensionSpec) ||
+      neuroResult.dimensionSpec ||
       dimResult.dimensionSpec ||
       null;
 
-    // Stap 2: Strikte Discipline Gating: configuration_spec is UITSLUITEND voor geautoriseerde maatwerkdisciplines
+    // Strikte Discipline Gating: configuration_spec is UITSLUITEND voor geautoriseerde maatwerkdisciplines (1.x, 2.x, 3.x, 5.x)
     const isCustomDiscipline = /^(1|2|3|5)\./.test(groupCode);
-
-    // Stap 3: Ken configuration_spec toe (verplichte AND-koppeling met isCustomDiscipline)
     const hasMeaningfulConfig =
       isCustomDiscipline &&
-      configSpec &&
-      (configSpec.status === 'valid' || configSpec.status === 'incomplete') &&
-      (Boolean(configSpec.dimensions?.width_mm || configSpec.dimensions?.height_mm) ||
-        Boolean(configSpec.options && configSpec.options.length > 0) ||
-        Boolean(configSpec.attributes && Object.keys(configSpec.attributes).length > 0));
+      neuroResult.configurationSpec &&
+      (neuroResult.configurationSpec.status === 'valid' || neuroResult.configurationSpec.status === 'incomplete') &&
+      (Boolean(neuroResult.configurationSpec.dimensions?.width_mm || neuroResult.configurationSpec.dimensions?.height_mm) ||
+        Boolean(neuroResult.configurationSpec.options && neuroResult.configurationSpec.options.length > 0) ||
+        Boolean(neuroResult.configurationSpec.attributes && Object.keys(neuroResult.configurationSpec.attributes).length > 0));
 
-    const assignedConfigSpec = hasMeaningfulConfig ? configSpec : null;
+    const assignedConfigSpec = hasMeaningfulConfig ? neuroResult.configurationSpec : null;
 
     // 3-Stromen Routering & Ruimtelijke Extractie:
     const desc = (rawLine.description || '').toLowerCase();
@@ -472,7 +502,6 @@ export class OrderIntakeService {
 
     let spatial: ExtractedSpatialMetadata;
     if (isProjectService) {
-      // Stroom A: Projectbrede Diensten & Algemene Kosten -> pos_project_algemeen
       spatial = {
         etage_name: null,
         room_name: null,
@@ -481,29 +510,45 @@ export class OrderIntakeService {
         cluster_name: null,
       };
     } else {
-      // Stroom B: Maatwerk & Materialen -> Deterministische Ruimtelijke Extractie
       spatial = this.spatialEngine.extractSpatialMetadata(rawLine, groupCode, orderContext);
     }
 
     // Is het een hybride regel (materiaal incl. dienst)?
-    // Sub-regels (sub_line > 0) mogen nooit opnieuw als hybride gesplitst worden
+    // Gated op materiële groepen (1.x, 2.x, 3.x, 4.x, 5.x, 7.x)
+    const isMaterialGroup = /^(1|2|3|4|5|7)\./.test(groupCode);
     const isSubLine = rawLine.sub_line !== undefined && rawLine.sub_line > 0;
-    const isHybrid = !isSubLine && (rawLine.is_hybrid || classificationIsHybrid || detectIsMaterialAndService(rawLine.description));
+    const isHybrid =
+      !isSubLine &&
+      isMaterialGroup &&
+      (rawLine.is_hybrid ||
+        neuroResult.isHybrid ||
+        detectIsMaterialAndService(rawLine.description));
 
     if (isHybrid) {
+      let serviceDiscipline = neuroResult.serviceDisciplineCode;
+      if (!serviceDiscipline) {
+        const sRes = detectServiceDiscipline(rawLine.description);
+        if (sRes?.discipline) {
+          serviceDiscipline = SERVICE_DISCIPLINE_TO_PRODUCT_GROUP[sRes.discipline];
+        }
+      }
       return this.splitHybridOrderLine(
         rawLine,
         resolvedProduct ? resolvedProduct.id : null,
         groupCode,
         assignedConfigSpec,
-        serviceDisciplineCode,
+        serviceDiscipline,
         usedSubLines,
         spatial,
-        dimResult
+        dimResult,
+        {
+          confidence: neuroResult.confidence,
+          stage: neuroResult.stage,
+          requiresReview: neuroResult.requiresReview,
+          extractionNotes: neuroResult.extractionNotes,
+        }
       );
     }
-
-    const totalPrice = effectiveTotalCents;
 
     const singleLine: IngestedOrderLine = {
       line_number: rawLine.line_number,
@@ -512,10 +557,10 @@ export class OrderIntakeService {
       product_code: rawLine.product_code || 'TEKST',
       product_group_code: groupCode,
       description: rawLine.description,
-      quantity: quantity,
+      quantity,
       unit: rawLine.unit || 'stuks',
       unit_price_cents: unitPrice,
-      total_price_cents: totalPrice,
+      total_price_cents: effectiveTotalCents,
       is_hybrid: false,
       is_inbegrepen: false,
       etage_name: spatial.etage_name,
@@ -532,16 +577,13 @@ export class OrderIntakeService {
       notes: rawLine.notes || null,
       dimension_spec: assignedDimensionSpec,
       configuration_spec: assignedConfigSpec,
-      // Bronze Layer velden:
+      classification_confidence: neuroResult.confidence,
+      classification_stage: neuroResult.stage,
+      requires_review: neuroResult.requiresReview,
+      extraction_notes: neuroResult.extractionNotes || null,
       lt_raw_data: rawLine.lt_raw_data || rawLine.raw_data || null,
       lt_id: rawLine.lt_id || rawLine.external_line_id || null,
-      lt_configuration_json: rawLine.lt_configuration_json || rawLine.configuration_json || null,
       lt_configuration: rawLine.lt_configuration || rawLine.configuration || null,
-      lt_width_mm: rawLine.lt_width_mm ?? rawLine.width_mm ?? null,
-      lt_height_mm: rawLine.lt_height_mm ?? rawLine.height_mm ?? null,
-      lt_options: rawLine.lt_options || rawLine.options || [],
-      lt_supplier_name: rawLine.lt_supplier_name || rawLine.supplier_name || null,
-      lt_supplier_code: rawLine.lt_supplier_code || rawLine.supplier_code || null,
       lt_comment_extern: rawLine.lt_comment_extern || rawLine.comment_extern || null,
       lt_comment_intern: rawLine.lt_comment_intern || rawLine.comment_intern || null,
       lt_vat_code: rawLine.lt_vat_code || rawLine.vat_code || null,
@@ -552,7 +594,6 @@ export class OrderIntakeService {
       lt_stock_status: rawLine.lt_stock_status || rawLine.stock_status || null,
       lt_delivery_status: rawLine.lt_delivery_status || rawLine.delivery_status || null,
       lt_invoice_status: rawLine.lt_invoice_status || rawLine.invoice_status || null,
-      // Backwards-compatible aliassen:
       raw_data: rawLine.raw_data || rawLine.lt_raw_data || null,
       external_line_id: rawLine.external_line_id || rawLine.lt_id || null,
       comment_extern: rawLine.comment_extern || rawLine.lt_comment_extern || null,

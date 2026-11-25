@@ -308,7 +308,8 @@ describe('ConfigurationExtractionEngine (TDD)', () => {
       expect(result.dimensions?.width_mm).toBeUndefined();
     });
 
-    it('Trap D Reconciliatie: reconcilieert e-orders met raambekleding in productgroep 9.9 naar 2.3', async () => {
+    // [SPEC-CHANGE-AUTHORIZED: Sanering van duplicate Trap D 9.9 reconciliatie conform SSOT-wet (ClassificationService is SSOT)]
+    it('Trap D Reconciliatie: behoudt afmetingen zonder 9.9 classificatie te dupliceren', async () => {
       const rawLine: RawOrderLineInput = {
         line_number: 74,
         description: 'Horizontale jaloezie 25 mm alu',
@@ -326,11 +327,10 @@ describe('ConfigurationExtractionEngine (TDD)', () => {
       expect(result.status).toBe('valid');
       expect(result.dimensions?.width_mm).toBe(1250);
       expect(result.dimensions?.height_mm).toBe(1920);
-      expect(result.reconciled_product_group_code).toBe('2.3');
+      expect(result.reconciled_product_group_code).toBeUndefined();
     });
 
-    // [SPEC-CHANGE-AUTHORIZED: Dekking voor e-order reconciliatie van 9.9 naar 2.1, 2.2, 2.4, 1.1]
-    it('Trap D Reconciliatie: reconcilieert e-orders met rolgordijnen in productgroep 9.9 naar 2.1', async () => {
+    it('Trap D Reconciliatie: behoudt rolgordijn afmetingen zonder 9.9 te overschrijven', async () => {
       const rawLine: RawOrderLineInput = {
         line_number: 75,
         description: 'Toppoint Rolgordijn cassette',
@@ -346,10 +346,10 @@ describe('ConfigurationExtractionEngine (TDD)', () => {
 
       const result = await engine.extractConfiguration(rawLine, '9.9');
       expect(result.status).toBe('valid');
-      expect(result.reconciled_product_group_code).toBe('2.1');
+      expect(result.reconciled_product_group_code).toBeUndefined();
     });
 
-    it('Trap D Reconciliatie: reconcilieert e-orders met duettes in productgroep 9.9 naar 2.4', async () => {
+    it('Trap D Reconciliatie: behoudt duettes afmetingen zonder 9.9 te overschrijven', async () => {
       const rawLine: RawOrderLineInput = {
         line_number: 76,
         description: 'Luxaflex Duette Shades 25mm',
@@ -365,7 +365,7 @@ describe('ConfigurationExtractionEngine (TDD)', () => {
 
       const result = await engine.extractConfiguration(rawLine, '9.9');
       expect(result.status).toBe('valid');
-      expect(result.reconciled_product_group_code).toBe('2.4');
+      expect(result.reconciled_product_group_code).toBeUndefined();
     });
   });
 });
