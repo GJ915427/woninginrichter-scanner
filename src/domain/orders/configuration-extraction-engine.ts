@@ -23,6 +23,12 @@ export interface ConfigurationEngineOptions {
   lruCacheSize?: number;
 }
 
+export interface ExtractedItemsResult {
+  dimensions?: ConfigurationDimensions;
+  attributes?: Record<string, unknown>;
+  hasOutlier?: boolean;
+}
+
 export class DeterministicTokenizerProvider {
   /**
    * Converteert een maatstring met eenheid naar gehele millimeters.
@@ -53,7 +59,7 @@ export class DeterministicTokenizerProvider {
 
     // Patroon 1: Standaard kruismaat zonder tussenliggende letters: "2400 x 1800", "2400 × 1800 mm", "1450 x 2100"
     const standardCrossMatch = text.match(
-      /(?:^|\s)(\d+(?:[.,]\d+)?)\s*(mm|cm|m|mtr)?\s*(?:[xX×*]|bij)\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m|mtr)?(?:\s|$)/i
+      /(?:^|\s)(\d+(?:[.,]\d+)?)(?:\s*(mm|cm|m|mtr)\b(?![²2]))?\s*(?:[xX×*]|bij)\s*(\d+(?:[.,]\d+)?)(?:\s*(mm|cm|m|mtr)\b(?![²2]))?(?:\s|$)/i
     );
     if (standardCrossMatch) {
       const wRaw = standardCrossMatch[1];
@@ -74,7 +80,7 @@ export class DeterministicTokenizerProvider {
 
     // Patroon 2: Volledige labels: "breedte 2,45 mtr hoogte 180 cm" of "breedte: 1450, hoogte: 2100"
     const separateMatch = text.match(
-      /breedte\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m|mtr)?.*?\bhoogte\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m|mtr)?/i
+      /\bbreedte\s*[:=]?\s*(\d+(?:[.,]\d+)?)(?:\s*(mm|cm|m|mtr)\b(?![²2]))?.*?\bhoogte\s*[:=]?\s*(\d+(?:[.,]\d+)?)(?:\s*(mm|cm|m|mtr)\b(?![²2]))?/i
     );
     if (separateMatch) {
       const width_mm = this.parseUnitToMm(separateMatch[1], separateMatch[2]);
@@ -88,8 +94,8 @@ export class DeterministicTokenizerProvider {
     }
 
     // Patroon 3: Alleen breedte bekend
-    const singleWidthMatch = text.match(/breedte\s*[:=]?\s*(?:[bB]:?\s*)?(\d+(?:[.,]\d+)?)\s*(mm|cm|m|mtr)?/i);
-    const singleHeightMatch = text.match(/hoogte\s*[:=]?\s*(?:[hH]:?\s*)?(\d+(?:[.,]\d+)?)\s*(mm|cm|m|mtr)?/i);
+    const singleWidthMatch = text.match(/\bbreedte\s*[:=]?\s*(?:[bB]:?\s*)?(\d+(?:[.,]\d+)?)(?:\s*(mm|cm|m|mtr)\b(?![²2]))?/i);
+    const singleHeightMatch = text.match(/\bhoogte\s*[:=]?\s*(?:[hH]:?\s*)?(\d+(?:[.,]\d+)?)(?:\s*(mm|cm|m|mtr)\b(?![²2]))?/i);
 
     if (singleWidthMatch && !singleHeightMatch) {
       const width_mm = this.parseUnitToMm(singleWidthMatch[1], singleWidthMatch[2]);
@@ -121,6 +127,32 @@ export class ConfigurationExtractionEngine {
   }
 
   /**
+   * Bepaalt of een array items een zuivere LogicTrade vragenlijst representeert zonder maatankers.
+   */
+  public static isQuestionnaireItems(items: unknown[]): boolean {
+    if (!Array.isArray(items) || items.length === 0) return false;
+    let hasValidOption = false;
+    const ANCHOR_OR_ATTR_LABEL =
+      /^(?:blijvende\s*maat|dagmaat|bestelmaat|productmaat|breedte|hoogte|bediening|kleur|gaas|lamelbreedte|type|montage|plooisoort)\b/i;
+
+    for (const item of items) {
+      if (item && typeof item === 'object' && 'option' in item) {
+        const rawOpt = (item as { option?: unknown }).option;
+        if (typeof rawOpt === 'string') {
+          const opt = rawOpt.trim();
+          if (opt.length > 0) {
+            hasValidOption = true;
+            if (ANCHOR_OR_ATTR_LABEL.test(opt)) {
+              return false; // Heeft maat-/configuratie-anker -> GEEN pure vragenlijst
+            }
+          }
+        }
+      }
+    }
+    return hasValidOption;
+  }
+
+  /**
    * Extraheert gestructureerde afmetingen en specificaties uit LogicTrade configuration.items
    */
   public static extractFromConfigurationItems(
@@ -128,57 +160,74 @@ export class ConfigurationExtractionEngine {
     supplierName?: string,
     description?: string,
     productGroupCode?: string
-  ): { dimensions?: ConfigurationDimensions; attributes?: Record<string, unknown> } | null {
+  ): ExtractedItemsResult | null {
     if (!Array.isArray(items) || items.length === 0) return null;
 
-    // 1. Type-veilige normalisatie van alle elementen (strings, numbers, objects met value)
-    const normalized: string[] = items
-      .map((item) => {
-        if (typeof item === 'string') return item.trim();
-        if (typeof item === 'number') return String(item).trim();
-        if (item && typeof item === 'object') {
-          if ('key' in item && 'value' in item) {
-            return `${(item as any).key}: ${(item as any).value}`.trim();
-          }
-          if ('value' in item) {
-            return String((item as { value: unknown }).value || '').trim();
-          }
-        }
-        return '';
-      })
-      .filter(Boolean);
+    const ANCHOR_OR_ATTR_LABEL =
+      /^(?:blijvende\s*maat|dagmaat|bestelmaat|productmaat|breedte|hoogte|bediening|kleur|gaas|lamelbreedte|type|montage|plooisoort)\b/i;
+    const STRICT_DIM_ITEM_REGEX = /^(\d+(?:[.,]\d+)?)\s*(mm|cm|m|mtr)?$/i;
 
-    if (normalized.length === 0) return null;
+    // 1. Type-veilige 3-taks normalisatie op rawNormalized (met behoud van lege slots voor index-offsetting)
+    const rawNormalized: string[] = items.map((item) => {
+      if (typeof item === 'string') return item.trim();
+      if (typeof item === 'number') return String(item).trim();
+      if (item && typeof item === 'object') {
+        if ('key' in item && 'value' in item) {
+          const rawKey = (item as { key?: unknown }).key;
+          const k = typeof rawKey === 'string' ? rawKey.trim() : '';
+          const v = String((item as { value?: unknown }).value ?? '').trim();
+          return k ? `${k}: ${v}`.trim() : v;
+        }
+        if ('option' in item) {
+          const rawOpt = (item as { option?: unknown }).option;
+          const opt = typeof rawOpt === 'string' ? rawOpt.trim() : '';
+          const v = 'value' in item ? String((item as { value?: unknown }).value ?? '').trim() : '';
+          if (opt.length > 0) {
+            return ANCHOR_OR_ATTR_LABEL.test(opt) && 'value' in item ? `${opt}: ${v}`.trim() : '';
+          }
+          return v; // opt leeg of ontbreekt -> behoud value voor positionele lookahead slots
+        }
+        if ('value' in item) {
+          return String((item as { value?: unknown }).value ?? '').trim();
+        }
+      }
+      return '';
+    });
+
+    const nonEmpty = rawNormalized.filter(Boolean);
+    if (nonEmpty.length === 0) return null;
 
     let width_mm: number | undefined;
     let height_mm: number | undefined;
     const attributes: Record<string, unknown> = {};
 
-    // 2. Anker-gebaseerde extractie (Luxaflex, B&C, algemeen)
-    for (const text of normalized) {
+    // 2. Anker-gebaseerde extractie met optionele parenthetische eenheden: Breedte (mm): 1070 of Blijvende maat: 1550 mm
+    for (const text of nonEmpty) {
       const widthAnchorMatch = text.match(
-        /(?:blijvende\s*maat|dagmaat|bestelmaat|breedte)\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m)?/i
+        /\b(?:blijvende\s*maat|dagmaat|bestelmaat|productmaat|breedte)(?:\s*\((mm|cm|m|mtr)\))?\s*[:=]?\s*(\d+(?:[.,]\d+)?)(?:\s*(mm|cm|m|mtr)\b(?![²2]))?/i
       );
       if (widthAnchorMatch && !width_mm) {
         const parsed = DeterministicTokenizerProvider.parseUnitToMm(
-          widthAnchorMatch[1],
-          widthAnchorMatch[2]
+          widthAnchorMatch[2],
+          widthAnchorMatch[3] || widthAnchorMatch[1]
         );
+        if (parsed > 12000) return { hasOutlier: true, attributes: Object.keys(attributes).length > 0 ? attributes : undefined };
         if (parsed > 0) width_mm = parsed;
       }
 
       const heightAnchorMatch = text.match(
-        /(?:hoogte)\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m)?/i
+        /\b(?:hoogte)(?:\s*\((mm|cm|m|mtr)\))?\s*[:=]?\s*(\d+(?:[.,]\d+)?)(?:\s*(mm|cm|m|mtr)\b(?![²2]))?/i
       );
       if (heightAnchorMatch && !height_mm) {
         const parsed = DeterministicTokenizerProvider.parseUnitToMm(
-          heightAnchorMatch[1],
-          heightAnchorMatch[2]
+          heightAnchorMatch[2],
+          heightAnchorMatch[3] || heightAnchorMatch[1]
         );
+        if (parsed > 12000) return { hasOutlier: true, attributes: Object.keys(attributes).length > 0 ? attributes : undefined };
         if (parsed > 0) height_mm = parsed;
       }
 
-      const attrMatch = text.match(/^(bediening|kleur|gaas|lamelbreedte|type|montage)\s*[:=]\s*(.+)$/i);
+      const attrMatch = text.match(/^\b(bediening|kleur|gaas|lamelbreedte|type|montage|plooisoort)\s*[:=]\s*(.+)$/i);
       if (attrMatch) {
         const key = attrMatch[1].toLowerCase().replace(/\s+/g, '_');
         attributes[key] = attrMatch[2].trim();
@@ -192,31 +241,97 @@ export class ConfigurationExtractionEngine {
       };
     }
 
-    // 3. Domein-geïsoleerd Direct Index Sjabloon voor Horren & Screens (Unilux / KeJe)
+    // 3. Positionele Lookahead op rawNormalized (Luxaflex / Hunter Douglas / Decoloop / Sunway / Zonnelux)
+    // Wanneer een item een ankerlabel is ("Blijvende maat", "Dagmaat") en de daaropvolgende slots dimensies bevatten
+    const ANCHOR_REGEX = /\b(blijvende\s*maat|dagmaat|bestelmaat|productmaat)\b/i;
+    for (let i = 0; i < rawNormalized.length - 2; i++) {
+      const slot0 = rawNormalized[i];
+      if (ANCHOR_REGEX.test(slot0)) {
+        const slot1 = rawNormalized[i + 1];
+        const slot2 = rawNormalized[i + 2];
+        const m1 = slot1.match(STRICT_DIM_ITEM_REGEX);
+        const m2 = slot2.match(STRICT_DIM_ITEM_REGEX);
+        if (m1 && m2) {
+          const wParsed = DeterministicTokenizerProvider.parseUnitToMm(m1[1], m1[2]);
+          const hParsed = DeterministicTokenizerProvider.parseUnitToMm(m2[1], m2[2]);
+          if (wParsed > 12000 || hParsed > 12000) {
+            return { hasOutlier: true, attributes: Object.keys(attributes).length > 0 ? attributes : undefined };
+          }
+          if (wParsed > 0 && hParsed > 0) {
+            width_mm = wParsed;
+            height_mm = hParsed;
+            return {
+              dimensions: { width_mm, height_mm },
+              attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
+            };
+          }
+        }
+      }
+    }
+
+    // 4. Textiel-CM Sequencer (Vadain gordijnen / vitrages): zoek naar opeenvolgende "xxx cm" waarden
+    const isTextileContext =
+      productGroupCode === '1.1' ||
+      /gordijn|plooigordijn|inbetween|vitrage/i.test(description || '') ||
+      rawNormalized.some((v) => /plooigordijn|vlinder\s*plooi|comfort\s*gordijn/i.test(v));
+
+    if (isTextileContext) {
+      for (let i = 0; i < rawNormalized.length - 1; i++) {
+        const m1 = rawNormalized[i].match(/^(\d+(?:[.,]\d+)?)\s*cm$/i);
+        const m2 = rawNormalized[i + 1].match(/^(\d+(?:[.,]\d+)?)\s*cm$/i);
+        if (m1 && m2) {
+          const wParsed = DeterministicTokenizerProvider.parseUnitToMm(m1[1], 'cm');
+          const hParsed = DeterministicTokenizerProvider.parseUnitToMm(m2[1], 'cm');
+          if (wParsed > 12000 || hParsed > 12000) {
+            return { hasOutlier: true, attributes: Object.keys(attributes).length > 0 ? attributes : undefined };
+          }
+          if (wParsed >= 100 && hParsed >= 100) {
+            width_mm = wParsed;
+            height_mm = hParsed;
+            return {
+              dimensions: { width_mm, height_mm },
+              attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
+            };
+          }
+        }
+      }
+    }
+
+    // 5. Domein-geïsoleerd Direct Index Sjabloon voor Horren & Screens (Unilux / KeJe)
     const isHorOrScreen = Boolean(
       (supplierName && /unilux|keje/i.test(supplierName)) ||
       (description && /\b(hor|hordeur|rolhor|plisse\s*hordeur|inzethor)\b/i.test(description))
     );
 
-    if (isHorOrScreen && normalized.length >= 2) {
-      const wCand = parseInt(normalized[0].replace(/\D/g, ''), 10);
-      const hCand = parseInt(normalized[1].replace(/\D/g, ''), 10);
-      if (wCand >= 100 && wCand <= 12000 && hCand >= 100 && hCand <= 12000) {
-        width_mm = wCand;
-        height_mm = hCand;
-        return {
-          dimensions: { width_mm, height_mm },
-          attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
-        };
+    if (isHorOrScreen && nonEmpty.length >= 2) {
+      const m1 = nonEmpty[0].match(STRICT_DIM_ITEM_REGEX);
+      const m2 = nonEmpty[1].match(STRICT_DIM_ITEM_REGEX);
+      if (m1 && m2) {
+        const wCand = DeterministicTokenizerProvider.parseUnitToMm(m1[1], m1[2]);
+        const hCand = DeterministicTokenizerProvider.parseUnitToMm(m2[1], m2[2]);
+        if (wCand > 12000 || hCand > 12000) {
+          return { hasOutlier: true, attributes: Object.keys(attributes).length > 0 ? attributes : undefined };
+        }
+        if (wCand >= 100 && hCand >= 100) {
+          width_mm = wCand;
+          height_mm = hCand;
+          return {
+            dimensions: { width_mm, height_mm },
+            attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
+          };
+        }
       }
     }
 
-    // 4. Tokenize overige items met index-quarantaine (< 15)
-    const scanLimit = Math.min(normalized.length, 15);
+    // 6. Tokenize overige items met index-quarantaine (< 15)
+    const scanLimit = Math.min(nonEmpty.length, 15);
     for (let i = 0; i < scanLimit; i++) {
-      const text = normalized[i];
+      const text = nonEmpty[i];
       const dims = DeterministicTokenizerProvider.tokenize(text);
       if (dims && dims.width_mm && dims.height_mm) {
+        if (dims.width_mm > 12000 || dims.height_mm > 12000) {
+          return { hasOutlier: true, attributes: Object.keys(attributes).length > 0 ? attributes : undefined };
+        }
         return {
           dimensions: dims,
           attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
@@ -243,30 +358,36 @@ export class ConfigurationExtractionEngine {
    */
   public async extractConfiguration(
     rawLine: RawOrderLineInput,
-    productGroupCode?: string
+    productGroupCode?: string,
+    options?: { skipCognitive?: boolean }
   ): Promise<ConfigurationSpec> {
     // --------------------------------------------------------------------------
     // Trap 0: Directe ERP Numerieke Velden (0ms)
     // --------------------------------------------------------------------------
-    if (rawLine.width_mm && rawLine.height_mm) {
+    const rawW = rawLine.width_mm ?? (rawLine as any).lt_width_mm;
+    const rawH = rawLine.height_mm ?? (rawLine as any).lt_height_mm;
+    if (rawW !== undefined && rawH !== undefined) {
       const spec: ConfigurationSpec = {
         status: 'valid',
         confidence: 1.0,
         source: 'erp_fields',
         dimensions: {
-          width_mm: Math.round(rawLine.width_mm),
-          height_mm: Math.round(rawLine.height_mm),
+          width_mm: Math.round(rawW),
+          height_mm: Math.round(rawH),
         },
-        options: rawLine.options || [],
+        options: rawLine.options || (rawLine as any).lt_options || [],
       };
       return this.crossValidateConfiguration(spec, productGroupCode, rawLine);
     }
 
     // --------------------------------------------------------------------------
-    // Trap A: Gestructureerde e-Order JSON (0ms)
+    // Trap A: Gestructureerde e-Order JSON & Configurator Items (0ms)
     // --------------------------------------------------------------------------
-    if (rawLine.configuration_json && typeof rawLine.configuration_json === 'object') {
-      const json = rawLine.configuration_json;
+    const rawConfigJson = rawLine.configuration_json || (rawLine as any).lt_configuration_json;
+    const rawConfig = rawLine.configuration || (rawLine as any).lt_configuration;
+
+    if (rawConfigJson && typeof rawConfigJson === 'object') {
+      const json = rawConfigJson as Record<string, unknown>;
       const w = typeof json.width_mm === 'number' ? json.width_mm : undefined;
       const h = typeof json.height_mm === 'number' ? json.height_mm : undefined;
 
@@ -291,13 +412,24 @@ export class ConfigurationExtractionEngine {
         attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
       };
       return this.crossValidateConfiguration(spec, productGroupCode, rawLine);
-    } else if (rawLine.configuration?.items && Array.isArray(rawLine.configuration.items)) {
+    } else if (rawConfig?.items && Array.isArray(rawConfig.items)) {
       const extracted = ConfigurationExtractionEngine.extractFromConfigurationItems(
-        rawLine.configuration.items,
+        rawConfig.items,
         rawLine.supplier_name,
         rawLine.description,
         productGroupCode
       );
+
+      if (extracted?.hasOutlier) {
+        const outlierSpec: ConfigurationSpec = {
+          status: 'requires_review',
+          confidence: 0.1,
+          source: 'eorder_json',
+          dimensions: undefined,
+          extraction_notes: ['Afmetingen buiten fysieke veiligheidsgrenzen (100 - 12000 mm)'],
+        };
+        return this.crossValidateConfiguration(outlierSpec, productGroupCode, rawLine);
+      }
 
       if (extracted && extracted.dimensions?.width_mm && extracted.dimensions?.height_mm) {
         const spec: ConfigurationSpec = {
@@ -329,7 +461,7 @@ export class ConfigurationExtractionEngine {
     // --------------------------------------------------------------------------
     // Trap C: Cognitieve Provider met LRU Caching
     // --------------------------------------------------------------------------
-    if (this.cognitiveProvider && combinedText.length > 0) {
+    if (!options?.skipCognitive && this.cognitiveProvider && combinedText.length > 0) {
       const hash = this.computeContentHash(`${combinedText}_${productGroupCode || ''}`);
 
       if (this.lruCache.has(hash)) {
@@ -404,7 +536,22 @@ export class ConfigurationExtractionEngine {
       }
     }
 
-    // 2. Mechanische Reconciliatie Categorie-incompatibiliteiten
+    // 2. Fysieke veiligheidsgrenzen (100 - 12000 mm) op positieve waarden (> 0)
+    if (validated.dimensions) {
+      const w = validated.dimensions.width_mm;
+      const h = validated.dimensions.height_mm;
+      const isOutlier =
+        (w !== undefined && w > 0 && (w < 100 || w > 12000)) ||
+        (h !== undefined && h > 0 && (h < 100 || h > 12000));
+
+      if (isOutlier) {
+        validated.status = 'requires_review';
+        if (validated.confidence > 0.2) validated.confidence = 0.1;
+        notes.push('Afmetingen buiten fysieke veiligheidsgrenzen (100 - 12000 mm)');
+      }
+    }
+
+    // 3. Mechanische Reconciliatie Categorie-incompatibiliteiten
     if (productGroupCode) {
       const grp = productGroupCode.trim();
 
@@ -431,9 +578,6 @@ export class ConfigurationExtractionEngine {
           notes.push(`Productgroep gereconcilieerd van ${grp} naar 3.1 wegens vloerattributen`);
         }
       }
-
-      // 3. E-order Reconciliatie: Sanering van concurrerende 9.9 classificatie (voorheen Trap D).
-      // ClassificationService is de exclusieve SSOT voor artikelgroepen.
     }
 
     if (notes.length > 0) {

@@ -106,17 +106,33 @@ export class OrderIntakeService {
 
     // Batch pre-hydratatie catalogus (1 PostgREST query ipv N)
     const productCache = new Map<string, ResolvedProductEntity>();
+    const batchAttemptedCodes = new Set<string>();
     if (!this.skipClientLookup && this.resolveProductsByCodesFn) {
-      const allCodes = (rawOrder.lines || []).map((l) => l.product_code || '').filter(Boolean);
-      try {
-        const resolvedBatch = await this.resolveProductsByCodesFn(allCodes);
-        if (resolvedBatch && resolvedBatch.size > 0) {
-          for (const [k, v] of resolvedBatch) {
-            productCache.set(k.toUpperCase(), v);
-          }
+      const codeMap = new Map<string, string>();
+      for (const l of rawOrder.lines || []) {
+        const rawTrimmed = (l.product_code || '').trim();
+        if (!rawTrimmed) continue;
+        const upper = rawTrimmed.toUpperCase();
+        if (upper === 'TEKST') continue;
+        if (!codeMap.has(upper)) {
+          codeMap.set(upper, rawTrimmed);
         }
-      } catch (err) {
-        console.warn('Batch catalogus lookup mislukt, valt terug op per-regel lookup:', err);
+      }
+      const allCodes = Array.from(codeMap.values());
+      if (allCodes.length > 0) {
+        try {
+          const resolvedBatch = await this.resolveProductsByCodesFn(allCodes);
+          if (resolvedBatch instanceof Map) {
+            for (const upper of codeMap.keys()) {
+              batchAttemptedCodes.add(upper);
+            }
+            for (const [k, v] of resolvedBatch) {
+              productCache.set(k.toUpperCase(), v);
+            }
+          }
+        } catch (err) {
+          console.warn('Batch catalogus lookup mislukt, valt terug op per-regel lookup:', err);
+        }
       }
     }
 
@@ -137,7 +153,8 @@ export class OrderIntakeService {
         usedSubLines,
         orderContext,
         productCache,
-        allRawLines
+        allRawLines,
+        batchAttemptedCodes
       );
       for (const line of splitLines) {
         ingestedLines.push(line);
@@ -192,25 +209,31 @@ export class OrderIntakeService {
     const spatial: ExtractedSpatialMetadata =
       spatialMetadata || this.spatialEngine.extractSpatialMetadata(line, materialGroupCode);
 
-    const dimResult =
-      extractedDimension ||
-      this.dimensionEngine.extractDimension(line, materialGroupCode, configSpec?.dimensions);
+    const isQuarantine = auditInfo?.stage === 'trap_4_fail_closed_quarantine';
+    const dimResult: ExtractedDimensionResult = isQuarantine
+      ? { dimensionSpec: { type: 'piece_service', unit: line.unit || 'stuks' }, formattedDim: null, isOutlier: true, source: 'fallback_default' }
+      : (extractedDimension ||
+         this.dimensionEngine.extractDimension(line, materialGroupCode, configSpec?.dimensions));
 
-    const derivedDim =
-      line.dim ||
-      dimResult.formattedDim ||
-      (configSpec?.dimensions?.width_mm && configSpec?.dimensions?.height_mm
-        ? `${configSpec.dimensions.width_mm} × ${configSpec.dimensions.height_mm}`
-        : null);
+    const derivedDim = isQuarantine
+      ? null
+      : (line.dim ||
+         dimResult.formattedDim ||
+         (configSpec?.dimensions?.width_mm && configSpec?.dimensions?.height_mm
+           ? `${configSpec.dimensions.width_mm} × ${configSpec.dimensions.height_mm}`
+           : null));
 
-    const assignedDimensionSpec: DimensionSpec | null =
-      (line.dimension_spec as DimensionSpec) ||
-      dimResult.dimensionSpec ||
-      null;
+    const assignedDimensionSpec: DimensionSpec | null = isQuarantine
+      ? null
+      : ((line.dimension_spec as DimensionSpec) ||
+         dimResult.dimensionSpec ||
+         null);
 
     // 1. Hoofdregel (Materiaal): behoud toegekend sub_line
     const isCustomDiscipline = /^(1|2|3|5)\./.test(materialGroupCode);
-    const assignedConfigSpecForHybrid = isCustomDiscipline ? configSpec || null : null;
+    const assignedConfigSpecForHybrid = isQuarantine
+      ? null
+      : (isCustomDiscipline ? configSpec || null : null);
     const mainSub = line.sub_line !== undefined ? line.sub_line : 0;
     const mainLine: IngestedOrderLine = {
       line_number: line.line_number,
@@ -369,7 +392,8 @@ export class OrderIntakeService {
     usedSubLines?: Map<number, Set<number>>,
     orderContext?: OrderSpatialContext,
     productCache?: Map<string, ResolvedProductEntity>,
-    adjacentLines?: RawOrderLineInput[]
+    adjacentLines?: RawOrderLineInput[],
+    batchAttemptedCodes?: Set<string>
   ): Promise<IngestedOrderLine[]> {
     const code = (rawLine.product_code || '').trim();
     const upperCode = code.toUpperCase();
@@ -380,12 +404,12 @@ export class OrderIntakeService {
         ? rawLine.total_price_cents
         : Math.round(unitPrice * quantity);
 
-    // JIT SKU Resolutie (met batch cache fallback)
+    // JIT SKU Resolutie (met batch cache fallback & negative caching)
     let resolvedProduct: ResolvedProductEntity | null = null;
     if (!this.skipClientLookup && code && upperCode !== 'TEKST') {
       if (productCache && productCache.has(upperCode)) {
         resolvedProduct = productCache.get(upperCode)!;
-      } else {
+      } else if (!batchAttemptedCodes || !batchAttemptedCodes.has(upperCode)) {
         resolvedProduct = await this.resolveProductByCode(code, rawLine.supplier_name);
         if (resolvedProduct && productCache) {
           productCache.set(upperCode, resolvedProduct);
@@ -466,23 +490,28 @@ export class OrderIntakeService {
       return [singleLine];
     }
 
-    // Wiskundige Maten-Extractie via SSOT DimensionExtractionEngine als complement
-    const dimResult = this.dimensionEngine.extractDimension(
-      rawLine,
-      groupCode,
-      neuroResult.configurationSpec?.dimensions
-    );
+    // Wiskundige Maten-Extractie via SSOT DimensionExtractionEngine als complement (met harde quarantaine-afscherming)
+    const isQuarantine = neuroResult.stage === 'trap_4_fail_closed_quarantine';
+    const dimResult: ExtractedDimensionResult = isQuarantine
+      ? { dimensionSpec: { type: 'piece_service', unit: rawLine.unit || 'stuks' }, formattedDim: null, isOutlier: true, source: 'fallback_default' }
+      : this.dimensionEngine.extractDimension(
+          rawLine,
+          groupCode,
+          neuroResult.configurationSpec?.dimensions
+        );
 
-    const derivedDim = rawLine.dim || dimResult.formattedDim || null;
-    const assignedDimensionSpec: DimensionSpec | null =
-      (rawLine.dimension_spec as DimensionSpec) ||
-      neuroResult.dimensionSpec ||
-      dimResult.dimensionSpec ||
-      null;
+    const derivedDim = isQuarantine ? null : (rawLine.dim || dimResult.formattedDim || null);
+    const assignedDimensionSpec: DimensionSpec | null = isQuarantine
+      ? null
+      : ((rawLine.dimension_spec as DimensionSpec) ||
+        neuroResult.dimensionSpec ||
+        dimResult.dimensionSpec ||
+        null);
 
     // Strikte Discipline Gating: configuration_spec is UITSLUITEND voor geautoriseerde maatwerkdisciplines (1.x, 2.x, 3.x, 5.x)
     const isCustomDiscipline = /^(1|2|3|5)\./.test(groupCode);
     const hasMeaningfulConfig =
+      !isQuarantine &&
       isCustomDiscipline &&
       neuroResult.configurationSpec &&
       (neuroResult.configurationSpec.status === 'valid' || neuroResult.configurationSpec.status === 'incomplete') &&

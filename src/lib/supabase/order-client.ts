@@ -399,9 +399,13 @@ export async function resolveProductsByCodes(
           }
         }
       }
+    } else {
+      const errorText = await res.text();
+      throw new Error(`PostgREST batch lookup mislukt: ${res.status} ${errorText}`);
     }
   } catch (err) {
     console.error('Fout bij resolveProductsByCodes:', err);
+    throw err;
   }
 
   return result;
