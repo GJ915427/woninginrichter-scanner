@@ -18,15 +18,52 @@ import type {
   ConfigurationDimensions,
 } from '@/types/order-intake';
 
+import {
+  MIN_DIMENSION_MM,
+  MAX_DIMENSION_MM,
+  isOutOfPhysicalBoundsDimension,
+  isOutlierDimension,
+  isValidErpDimension,
+} from '@/domain/orders/dimension-guards';
+
+import {
+  HARD_WINDOW_TEXT_REGEX,
+  CURTAIN_TEXT_REGEX,
+  PLINT_OR_PROFILE_REGEX,
+  RAIL_SUBCOMPONENT_PREFIX_REGEX,
+  RAIL_SUBCOMPONENT_SUFFIX_REGEX,
+  CUMULATIVE_METERAGE_CONTEXT_REGEX,
+  NON_RAIL_CURTAIN_CONTEXT_REGEX,
+  isTrueRailText,
+  isFabricProduct,
+  isConsumptionProduct,
+  isRailAccessory,
+  extractConfigAttributesFromTexts,
+} from '@/domain/orders/configuration-policies';
+
+export { MIN_DIMENSION_MM, MAX_DIMENSION_MM };
+
+export const createCrossDimensionRegex = () =>
+  /(?<![.,\d])(\d+(?:[.,]\d+)?)(?!(?:\.\d|\d))[ \t]*[x×][ \t]*(\d+(?:[.,]\d+)?)(?!(?:\.\d|\d)|[ \t]*(?:mm|cm|m1|mtr|meter|m)\.?[²2]|[²2])(?:[ \t]*((?:mm|cm|m1|mtr|meter)\b(?![²2])|m¹(?!\w)|m\b(?![²2])))?/gi;
+
+export const createLinearDimensionRegex = () =>
+  /(?:^|[\s,:(/\-])(\d+(?:[.,]\d+)?)(?!(?:\.\d|\d)|[ \t]*(?:mm|cm|m1|mtr|meter|m)\.?[²2]|[²2])[ \t]*((?:m1|mtr|meter|cm|mm)\b|m¹(?!\w))\.?(?![²2])/gi;
+
 export interface ExtractedDimensionResult {
   dimensionSpec: DimensionSpec;
   formattedDim: string | null;
-  source: 'erp_fields' | 'description_regex' | 'notes_regex' | 'configuration_fallback' | 'fallback_default';
+  source: 'erp_fields' | 'description_regex' | 'notes_regex' | 'configuration_fallback' | 'fallback_default' | 'text_description';
   isOutlier?: boolean;
 }
 
-export const MAX_DIMENSION_MM = 12000;
-export const MIN_DIMENSION_MM = 100;
+export type CurtainOrRailKind = 'rail' | 'curtain' | 'hard_window' | 'other';
+
+export interface CurtainOrRailClassification {
+  kind: CurtainOrRailKind;
+  isTrueRail: boolean;
+  isCurtain: boolean;
+  isExplicitHardWindow: boolean;
+}
 
 export class DimensionExtractionEngine {
   /**
@@ -50,66 +87,38 @@ export class DimensionExtractionEngine {
       (groupCode.startsWith('6.') && groupCode !== '6.4');
 
     // isClosedFreeTextGroup: isNonDimensionGroup + meubels (7.x) -> geweerd vanaf Stap 3 t/m 6
-    // Zo behoudt 7.1 Salontafel met ERP-maten zijn dim via Stap 1, maar krijgt 7.1 Hoekbank uit vrije tekst piece_service
     const isClosedFreeTextGroup = isNonDimensionGroup || groupCode.startsWith('7.');
 
-    // 0. Fail-Closed Check op ongeldige / absurde numerieke ERP velden
+    // 0. Fail-Closed Check op ongeldige / absurde numerieke ERP velden via SSOT guards
     const rawW = line.width_mm ?? (line as any).lt_width_mm;
     const rawH = line.height_mm ?? (line as any).lt_height_mm;
-    if (rawW !== undefined || rawH !== undefined) {
-      if (
-        (rawW !== undefined && (rawW < MIN_DIMENSION_MM || rawW > MAX_DIMENSION_MM)) ||
-        (rawH !== undefined && (rawH < MIN_DIMENSION_MM || rawH > MAX_DIMENSION_MM))
-      ) {
-        const isOutlier = (rawW !== undefined && rawW > MAX_DIMENSION_MM) || (rawH !== undefined && rawH > MAX_DIMENSION_MM);
-        return {
-          dimensionSpec: { type: 'piece_service', unit },
-          formattedDim: null,
-          source: 'fallback_default',
-          isOutlier,
-        };
-      }
+
+    if (isOutOfPhysicalBoundsDimension(rawW) || isOutOfPhysicalBoundsDimension(rawH)) {
+      const isOutlier = isOutlierDimension(rawW) || isOutlierDimension(rawH);
+      return {
+        dimensionSpec: { type: 'piece_service', unit },
+        formattedDim: null,
+        source: 'fallback_default',
+        isOutlier,
+      };
     }
 
+    // Classificeer product voor gordijnen/rails/raambekleding
+    const classification = this.resolveCurtainOrRailKind(groupCode, desc, notes, line);
+
     // 1. Directe ERP velden (width_mm & height_mm) - UITSLUITEND voor niet-gesloten groepen
-    if (!isNonDimensionGroup && rawW !== undefined && rawH !== undefined) {
-      if (
-        rawW >= MIN_DIMENSION_MM &&
-        rawW <= MAX_DIMENSION_MM &&
-        rawH >= MIN_DIMENSION_MM &&
-        rawH <= MAX_DIMENSION_MM
-      ) {
-        const widthMm = Math.round(rawW);
-        const heightMm = Math.round(rawH);
-
-        // Gordijnen & vitrages (1.1, 1.3, 1.4) synthetiseren curtain_linear conform SSOT
-        if (groupCode === '1.1' || groupCode === '1.3' || groupCode === '1.4') {
-          const pleatFactor = this.extractPleatFactor(desc, notes, line);
-          const spec: DimensionSpec = {
-            type: 'curtain_linear',
-            widthMm,
-            heightMm,
-            pleatFactor,
-          };
-          return {
-            dimensionSpec: spec,
-            formattedDim: this.formatDimensionSpec(spec),
-            source: 'erp_fields',
-          };
-        }
-
-        const areaM2 = Math.round(((widthMm * heightMm) / 1_000_000) * 100) / 100;
-        return {
-          dimensionSpec: {
-            type: 'window_2d',
-            widthMm,
-            heightMm,
-            areaM2,
-          },
-          formattedDim: `${widthMm} × ${heightMm}`,
-          source: 'erp_fields',
-        };
-      }
+    if (!isNonDimensionGroup && isValidErpDimension(rawW)) {
+      const synthesized = this.synthesizeMeasuredDimension(
+        rawW,
+        rawH,
+        'erp_fields',
+        classification,
+        desc,
+        notes,
+        groupCode,
+        line
+      );
+      if (synthesized) return synthesized;
     }
 
     // 2. Trappen (stairs) - 6.4 of trap-annotaties
@@ -133,41 +142,27 @@ export class DimensionExtractionEngine {
       /vloer|pvc|laminaat|parket|tapijt|ondervloer|marmoleum|linoleum|vinyl/i.test(desc) ||
       /vloer|pvc|laminaat|parket|tapijt|ondervloer|marmoleum|linoleum|vinyl/i.test(notes);
 
-    if (isFloor && !isClosedFreeTextGroup) {
+    if (isFloor && !isClosedFreeTextGroup && !classification.isExplicitHardWindow && !classification.isTrueRail && !classification.isCurtain) {
       const floorResult = this.parseFloor(line, desc, notes, unit, groupCode);
       if (floorResult) return floorResult;
     }
 
     // 4. Gordijnen & Rails (curtain_linear) via vrije tekst
-    const isRail = /rail|roede/i.test(desc) || /rail|roede/i.test(notes);
-    const isExplicitHardWindow =
-      !isRail &&
-      (groupCode.startsWith('2.') ||
-        (groupCode === '1.2' && !/gordijnrail/i.test(desc)) ||
-        /rolgordijn|vouwgordijn|plisse|duette|jaloezie|hor/i.test(desc) ||
-        /rolgordijn|vouwgordijn|plisse|duette|jaloezie|hor/i.test(notes));
-
-    const isCurtain =
-      !isExplicitHardWindow &&
-      !isClosedFreeTextGroup &&
-      (groupCode.startsWith('1.') ||
-        /gordijn|inbetween|vitrage|rail/i.test(groupCode) ||
-        /gordijn|inbetween|vitrage|rail/i.test(desc) ||
-        /gordijn|inbetween|vitrage|rail/i.test(notes));
-
-    if (isCurtain) {
-      const curtainResult = this.parseCurtain(desc, notes, unit, groupCode, line);
+    if (!isClosedFreeTextGroup && (classification.isTrueRail || classification.isCurtain)) {
+      const curtainResult = this.parseCurtain(desc, notes, unit, groupCode, line, classification);
       if (curtainResult) return curtainResult;
     }
 
     // 5. Raambekleding & Buitenzonwering (window_2d) via regex
-    const isWindow =
-      groupCode.startsWith('2.') ||
-      /raam|duette|plisse|jaloezie|hor|screen|rolluik|zonwering/i.test(groupCode) ||
-      /raam|duette|plisse|jaloezie|hor|screen|rolluik|zonwering/i.test(desc) ||
-      /raam|duette|plisse|jaloezie|hor|screen|rolluik|zonwering/i.test(notes);
-
-    if (!isClosedFreeTextGroup && (isWindow || groupCode === '1.2' || groupCode.startsWith('5.') || !groupCode || groupCode === '9.9')) {
+    if (
+      !isClosedFreeTextGroup &&
+      !classification.isTrueRail &&
+      !classification.isCurtain &&
+      (classification.isExplicitHardWindow ||
+        ((!groupCode || groupCode === '9.9') &&
+          !isConsumptionProduct(desc, line?.unit) &&
+          !PLINT_OR_PROFILE_REGEX.test(`${desc} ${notes}`)))
+    ) {
       const windowRegexResult = this.parseWindow2D(desc, notes, unit);
       if (windowRegexResult) {
         return windowRegexResult;
@@ -175,46 +170,38 @@ export class DimensionExtractionEngine {
     }
 
     // 6. Synthese uit e-Order fallbackDimensions (Unilux / KeJe / Luxaflex / Vadain)
-    if (
-      !isClosedFreeTextGroup &&
-      fallbackDimensions &&
-      fallbackDimensions.width_mm !== undefined &&
-      fallbackDimensions.width_mm >= MIN_DIMENSION_MM &&
-      fallbackDimensions.width_mm <= MAX_DIMENSION_MM &&
-      fallbackDimensions.height_mm !== undefined &&
-      fallbackDimensions.height_mm >= MIN_DIMENSION_MM &&
-      fallbackDimensions.height_mm <= MAX_DIMENSION_MM
-    ) {
-      const widthMm = Math.round(fallbackDimensions.width_mm);
-      const heightMm = Math.round(fallbackDimensions.height_mm);
-
-      // Gordijnen & vitrages (1.1, 1.3, 1.4) synthetiseren curtain_linear
-      if (groupCode === '1.1' || groupCode === '1.3' || groupCode === '1.4') {
-        const pleatFactor = this.extractPleatFactor(desc, notes, line);
-        const spec: DimensionSpec = {
-          type: 'curtain_linear',
-          widthMm,
-          heightMm,
-          pleatFactor,
-        };
+    if (!isClosedFreeTextGroup && fallbackDimensions) {
+      if (
+        isOutOfPhysicalBoundsDimension(fallbackDimensions.width_mm) ||
+        isOutOfPhysicalBoundsDimension(fallbackDimensions.height_mm)
+      ) {
+        const isOutlier =
+          isOutlierDimension(fallbackDimensions.width_mm) ||
+          isOutlierDimension(fallbackDimensions.height_mm);
         return {
-          dimensionSpec: spec,
-          formattedDim: this.formatDimensionSpec(spec),
-          source: 'configuration_fallback',
+          dimensionSpec: { type: 'piece_service', unit },
+          formattedDim: null,
+          source: 'fallback_default',
+          isOutlier,
         };
       }
 
-      const areaM2 = Math.round(((widthMm * heightMm) / 1_000_000) * 100) / 100;
-      return {
-        dimensionSpec: {
-          type: 'window_2d',
-          widthMm,
-          heightMm,
-          areaM2,
-        },
-        formattedDim: `${widthMm} × ${heightMm}`,
-        source: 'configuration_fallback',
-      };
+      if (
+        isValidErpDimension(fallbackDimensions.width_mm) &&
+        isValidErpDimension(fallbackDimensions.height_mm)
+      ) {
+        const synthesizedFallback = this.synthesizeMeasuredDimension(
+          fallbackDimensions.width_mm,
+          fallbackDimensions.height_mm,
+          'configuration_fallback',
+          classification,
+          desc,
+          notes,
+          groupCode,
+          line
+        );
+        if (synthesizedFallback) return synthesizedFallback;
+      }
     }
 
     // 7. Diensten & Overig (piece_service) fail-closed fallback
@@ -229,9 +216,24 @@ export class DimensionExtractionEngine {
   }
 
   /**
-   * Bijectieve parsing van dimensietekst naar DimensionSpec.
+   * Bijectieve parsing van dimensietekst naar DimensionSpec met gescheiden 1D Matrix UI parsing.
    */
   public parseDimensionString(dimText: string, categoryOrGroupCode?: string): DimensionSpec {
+    if (!dimText) return { type: 'piece_service' };
+    const trimmed = dimText.trim();
+
+    // 1D parser voor Matrix UI cellen (voorkomt ERP Variant 3 kaping)
+    const linear1DMatch = trimmed.match(/^\s*(\d+(?:[.,]\d+)?)[ \t]*((?:mm|cm|m1|mtr|meter)\b|m¹(?!\w)|m\b)\.?\s*$/i);
+    if (linear1DMatch) {
+      const classification = this.resolveCurtainOrRailKind(categoryOrGroupCode || '', dimText);
+      if (classification.isTrueRail || classification.isCurtain) {
+        const widthMm = this.normalizeTextDimensionToMm(linear1DMatch[1], linear1DMatch[2]);
+        if (isValidErpDimension(widthMm)) {
+          return { type: 'curtain_linear', widthMm };
+        }
+      }
+    }
+
     const syntheticLine: RawOrderLineInput = {
       line_number: 1,
       description: dimText,
@@ -242,58 +244,83 @@ export class DimensionExtractionEngine {
   }
 
   /**
-   * Toetst generiek of een orderregel (via ERP velden, configuration_json of vrije tekst) fysieke uitschieters (> 12000 mm) bevat.
+   * Toetst generiek of een orderregel fysieke uitschieters (> 12000 mm) bevat via SSOT guards en split-line analyse.
    */
   public hasDimensionOutlier(line: RawOrderLineInput): boolean {
     const rawW = line.width_mm ?? (line as any).lt_width_mm;
     const rawH = line.height_mm ?? (line as any).lt_height_mm;
-    if (rawW !== undefined && rawW > MAX_DIMENSION_MM) return true;
-    if (rawH !== undefined && rawH > MAX_DIMENSION_MM) return true;
+    if (isOutlierDimension(rawW) || isOutlierDimension(rawH)) return true;
 
     // Check configuration_json
     const rawJson = line.configuration_json || (line as any).lt_configuration_json;
     if (rawJson && typeof rawJson === 'object') {
       const jW = (rawJson as any).width_mm;
       const jH = (rawJson as any).height_mm;
-      if (typeof jW === 'number' && jW > MAX_DIMENSION_MM) return true;
-      if (typeof jH === 'number' && jH > MAX_DIMENSION_MM) return true;
+      if (typeof jW === 'number' && isOutlierDimension(jW)) return true;
+      if (typeof jH === 'number' && isOutlierDimension(jH)) return true;
     }
 
-    let text = `${line.description || ''} ${line.notes || ''}`;
-    if (!text.trim()) return false;
+    const desc = line.description || '';
+    const notes = line.notes || '';
+    const isRailProduct = isTrueRailText(desc);
+    const isHardWindowProduct = HARD_WINDOW_TEXT_REGEX.test(desc);
+    const isConsumpProduct = isConsumptionProduct(desc, line.unit);
 
-    // Filter mobiele telefoonnummers weg (06xxxxxxxx, 06-xxxxxxxx, mob: 0625920112)
-    text = text.replace(/\b06[\s-]?\d{8}\b/gi, ' ');
+    const descLines = desc.split(/[\r\n]+/);
+    const noteLines = notes.split(/[\r\n]+/);
+    const linesToCheck = [...descLines, ...noteLines].map(s => s.trim()).filter(Boolean);
 
-    // 1. Label syntax: B 25000 mm, Hoogte: 15000, Breedte 24000 mm
-    const labelMatches = text.matchAll(/\b(?:B|Breedte|H|Hoogte)[:\s]*(\d+(?:[.,]\d+)?)(?:\s*(mm|cm|m)\b(?![²2]))?/gi);
-    for (const match of labelMatches) {
-      const val = parseFloat(match[1].replace(',', '.'));
-      const u = match[2]?.toLowerCase();
-      const mm = Math.round(u === 'cm' ? val * 10 : u === 'm' ? val * 1000 : (!u && val <= 500 ? val * 10 : val));
-      if (mm > MAX_DIMENSION_MM) return true;
-    }
+    for (const rawLineText of linesToCheck) {
+      const lineText = rawLineText.replace(/\b06[\s-]?\d{8}\b/gi, ' ');
+      const isRailLine =
+        isRailProduct ||
+        (!isConsumpProduct && !CUMULATIVE_METERAGE_CONTEXT_REGEX.test(lineText) && isTrueRailText(lineText));
+      const isCustomWindowOrCurtain =
+        isHardWindowProduct ||
+        HARD_WINDOW_TEXT_REGEX.test(lineText) ||
+        (CURTAIN_TEXT_REGEX.test(lineText) && !isFabricProduct(lineText));
 
-    // 2. Kruismaat: 25000 x 1800, 1800 x 25000 mm, 20000x2000
-    const crossMatches = text.replace(/×/g, 'x').matchAll(/(?:^|\s)(\d+)\s*x\s*(\d+)\s*(cm|mm)?\b(?![²2])/gi);
-    for (const match of crossMatches) {
-      const u = match[3]?.toLowerCase();
-      let w = parseInt(match[1], 10);
-      let h = parseInt(match[2], 10);
-      if (u === 'cm' || (!u && w <= 500 && h <= 500)) {
-        w *= 10;
-        h *= 10;
+      // 3a. Label syntax: B/Br/Breedte/H/Hg/Hoogte
+      const labelRegex =
+        /\b(?:(?:breedte|hoogte)[ \t]*[:=-]?[ \t]*|(?:br|b|hg|h)[ \t]*[:=-][ \t]*|(?:br|b|hg|h)[ \t]+)(\d+(?:[.,]\d+)?)(?!(?:\.\d|\d)|[ \t]*(?:mm|cm|m1|mtr|meter|m)\.?[²2]|[²2])(?:[ \t]*((?:mm|cm|m1|mtr|meter)\b|m¹(?!\w)|m\b)\.?(?![²2]))?/gi;
+      const labelMatches = lineText.matchAll(labelRegex);
+      for (const m of labelMatches) {
+        const mm = this.normalizeTextDimensionToMm(m[1], m[2]);
+        if (isOutlierDimension(mm)) return true;
       }
-      if (w > MAX_DIMENSION_MM || h > MAX_DIMENSION_MM) return true;
-    }
 
-    // 3. Lineaire maten: 15000 mm, 15 m1, 1500 cm
-    const linearMatches = text.matchAll(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*(mm|cm|m1|meter)\b(?![²2])/gi);
-    for (const match of linearMatches) {
-      const val = parseFloat(match[1].replace(',', '.'));
-      const u = match[2]?.toLowerCase();
-      const mm = Math.round(u === 'cm' ? val * 10 : (u === 'm1' || u === 'meter') ? val * 1000 : val);
-      if (mm > MAX_DIMENSION_MM) return true;
+      // 3b. Kruismaten W x H via gedeelde [x×] regex
+      const crossRegex = createCrossDimensionRegex();
+      const crossMatches = lineText.matchAll(crossRegex);
+      for (const m of crossMatches) {
+        const wToken = m[1];
+        const hToken = m[2];
+        const uToken = m[3];
+        if (this.isCrossItemMultiplier(wToken, uToken)) {
+          if (!isRailLine && !isCustomWindowOrCurtain && (isConsumpProduct || CUMULATIVE_METERAGE_CONTEXT_REGEX.test(lineText))) {
+            continue;
+          }
+          const lenMm = this.normalizeTextDimensionToMm(hToken, uToken);
+          if (isOutlierDimension(lenMm)) return true;
+        } else {
+          const pair = this.normalizeCrossDimensionPairToMm(wToken, hToken, uToken);
+          if (isOutlierDimension(pair.widthMm) || isOutlierDimension(pair.heightMm)) return true;
+        }
+      }
+
+      // 3c. Ongeannoteerde lineaire maten
+      if (!isRailLine) {
+        if (!isCustomWindowOrCurtain && (isConsumpProduct || CUMULATIVE_METERAGE_CONTEXT_REGEX.test(lineText))) {
+          continue;
+        }
+      }
+
+      const linearRegex = createLinearDimensionRegex();
+      const linearMatches = lineText.matchAll(linearRegex);
+      for (const m of linearMatches) {
+        const mm = this.normalizeTextDimensionToMm(m[1], m[2]);
+        if (isOutlierDimension(mm)) return true;
+      }
     }
 
     return false;
@@ -330,6 +357,7 @@ export class DimensionExtractionEngine {
           if (spec.pleatFactor === 2.2) pleatLabel = ' (wave)';
           else if (spec.pleatFactor === 2.5) pleatLabel = ' (vlinder)';
           else if (spec.pleatFactor === 2.0) pleatLabel = ' (enkel)';
+          else if (spec.pleatFactor === 3.0) pleatLabel = ' (triplooi)';
           return `${w} × ${h} mm${pleatLabel}`;
         }
         return `${w} mm`;
@@ -341,26 +369,265 @@ export class DimensionExtractionEngine {
   }
 
   // =========================================================================
-  // Private Category Parsers
+  // Publieke & Private Classificatie- en Normalisatiemethoden
   // =========================================================================
 
-  private extractPleatFactor(desc: string, notes: string, line?: RawOrderLineInput): number | undefined {
-    const fullText = `${desc} ${notes}`.toLowerCase();
-    if (/vlinder/i.test(fullText)) return 2.5;
-    if (/dubbel/i.test(fullText)) return 2.5;
-    if (/enkel/i.test(fullText)) return 2.0;
-    if (/wave/i.test(fullText)) return 2.2;
+  /**
+   * Morfologische taxonomie-classificatie voor gordijnen, rails en harde raambekleding.
+   */
+  public resolveCurtainOrRailKind(
+    groupCode: string,
+    desc: string,
+    notes: string = '',
+    line?: RawOrderLineInput
+  ): CurtainOrRailClassification {
+    const g = groupCode || '';
+    const d = desc || '';
+    const n = notes || '';
+
+    // Pre-guard (Sectie 2.2):
+    if (
+      g.startsWith('0.') ||
+      g.startsWith('4.') ||
+      g.startsWith('6.') ||
+      g.startsWith('7.') ||
+      /trap/i.test(g) ||
+      (!g.startsWith('1.') && !g.startsWith('2.') && !g.startsWith('5.') && isConsumptionProduct(d, line?.unit))
+    ) {
+      return { kind: 'other', isTrueRail: false, isCurtain: false, isExplicitHardWindow: false };
+    }
+
+    // Tier 1 — Echte Rail/Roede (isTrueRail):
+    const isNonRailProductGroup = g.startsWith('2.') || g.startsWith('3.') || g.startsWith('5.');
+    const hasRailInDesc = !isNonRailProductGroup && isTrueRailText(d);
+    const hasRailInGroup = isTrueRailText(g);
+    if (hasRailInDesc || hasRailInGroup) {
+      return { kind: 'rail', isTrueRail: true, isCurtain: false, isExplicitHardWindow: false };
+    }
+
+    // Tier 2 — Expliciete Harde Raambekleding (isExplicitHardWindow):
+    const rawItems = line?.configuration?.items || (line as any)?.lt_configuration?.items;
+    let firstItemVal = '';
+    if (Array.isArray(rawItems) && rawItems.length > 0) {
+      const it = rawItems[0];
+      firstItemVal = typeof it === 'string' ? it : it && typeof it === 'object' && 'value' in it ? String((it as any).value) : '';
+    }
+
+    const isExplicitCurtainGroup = g === '1.1' || g === '1.3' || g === '1.4';
+    const isExplicitFloorGroup = g.startsWith('3.');
+    const hasHardWindowInGroup =
+      g === '1.2' ||
+      g.startsWith('2.') ||
+      g.startsWith('5.') ||
+      /(?:raam|hor|screen|zonwering)/i.test(g) ||
+      HARD_WINDOW_TEXT_REGEX.test(g);
+    const hasHardWindowInNotes = !isExplicitCurtainGroup && !isExplicitFloorGroup && HARD_WINDOW_TEXT_REGEX.test(n);
+    const hasHardWindowInDesc = HARD_WINDOW_TEXT_REGEX.test(d);
+
+    if (
+      hasHardWindowInGroup ||
+      hasHardWindowInDesc ||
+      hasHardWindowInNotes ||
+      /\bvouw[\s-]*gordijn(?:en)?\b/i.test(firstItemVal)
+    ) {
+      return { kind: 'hard_window', isTrueRail: false, isCurtain: false, isExplicitHardWindow: true };
+    }
+
+    // Tier 3 — Echte Gordijnen (isCurtain):
+    const fullText = `${d} ${n}`.trim();
+    const isPureFabric = isFabricProduct(fullText);
+    const isAccessory = isRailAccessory(d);
+    const hasCurtainInNotes = !isExplicitFloorGroup && CURTAIN_TEXT_REGEX.test(n);
+    if (
+      !isPureFabric &&
+      !isAccessory &&
+      (isExplicitCurtainGroup || CURTAIN_TEXT_REGEX.test(g) || CURTAIN_TEXT_REGEX.test(d) || hasCurtainInNotes)
+    ) {
+      return { kind: 'curtain', isTrueRail: false, isCurtain: true, isExplicitHardWindow: false };
+    }
+
+    // Tier 4 — Overig:
+    return { kind: 'other', isTrueRail: false, isCurtain: false, isExplicitHardWindow: false };
+  }
+
+  /**
+   * Synthetiseert gemeten breedte en hoogte naar de juiste polymorfe DimensionSpec.
+   */
+  private synthesizeMeasuredDimension(
+    rawW: number | undefined,
+    rawH: number | undefined,
+    source: ExtractedDimensionResult['source'],
+    classification: CurtainOrRailClassification,
+    desc: string,
+    notes: string,
+    groupCode: string,
+    line?: RawOrderLineInput
+  ): ExtractedDimensionResult | null {
+    if (!isValidErpDimension(rawW)) return null;
+    const widthMm = Math.round(rawW!);
+
+    // Tak 1A (classification.isTrueRail):
+    if (classification.isTrueRail) {
+      const spec: DimensionSpec = {
+        type: 'curtain_linear',
+        widthMm,
+        heightMm: undefined,
+        pleatFactor: undefined,
+      };
+      return {
+        dimensionSpec: spec,
+        formattedDim: `${widthMm} mm`,
+        source,
+      };
+    }
+
+    // Tak 1B (classification.isCurtain):
+    if (classification.isCurtain) {
+      if (!isValidErpDimension(rawH)) return null;
+      const heightMm = Math.round(rawH!);
+      const pleatFactor = this.extractPleatFactor(desc, notes, groupCode, line);
+      const spec: DimensionSpec = {
+        type: 'curtain_linear',
+        widthMm,
+        heightMm,
+        pleatFactor,
+      };
+      return {
+        dimensionSpec: spec,
+        formattedDim: this.formatDimensionSpec(spec),
+        source,
+      };
+    }
+
+    // Tak 1C (Standaard 2D window_2d):
+    if (
+      isValidErpDimension(rawW) &&
+      isValidErpDimension(rawH) &&
+      (classification.isExplicitHardWindow || !isConsumptionProduct(desc, line?.unit))
+    ) {
+      const heightMm = Math.round(rawH!);
+      const areaM2 = Math.round(((widthMm * heightMm) / 1_000_000) * 100) / 100;
+      return {
+        dimensionSpec: {
+          type: 'window_2d',
+          widthMm,
+          heightMm,
+          areaM2,
+        },
+        formattedDim: `${widthMm} × ${heightMm}`,
+        source,
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Normaliseert getal en eenheid naar millimeters.
+   */
+  private normalizeTextDimensionToMm(rawToken: string, unit?: string, assumeCmMax: number = 500): number {
+    const val = parseFloat(rawToken.replace(',', '.'));
+    if (isNaN(val)) return 0;
+    const u = unit?.toLowerCase().trim();
+    if (u === 'm' || u === 'm1' || u === 'm¹' || u === 'mtr' || u === 'meter') {
+      return Math.round(val * 1000);
+    }
+    if (u === 'cm') {
+      return Math.round(val * 10);
+    }
+    if (u === 'mm') {
+      return Math.round(val);
+    }
+    if (val > 0 && val < 10 && /[.,]/.test(rawToken)) {
+      return Math.round(val * 1000);
+    }
+    return Math.round(val <= assumeCmMax ? val * 10 : val);
+  }
+
+  /**
+   * Normaliseert kruismaatpaar naar millimeters.
+   */
+  private normalizeCrossDimensionPairToMm(
+    wToken: string,
+    hToken: string,
+    unit?: string,
+    assumeCmMax: number = 500
+  ): { widthMm: number; heightMm: number } {
+    const wVal = parseFloat(wToken.replace(',', '.'));
+    const hVal = parseFloat(hToken.replace(',', '.'));
+    const u = unit?.toLowerCase().trim();
+
+    if (u === 'cm') {
+      return { widthMm: Math.round(wVal * 10), heightMm: Math.round(hVal * 10) };
+    }
+    if (u === 'm' || u === 'm1' || u === 'm¹' || u === 'mtr' || u === 'meter') {
+      return { widthMm: Math.round(wVal * 1000), heightMm: Math.round(hVal * 1000) };
+    }
+    if (u === 'mm') {
+      return { widthMm: Math.round(wVal), heightMm: Math.round(hVal) };
+    }
+    if (wVal > 0 && wVal < 10 && /[.,]/.test(wToken) && hVal > 0 && hVal < 10 && /[.,]/.test(hToken)) {
+      return { widthMm: Math.round(wVal * 1000), heightMm: Math.round(hVal * 1000) };
+    }
+    if (wVal <= assumeCmMax && hVal <= assumeCmMax) {
+      return { widthMm: Math.round(wVal * 10), heightMm: Math.round(hVal * 10) };
+    }
+    return { widthMm: Math.round(wVal), heightMm: Math.round(hVal) };
+  }
+
+  /**
+   * Extraheert B en H gelabelde 2D maten met strikte eenheidsgrenzen en multi-line overgangen.
+   */
+  private matchLabeled2DDimensions(text: string): { widthMm: number; heightMm: number; matchedText: string } | null {
+    const regex =
+      /\b(?:breedte[ \t]*[:=-]?[ \t]*|(?:br|b)[ \t]*[:=-][ \t]*|(?:br|b)[ \t]+)(\d+(?:[.,]\d+)?)(?!(?:\.\d|\d)|[ \t]*(?:mm|cm|m1|mtr|meter|m)\.?[²2]|[²2])(?:[ \t]*((?:mm|cm|m1|mtr|meter)\b|m¹(?!\w)|m\b)\.?(?![²2]))?(?:[\s,]+(?:(?:en|[x×/\-])[\s,]+)?|[ \t]*[x×/\-][ \t]*|\r?\n[ \t]*-?[ \t]*)\b(?:hoogte[ \t]*[:=-]?[ \t]*|(?:hg|h)[ \t]*[:=-][ \t]*|(?:hg|h)[ \t]+)(\d+(?:[.,]\d+)?)(?!(?:\.\d|\d)|[ \t]*(?:mm|cm|m1|mtr|meter|m)\.?[²2]|[²2])(?:[ \t]*((?:mm|cm|m1|mtr|meter)\b|m¹(?!\w)|m\b)\.?(?![²2]))?/i;
+    const match = text.match(regex);
+    if (!match) return null;
+    const widthMm = this.normalizeTextDimensionToMm(match[1], match[2]);
+    const heightMm = this.normalizeTextDimensionToMm(match[3], match[4]);
+    return { widthMm, heightMm, matchedText: match[0] };
+  }
+
+  /**
+   * Toetst of een kruismaat een aantal×lengte bundel betreft (bijv. 1 x 14.20mtr.).
+   */
+  private isCrossItemMultiplier(wToken: string, unit?: string): boolean {
+    return !/[.,]/.test(wToken) && /^(?:m1|mtr|meter|m|m¹)$/i.test(unit?.trim() ?? '');
+  }
+
+  /**
+   * Plooifactor delegatie naar SSOT configuration-policies (items vóór notes).
+   */
+  private extractPleatFactor(
+    desc: string,
+    notes: string,
+    groupCode: string = '',
+    line?: RawOrderLineInput
+  ): number | undefined {
+    const texts: string[] = [];
+    if (desc) texts.push(desc);
 
     const items = line?.configuration?.items || (line as any)?.lt_configuration?.items;
     if (Array.isArray(items)) {
       for (const item of items) {
         const v = typeof item === 'string' ? item : item && typeof item === 'object' && 'value' in item ? String((item as any).value) : '';
-        if (/vlinder/i.test(v)) return 2.5;
-        if (/dubbel/i.test(v)) return 2.5;
-        if (/enkel/i.test(v)) return 2.0;
-        if (/wave/i.test(v)) return 2.2;
+        if (v) texts.push(v);
       }
     }
+
+    if (notes) {
+      const noteLines = notes.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+      texts.push(...noteLines);
+    }
+
+    const effectiveGroup = groupCode && groupCode.startsWith('1.') ? groupCode : undefined;
+    const attrs = extractConfigAttributesFromTexts(texts, effectiveGroup, desc);
+    const pleatType = attrs['pleat_type'] as string | undefined;
+    if (!pleatType) return undefined;
+    if (pleatType === 'wave') return 2.2;
+    if (pleatType === 'vlinder_plooi' || pleatType === 'dubbele_plooi') return 2.5;
+    if (pleatType === 'enkele_plooi') return 2.0;
+    if (pleatType === 'tri_plooi') return 3.0;
     return undefined;
   }
 
@@ -396,8 +663,8 @@ export class DimensionExtractionEngine {
       type: 'stairs',
       stepsCount: Math.max(1, stepsCount),
       stairType,
-      hasRisers,
       isOpen,
+      hasRisers,
       ledLighting,
       bandering,
     };
@@ -405,7 +672,7 @@ export class DimensionExtractionEngine {
     return {
       dimensionSpec: spec,
       formattedDim: this.formatDimensionSpec(spec),
-      source: stepsMatch ? (desc.includes(stepsMatch[0]) ? 'description_regex' : 'notes_regex') : 'fallback_default',
+      source: 'description_regex',
     };
   }
 
@@ -466,99 +733,148 @@ export class DimensionExtractionEngine {
     desc: string,
     notes: string,
     unit: string,
-    groupCode: string = '',
-    line?: RawOrderLineInput
+    groupCode: string,
+    line?: RawOrderLineInput,
+    classification?: CurtainOrRailClassification
   ): ExtractedDimensionResult | null {
-    const fullText = `${desc} ${notes} ${groupCode}`.trim();
+    const texts = [desc, notes].filter(Boolean);
+    const pleatFactor = this.extractPleatFactor(desc, notes, groupCode, line);
+    const resolvedClassification = classification || this.resolveCurtainOrRailKind(groupCode, desc, notes, line);
 
-    // Plooifactor
-    const pleatFactor = this.extractPleatFactor(desc, notes, line);
+    if (!resolvedClassification.isTrueRail) {
+      // 2D Gordijnen
+      for (const text of texts) {
+        const source: ExtractedDimensionResult['source'] = text === desc ? 'description_regex' : 'notes_regex';
 
-    // Detecteer breedte en hoogte
-    // Variant 1: Breedte X cm / mm Hoogte Y cm / mm
-    const bhMatch = fullText.match(/\bbreedte\s*[:=]?\s*(\d+)\s*(cm|mm)?.*?hoogte\s*[:=]?\s*(\d+)\s*(cm|mm)?/i);
-    if (bhMatch) {
-      const wUnit = bhMatch[2]?.toLowerCase() || 'cm';
-      const hUnit = bhMatch[4]?.toLowerCase() || 'cm';
-      const wRaw = parseInt(bhMatch[1], 10);
-      const hRaw = parseInt(bhMatch[3], 10);
-      const widthMm = wUnit === 'cm' ? wRaw * 10 : wRaw;
-      const heightMm = hUnit === 'cm' ? hRaw * 10 : hRaw;
+        // Variant 1: Labels via matchLabeled2DDimensions
+        const labeled = this.matchLabeled2DDimensions(text);
+        if (labeled) {
+          const { widthMm, heightMm } = labeled;
+          if (isOutOfPhysicalBoundsDimension(widthMm) || isOutOfPhysicalBoundsDimension(heightMm)) {
+            const isOutlier = isOutlierDimension(widthMm) || isOutlierDimension(heightMm);
+            return {
+              dimensionSpec: { type: 'piece_service', unit },
+              formattedDim: null,
+              source: 'fallback_default',
+              isOutlier,
+            };
+          }
+          if (widthMm < MIN_DIMENSION_MM || heightMm < MIN_DIMENSION_MM) {
+            continue;
+          }
+          if (isValidErpDimension(widthMm) && isValidErpDimension(heightMm)) {
+            const spec: DimensionSpec = {
+              type: 'curtain_linear',
+              widthMm,
+              heightMm,
+              pleatFactor,
+            };
+            return {
+              dimensionSpec: spec,
+              formattedDim: this.formatDimensionSpec(spec),
+              source,
+            };
+          }
+        }
 
-      if (widthMm >= MIN_DIMENSION_MM && widthMm <= MAX_DIMENSION_MM && heightMm >= MIN_DIMENSION_MM && heightMm <= MAX_DIMENSION_MM) {
-        const spec: DimensionSpec = {
-          type: 'curtain_linear',
-          widthMm,
-          heightMm,
-          pleatFactor,
-        };
-        return {
-          dimensionSpec: spec,
-          formattedDim: this.formatDimensionSpec(spec),
-          source: desc.includes(bhMatch[0]) ? 'description_regex' : 'notes_regex',
-        };
+        // Variant 2: Kruismaat via matchAll
+        const crossRegex = createCrossDimensionRegex();
+        const matches = text.matchAll(crossRegex);
+        for (const match of matches) {
+          const wToken = match[1];
+          const hToken = match[2];
+          const uToken = match[3];
+          if (this.isCrossItemMultiplier(wToken, uToken)) continue;
+
+          const pair = this.normalizeCrossDimensionPairToMm(wToken, hToken, uToken);
+          if (isOutOfPhysicalBoundsDimension(pair.widthMm) || isOutOfPhysicalBoundsDimension(pair.heightMm)) {
+            const isOutlier = isOutlierDimension(pair.widthMm) || isOutlierDimension(pair.heightMm);
+            return {
+              dimensionSpec: { type: 'piece_service', unit },
+              formattedDim: null,
+              source: 'fallback_default',
+              isOutlier,
+            };
+          }
+          if (pair.widthMm < MIN_DIMENSION_MM || pair.heightMm < MIN_DIMENSION_MM) {
+            continue;
+          }
+          if (isValidErpDimension(pair.widthMm) && isValidErpDimension(pair.heightMm)) {
+            const spec: DimensionSpec = {
+              type: 'curtain_linear',
+              widthMm: pair.widthMm,
+              heightMm: pair.heightMm,
+              pleatFactor,
+            };
+            return {
+              dimensionSpec: spec,
+              formattedDim: this.formatDimensionSpec(spec),
+              source,
+            };
+          }
+        }
       }
-    }
+    } else {
+      // 1D Rails / Roedes (Variant 3)
+      for (const text of texts) {
+        const source: ExtractedDimensionResult['source'] = text === desc ? 'description_regex' : 'notes_regex';
+        const lines = text.split(/[\r\n]+/);
+        const anchorLines: string[] = [];
+        const otherLines: string[] = [];
 
-    // Variant 2: Kruismaat 300 x 250 cm
-    const crossMatch = fullText.replace(/×/g, 'x').match(/(?:^|\s)(\d+)\s*x\s*(\d+)\s*(cm|mm)?\b(?![²2])/i);
-    if (crossMatch && !/rail/i.test(fullText)) {
-      const u = crossMatch[3]?.toLowerCase() || (parseInt(crossMatch[1], 10) <= 500 ? 'cm' : 'mm');
-      const wRaw = parseInt(crossMatch[1], 10);
-      const hRaw = parseInt(crossMatch[2], 10);
-      const widthMm = u === 'cm' ? wRaw * 10 : wRaw;
-      const heightMm = u === 'cm' ? hRaw * 10 : hRaw;
+        for (const l of lines) {
+          if (/\b(?:breedte|lengte|rail(?:s|en|roede)?|roede(?:s|n)?|m1|mtr|meter)\b|m¹(?!\w)/i.test(l)) {
+            anchorLines.push(l);
+          } else {
+            otherLines.push(l);
+          }
+        }
 
-      if (widthMm >= MIN_DIMENSION_MM && widthMm <= MAX_DIMENSION_MM && heightMm >= MIN_DIMENSION_MM && heightMm <= MAX_DIMENSION_MM) {
-        const spec: DimensionSpec = {
-          type: 'curtain_linear',
-          widthMm,
-          heightMm,
-          pleatFactor,
-        };
-        return {
-          dimensionSpec: spec,
-          formattedDim: this.formatDimensionSpec(spec),
-          source: desc.includes(crossMatch[0]) ? 'description_regex' : 'notes_regex',
-        };
-      }
-    }
+        const passes = [anchorLines, otherLines];
+        const railRegex = createLinearDimensionRegex();
 
-    // Variant 3: Lineaire railmaat (bijv. 4,20 m1 of 4200 mm)
-    const m1Match = fullText.match(/([\d.,]+)\s*(?:m1|m¹|meter)\b(?![²2])/i);
-    if (m1Match) {
-      const meters = parseFloat(m1Match[1].replace(',', '.'));
-      const widthMm = Math.round(meters * 1000);
-      if (widthMm >= MIN_DIMENSION_MM && widthMm <= MAX_DIMENSION_MM) {
-        const spec: DimensionSpec = {
-          type: 'curtain_linear',
-          widthMm,
-          heightMm: undefined,
-          pleatFactor: undefined,
-        };
-        return {
-          dimensionSpec: spec,
-          formattedDim: `${widthMm} mm`,
-          source: desc.includes(m1Match[0]) ? 'description_regex' : 'notes_regex',
-        };
-      }
-    }
+        for (const lineGroup of passes) {
+          for (const lineStr of lineGroup) {
+            if (NON_RAIL_CURTAIN_CONTEXT_REGEX.test(lineStr)) continue;
 
-    const linearMmMatch = fullText.match(/(\d+)\s*mm\b(?![²2])/i);
-    if (linearMmMatch) {
-      const widthMm = parseInt(linearMmMatch[1], 10);
-      if (widthMm >= MIN_DIMENSION_MM && widthMm <= MAX_DIMENSION_MM) {
-        const spec: DimensionSpec = {
-          type: 'curtain_linear',
-          widthMm,
-          heightMm: undefined,
-          pleatFactor: undefined,
-        };
-        return {
-          dimensionSpec: spec,
-          formattedDim: `${widthMm} mm`,
-          source: desc.includes(linearMmMatch[0]) ? 'description_regex' : 'notes_regex',
-        };
+            const matches = lineStr.matchAll(railRegex);
+            for (const m of matches) {
+              const fullMatch = m[0];
+              const matchIdx = m.index ?? 0;
+              const preText = lineStr.substring(0, matchIdx + fullMatch.indexOf(m[1]));
+              const postIdx = matchIdx + fullMatch.indexOf(m[2]) + m[2].length;
+              const postText = lineStr.substring(postIdx);
+
+              if (RAIL_SUBCOMPONENT_PREFIX_REGEX.test(preText)) continue;
+              if (RAIL_SUBCOMPONENT_SUFFIX_REGEX.test(postText)) continue;
+
+              const widthMm = this.normalizeTextDimensionToMm(m[1], m[2]);
+              if (isOutOfPhysicalBoundsDimension(widthMm)) {
+                const isOutlier = isOutlierDimension(widthMm);
+                return {
+                  dimensionSpec: { type: 'piece_service', unit },
+                  formattedDim: null,
+                  source: 'fallback_default',
+                  isOutlier,
+                };
+              }
+              if (widthMm < MIN_DIMENSION_MM) continue;
+              if (isValidErpDimension(widthMm)) {
+                const spec: DimensionSpec = {
+                  type: 'curtain_linear',
+                  widthMm,
+                  heightMm: undefined,
+                  pleatFactor: undefined,
+                };
+                return {
+                  dimensionSpec: spec,
+                  formattedDim: `${widthMm} mm`,
+                  source,
+                };
+              }
+            }
+          }
+        }
       }
     }
 
@@ -570,24 +886,16 @@ export class DimensionExtractionEngine {
     notes: string,
     unit: string
   ): ExtractedDimensionResult | null {
-    // 1. Zoek in description en daarna notes
-    for (const text of [desc, notes]) {
-      if (!text) continue;
+    const texts = [desc, notes].filter(Boolean);
+    for (const text of texts) {
       const source: ExtractedDimensionResult['source'] = text === desc ? 'description_regex' : 'notes_regex';
 
-      // A. Label syntax: B 1800 H 2400 of Breedte: 1800 Hoogte: 2400 (met capturing units en decimale getallen)
-      const bhMatch = text.match(/\b(?:B|Breedte)[:\s]*(\d+(?:[.,]\d+)?)(?:\s*(mm|cm|m)\b(?![²2]))?[\s,]+\b(?:H|Hoogte)[:\s]*(\d+(?:[.,]\d+)?)(?:\s*(mm|cm|m)\b(?![²2]))?/i);
-      if (bhMatch) {
-        const wVal = parseFloat(bhMatch[1].replace(',', '.'));
-        const wUnit = bhMatch[2]?.toLowerCase();
-        const widthMm = Math.round(wUnit === 'cm' ? wVal * 10 : wUnit === 'm' ? wVal * 1000 : (!wUnit && wVal <= 500 ? wVal * 10 : wVal));
-
-        const hVal = parseFloat(bhMatch[3].replace(',', '.'));
-        const hUnit = bhMatch[4]?.toLowerCase();
-        const heightMm = Math.round(hUnit === 'cm' ? hVal * 10 : hUnit === 'm' ? hVal * 1000 : (!hUnit && hVal <= 500 ? hVal * 10 : hVal));
-
-        if (widthMm < MIN_DIMENSION_MM || widthMm > MAX_DIMENSION_MM || heightMm < MIN_DIMENSION_MM || heightMm > MAX_DIMENSION_MM) {
-          const isOutlier = widthMm > MAX_DIMENSION_MM || heightMm > MAX_DIMENSION_MM;
+      // A. Label syntax
+      const labeled = this.matchLabeled2DDimensions(text);
+      if (labeled) {
+        const { widthMm, heightMm } = labeled;
+        if (isOutOfPhysicalBoundsDimension(widthMm) || isOutOfPhysicalBoundsDimension(heightMm)) {
+          const isOutlier = isOutlierDimension(widthMm) || isOutlierDimension(heightMm);
           return {
             dimensionSpec: { type: 'piece_service', unit },
             formattedDim: null,
@@ -595,33 +903,35 @@ export class DimensionExtractionEngine {
             isOutlier,
           };
         }
-        const areaM2 = Math.round(((widthMm * heightMm) / 1_000_000) * 100) / 100;
-        return {
-          dimensionSpec: {
-            type: 'window_2d',
-            widthMm,
-            heightMm,
-            areaM2,
-          },
-          formattedDim: `${widthMm} × ${heightMm}`,
-          source,
-        };
+        if (widthMm < MIN_DIMENSION_MM || heightMm < MIN_DIMENSION_MM) {
+          // ignore to allow Step 6 fallback
+        } else if (isValidErpDimension(widthMm) && isValidErpDimension(heightMm)) {
+          const areaM2 = Math.round(((widthMm * heightMm) / 1_000_000) * 100) / 100;
+          return {
+            dimensionSpec: {
+              type: 'window_2d',
+              widthMm,
+              heightMm,
+              areaM2,
+            },
+            formattedDim: `${widthMm} × ${heightMm}`,
+            source,
+          };
+        }
       }
 
-      // B. Kruismaat syntax: 140x220cm, 850 × 1200 mm, 1800 × 2400
-      const crossMatch = text.replace(/×/g, 'x').match(/(?:^|\s)(\d+)\s*x\s*(\d+)\s*(cm|mm)?\b(?![²2])/i);
-      if (crossMatch) {
-        const u = crossMatch[3]?.toLowerCase();
-        let widthMm = parseInt(crossMatch[1], 10);
-        let heightMm = parseInt(crossMatch[2], 10);
+      // B. Kruismaat syntax with .matchAll
+      const crossRegex = createCrossDimensionRegex();
+      const matches = text.matchAll(crossRegex);
+      for (const match of matches) {
+        const wToken = match[1];
+        const hToken = match[2];
+        const uToken = match[3];
+        if (this.isCrossItemMultiplier(wToken, uToken)) continue;
 
-        if (u === 'cm' || (!u && widthMm <= 500 && heightMm <= 500)) {
-          widthMm *= 10;
-          heightMm *= 10;
-        }
-
-        if (widthMm < MIN_DIMENSION_MM || widthMm > MAX_DIMENSION_MM || heightMm < MIN_DIMENSION_MM || heightMm > MAX_DIMENSION_MM) {
-          const isOutlier = widthMm > MAX_DIMENSION_MM || heightMm > MAX_DIMENSION_MM;
+        const pair = this.normalizeCrossDimensionPairToMm(wToken, hToken, uToken);
+        if (isOutOfPhysicalBoundsDimension(pair.widthMm) || isOutOfPhysicalBoundsDimension(pair.heightMm)) {
+          const isOutlier = isOutlierDimension(pair.widthMm) || isOutlierDimension(pair.heightMm);
           return {
             dimensionSpec: { type: 'piece_service', unit },
             formattedDim: null,
@@ -629,18 +939,22 @@ export class DimensionExtractionEngine {
             isOutlier,
           };
         }
-
-        const areaM2 = Math.round(((widthMm * heightMm) / 1_000_000) * 100) / 100;
-        return {
-          dimensionSpec: {
-            type: 'window_2d',
-            widthMm,
-            heightMm,
-            areaM2,
-          },
-          formattedDim: `${widthMm} × ${heightMm}`,
-          source,
-        };
+        if (pair.widthMm < MIN_DIMENSION_MM || pair.heightMm < MIN_DIMENSION_MM) {
+          continue;
+        }
+        if (isValidErpDimension(pair.widthMm) && isValidErpDimension(pair.heightMm)) {
+          const areaM2 = Math.round(((pair.widthMm * pair.heightMm) / 1_000_000) * 100) / 100;
+          return {
+            dimensionSpec: {
+              type: 'window_2d',
+              widthMm: pair.widthMm,
+              heightMm: pair.heightMm,
+              areaM2,
+            },
+            formattedDim: `${pair.widthMm} × ${pair.heightMm}`,
+            source: text === desc ? 'text_description' : 'notes_regex',
+          };
+        }
       }
     }
 
