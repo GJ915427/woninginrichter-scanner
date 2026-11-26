@@ -1124,5 +1124,38 @@ describe('DimensionExtractionEngine (TDD)', () => {
         expect(engine.hasDimensionOutlier(lineNotes2)).toBe(true);
       });
     });
+
+    describe('Stap 6: Fallback Dimensions & 1D Rail Pariteit (Plan 3 TDD)', () => {
+      // [SPEC-CHANGE-AUTHORIZED: Plan 3 TDD testcase voor Stap 6 1D rail fallbackDimensions]
+      it('synthetiseert 1D rail uit fallbackDimensions met alleen width_mm zonder height_mm', () => {
+        const lineRail: RawOrderLineInput = {
+          line_number: 902,
+          description: 'Gordijnrail DS wit plafondmontage',
+        };
+        const fallback1D: ConfigurationDimensions = {
+          width_mm: 4200,
+        };
+
+        const result = engine.extractDimension(lineRail, '1.4', fallback1D);
+        expect(result.source).toBe('configuration_fallback');
+        expect(result.dimensionSpec.type).toBe('curtain_linear');
+        expect((result.dimensionSpec as any).widthMm).toBe(4200);
+        expect(result.formattedDim).toBe('4200 mm');
+      });
+
+      it('weigert 1D fallbackDimensions voor 2D gordijnen en valt terug op fallback_default', () => {
+        const lineCurtain: RawOrderLineInput = {
+          line_number: 903,
+          description: 'Gordijn wave plooi',
+        };
+        const fallback1D: ConfigurationDimensions = {
+          width_mm: 2400,
+        };
+
+        const result = engine.extractDimension(lineCurtain, '1.1', fallback1D);
+        expect(result.source).toBe('fallback_default');
+        expect(result.dimensionSpec.type).toBe('piece_service');
+      });
+    });
   });
 });

@@ -143,6 +143,7 @@ export interface ICognitiveExtractionProvider {
 export interface NeuroSymbolicLineResult {
   productGroupCode: string;
   dimensionSpec?: DimensionSpec | null;
+  dimensionFormatted?: string | null;
   configurationSpec?: ConfigurationSpec | null;
   confidence: number;
   stage: 'trap_1_master_cache' | 'trap_2_configurator' | 'trap_3_cognitive' | 'trap_4_physics' | 'trap_4_fail_closed_quarantine';
@@ -417,4 +418,15 @@ export function resolveNumericQuantity(val: unknown): number {
   }
   return 1;
 }
+
+/**
+ * DRY Helper determining whether config options contain non-empty data.
+ * Protects against JS [] truthiness bug (Boolean([]) === true) across engines.
+ */
+export function hasNonEmptyConfigOptions(options: unknown): boolean {
+  if (Array.isArray(options)) return options.length > 0;
+  if (options && typeof options === 'object') return Object.keys(options).length > 0;
+  return false;
+}
+
 

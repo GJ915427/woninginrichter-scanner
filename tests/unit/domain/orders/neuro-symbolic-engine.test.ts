@@ -423,4 +423,208 @@ describe('NeuroSymbolicEngine (4-Layer Cognitive-Deterministic Architecture)', (
       expect(res4.stage).toBe('trap_4_fail_closed_quarantine');
     });
   });
+
+  describe('Plan 3 TDD: Single-Pass, 9.9 AI-Doorval, 1D Rails & Quarantaine Retentie', () => {
+    // [SPEC-CHANGE-AUTHORIZED: Plan 3 TDD tests voor dimensionFormatted, 9.9 AI-doorval/fallback, AI outlier-strip met []-options behoud, post-AI fallback_default quarantaine, sub-100mm 1D-rail bewaking, 1D rail vs incompleet/attribuut-only gordijn en Laag 3 retentie]
+    it('H0-A: propageert dimensionFormatted in NeuroSymbolicLineResult', async () => {
+      const line: RawOrderLineInput = {
+        line_number: 140,
+        product_code: 'A000781',
+        description: 'Gordijnstof wave plooi',
+        quantity: 1,
+        unit_price_cents: 15000,
+        total_price_cents: 15000,
+        width_mm: 1800,
+        height_mm: 2600,
+      };
+      const result = await engine.processLine(line);
+      expect(result.dimensionFormatted).toBe('1800 × 2600 mm (wave)');
+    });
+
+    it('H0-B: laat 9.9 met configuratormaten doorvallen naar Laag 2 AI en behoudt opties bij lege AI opties', async () => {
+      const line: RawOrderLineInput = {
+        line_number: 141,
+        product_code: 'ONBEKEND_99',
+        description: 'Speciaal maatwerkartikel onbekend',
+        quantity: 1,
+        unit_price_cents: 20000,
+        total_price_cents: 20000,
+        options: ['Kleur: Antraciet'],
+        lt_configuration: {
+          items: ['Blijvende maat', '1800', '2400', 'Kleur: Wit'],
+        },
+      };
+
+      (mockCognitiveProvider.extract as any).mockResolvedValueOnce({
+        status: 'success',
+        confidence: 0.9,
+        source: 'cognitive',
+        reconciled_product_group_code: '2.1',
+        options: [], // AI geeft lege array terug
+        dimensions: { width_mm: 1800, height_mm: 2400 },
+      });
+
+      const result = await engine.processLine(line);
+      expect(mockCognitiveProvider.extract).toHaveBeenCalled();
+      expect(result.stage).toBe('trap_3_cognitive');
+      expect(result.productGroupCode).toBe('2.1');
+      expect(result.dimensionFormatted).toBe('1800 × 2400');
+      expect(result.configurationSpec).toBeDefined();
+      expect(result.configurationSpec?.options).toEqual(['Kleur: Antraciet']);
+    });
+
+    it('H0-B: behandelt 9.9 met configuratormaten als trap_2_configurator confidence 0.2 bij afwezigheid van cognitiveProvider', async () => {
+      const engineWithoutCognitive = new NeuroSymbolicEngine({
+        classificationService,
+        extractionEngine,
+        dimensionEngine,
+      });
+
+      const line: RawOrderLineInput = {
+        line_number: 1412,
+        product_code: 'ONBEKEND_99_NO_AI',
+        description: 'Speciaal maatwerkartikel zonder AI',
+        quantity: 1,
+        unit_price_cents: 20000,
+        total_price_cents: 20000,
+        lt_configuration: {
+          items: ['Blijvende maat', '1800', '2400'],
+        },
+      };
+
+      const result = await engineWithoutCognitive.processLine(line);
+      expect(result.productGroupCode).toBe('9.9');
+      expect(result.stage).toBe('trap_2_configurator');
+      expect(result.confidence).toBe(0.2);
+      expect(result.requiresReview).toBe(true);
+      expect(result.dimensionFormatted).toBe('1800 × 2400');
+    });
+
+    it('H0-B fallback: behoudt configuratormaten bij AI fallback als trap_2_configurator confidence 0.2', async () => {
+      const line: RawOrderLineInput = {
+        line_number: 142,
+        product_code: 'ONBEKEND_99_FALLBACK',
+        description: 'Onbekend artikel met maten',
+        quantity: 1,
+        unit_price_cents: 10000,
+        total_price_cents: 10000,
+        lt_configuration: {
+          items: ['Breedte: 1800', 'Hoogte: 2400'],
+        },
+      };
+
+      (mockCognitiveProvider.extract as any).mockResolvedValueOnce({
+        status: 'requires_review',
+        confidence: 0.1,
+        source: 'cognitive',
+      });
+
+      const result = await engine.processLine(line);
+      expect(result.productGroupCode).toBe('9.9');
+      expect(result.stage).toBe('trap_2_configurator');
+      expect(result.confidence).toBe(0.2);
+      expect(result.requiresReview).toBe(true);
+      expect(result.dimensionFormatted).toBe('1800 × 2400');
+    });
+
+    it('H0-C: kent aan 1D rail requiresReview = false toe en aan incompleet gordijn requiresReview = true', async () => {
+      // 1D rail met alleen width_mm: 4200
+      const railLine: RawOrderLineInput = {
+        line_number: 143,
+        product_code: 'A000782',
+        description: 'Gordijnrail DS wit 4200 mm',
+        quantity: 1,
+        unit_price_cents: 8000,
+        total_price_cents: 8000,
+        lt_configuration: {
+          items: ['Blijvende maat', '4200', '0'],
+        },
+      };
+      const railResult = await engine.processLine(railLine);
+      expect(railResult.stage).toBe('trap_2_configurator');
+      expect(railResult.requiresReview).toBe(false);
+      expect(railResult.dimensionFormatted).toBe('4200 mm');
+
+      // Incompleet 1.1 gordijn met alleen width_mm: 2400
+      const curtainLine: RawOrderLineInput = {
+        line_number: 144,
+        product_code: 'A000783',
+        description: 'Gordijnstof wave enkel breedte',
+        quantity: 1,
+        unit_price_cents: 12000,
+        total_price_cents: 12000,
+        lt_configuration: {
+          items: ['Breedte: 2400'],
+        },
+      };
+      const curtainResult = await engine.processLine(curtainLine);
+      expect(curtainResult.stage).toBe('trap_2_configurator');
+      expect(curtainResult.requiresReview).toBe(true);
+      expect(curtainResult.confidence).toBe(0.5);
+    });
+
+    it('H0-C: routeert attribuut-only maatwerk zonder maten fail-closed naar quarantaine met configuratie-retentie', async () => {
+      const line: RawOrderLineInput = {
+        line_number: 145,
+        product_code: 'A000784',
+        description: 'Gordijnstof wave confectie',
+        quantity: 1,
+        unit_price_cents: 15000,
+        total_price_cents: 15000,
+        lt_configuration: {
+          items: ['Wavegordijn', 'Kleur: Ecru'],
+        },
+      };
+      const result = await engine.processLine(line);
+      expect(result.stage).toBe('trap_4_fail_closed_quarantine');
+      expect(result.requiresReview).toBe(true);
+      expect(result.dimensionFormatted).toBeNull();
+      expect(result.configurationSpec).toBeDefined();
+      expect(result.configurationSpec?.attributes?.pleat_type).toBe('wave');
+    });
+
+    it('H0-C: vangt sub-100 mm afmetingen in Step 1.5b af naar quarantaine met dimensions: undefined', async () => {
+      const line: RawOrderLineInput = {
+        line_number: 146,
+        product_code: 'A000785',
+        description: 'Gordijnrail sub-100 typefout',
+        quantity: 1,
+        unit_price_cents: 5000,
+        total_price_cents: 5000,
+        width_mm: 50,
+      };
+      const result = await engine.processLine(line);
+      expect(result.stage).toBe('trap_4_fail_closed_quarantine');
+      expect(result.requiresReview).toBe(true);
+      expect(result.dimensionFormatted).toBeNull();
+      expect(result.configurationSpec?.dimensions).toBeUndefined();
+    });
+
+    it('H0-D: Post-AI Physics Gate routeert fallback_default voor maatwerk naar trap_4_fail_closed_quarantine', async () => {
+      const line: RawOrderLineInput = {
+        line_number: 147,
+        product_code: 'A000786',
+        description: 'Gordijnstof zonder tekstmaten',
+        quantity: 1,
+        unit_price_cents: 10000,
+        total_price_cents: 10000,
+        notes: 'Graag extra zoom en loodveter aanbrengen aan onderzijde van het gordijn',
+      };
+
+      (mockCognitiveProvider.extract as any).mockResolvedValueOnce({
+        status: 'success',
+        confidence: 0.9,
+        source: 'cognitive',
+        reconciled_product_group_code: '1.1',
+        options: { color: 'Beige' },
+        dimensions: undefined, // AI vond geen afmetingen
+      });
+
+      const result = await engine.processLine(line);
+      expect(result.stage).toBe('trap_4_fail_closed_quarantine');
+      expect(result.requiresReview).toBe(true);
+      expect(result.dimensionFormatted).toBeNull();
+      expect(result.configurationSpec).toBeDefined();
+    });
+  });
 });

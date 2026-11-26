@@ -52,7 +52,7 @@ export const createLinearDimensionRegex = () =>
 export interface ExtractedDimensionResult {
   dimensionSpec: DimensionSpec;
   formattedDim: string | null;
-  source: 'erp_fields' | 'description_regex' | 'notes_regex' | 'configuration_fallback' | 'fallback_default' | 'text_description';
+  source: 'erp_fields' | 'description_regex' | 'notes_regex' | 'configuration_fallback' | 'fallback_default' | 'text_description' | 'neuro_symbolic';
   isOutlier?: boolean;
 }
 
@@ -186,10 +186,13 @@ export class DimensionExtractionEngine {
         };
       }
 
-      if (
+      const canSynthesize1DRailFallback =
+        classification.isTrueRail && isValidErpDimension(fallbackDimensions.width_mm);
+      const canSynthesize2DFallback =
         isValidErpDimension(fallbackDimensions.width_mm) &&
-        isValidErpDimension(fallbackDimensions.height_mm)
-      ) {
+        isValidErpDimension(fallbackDimensions.height_mm);
+
+      if (canSynthesize1DRailFallback || canSynthesize2DFallback) {
         const synthesizedFallback = this.synthesizeMeasuredDimension(
           fallbackDimensions.width_mm,
           fallbackDimensions.height_mm,

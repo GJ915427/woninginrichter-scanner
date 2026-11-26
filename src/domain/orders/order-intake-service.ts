@@ -24,6 +24,7 @@ import { NeuroSymbolicEngine } from '@/domain/orders/neuro-symbolic-engine';
 import {
   toNonNegativeQuantity,
   resolveNumericQuantity,
+  hasNonEmptyConfigOptions,
   type RawLogicTradeOrderInput,
   type RawOrderLineInput,
   type IngestedOrderBundle,
@@ -38,6 +39,10 @@ import {
   type ExtractedSpatialMetadata,
   type DimensionSpec,
 } from '@/types/order-intake';
+import {
+  isValidErpDimension,
+  isOutOfPhysicalBoundsDimension,
+} from '@/domain/orders/dimension-guards';
 import {
   resolveProductByCode as defaultResolveProductByCode,
   resolveProductsByCodes as defaultResolveProductsByCodes,
@@ -217,11 +222,7 @@ export class OrderIntakeService {
 
     const derivedDim = isQuarantine
       ? null
-      : (line.dim ||
-         dimResult.formattedDim ||
-         (configSpec?.dimensions?.width_mm && configSpec?.dimensions?.height_mm
-           ? `${configSpec.dimensions.width_mm} × ${configSpec.dimensions.height_mm}`
-           : null));
+      : (line.dim || dimResult.formattedDim || null);
 
     const assignedDimensionSpec: DimensionSpec | null = isQuarantine
       ? null
@@ -230,10 +231,10 @@ export class OrderIntakeService {
          null);
 
     // 1. Hoofdregel (Materiaal): behoud toegekend sub_line
-    const isCustomDiscipline = /^(1|2|3|5)\./.test(materialGroupCode);
-    const assignedConfigSpecForHybrid = isQuarantine
-      ? null
-      : (isCustomDiscipline ? configSpec || null : null);
+    const assignedConfigSpecForHybrid = this.resolveAssignedConfigSpec(
+      materialGroupCode,
+      configSpec
+    );
     const mainSub = line.sub_line !== undefined ? line.sub_line : 0;
     const mainLine: IngestedOrderLine = {
       line_number: line.line_number,
@@ -490,36 +491,36 @@ export class OrderIntakeService {
       return [singleLine];
     }
 
-    // Wiskundige Maten-Extractie via SSOT DimensionExtractionEngine als complement (met harde quarantaine-afscherming)
+    // Wiskundige Maten-Extractie via SSOT DimensionExtractionEngine als complement (Single-Pass met harde quarantaine-afscherming)
     const isQuarantine = neuroResult.stage === 'trap_4_fail_closed_quarantine';
     const dimResult: ExtractedDimensionResult = isQuarantine
       ? { dimensionSpec: { type: 'piece_service', unit: rawLine.unit || 'stuks' }, formattedDim: null, isOutlier: true, source: 'fallback_default' }
-      : this.dimensionEngine.extractDimension(
-          rawLine,
-          groupCode,
-          neuroResult.configurationSpec?.dimensions
-        );
+      : neuroResult.dimensionSpec
+        ? {
+            dimensionSpec: neuroResult.dimensionSpec,
+            formattedDim:
+              neuroResult.dimensionFormatted !== undefined
+                ? neuroResult.dimensionFormatted
+                : this.dimensionEngine.formatDimensionSpec(neuroResult.dimensionSpec),
+            source: 'neuro_symbolic',
+          }
+        : this.dimensionEngine.extractDimension(
+            rawLine,
+            groupCode,
+            neuroResult.configurationSpec?.dimensions
+          );
 
     const derivedDim = isQuarantine ? null : (rawLine.dim || dimResult.formattedDim || null);
     const assignedDimensionSpec: DimensionSpec | null = isQuarantine
       ? null
       : ((rawLine.dimension_spec as DimensionSpec) ||
-        neuroResult.dimensionSpec ||
         dimResult.dimensionSpec ||
         null);
 
-    // Strikte Discipline Gating: configuration_spec is UITSLUITEND voor geautoriseerde maatwerkdisciplines (1.x, 2.x, 3.x, 5.x)
-    const isCustomDiscipline = /^(1|2|3|5)\./.test(groupCode);
-    const hasMeaningfulConfig =
-      !isQuarantine &&
-      isCustomDiscipline &&
-      neuroResult.configurationSpec &&
-      (neuroResult.configurationSpec.status === 'valid' || neuroResult.configurationSpec.status === 'incomplete') &&
-      (Boolean(neuroResult.configurationSpec.dimensions?.width_mm || neuroResult.configurationSpec.dimensions?.height_mm) ||
-        Boolean(neuroResult.configurationSpec.options && neuroResult.configurationSpec.options.length > 0) ||
-        Boolean(neuroResult.configurationSpec.attributes && Object.keys(neuroResult.configurationSpec.attributes).length > 0));
-
-    const assignedConfigSpec = hasMeaningfulConfig ? neuroResult.configurationSpec : null;
+    const assignedConfigSpec = this.resolveAssignedConfigSpec(
+      groupCode,
+      neuroResult.configurationSpec
+    );
 
     // 3-Stromen Routering & Ruimtelijke Extractie:
     const desc = (rawLine.description || '').toLowerCase();
@@ -638,6 +639,45 @@ export class OrderIntakeService {
     };
 
     return [singleLine];
+  }
+
+  /**
+   * Centraliseert discipline-, bounds-sanering en betekenisgating voor zowel
+   * splitHybridOrderLine als processSingleLine.
+   * Garandeert dat alleen veilige, geautoriseerde maatwerkdisciplines (1.x, 2.x, 3.x, 5.x)
+   * met betekenisvolle afmetingen, attributen of opties een configuration_spec behouden,
+   * en dat eventuele uitschieter-dimensies (> 12000 mm of < 100 mm) naar undefined gesaneerd worden.
+   */
+  private resolveAssignedConfigSpec(
+    groupCode: string,
+    configSpec?: ConfigurationSpec | null
+  ): ConfigurationSpec | null {
+    if (!/^(1|2|3|5)\./.test(groupCode) || !configSpec) {
+      return null;
+    }
+
+    const rawW = configSpec.dimensions?.width_mm;
+    const rawH = configSpec.dimensions?.height_mm;
+    const hasUnsafeDims =
+      isOutOfPhysicalBoundsDimension(rawW) || isOutOfPhysicalBoundsDimension(rawH);
+
+    const sanitizedSpec: ConfigurationSpec = hasUnsafeDims
+      ? { ...configSpec, dimensions: undefined }
+      : configSpec;
+
+    const hasValidDims =
+      isValidErpDimension(sanitizedSpec.dimensions?.width_mm) ||
+      isValidErpDimension(sanitizedSpec.dimensions?.height_mm);
+    const hasOptions = hasNonEmptyConfigOptions(sanitizedSpec.options);
+    const hasAttributes = Boolean(
+      sanitizedSpec.attributes && Object.keys(sanitizedSpec.attributes).length > 0
+    );
+
+    if (!hasValidDims && !hasOptions && !hasAttributes) {
+      return null;
+    }
+
+    return sanitizedSpec;
   }
 }
 

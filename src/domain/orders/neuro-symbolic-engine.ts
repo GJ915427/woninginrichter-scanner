@@ -17,14 +17,21 @@ import type {
   DimensionSpec,
   ConfigurationSpec,
 } from '@/types/order-intake';
+import { hasNonEmptyConfigOptions } from '@/types/order-intake';
 import { ClassificationService } from '@/domain/classification/central-classification-service';
 import { ConfigurationExtractionEngine } from '@/domain/orders/configuration-extraction-engine';
 import { DimensionExtractionEngine } from '@/domain/orders/dimension-extraction-engine';
+import {
+  isValidErpDimension,
+  isOutOfPhysicalBoundsDimension,
+} from '@/domain/orders/dimension-guards';
 import {
   detectIsMaterialAndService,
   detectServiceDiscipline,
   SERVICE_DISCIPLINE_TO_PRODUCT_GROUP,
 } from '@/domain/search/v2/cognitive-typology-classifier';
+
+export type { NeuroSymbolicLineResult };
 
 export interface NeuroSymbolicEngineOptions {
   cognitiveProvider?: ICognitiveExtractionProvider;
@@ -68,7 +75,7 @@ export class NeuroSymbolicEngine {
     const rawConfigJson = line.configuration_json || (line as any).lt_configuration_json;
     const rawWidthMm = line.width_mm ?? (line as any).lt_width_mm ?? undefined;
     const rawHeightMm = line.height_mm ?? (line as any).lt_height_mm ?? undefined;
-    const rawOptions = (line.options && line.options.length > 0 ? line.options : (line as any).lt_options) ?? undefined;
+    const rawOptions = (hasNonEmptyConfigOptions(line.options) ? line.options : (line as any).lt_options) ?? undefined;
 
     const normalizedLine: RawOrderLineInput = {
       ...line,
@@ -92,6 +99,7 @@ export class NeuroSymbolicEngine {
         stage: 'trap_1_master_cache',
         requiresReview: false,
         dimensionSpec: null,
+        dimensionFormatted: null,
         configurationSpec: null,
         extractionNotes: ['Informatieve tekst / clausule à €0'],
       };
@@ -111,6 +119,7 @@ export class NeuroSymbolicEngine {
           stage: 'trap_1_master_cache',
           requiresReview: false,
           dimensionSpec: null,
+          dimensionFormatted: null,
           configurationSpec: null,
         };
       }
@@ -131,6 +140,7 @@ export class NeuroSymbolicEngine {
           stage: 'trap_4_fail_closed_quarantine',
           requiresReview: true,
           dimensionSpec: null,
+          dimensionFormatted: null,
           configurationSpec: null,
           extractionNotes: ['Onbekende negatieve boeking/credit vereist handmatige controle'],
         };
@@ -142,6 +152,7 @@ export class NeuroSymbolicEngine {
         stage: creditRes.stage === 'trap_1_master_cache' ? 'trap_1_master_cache' : 'trap_2_configurator',
         requiresReview: creditRes.requiresReview,
         dimensionSpec: null,
+        dimensionFormatted: null,
         configurationSpec: null,
         isHybrid: creditRes.isHybrid,
         serviceDisciplineCode: creditRes.serviceDisciplineCode,
@@ -157,6 +168,7 @@ export class NeuroSymbolicEngine {
         stage: 'trap_1_master_cache',
         requiresReview: false,
         dimensionSpec: dimRes.dimensionSpec,
+        dimensionFormatted: dimRes.formattedDim,
         configurationSpec: null,
         isHybrid: false,
       };
@@ -194,6 +206,7 @@ export class NeuroSymbolicEngine {
           stage: 'trap_1_master_cache',
           requiresReview: false,
           dimensionSpec: dimRes.dimensionSpec,
+          dimensionFormatted: dimRes.formattedDim,
           configurationSpec: null,
           isHybrid: false,
         };
@@ -208,6 +221,7 @@ export class NeuroSymbolicEngine {
         stage: 'trap_4_fail_closed_quarantine',
         requiresReview: true,
         dimensionSpec: { type: 'piece_service', unit: normalizedLine.unit || 'stuks' },
+        dimensionFormatted: null,
         extractionNotes: ['Extreme uitschieter afmetingen (> 12000 mm) afgewezen naar review'],
       };
     }
@@ -246,40 +260,107 @@ export class NeuroSymbolicEngine {
         stage: 'trap_4_fail_closed_quarantine',
         requiresReview: true,
         dimensionSpec: { type: 'piece_service', unit: normalizedLine.unit || 'stuks' },
-        configurationSpec: configSpec,
+        dimensionFormatted: null,
+        configurationSpec: configSpec ? { ...configSpec, dimensions: undefined } : null,
         extractionNotes: ['Extreme uitschieter afmetingen (> 12000 mm) afgewezen naar review'],
       };
     }
 
-    // Toets deterministische configurator maten (100 <= mm <= 12000)
-    if (configSpec?.dimensions?.width_mm && configSpec.dimensions.height_mm) {
-      const w = configSpec.dimensions.width_mm;
-      const h = configSpec.dimensions.height_mm;
-      if (w >= 100 && w <= 12000 && h >= 100 && h <= 12000) {
-        const productGroup = effectiveGroup || '2.1';
+    // SSOT Rail & Gordijn classificatie
+    const railOrCurtain = this.dimensionEngine.resolveCurtainOrRailKind(
+      effectiveGroup || '9.9',
+      normalizedLine.description || '',
+      normalizedLine.notes || '',
+      normalizedLine
+    );
+
+    const w = configSpec?.dimensions?.width_mm ?? rawWidthMm;
+    const h = configSpec?.dimensions?.height_mm ?? rawHeightMm;
+    const hasUnsafeConfiguredDims =
+      isOutOfPhysicalBoundsDimension(w) || isOutOfPhysicalBoundsDimension(h);
+
+    if (hasUnsafeConfiguredDims) {
+      return {
+        productGroupCode: effectiveGroup || '9.9',
+        confidence: 0.1,
+        stage: 'trap_4_fail_closed_quarantine',
+        requiresReview: true,
+        dimensionSpec: { type: 'piece_service', unit: normalizedLine.unit || 'stuks' },
+        dimensionFormatted: null,
+        configurationSpec: configSpec ? { ...configSpec, dimensions: undefined } : null,
+        extractionNotes: ['Afmetingen buiten fysieke veiligheidsgrenzen (100 - 12000 mm)'],
+      };
+    }
+
+    const hasValidW = isValidErpDimension(w);
+    const hasValidH = isValidErpDimension(h);
+    const has2DDims = hasValidW && hasValidH;
+    const has1DRailDims = railOrCurtain.isTrueRail && hasValidW && (h === undefined || h === 0);
+    const hasDeterministicConfiguredDims = has2DDims || has1DRailDims;
+    const hasConfiguratorPayload = Boolean(
+      normalizedLine.configuration ||
+      normalizedLine.configuration_json ||
+      hasNonEmptyConfigOptions(normalizedLine.options)
+    );
+
+    if (hasDeterministicConfiguredDims) {
+      if (effectiveGroup === '9.9' && this.cognitiveProvider) {
+        // Val door naar Laag 2 AI zodat classificatie kan plaatsvinden; configSpec blijft fallback
+      } else {
+        const targetGroup = effectiveGroup || '9.9';
+        const fallbackDims = configSpec?.dimensions ?? (hasDeterministicConfiguredDims ? { width_mm: w, height_mm: h } : undefined);
         const dimRes = this.dimensionEngine.extractDimension(
           normalizedLine,
-          productGroup,
-          configSpec.dimensions
+          targetGroup,
+          fallbackDims
         );
 
-        const hasConfiguratorPayload = Boolean(
-          normalizedLine.configuration ||
-          normalizedLine.configuration_json ||
-          (normalizedLine.options && normalizedLine.options.length > 0)
-        );
+        const isOutlier = dimRes.isOutlier || this.dimensionEngine.hasDimensionOutlier(normalizedLine);
+        if (isOutlier) {
+          return {
+            productGroupCode: targetGroup,
+            confidence: 0.1,
+            stage: 'trap_4_fail_closed_quarantine',
+            requiresReview: true,
+            dimensionSpec: dimRes.dimensionSpec,
+            dimensionFormatted: null,
+            configurationSpec: configSpec ? { ...configSpec, dimensions: undefined } : null,
+            extractionNotes: ['Extreme uitschieter afmetingen (> 12000 mm) afgewezen naar review'],
+          };
+        }
+
+        if (targetGroup === '9.9') {
+          return {
+            productGroupCode: '9.9',
+            confidence: 0.2,
+            stage: 'trap_2_configurator',
+            requiresReview: true,
+            dimensionSpec: dimRes.dimensionSpec,
+            dimensionFormatted: dimRes.formattedDim,
+            configurationSpec: configSpec ?? null,
+          };
+        }
+
+        const isComplete1DRail = railOrCurtain.isTrueRail && dimRes.dimensionSpec.type === 'curtain_linear';
+        const requiresReview =
+          Boolean(configSpec?.status === 'requires_review') ||
+          Boolean(configSpec?.status === 'incomplete' && !isComplete1DRail);
 
         const stage = hasConfiguratorPayload
           ? 'trap_2_configurator'
           : (isMasterCache ? 'trap_1_master_cache' : 'trap_2_configurator');
 
+        // Retail meubels (7.x) houden configurationSpec = null conform contract
+        const finalConfigSpec = targetGroup.startsWith('7.') ? null : (configSpec ?? null);
+
         return {
-          productGroupCode: productGroup,
-          confidence: isMasterCache ? 1.0 : (configSpec.confidence || 0.95),
+          productGroupCode: targetGroup,
+          confidence: isMasterCache ? 1.0 : (configSpec?.confidence || 0.95),
           stage,
-          requiresReview: configSpec.status === 'requires_review',
+          requiresReview,
           dimensionSpec: dimRes.dimensionSpec,
-          configurationSpec: configSpec,
+          dimensionFormatted: dimRes.formattedDim,
+          configurationSpec: finalConfigSpec,
           isHybrid: isClassifiedHybrid,
           serviceDisciplineCode: classifiedServiceDiscipline,
         };
@@ -288,21 +369,21 @@ export class NeuroSymbolicEngine {
 
     // 1.6 Statische catalogus / geclassificeerde SKUs (zonder Laag 2 dead-end voor maatwerkdisciplines)
     const configItems = normalizedLine.configuration?.items;
-    const hasMeasuredDims = Boolean(configSpec?.dimensions?.width_mm || configSpec?.dimensions?.height_mm);
+    const hasMeasuredDims = Boolean(hasValidW || hasValidH);
+    const isLikelyCustomIn99 =
+      railOrCurtain.kind !== 'other' ||
+      /\b(?:maatwerk|vloer|tapijt|paneel)\b/i.test(normalizedLine.description || '');
     const isQuestionnaireOrAccessory =
       Array.isArray(configItems) &&
       configItems.length > 0 &&
       (ConfigurationExtractionEngine.isQuestionnaireItems(configItems) ||
-        (effectiveGroup === '9.9' &&
-          !/\b(maatwerk|gordijn|duette|pliss[eé]|jaloezie|hor|screen|rolluik|vloer|tapijt|paneel)\b/i.test(
-            normalizedLine.description || ''
-          )));
+        (effectiveGroup === '9.9' && !isLikelyCustomIn99 && !hasMeasuredDims));
 
     const canEscalateCustomToCognitive =
       Boolean(this.cognitiveProvider) &&
       !isQuestionnaireOrAccessory &&
       Boolean(effectiveGroup && /^(1|2|3|5)\./.test(effectiveGroup)) &&
-      !hasMeasuredDims &&
+      !hasDeterministicConfiguredDims &&
       Boolean(normalizedLine.notes && normalizedLine.notes.length > 20);
 
     if (effectiveGroup && effectiveGroup !== '9.9' && !catalogProduct?.is_generic_container) {
@@ -312,7 +393,7 @@ export class NeuroSymbolicEngine {
         configSpec?.dimensions
       );
 
-      // Laat dimensieloze maatwerkregels mét cognitiveProvider en notes > 20 doorvallen naar Laag 2
+      // Laat dimensieloze/onvolledige maatwerkregels mét cognitiveProvider en notes > 20 doorvallen naar Laag 2
       if (dimRes.source !== 'fallback_default' || !canEscalateCustomToCognitive) {
         const isOutlier = dimRes.isOutlier || this.dimensionEngine.hasDimensionOutlier(normalizedLine);
         if (isOutlier) {
@@ -322,8 +403,36 @@ export class NeuroSymbolicEngine {
             stage: 'trap_4_fail_closed_quarantine',
             requiresReview: true,
             dimensionSpec: dimRes.dimensionSpec,
+            dimensionFormatted: null,
+            configurationSpec: configSpec ? { ...configSpec, dimensions: undefined } : null,
             extractionNotes: ['Extreme uitschieter afmetingen (> 12000 mm) afgewezen naar review'],
           };
+        }
+
+        if (configSpec?.status === 'incomplete' && dimRes.source === 'fallback_default') {
+          if (hasMeasuredDims) {
+            return {
+              productGroupCode: effectiveGroup,
+              confidence: 0.5,
+              stage: 'trap_2_configurator',
+              requiresReview: true,
+              dimensionSpec: dimRes.dimensionSpec,
+              dimensionFormatted: dimRes.formattedDim,
+              configurationSpec: configSpec,
+              extractionNotes: configSpec.extraction_notes,
+            };
+          } else if (/^(1|2|3|5)\./.test(effectiveGroup)) {
+            return {
+              productGroupCode: effectiveGroup,
+              confidence: 0.1,
+              stage: 'trap_4_fail_closed_quarantine',
+              requiresReview: true,
+              dimensionSpec: dimRes.dimensionSpec,
+              dimensionFormatted: null,
+              configurationSpec: configSpec,
+              extractionNotes: configSpec.extraction_notes || ['Alleen configuratieattributen aangetroffen zonder afmetingen'],
+            };
+          }
         }
 
         // Controleer op hybride materiaal/dienst
@@ -346,6 +455,7 @@ export class NeuroSymbolicEngine {
           stage: 'trap_1_master_cache',
           requiresReview: false,
           dimensionSpec: dimRes.dimensionSpec,
+          dimensionFormatted: dimRes.formattedDim,
           configurationSpec: finalConfigSpec,
           isHybrid,
           serviceDisciplineCode,
@@ -361,7 +471,7 @@ export class NeuroSymbolicEngine {
       (Boolean(catalogProduct?.is_generic_container) ||
         !catalogProduct ||
         effectiveGroup === '9.9' ||
-        (!hasMeasuredDims && Boolean(normalizedLine.notes && normalizedLine.notes.length > 20)));
+        (!hasDeterministicConfiguredDims && Boolean(normalizedLine.notes && normalizedLine.notes.length > 20)));
 
     if (shouldEscalate && this.cognitiveProvider) {
       // Pre-AI Veiligheidspoort: check extreme fysieke uitschieters
@@ -372,6 +482,8 @@ export class NeuroSymbolicEngine {
           stage: 'trap_4_fail_closed_quarantine',
           requiresReview: true,
           dimensionSpec: { type: 'piece_service', unit: normalizedLine.unit || 'stuks' },
+          dimensionFormatted: null,
+          configurationSpec: configSpec ? { ...configSpec, dimensions: undefined } : null,
           extractionNotes: ['Extreme uitschieter afmetingen (> 12000 mm) afgewezen naar review'],
         };
       }
@@ -386,50 +498,138 @@ export class NeuroSymbolicEngine {
         effectiveGroup
       );
 
-      // Post-Cognitieve Laag 3 Veiligheidspoort
+      // Eerst deterministische velden samenvoegen, dan bounds handhaven
       const cogW = cognitiveSpec.dimensions?.width_mm;
       const cogH = cognitiveSpec.dimensions?.height_mm;
-      if (
-        (cogW !== undefined && cogW > 0 && (cogW < 100 || cogW > 12000)) ||
-        (cogH !== undefined && cogH > 0 && (cogH < 100 || cogH > 12000))
-      ) {
+      const mergedAttributes = { ...(configSpec?.attributes || {}), ...(cognitiveSpec.attributes || {}) };
+      const mergedOptions = hasNonEmptyConfigOptions(cognitiveSpec.options)
+        ? cognitiveSpec.options
+        : (hasNonEmptyConfigOptions(configSpec?.options) ? configSpec?.options : (normalizedLine.options ?? undefined));
+      const mergedNotes = Array.from(new Set([...(configSpec?.extraction_notes || []), ...(cognitiveSpec.extraction_notes || [])]));
+
+      // Post-Cognitieve Laag 3 Veiligheidspoort: vangt negatieve, sub-100 en >12000 mm AI-maten
+      if (isOutOfPhysicalBoundsDimension(cogW) || isOutOfPhysicalBoundsDimension(cogH)) {
         return {
           productGroupCode: effectiveGroup || '9.9',
           confidence: 0.1,
           stage: 'trap_4_fail_closed_quarantine',
           requiresReview: true,
           dimensionSpec: { type: 'piece_service', unit: normalizedLine.unit || 'stuks' },
-          configurationSpec: cognitiveSpec,
+          dimensionFormatted: null,
+          configurationSpec: {
+            ...configSpec,
+            ...cognitiveSpec,
+            dimensions: undefined,
+            attributes: Object.keys(mergedAttributes).length > 0 ? mergedAttributes : undefined,
+            options: mergedOptions,
+          },
           extractionNotes: ['Cognitieve afmetingen buiten fysieke veiligheidsgrenzen (100 - 12000 mm)'],
         };
       }
 
+      const resolvedW = isValidErpDimension(cogW) ? cogW : configSpec?.dimensions?.width_mm;
+      const resolvedH = isValidErpDimension(cogH) ? cogH : configSpec?.dimensions?.height_mm;
+      const resolvedDims = (resolvedW !== undefined || resolvedH !== undefined)
+        ? { width_mm: resolvedW, height_mm: resolvedH }
+        : undefined;
+      const hasCogDims = Boolean(isValidErpDimension(cogW) || isValidErpDimension(cogH));
+      const mergedConfigSpec: ConfigurationSpec = {
+        ...configSpec,
+        ...cognitiveSpec,
+        dimensions: resolvedDims,
+        attributes: Object.keys(mergedAttributes).length > 0 ? mergedAttributes : undefined,
+        options: mergedOptions,
+        extraction_notes: mergedNotes.length > 0 ? mergedNotes : undefined,
+      };
+
       if (cognitiveSpec.status === 'requires_review' && cognitiveSpec.confidence <= 0.2) {
+        if (effectiveGroup === '9.9' && hasDeterministicConfiguredDims) {
+          const fallbackDims = configSpec?.dimensions ?? (hasDeterministicConfiguredDims ? { width_mm: w, height_mm: h } : undefined);
+          const dimRes = this.dimensionEngine.extractDimension(
+            normalizedLine,
+            '9.9',
+            fallbackDims
+          );
+          return {
+            productGroupCode: '9.9',
+            confidence: 0.2,
+            stage: 'trap_2_configurator',
+            requiresReview: true,
+            dimensionSpec: dimRes.dimensionSpec,
+            dimensionFormatted: dimRes.formattedDim,
+            configurationSpec: mergedConfigSpec,
+            extractionNotes: mergedNotes.length > 0 ? mergedNotes : undefined,
+          };
+        }
         return {
           productGroupCode: effectiveGroup || '9.9',
           confidence: cognitiveSpec.confidence,
           stage: 'trap_4_fail_closed_quarantine',
           requiresReview: true,
-          configurationSpec: cognitiveSpec,
-          extractionNotes: cognitiveSpec.extraction_notes || ['Cognitieve provider markeerde regel als review'],
+          dimensionSpec: { type: 'piece_service', unit: normalizedLine.unit || 'stuks' },
+          dimensionFormatted: null,
+          configurationSpec: mergedConfigSpec,
+          extractionNotes: mergedNotes.length > 0 ? mergedNotes : ['Cognitieve provider markeerde regel als review'],
         };
       }
 
-      const candidateGroup = effectiveGroup || '1.1';
+      const candidateGroup = cognitiveSpec.reconciled_product_group_code || effectiveGroup || '1.1';
       const dimRes = this.dimensionEngine.extractDimension(
         normalizedLine,
         candidateGroup,
-        cognitiveSpec.dimensions
+        resolvedDims
       );
+
+      const isOutlier = dimRes.isOutlier || this.dimensionEngine.hasDimensionOutlier(normalizedLine);
+      if (isOutlier) {
+        return {
+          productGroupCode: candidateGroup,
+          confidence: 0.1,
+          stage: 'trap_4_fail_closed_quarantine',
+          requiresReview: true,
+          dimensionSpec: dimRes.dimensionSpec,
+          dimensionFormatted: null,
+          configurationSpec: { ...mergedConfigSpec, dimensions: undefined },
+          extractionNotes: ['Extreme uitschieter afmetingen (> 12000 mm) afgewezen naar review'],
+        };
+      }
+
+      // Post-AI Fail-Closed Physics Gate voor maatwerk/9.9
+      if ((/^(1|2|3|5)\./.test(candidateGroup) || candidateGroup === '9.9') && dimRes.source === 'fallback_default') {
+        return {
+          productGroupCode: candidateGroup,
+          confidence: Math.min(cognitiveSpec.confidence, 0.2),
+          stage: 'trap_4_fail_closed_quarantine',
+          requiresReview: true,
+          dimensionSpec: dimRes.dimensionSpec,
+          dimensionFormatted: null,
+          configurationSpec: mergedConfigSpec,
+          extractionNotes: mergedNotes.length > 0 ? mergedNotes : ['Geen verifieerbare afmetingen aangetroffen na cognitieve extractie'],
+        };
+      }
+
+      if (candidateGroup === '9.9' && !hasCogDims && hasDeterministicConfiguredDims) {
+        return {
+          productGroupCode: '9.9',
+          confidence: 0.2,
+          stage: 'trap_2_configurator',
+          requiresReview: true,
+          dimensionSpec: dimRes.dimensionSpec,
+          dimensionFormatted: dimRes.formattedDim,
+          configurationSpec: mergedConfigSpec,
+          extractionNotes: mergedConfigSpec.extraction_notes,
+        };
+      }
 
       return {
         productGroupCode: candidateGroup,
         confidence: cognitiveSpec.confidence,
         stage: 'trap_3_cognitive',
-        requiresReview: cognitiveSpec.status === 'requires_review',
+        requiresReview: cognitiveSpec.status === 'requires_review' || candidateGroup === '9.9',
         dimensionSpec: dimRes.dimensionSpec,
-        configurationSpec: cognitiveSpec,
-        extractionNotes: cognitiveSpec.extraction_notes,
+        dimensionFormatted: dimRes.formattedDim,
+        configurationSpec: mergedConfigSpec,
+        extractionNotes: mergedConfigSpec.extraction_notes,
       };
     }
 
@@ -439,18 +639,22 @@ export class NeuroSymbolicEngine {
     const candidateGroup = effectiveGroup || '9.9';
     const dimRes = this.dimensionEngine.extractDimension(
       normalizedLine,
-      candidateGroup
+      candidateGroup,
+      configSpec?.dimensions
     );
 
     // Fail-closed validatie op extreme afmetingen (> 12000 mm) of fallback afwijzing
     const isOutlier = dimRes.isOutlier || this.dimensionEngine.hasDimensionOutlier(normalizedLine);
     if (dimRes.source === 'fallback_default' || isOutlier) {
+      const safeConfigSpec = isOutlier && configSpec ? { ...configSpec, dimensions: undefined } : configSpec;
       return {
         productGroupCode: candidateGroup,
         confidence: 0.1,
         stage: 'trap_4_fail_closed_quarantine',
         requiresReview: true,
         dimensionSpec: dimRes.dimensionSpec,
+        dimensionFormatted: null,
+        configurationSpec: safeConfigSpec,
         extractionNotes: isOutlier
           ? ['Extreme uitschieter afmetingen (> 12000 mm) afgewezen naar review']
           : ['Geen verifieerbare afmetingen aangetroffen - vereist handmatige controle'],
@@ -463,6 +667,7 @@ export class NeuroSymbolicEngine {
       stage: candidateGroup === '9.9' ? 'trap_4_fail_closed_quarantine' : 'trap_1_master_cache',
       requiresReview: candidateGroup === '9.9',
       dimensionSpec: dimRes.dimensionSpec,
+      dimensionFormatted: dimRes.formattedDim,
       configurationSpec: configSpec,
       extractionNotes,
     };
