@@ -92,6 +92,7 @@ export interface Harvest2YrOptions {
   initialCheckpoint?: HarvestCheckpoint;
   onOrder?: (order: LogicTradeOrderHeader, lines: LogicTradeOrderLine[]) => Promise<void>;
   modifiedAfter?: string;
+  throwOnError?: boolean;
 }
 
 export interface Harvest2YrResult {
@@ -137,6 +138,7 @@ export interface HarvestQuotesOptions {
   apiKey?: string;
   adminGuid?: string;
   onQuote?: (quoteHeader: LogicTradeQuoteHeader, lines: LogicTradeOrderLine[]) => Promise<void>;
+  throwOnError?: boolean;
 }
 
 export interface HarvestQuotesResult {
@@ -342,11 +344,15 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
     const res = await limiter.fetchWithAdaptiveBackoff(ordersUrl, { headers, cache: 'no-store' });
 
     let envelope: any;
-    if (res && typeof res.json === 'function') {
-      if (!res.ok) {
-        console.error(`[Harvest2YrOrders] Fout bij ophalen pagina ${currentPage} (HTTP ${res.status}).`);
-        break;
+    if (res?.ok === false || (res && typeof res.json === 'function' && !res.ok)) {
+      if (options?.throwOnError) {
+        const errorText = typeof res?.text === 'function' ? await res.text() : '';
+        throw new Error(`[Harvest2YrOrders] Fout bij ophalen pagina ${currentPage} (HTTP ${res?.status ?? 500}): ${errorText}`);
       }
+      console.error(`[Harvest2YrOrders] Fout bij ophalen pagina ${currentPage} (HTTP ${res?.status ?? 500}).`);
+      break;
+    }
+    if (res && typeof res.json === 'function') {
       envelope = await res.json();
     } else {
       envelope = res;
@@ -361,9 +367,12 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
       break;
     }
 
-    totalOrdersScanned += orders.length;
-
     for (const order of orders) {
+      if (options?.maxOrders && totalOrdersScanned >= options.maxOrders) {
+        hasMorePages = false;
+        break;
+      }
+      totalOrdersScanned++;
       const orderIdStr = String(order.id);
 
       // Check datumgrens (indien van toepassing)
@@ -438,11 +447,15 @@ export async function harvest2YearOrders(options: Harvest2YrOptions = {}): Promi
         const linesRes = await limiter.fetchWithAdaptiveBackoff(linesUrl, { headers, cache: 'no-store' });
 
         let linesEnvelope: any;
-        if (linesRes && typeof linesRes.json === 'function') {
-          if (!linesRes.ok) {
-            console.warn(`[Harvest2YrOrders] Kon orderregels voor order ${orderIdStr} niet ophalen (HTTP ${linesRes.status}).`);
-            continue;
+        if (linesRes?.ok === false || (linesRes && typeof linesRes.json === 'function' && !linesRes.ok)) {
+          if (options?.throwOnError) {
+            const linesErrorText = typeof linesRes?.text === 'function' ? await linesRes.text() : '';
+            throw new Error(`[Harvest2YrOrders] Kon orderregels voor order ${orderIdStr} niet ophalen (HTTP ${linesRes?.status ?? 500}): ${linesErrorText}`);
           }
+          console.warn(`[Harvest2YrOrders] Kon orderregels voor order ${orderIdStr} niet ophalen (HTTP ${linesRes?.status ?? 500}).`);
+          continue;
+        }
+        if (linesRes && typeof linesRes.json === 'function') {
           linesEnvelope = await linesRes.json();
         } else {
           linesEnvelope = linesRes;
@@ -769,11 +782,15 @@ export async function harvestQuotes(options: HarvestQuotesOptions = {}): Promise
     const res = await limiter.fetchWithAdaptiveBackoff(quotesUrl, { headers, cache: 'no-store' });
 
     let envelope: any;
-    if (res && typeof res.json === 'function') {
-      if (!res.ok) {
-        console.error(`[HarvestQuotes] Fout bij ophalen pagina ${currentPage} (HTTP ${res.status}).`);
-        break;
+    if (res?.ok === false || (res && typeof res.json === 'function' && !res.ok)) {
+      if (options?.throwOnError) {
+        const quoteErrorText = typeof res?.text === 'function' ? await res.text() : '';
+        throw new Error(`[HarvestQuotes] Fout bij ophalen pagina ${currentPage} (HTTP ${res?.status ?? 500}): ${quoteErrorText}`);
       }
+      console.error(`[HarvestQuotes] Fout bij ophalen pagina ${currentPage} (HTTP ${res?.status ?? 500}).`);
+      break;
+    }
+    if (res && typeof res.json === 'function') {
       envelope = await res.json();
     } else {
       envelope = res;
@@ -788,9 +805,12 @@ export async function harvestQuotes(options: HarvestQuotesOptions = {}): Promise
       break;
     }
 
-    totalQuotesScanned += quotes.length;
-
     for (const quote of quotes) {
+      if (options?.maxQuotes && totalQuotesScanned >= options.maxQuotes) {
+        hasMorePages = false;
+        break;
+      }
+      totalQuotesScanned++;
       const rawDate = quote.date || quote.createdDate;
       const quoteTime = rawDate ? new Date(rawDate).getTime() : 0;
 

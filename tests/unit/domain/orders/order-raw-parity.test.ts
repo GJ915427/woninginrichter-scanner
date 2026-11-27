@@ -216,10 +216,14 @@ describe('Order Raw Parity & Bronze Layer SSOT (INV-RAW-IMMUTABILITY-01)', () =>
       expect(line.lt_stock_status).toBe('complete');
       expect(line.lt_delivery_status).toBe('none');
       expect(line.lt_invoice_status).toBe('none');
-      expect(line.lt_width_mm).toBe(1070);
-      expect(line.lt_height_mm).toBe(1480);
-      expect(line.lt_supplier_name).toBe('Luxaflex');
-      expect(line.lt_supplier_code).toBe('LUX-001');
+      // [SPEC-CHANGE-AUTHORIZED: Sanering 6 dode kolommen van IngestedOrderLine & toevoegen audit velden]
+      expect((line as any).lt_width_mm).toBeUndefined();
+      expect((line as any).lt_height_mm).toBeUndefined();
+      expect((line as any).lt_supplier_name).toBeUndefined();
+      expect((line as any).lt_supplier_code).toBeUndefined();
+      expect(line.classification_confidence).toBe(1.0);
+      expect(line.classification_stage).toBe('trap_1_master_cache');
+      expect(line.requires_review).toBe(false);
     });
 
     it('handhaaft INV-RAW-IMMUTABILITY-01 bij splitHybridOrderLine (sub_line 1 heeft lt_raw_data: null)', async () => {
@@ -261,20 +265,20 @@ describe('Order Raw Parity & Bronze Layer SSOT (INV-RAW-IMMUTABILITY-01)', () =>
       expect(mainLine.lt_raw_data).toEqual({ rawHybridLine: true });
       expect(mainLine.lt_id).toBe('999888');
       expect(mainLine.lt_comment_extern).toBe('Woonkamer');
-      expect(mainLine.lt_width_mm).toBe(5000);
-      expect(mainLine.lt_height_mm).toBe(4000);
-      expect(mainLine.lt_supplier_name).toBe('Ambiant');
+      // [SPEC-CHANGE-AUTHORIZED: Sanering 6 dode kolommen van IngestedOrderLine & toevoegen audit velden]
+      expect((mainLine as any).lt_width_mm).toBeUndefined();
+      expect((mainLine as any).lt_height_mm).toBeUndefined();
+      expect((mainLine as any).lt_supplier_name).toBeUndefined();
+      expect(mainLine.classification_confidence).toBe(1.0);
+      expect(mainLine.classification_stage).toBe('trap_1_master_cache');
+      expect(mainLine.requires_review).toBe(false);
 
       // serviceLine heeft conform INV-RAW-IMMUTABILITY-01 GEEN gefabriceerde brondata
       expect(serviceLine.lt_raw_data).toBeNull();
       expect(serviceLine.raw_data).toBeNull();
-      expect(serviceLine.lt_configuration_json).toBeNull();
       expect(serviceLine.lt_configuration).toBeNull();
-      expect(serviceLine.lt_width_mm).toBeNull();
-      expect(serviceLine.lt_height_mm).toBeNull();
-      expect(serviceLine.lt_options).toBeNull();
-      expect(serviceLine.lt_supplier_name).toBeNull();
-      expect(serviceLine.lt_supplier_code).toBeNull();
+      expect((serviceLine as any).lt_width_mm).toBeUndefined();
+      expect((serviceLine as any).lt_height_mm).toBeUndefined();
       expect(serviceLine.lt_id).toBe('999888.service');
       expect(serviceLine.external_line_id).toBe('999888.service');
       expect(serviceLine.lt_comment_extern).toBeNull();
@@ -283,6 +287,9 @@ describe('Order Raw Parity & Bronze Layer SSOT (INV-RAW-IMMUTABILITY-01)', () =>
       expect(serviceLine.lt_discount_percentage).toBeNull();
       expect(serviceLine.lt_reservations).toEqual([]);
       expect(serviceLine.lt_stock_status).toBeNull();
+      expect(serviceLine.classification_confidence).toBe(1.0);
+      expect(serviceLine.classification_stage).toBe('trap_1_master_cache');
+      expect(serviceLine.requires_review).toBe(false);
       expect(serviceLine.lt_delivery_status).toBeNull();
       expect(serviceLine.lt_invoice_status).toBeNull();
     });

@@ -92,8 +92,8 @@ describe('OrderIntakeService & Hybrid Line Ingest SSOT', () => {
       expect(result.lines[0].product_group_code).toBe('9.9');
     });
 
-    // [SPEC-CHANGE-AUTHORIZED: Dekking voor TEKST regels en brand SKU intake]
-    it('isoleert zuivere ERP nulprijs TEKST regels als 9.9 zonder fantoom-diensten of ruimtelijke kaping', async () => {
+    // [SPEC-CHANGE-AUTHORIZED: Taxonomie Upgrade - Zuivere nulprijs TEKST regels worden geclassificeerd als 0.0 (Informatieve tekst / clausule) conform SSOT & Grondwet Laag 1B § 6]
+    it('isoleert zuivere ERP nulprijs TEKST regels als 0.0 zonder fantoom-diensten of ruimtelijke kaping', async () => {
       const rawOrder: RawLogicTradeOrderInput = {
         id: 'V26001003',
         order_number: 'V26001003',
@@ -113,10 +113,13 @@ describe('OrderIntakeService & Hybrid Line Ingest SSOT', () => {
       const result = await service.processOrderIntake(rawOrder);
       expect(result.lines.length).toBe(1); // Geen hybride splitsing!
       const line = result.lines[0];
-      expect(line.product_group_code).toBe('9.9');
+      expect(line.product_group_code).toBe('0.0');
       expect(line.is_hybrid).toBe(false);
       expect(line.position_id).not.toBe('pos_project_algemeen');
       expect(line.dimension_spec).toBeNull();
+      expect(line.classification_confidence).toBe(1.0);
+      expect(line.classification_stage).toBe('trap_1_master_cache');
+      expect(line.requires_review).toBe(false);
     });
 
     it('geeft contextuele notes door bij brand SKU (Toppoint) voor correcte raambekledingsclassificatie', async () => {
@@ -726,6 +729,193 @@ describe('OrderIntakeService & Hybrid Line Ingest SSOT', () => {
       expect(servLine.dimension_spec).toEqual({
         type: 'piece_service',
         unit: 'stuks',
+      });
+    });
+  });
+
+  describe('4-Layer Neuro-Symbolic Engine & Batch Pre-Hydration (Tranche 6)', () => {
+    it('pre-hydrates catalog product cache via resolveProductsByCodes in a single batch call', async () => {
+      const batchMock = vi.fn().mockResolvedValue(
+        new Map([
+          ['SKU_BATCH_1', { id: 501, code: 'SKU_BATCH_1', product_group_code: '2.1' }],
+          ['SKU_BATCH_2', { id: 502, code: 'SKU_BATCH_2', product_group_code: '1.1' }],
+        ])
+      );
+      const singleMock = vi.fn();
+
+      const batchService = new OrderIntakeService({
+        resolveProductsByCodes: batchMock,
+        resolveProductByCode: singleMock,
+      });
+
+      const rawOrder: RawLogicTradeOrderInput = {
+        id: 'V26002001',
+        order_number: 'V26002001',
+        lines: [
+          { line_number: 10, product_code: 'SKU_BATCH_1', description: 'Rolgordijn 1', quantity: 1, unit_price_cents: 10000 },
+          { line_number: 20, product_code: 'SKU_BATCH_2', description: 'Gordijnstof 2', quantity: 2, unit_price_cents: 15000 },
+        ],
+      };
+
+      const result = await batchService.processOrderIntake(rawOrder);
+      expect(batchMock).toHaveBeenCalledTimes(1);
+      expect(batchMock).toHaveBeenCalledWith(['SKU_BATCH_1', 'SKU_BATCH_2']);
+      expect(singleMock).not.toHaveBeenCalled();
+
+      expect(result.lines).toHaveLength(2);
+      expect(result.lines[0].product_id).toBe(501);
+      expect(result.lines[0].product_group_code).toBe('2.1');
+      expect(result.lines[0].classification_confidence).toBe(1.0);
+      expect(result.lines[0].classification_stage).toBe('trap_1_master_cache');
+      expect(result.lines[0].requires_review).toBe(false);
+
+      expect(result.lines[1].product_id).toBe(502);
+      expect(result.lines[1].product_group_code).toBe('1.1');
+    });
+
+    it('propageert audit velden en review vlaggen correct bij onbekende / quarantaine artikelen', async () => {
+      const auditService = new OrderIntakeService({
+        skipClientLookup: true,
+      });
+
+      const rawOrder: RawLogicTradeOrderInput = {
+        id: 'V26002002',
+        order_number: 'V26002002',
+        lines: [
+          {
+            line_number: 10,
+            product_code: 'ONBEKEND_ARTIKEL',
+            description: 'Willekeurige tekst zonder matching trefwoorden',
+            quantity: 1,
+            unit_price_cents: 5000,
+            total_price_cents: 5000,
+          },
+        ],
+      };
+
+      const result = await auditService.processOrderIntake(rawOrder);
+      const line = result.lines[0];
+      expect(line.product_group_code).toBe('9.9');
+      expect(line.classification_confidence).toBeLessThanOrEqual(0.2);
+      expect(line.classification_stage).toBe('trap_4_fail_closed_quarantine');
+      expect(line.requires_review).toBe(true);
+    });
+
+    describe('Plan 3 TDD: Single-Pass & Quarantaine Configuratie-Retentie', () => {
+      // [SPEC-CHANGE-AUTHORIZED: Plan 3 TDD tests voor single-pass zero duplicate call, AI outlier dimension-sanering en quarantaine config-retentie incl. splitHybridOrderLine]
+      it('H0-A: voert single-pass extractie uit zonder dubbele extractDimension call', async () => {
+        const testService = new OrderIntakeService({ skipClientLookup: true });
+        const dimensionEngine = (testService as any).dimensionEngine;
+        const spy = vi.spyOn(dimensionEngine, 'extractDimension');
+
+        const rawOrder: RawLogicTradeOrderInput = {
+          id: 'V26002003',
+          order_number: 'V26002003',
+          lines: [
+            {
+              line_number: 10,
+              product_code: 'A000991',
+              description: 'Gordijn wave 1800x2600 mm',
+              quantity: 1,
+              unit_price_cents: 15000,
+              total_price_cents: 15000,
+            },
+          ],
+        };
+
+        const result = await testService.processOrderIntake(rawOrder);
+        expect(result.lines).toHaveLength(1);
+        expect(result.lines[0].dim).toBe('1800 × 2600 mm (wave)');
+        // NeuroSymbolicEngine roept extractDimension aan (1x); OrderIntakeService mag extractDimension NIET nogmaals aanroepen!
+        expect(spy).toHaveBeenCalledTimes(1);
+      });
+
+      it('H0-E: behoudt gesaneerde configuration_spec in quarantaine voor 1.1 maatwerk', async () => {
+        const testService = new OrderIntakeService({ skipClientLookup: true });
+
+        const rawOrder: RawLogicTradeOrderInput = {
+          id: 'V26002004',
+          order_number: 'V26002004',
+          lines: [
+            {
+              line_number: 10,
+              product_code: 'A000992',
+              description: 'Gordijnstof wave confectie',
+              quantity: 1,
+              unit_price_cents: 15000,
+              total_price_cents: 15000,
+              lt_configuration: {
+                items: ['Wavegordijn', 'Kleur: Ecru'],
+              },
+            },
+          ],
+        };
+
+        const result = await testService.processOrderIntake(rawOrder);
+        const line = result.lines[0];
+        expect(line.classification_stage).toBe('trap_4_fail_closed_quarantine');
+        expect(line.requires_review).toBe(true);
+        expect(line.dim).toBeNull();
+        expect(line.dimension_spec).toBeNull();
+        expect(line.configuration_spec).not.toBeNull();
+        expect(line.configuration_spec?.attributes?.pleat_type).toBe('wave');
+      });
+
+      it('H0-E: saneert uitschieter dimensions (> 12000 mm) naar configuration_spec = null bij afwezigheid van attributen', async () => {
+        const testService = new OrderIntakeService({ skipClientLookup: true });
+
+        const rawOrder: RawLogicTradeOrderInput = {
+          id: 'V26002005',
+          order_number: 'V26002005',
+          lines: [
+            {
+              line_number: 10,
+              product_code: 'A000993',
+              description: 'Rolgordijn uitschieter',
+              quantity: 1,
+              unit_price_cents: 10000,
+              total_price_cents: 10000,
+              width_mm: 15000,
+              height_mm: 2000,
+            },
+          ],
+        };
+
+        const result = await testService.processOrderIntake(rawOrder);
+        const line = result.lines[0];
+        expect(line.classification_stage).toBe('trap_4_fail_closed_quarantine');
+        expect(line.dim).toBeNull();
+        expect(line.dimension_spec).toBeNull();
+        expect(line.configuration_spec).toBeNull();
+      });
+
+      it('H0-E: schermt pre-hydrated overrides af bij quarantaine', async () => {
+        const testService = new OrderIntakeService({ skipClientLookup: true });
+
+        const rawOrder: RawLogicTradeOrderInput = {
+          id: 'V26002006',
+          order_number: 'V26002006',
+          lines: [
+            {
+              line_number: 10,
+              product_code: 'A000994',
+              description: 'Rolgordijn uitschieter met pre-hydrated dim',
+              quantity: 1,
+              unit_price_cents: 10000,
+              total_price_cents: 10000,
+              width_mm: 15000,
+              height_mm: 2000,
+              dim: '15000 x 2000 mm' as any,
+              dimension_spec: { type: 'window_2d', width_mm: 15000, height_mm: 2000 } as any,
+            },
+          ],
+        };
+
+        const result = await testService.processOrderIntake(rawOrder);
+        const line = result.lines[0];
+        expect(line.classification_stage).toBe('trap_4_fail_closed_quarantine');
+        expect(line.dim).toBeNull();
+        expect(line.dimension_spec).toBeNull();
       });
     });
   });

@@ -1144,4 +1144,131 @@ describe('Harvest2YrOrders Service (TDD Suite)', () => {
       expect(processedNumbers).toEqual(['O26-VALID']);
     });
   });
+
+  describe('throwOnError & maxOrders/maxQuotes loop-stop (Plan 4 hardening)', () => {
+    it('harvest2YearOrders werpt Error bij HTTP 500 wanneer throwOnError: true is ingeschakeld', async () => {
+      const mockFetcher = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: async () => 'Internal Server Error op LogicTrade',
+      });
+
+      await expect(
+        harvest2YearOrders({
+          throwOnError: true,
+          dryRun: true,
+          rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+        })
+      ).rejects.toThrow(/HTTP 500/);
+    });
+
+    it('harvest2YearOrders werpt GEEN Error bij HTTP 500 wanneer throwOnError: false (default/backwards compatible)', async () => {
+      const mockFetcher = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: async () => 'Internal Server Error op LogicTrade',
+      });
+
+      const res = await harvest2YearOrders({
+        throwOnError: false,
+        dryRun: true,
+        rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+      });
+
+      expect(res.totalOrdersScanned).toBe(0);
+    });
+
+    it('harvest2YearOrders werpt Error bij orderlines HTTP 403 wanneer throwOnError: true', async () => {
+      const mockFetcher = vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('/orderlines')) {
+          return {
+            ok: false,
+            status: 403,
+            text: async () => 'Forbidden lines access',
+          };
+        }
+        return {
+          ok: true,
+          data: [{ id: 101, orderNumber: 'V-101', status: 'CONFIRMED' }],
+          totalPages: 1,
+        };
+      });
+
+      await expect(
+        harvest2YearOrders({
+          throwOnError: true,
+          dryRun: true,
+          rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+        })
+      ).rejects.toThrow(/HTTP 403/);
+    });
+
+    it('harvestQuotes werpt Error bij HTTP 401 wanneer throwOnError: true is ingeschakeld', async () => {
+      const mockFetcher = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: async () => 'Unauthorized API key',
+      });
+
+      await expect(
+        harvestQuotes({
+          throwOnError: true,
+          dryRun: true,
+          rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+        })
+      ).rejects.toThrow(/HTTP 401/);
+    });
+
+    it('harvest2YearOrders stopt deterministisch zodra maxOrders is bereikt en telt exact het aantal geëvalueerde headers', async () => {
+      const mockOrders = [
+        { id: 1, orderNumber: 'V-1', status: 'CONFIRMED', lines: [] },
+        { id: 2, orderNumber: 'V-2', status: 'CONFIRMED', lines: [] },
+        { id: 3, orderNumber: 'V-3', status: 'CONFIRMED', lines: [] },
+        { id: 4, orderNumber: 'V-4', status: 'CONFIRMED', lines: [] },
+      ];
+      const mockFetcher = vi.fn().mockResolvedValue({
+        data: mockOrders,
+        totalPages: 1,
+      });
+
+      const scannedIds: number[] = [];
+      const res = await harvest2YearOrders({
+        maxOrders: 2,
+        dryRun: true,
+        rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+        onOrder: async (ord) => {
+          scannedIds.push(ord.id);
+        },
+      });
+
+      expect(scannedIds).toEqual([1, 2]);
+      expect(res.totalOrdersScanned).toBe(2);
+    });
+
+    it('harvestQuotes stopt deterministisch zodra maxQuotes is bereikt en telt exact het aantal geëvalueerde headers', async () => {
+      const mockQuotes = [
+        { id: 1, number: 'Q-1', lines: [] },
+        { id: 2, number: 'Q-2', lines: [] },
+        { id: 3, number: 'Q-3', lines: [] },
+        { id: 4, number: 'Q-4', lines: [] },
+      ];
+      const mockFetcher = vi.fn().mockResolvedValue({
+        results: mockQuotes,
+        pagination: { totalPages: 1 },
+      });
+
+      const scannedNumbers: string[] = [];
+      const res = await harvestQuotes({
+        maxQuotes: 2,
+        dryRun: true,
+        rateLimiter: { fetchWithAdaptiveBackoff: mockFetcher },
+        onQuote: async (q) => {
+          scannedNumbers.push(q.number);
+        },
+      });
+
+      expect(scannedNumbers).toEqual(['Q-1', 'Q-2']);
+      expect(res.totalQuotesScanned).toBe(2);
+    });
+  });
 });

@@ -689,19 +689,19 @@ export function CrossSectionViewer({
         {/* Legend / Info Overlay */}
         <div className="absolute bottom-3 left-3 pointer-events-none flex items-center gap-3 px-3 py-1.5 rounded-lg bg-white/90 backdrop-blur-xs border border-slate-200 shadow-xs text-[11px] text-slate-600">
           <div className="flex items-center gap-1">
-            <span className="w-3.5 h-0.5 bg-[#475569]" />
+            <span className="w-3.5 h-0.5 bg-slate-600" />
             <span>Maaiveld (AHN5)</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-3.5 h-0.5 bg-[#0284c7] border-t border-dashed" />
+            <span className="w-3.5 h-0.5 bg-sky-600 border-t border-dashed" />
             <span>Drempelpeil (+0.15m)</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-3.5 h-0.5 bg-[#d97706] border-t border-dashed" />
+            <span className="w-3.5 h-0.5 bg-amber-600 border-t border-dashed" />
             <span>NEN 2580 GO (1.50m)</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-3.5 h-0.5 bg-[#b45309] border-t border-dashed" />
+            <span className="w-3.5 h-0.5 bg-amber-700 border-t border-dashed" />
             <span>VG Hoogte (2.60m)</span>
           </div>
         </div>

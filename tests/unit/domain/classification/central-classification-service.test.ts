@@ -15,15 +15,21 @@ describe('ClassificationService & Taxonomy SSOT', () => {
   });
 
   describe('Taxonomy Structure & Canonical Parity', () => {
-    it('defines all 6 main categories plus fallback category 9', () => {
-      expect(TAXONOMY_CATEGORIES.length).toBe(7);
+    it('defines all main categories plus 0, 7 and fallback category 9 (9 total)', () => {
+      expect(TAXONOMY_CATEGORIES.length).toBe(9);
       const categoryIds = TAXONOMY_CATEGORIES.map((c) => c.id);
-      expect(categoryIds).toEqual([1, 2, 3, 4, 5, 6, 9]);
+      expect(categoryIds).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 9]);
     });
 
-    it('defines exactly 32 active product groups plus 9.9 UNCLASSIFIED (33 total)', () => {
-      expect(TAXONOMY_PRODUCT_GROUPS.length).toBe(33);
+    it('defines exactly 38 active product groups plus 9.9 UNCLASSIFIED (39 total)', () => {
+      expect(TAXONOMY_PRODUCT_GROUPS.length).toBe(39);
       const codes = TAXONOMY_PRODUCT_GROUPS.map((g) => g.code);
+      expect(codes).toContain('0.0');
+      expect(codes).toContain('0.1');
+      expect(codes).toContain('2.5');
+      expect(codes).toContain('2.6');
+      expect(codes).toContain('3.9');
+      expect(codes).toContain('7.1');
       expect(codes).toContain('9.9');
       expect(codes).toContain('1.1');
       expect(codes).toContain('3.1');
@@ -149,13 +155,14 @@ describe('ClassificationService & Taxonomy SSOT', () => {
       expect(result.productGroupCode).not.toBe('2.3');
     });
 
-    it('Trap 2 (Horren en Hordeuren): classificeert hordeur en inzethor direct naar 2.4', async () => {
+    // [SPEC-CHANGE-AUTHORIZED: Taxonomie upgrade 2.5 Horren & Insectenwering isolatie]
+    it('Trap 2 (Horren en Hordeuren): classificeert hordeur en inzethor direct naar 2.5', async () => {
       const result = await service.classifyProduct({
         code: 'HOR-01',
         name: 'Unilux plissé hordeur voorzet',
         supplier_name: 'Unilux',
       });
-      expect(result.productGroupCode).toBe('2.4');
+      expect(result.productGroupCode).toBe('2.5');
     });
 
     it('Trap 2 (Lamellen vs Lamellendak): classificeert lamellenrails als 1.4 en lamellendaken als 5.4 (geen 2.1 kaping)', async () => {

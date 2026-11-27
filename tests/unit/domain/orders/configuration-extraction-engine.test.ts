@@ -308,7 +308,8 @@ describe('ConfigurationExtractionEngine (TDD)', () => {
       expect(result.dimensions?.width_mm).toBeUndefined();
     });
 
-    it('Trap D Reconciliatie: reconcilieert e-orders met raambekleding in productgroep 9.9 naar 2.3', async () => {
+    // [SPEC-CHANGE-AUTHORIZED: Sanering van duplicate Trap D 9.9 reconciliatie conform SSOT-wet (ClassificationService is SSOT)]
+    it('Trap D Reconciliatie: behoudt afmetingen zonder 9.9 classificatie te dupliceren', async () => {
       const rawLine: RawOrderLineInput = {
         line_number: 74,
         description: 'Horizontale jaloezie 25 mm alu',
@@ -326,11 +327,10 @@ describe('ConfigurationExtractionEngine (TDD)', () => {
       expect(result.status).toBe('valid');
       expect(result.dimensions?.width_mm).toBe(1250);
       expect(result.dimensions?.height_mm).toBe(1920);
-      expect(result.reconciled_product_group_code).toBe('2.3');
+      expect(result.reconciled_product_group_code).toBeUndefined();
     });
 
-    // [SPEC-CHANGE-AUTHORIZED: Dekking voor e-order reconciliatie van 9.9 naar 2.1, 2.2, 2.4, 1.1]
-    it('Trap D Reconciliatie: reconcilieert e-orders met rolgordijnen in productgroep 9.9 naar 2.1', async () => {
+    it('Trap D Reconciliatie: behoudt rolgordijn afmetingen zonder 9.9 te overschrijven', async () => {
       const rawLine: RawOrderLineInput = {
         line_number: 75,
         description: 'Toppoint Rolgordijn cassette',
@@ -346,10 +346,10 @@ describe('ConfigurationExtractionEngine (TDD)', () => {
 
       const result = await engine.extractConfiguration(rawLine, '9.9');
       expect(result.status).toBe('valid');
-      expect(result.reconciled_product_group_code).toBe('2.1');
+      expect(result.reconciled_product_group_code).toBeUndefined();
     });
 
-    it('Trap D Reconciliatie: reconcilieert e-orders met duettes in productgroep 9.9 naar 2.4', async () => {
+    it('Trap D Reconciliatie: behoudt duettes afmetingen zonder 9.9 te overschrijven', async () => {
       const rawLine: RawOrderLineInput = {
         line_number: 76,
         description: 'Luxaflex Duette Shades 25mm',
@@ -365,7 +365,305 @@ describe('ConfigurationExtractionEngine (TDD)', () => {
 
       const result = await engine.extractConfiguration(rawLine, '9.9');
       expect(result.status).toBe('valid');
-      expect(result.reconciled_product_group_code).toBe('2.4');
+      expect(result.reconciled_product_group_code).toBeUndefined();
+    });
+  });
+
+  // [SPEC-CHANGE-AUTHORIZED: Nieuwe regressietests voor nul-velden, kale tellers, 1D koven/rails, lookahead, 2.5 horren, 3.8/verticale jaloezieën, vragenlijsten en Trap C immutability conform INV-GOV-18]
+  describe('Plan 1 TDD: Null & Partial Trap 0/A testsuite', () => {
+    it('lt_width_mm: null of undefined in Trap 0 valt door naar items in Trap A zonder Math.round(null) te evalueren naar 0', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 101,
+        description: 'Rolgordijn stof',
+        width_mm: null as unknown as number,
+        height_mm: null as unknown as number,
+        configuration: {
+          items: [
+            'Blijvende maat',
+            '1800',
+            '2200',
+          ],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '2.2');
+      expect(result.status).toBe('valid');
+      expect(result.dimensions?.width_mm).toBe(1800);
+      expect(result.dimensions?.height_mm).toBe(2200);
+      expect(result.source).toBe('eorder_json');
+    });
+
+    it('width_mm: 0 in ERP velden triggert geen Zod-crash en valt door naar items', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 102,
+        description: 'Plissé',
+        width_mm: 0,
+        height_mm: 0,
+        configuration: {
+          items: [
+            'Blijvende maat: 1200 mm',
+            'Hoogte: 1600 mm',
+          ],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '2.1');
+      expect(result.status).toBe('valid');
+      expect(result.dimensions?.width_mm).toBe(1200);
+      expect(result.dimensions?.height_mm).toBe(1600);
+      expect(result.source).toBe('eorder_json');
+    });
+
+    it('partiële hoogte "hoogte 2100 mm" via tokenize geeft { height_mm: 2100 } zonder width_mm: 0 en resulteert in status incomplete', async () => {
+      const tokenized = DeterministicTokenizerProvider.tokenize('hoogte 2100 mm');
+      expect(tokenized).toEqual({ height_mm: 2100 });
+      expect(tokenized?.width_mm).toBeUndefined();
+
+      const rawLine: RawOrderLineInput = {
+        line_number: 103,
+        description: 'hoogte 2100 mm',
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '1.1');
+      expect(result.status).toBe('incomplete');
+      expect(result.dimensions?.height_mm).toBe(2100);
+      expect(result.dimensions?.width_mm).toBeUndefined();
+    });
+
+    it('gedeeltelijke configuration_json zonder maten smoort items niet en draagt attributen over naar resultaat', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 104,
+        description: 'Vouwgordijn',
+        configuration_json: {
+          kleur: 'wit',
+        },
+        configuration: {
+          items: [
+            'Blijvende maat',
+            '2000',
+            '2500',
+          ],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '1.1');
+      expect(result.status).toBe('valid');
+      expect(result.dimensions?.width_mm).toBe(2000);
+      expect(result.dimensions?.height_mm).toBe(2500);
+      expect(result.attributes?.color || result.attributes?.kleur).toBe('wit');
+    });
+  });
+
+  describe('Plan 1 TDD: Lookahead 494020 & 1D Koof 433888 testsuite', () => {
+    it('lookahead i+10 op 494020 selecteert intern opeenvolgend paar (2250, 1000) ipv (2250, 2250)', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 105,
+        description: 'DS-XL rail',
+        configuration: {
+          items: ['*', 'ALL', 'Blijvende maat', 'DS-XL® rail', '2250', 'Nee', '2250', '1000'],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '1.4');
+      expect(result.status).toBe('valid');
+      expect(result.dimensions?.width_mm).toBe(2250);
+      expect(result.dimensions?.height_mm).toBe(1000);
+    });
+
+    it('1D losse koof 433888 stopt bij 0 na index 1 en retourneert 1D maat { width_mm: 950 } met status incomplete', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 106,
+        description: 'Losse koof jaloezie',
+        configuration: {
+          items: ['Blijvende maat', '950', '0', 'Montage op de dag', '950'],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '2.1');
+      expect(result.status).toBe('incomplete');
+      expect(result.dimensions?.width_mm).toBe(950);
+      expect(result.dimensions?.height_mm).toBeUndefined();
+    });
+
+    it('1D rail maat behoudt status incomplete zonder verlies van maat', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 107,
+        description: 'Gordijnrail enkel',
+        configuration: {
+          items: ['Blijvende maat', '2400', 'Geen hoogte'],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '1.4');
+      expect(result.status).toBe('incomplete');
+      expect(result.dimensions?.width_mm).toBe(2400);
+      expect(result.dimensions?.height_mm).toBeUndefined();
+    });
+  });
+
+  describe('Plan 1 TDD: Counters Horren 2.5 & Policies 3.8/89mm/127mm testsuite', () => {
+    it('kale een-cijferige tellers 1..9 in items worden nooit opgeschaald naar meters', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 108,
+        description: 'Rolgordijn met opties',
+        configuration: {
+          items: ['Blijvende maat', '1', '2', 'Ketting rechts', '1500', '1900'],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '2.2');
+      expect(result.dimensions?.width_mm).toBe(1500);
+      expect(result.dimensions?.height_mm).toBe(1900);
+    });
+
+    it('horren groep 2.5 (435416) slaat teller 1 en 14 mm drempel over en pakt (558, 2344)', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 109,
+        description: 'Plissé hordeur',
+        supplier_name: 'Unilux',
+        configuration: {
+          items: ['1', '558', '2344', '14 mm drempel', 'Standaard gaas zwart'],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '2.5');
+      expect(result.status).toBe('valid');
+      expect(result.dimensions?.width_mm).toBe(558);
+      expect(result.dimensions?.height_mm).toBe(2344);
+    });
+
+    it('vragenlijst items met { option: "Heeft u een koof?", value: "2400" } worden genegeerd tenzij optie een maatanker bevat', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 110,
+        description: 'Gordijn',
+        configuration: {
+          items: [
+            { option: 'Wilt u een koof?', value: '2400' },
+            { option: 'Stofkeuze', value: 'Velours' },
+          ],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '1.1');
+      expect(result.dimensions?.width_mm).toBeUndefined();
+    });
+
+    it('groep 3.8 jaloezie (427414) met description extraheert slat_width_mm: 50', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 111,
+        description: 'Horizontale jaloezie 50 mm alu',
+        configuration: {
+          items: ['Blijvende maat', '1200', '1800', 'Kleur wit'],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '3.8');
+      expect(result.attributes?.slat_width_mm).toBe(50);
+    });
+
+    it('verticale jaloezieën met 89 mm en 127 mm lamellen worden correct geëxtraheerd als slat_width_mm', async () => {
+      const rawLine89: RawOrderLineInput = {
+        line_number: 112,
+        description: 'Verticale lamel 89 mm stof',
+        configuration: {
+          items: ['Blijvende maat: 2000 mm', 'Hoogte: 2500 mm', 'Lamelbreedte: 89 mm'],
+        },
+      };
+      const result89 = await engine.extractConfiguration(rawLine89, '2.3');
+      expect(result89.attributes?.slat_width_mm).toBe(89);
+
+      const rawLine127: RawOrderLineInput = {
+        line_number: 113,
+        description: 'Verticale jaloezie',
+        configuration: {
+          items: ['Blijvende maat', '1500', '2000', 'Lamel: 127 mm'],
+        },
+      };
+      const result127 = await engine.extractConfiguration(rawLine127, '2.3');
+      expect(result127.attributes?.slat_width_mm).toBe(127);
+    });
+
+    it('groep 2.1 met "Dubbele steun" matcht géén pleat_type: "dubbele_plooi"', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 114,
+        description: 'Duette montageset',
+        configuration: {
+          items: ['Dubbele steun', 'Wand montage'],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '2.1');
+      expect(result.attributes?.pleat_type).toBeUndefined();
+      expect(result.attributes?.mounting).toBe('wand');
+    });
+  });
+
+  describe('Plan 1 TDD: Bounds & Cache Immutability testsuite', () => {
+    it('out-of-bounds maten (< 0, 0 < x < 100, > 12000) falen fail-closed via requires_review', async () => {
+      const rawLineTooSmall: RawOrderLineInput = {
+        line_number: 115,
+        description: 'Duette',
+        width_mm: 50,
+        height_mm: 1500,
+      };
+      const resultTooSmall = await engine.extractConfiguration(rawLineTooSmall, '2.1');
+      expect(resultTooSmall.status).toBe('requires_review');
+      expect(resultTooSmall.dimensions).toBeUndefined();
+      expect(resultTooSmall.confidence).toBe(0.1);
+
+      const rawLineTooBig: RawOrderLineInput = {
+        line_number: 116,
+        description: 'Duette',
+        configuration_json: {
+          width_mm: 25000,
+          height_mm: 1500,
+        },
+      };
+      const resultTooBig = await engine.extractConfiguration(rawLineTooBig, '2.1');
+      expect(resultTooBig.status).toBe('requires_review');
+      expect(resultTooBig.dimensions).toBeUndefined();
+    });
+
+    it('hoekprofiel "50 x 20 mm" (489114) in Stap 6 wordt genegeerd zonder als out-of-bounds afgekeurd te worden', async () => {
+      const rawLine: RawOrderLineInput = {
+        line_number: 117,
+        description: 'Aluminium hoekprofiel',
+        configuration: {
+          items: ['Hoekprofiel 50 x 20 mm', 'Lengte: 2390 mm'],
+        },
+      };
+
+      const result = await engine.extractConfiguration(rawLine, '3.8');
+      expect(result.status).not.toBe('requires_review');
+    });
+
+    it('Trap C LRU cache retourneert shallow copies zodat mutaties de cache niet beïnvloeden', async () => {
+      vi.mocked(mockCognitiveProvider.extract).mockResolvedValueOnce({
+        status: 'valid',
+        confidence: 0.9,
+        source: 'cognitive',
+        dimensions: { width_mm: 1500, height_mm: 2000 },
+        attributes: { color: 'blauw' },
+      });
+
+      const rawLine1: RawOrderLineInput = {
+        line_number: 118,
+        description: 'Gordijn uniek caching test',
+        notes: 'Unieke confectie XYZ speciaal model zonder regex',
+      };
+      const rawLine2: RawOrderLineInput = {
+        line_number: 119,
+        description: 'Gordijn uniek caching test',
+        notes: 'Unieke confectie XYZ speciaal model zonder regex',
+      };
+
+      const res1 = await engine.extractConfiguration(rawLine1, '1.1');
+      if (res1.attributes) {
+        res1.attributes.color = 'rood'; // mutatie op eerste resultaat
+      }
+
+      const res2 = await engine.extractConfiguration(rawLine2, '1.1');
+      expect(res2.attributes?.color).toBe('blauw'); // cache blijft intact
     });
   });
 });

@@ -756,15 +756,15 @@ export function FloorplanViewer({
         {/* Legend / Status Overlay */}
         <div className="absolute bottom-3 left-3 pointer-events-none flex items-center gap-3 px-3 py-1.5 rounded-lg bg-white/90 backdrop-blur-xs border border-slate-200 shadow-xs text-[11px] text-slate-600">
           <div className="flex items-center gap-1">
-            <span className="w-3.5 h-1 bg-[#0284c7] rounded-sm" />
+            <span className="w-3.5 h-1 bg-sky-600 rounded-sm" />
             <span>Voorgevel</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-3.5 h-1 bg-[#dc2626] rounded-sm" />
+            <span className="w-3.5 h-1 bg-red-600 rounded-sm" />
             <span>Mandelige muur</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-3.5 h-1 bg-[#1e293b] rounded-sm" />
+            <span className="w-3.5 h-1 bg-slate-800 rounded-sm" />
             <span>Buitengevel</span>
           </div>
         </div>
