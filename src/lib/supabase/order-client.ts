@@ -411,35 +411,71 @@ export async function resolveProductsByCodes(
   return result;
 }
 
+export interface IngestOrderTransactionOptions {
+  p_force?: boolean;
+  maxRetries?: number;
+  retryDelayMs?: number;
+  fetchFn?: typeof fetch;
+  url?: string;
+  authKey?: string;
+}
+
+export function isTransientHttpStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
 export async function ingestOrderTransaction(
   bundle: IngestedOrderBundle,
-  options?: { p_force?: boolean }
+  options?: IngestOrderTransactionOptions
 ): Promise<{ success: boolean; order_id: string; lines_processed: number; skipped_reason?: string }> {
   const config = getSupabaseConfig();
-  const authKey = config.serviceKey || config.anonKey;
+  const url = options?.url ?? config.url;
+  const authKey = options?.authKey ?? (config.serviceKey || config.anonKey);
+  const fetchFn = options?.fetchFn ?? fetch;
+  const maxRetries = options?.maxRetries ?? 0;
+  const retryDelayMs = options?.retryDelayMs ?? 1000;
 
-  if (!config.url || !authKey) {
+  if (!url || !authKey) {
     throw new Error('Supabase configuratie ontbreekt voor order ingest transactie.');
   }
 
-  const res = await fetch(`${config.url}/rest/v1/rpc/ingest_logictrade_order`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: authKey,
-      Authorization: `Bearer ${authKey}`,
-    },
-    body: JSON.stringify({
-      p_order: bundle.order,
-      p_lines: bundle.lines,
-      p_force: options?.p_force ?? false,
-    }),
-  });
+  let attempts = 0;
+  while (true) {
+    attempts++;
+    try {
+      const res = await fetchFn(`${url}/rest/v1/rpc/ingest_logictrade_order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: authKey,
+          Authorization: `Bearer ${authKey}`,
+        },
+        body: JSON.stringify({
+          p_order: bundle.order,
+          p_lines: bundle.lines,
+          p_force: options?.p_force ?? false,
+        }),
+      });
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`RPC ingest_logictrade_order mislukt: ${res.status} ${errorText}`);
+      if (!res.ok) {
+        if (isTransientHttpStatus(res.status) && attempts <= maxRetries) {
+          await new Promise((r) => setTimeout(r, retryDelayMs * attempts));
+          continue;
+        }
+        const errorText = typeof res.text === 'function' ? await res.text() : '';
+        throw new Error(`RPC ingest_logictrade_order mislukt: ${res.status} ${errorText}`);
+      }
+
+      return (await res.json()) as { success: boolean; order_id: string; lines_processed: number; skipped_reason?: string };
+    } catch (err: any) {
+      if (err.message && err.message.startsWith('RPC ingest_logictrade_order mislukt:')) {
+        throw err;
+      }
+      if (attempts <= maxRetries) {
+        await new Promise((r) => setTimeout(r, retryDelayMs * attempts));
+        continue;
+      }
+      throw err;
+    }
   }
-
-  return (await res.json()) as { success: boolean; order_id: string; lines_processed: number; skipped_reason?: string };
 }
